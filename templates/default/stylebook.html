@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pl" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Stylebook komponentów interfejsu miniPORTAL">
+  <title>miniPORTAL — stylebook</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/stylebook.css">
+</head>
+<body>
+  <a class="visually-hidden-focusable skip-link" href="#content">Przejdź do komponentów</a>
+
+  <nav class="navbar navbar-expand-lg border-bottom sticky-top" aria-label="Nawigacja stylebooka">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> miniPORTAL</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#stylebookNav"
+        aria-controls="stylebookNav" aria-expanded="false" aria-label="Przełącz nawigację">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="stylebookNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="#typography">Typografia</a></li>
+          <li class="nav-item"><a class="nav-link" href="#actions">Akcje</a></li>
+          <li class="nav-item"><a class="nav-link" href="#content-components">Treść</a></li>
+          <li class="nav-item"><a class="nav-link" href="#forms">Formularze</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <header id="top" class="stylebook-hero border-bottom">
+    <div class="container py-5">
+      <p class="eyebrow mb-2">Warstwa prezentacji / wersja 0.1</p>
+      <h1 class="display-3 fw-bold">Katalog komponentów miniPORTAL</h1>
+      <p class="lead text-secondary col-lg-8 mb-0">
+        Żywy kontrakt wizualny dla przyszłego <code>ThemeInterface</code>. Każdy element ma być możliwy do
+        wykorzystania przez moduł bez znajomości jego znaczników HTML.
+      </p>
+    </div>
+  </header>
+
+  <main id="content" class="container py-5">
+    <section id="typography" class="component-section" aria-labelledby="typography-title">
+      <div class="section-intro">
+        <p class="eyebrow">01 / Fundamenty</p>
+        <h2 id="typography-title">Typografia i treść</h2>
+        <p class="text-secondary">Podstawowa hierarchia tekstu, która później stanie się metodami motywu.</p>
+      </div>
+      <div class="showcase-grid">
+        <article class="showcase-card">
+          <p class="showcase-label">Nagłówki</p>
+          <h1>Nagłówek H1</h1>
+          <h2>Nagłówek H2</h2>
+          <h3>Nagłówek H3</h3>
+          <h4>Nagłówek H4</h4>
+        </article>
+        <article class="showcase-card">
+          <p class="showcase-label">Tekst</p>
+          <p class="lead">Lead wprowadza użytkownika w najważniejszą treść widoku.</p>
+          <p>Zwykły akapit zapewnia czytelny rytm dłuższego tekstu. <a href="#actions">Odnośnik pokazuje akcję</a>.</p>
+          <blockquote class="blockquote mb-0">
+            <p>Moduł dostarcza znaczenie, a motyw odpowiada za prezentację.</p>
+          </blockquote>
+        </article>
+      </div>
+    </section>
+
+    <section id="actions" class="component-section" aria-labelledby="actions-title">
+      <div class="section-intro">
+        <p class="eyebrow">02 / Interakcje</p>
+        <h2 id="actions-title">Przyciski i komunikaty</h2>
+      </div>
+      <div class="showcase-card mb-4">
+        <p class="showcase-label">Przyciski</p>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-primary" type="button">Akcja główna</button>
+          <button class="btn btn-outline-light" type="button">Akcja dodatkowa</button>
+          <button class="btn btn-danger" type="button">Usuń</button>
+          <button class="btn btn-primary" type="button" disabled>Nieaktywna</button>
+        </div>
+      </div>
+      <div class="vstack gap-3" aria-label="Przykładowe komunikaty">
+        <div class="alert alert-success mb-0" role="status"><strong>Sukces:</strong> zmiany zostały zapisane.</div>
+        <div class="alert alert-warning mb-0" role="alert"><strong>Uwaga:</strong> sprawdź dane przed publikacją.</div>
+        <div class="alert alert-danger mb-0" role="alert"><strong>Błąd:</strong> operacja nie została wykonana.</div>
+      </div>
+    </section>
+
+    <section id="content-components" class="component-section" aria-labelledby="content-title">
+      <div class="section-intro">
+        <p class="eyebrow">03 / Dane</p>
+        <h2 id="content-title">Karty i tabela</h2>
+      </div>
+      <div class="row g-4 mb-4">
+        <div class="col-md-6">
+          <article class="card h-100">
+            <div class="card-body">
+              <span class="badge text-bg-primary mb-3">Artykuł</span>
+              <h3 class="card-title h4">Modularny blok treści</h3>
+              <p class="card-text text-secondary">Karta prezentuje dane dostarczone przez moduł, bez wiązania go ze strukturą HTML.</p>
+              <a class="btn btn-sm btn-outline-light" href="#forms">Czytaj dalej</a>
+            </div>
+          </article>
+        </div>
+        <div class="col-md-6">
+          <article class="card h-100">
+            <div class="card-body">
+              <span class="badge text-bg-secondary mb-3">Strona</span>
+              <h3 class="card-title h4">Wymienialny wariant</h3>
+              <p class="card-text text-secondary">Ten sam kontrakt komponentu może otrzymać inny wariant semantyczny i wizualny.</p>
+              <a class="btn btn-sm btn-outline-light" href="#forms">Edytuj stronę</a>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="table-responsive showcase-card p-0">
+        <table class="table table-hover align-middle mb-0">
+          <caption class="visually-hidden">Przykładowa lista stron w panelu administracyjnym</caption>
+          <thead>
+            <tr><th scope="col">Tytuł</th><th scope="col">Status</th><th scope="col">Autor</th><th scope="col" class="text-end">Akcja</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Strona główna</td><td><span class="badge text-bg-success">Opublikowana</span></td><td>Administrator</td><td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td></tr>
+            <tr><td>O projekcie</td><td><span class="badge text-bg-warning">Szkic</span></td><td>Redaktor</td><td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="forms" class="component-section" aria-labelledby="forms-title">
+      <div class="section-intro">
+        <p class="eyebrow">04 / Wprowadzanie danych</p>
+        <h2 id="forms-title">Formularz</h2>
+        <p class="text-secondary">Prototyp stanów pól; implementacja PHP będzie musiała dodać token CSRF i bezpieczną walidację.</p>
+      </div>
+      <form class="showcase-card" action="#forms" method="post">
+        <div class="row g-4">
+          <div class="col-md-8">
+            <label class="form-label" for="page-title">Tytuł strony</label>
+            <input class="form-control" id="page-title" name="title" type="text" value="Przykładowa podstrona">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="page-status">Status</label>
+            <select class="form-select" id="page-status" name="status">
+              <option>Szkic</option><option>Opublikowana</option><option>Archiwalna</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="page-content">Treść</label>
+            <textarea class="form-control" id="page-content" name="content" rows="5">Treść przygotowana przez moduł stron.</textarea>
+            <div class="form-text">Właściwy edytor WYSIWYG zostanie wybrany w późniejszej fazie.</div>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" id="featured" name="featured" type="checkbox">
+              <label class="form-check-label" for="featured">Wyróżnij na stronie głównej</label>
+            </div>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit">Zapisz zmiany</button>
+            <button class="btn btn-outline-light" type="reset">Anuluj</button>
+          </div>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="border-top py-4">
+    <div class="container d-flex flex-column flex-sm-row justify-content-between gap-2 text-secondary small">
+      <span>miniPORTAL stylebook</span>
+      <span>Bootstrap 5 · HTML5 · Outside-In</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>

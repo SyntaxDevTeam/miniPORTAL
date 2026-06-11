@@ -1,3 +1,4 @@
+<<<<<<< ours
 # Instrukcje dla agentów AI — miniPORTAL
 
 Ten plik określa, jak agenci AI mają pracować nad projektem miniPORTAL. **Plan projektu jest źródłem prawdy** — zawsze zaczynaj od dokumentacji w katalogu `docs/`.
@@ -176,3 +177,43 @@ Skopiuj i uzupełnij na końcu pracy:
 ```
 
 Wpis dodaj nad sekcją „Następne kroki” lub w dedykowanej sekcji historii sesji, jeśli powstanie.
+=======
+# Instrukcje pracy nad miniPORTAL
+
+## Dokumentacja jest źródłem wymagań
+
+Przed rozpoczęciem każdego etapu pracy oraz przed zmianą zakresu przeczytaj:
+
+1. `README.md` — mapa dokumentacji projektu.
+2. `docs/SZKIC.md` — pierwotne założenia produktu i wymaganie maksymalnej modularności.
+3. `docs/TECHNICAL_SPECIFICATION.md` — obowiązująca architektura, standardy bezpieczeństwa i plan wykonawczy.
+
+Nie opieraj decyzji wyłącznie na aktualnym kodzie. Jeśli kod, szkic i specyfikacja są niespójne, zatrzymaj implementację, nazwij rozbieżność i wybierz rozwiązanie zgodne ze specyfikacją techniczną albo najpierw zaktualizuj dokumentację.
+
+## Praca etapami
+
+Dla każdego zadania:
+
+1. Wskaż fazę i krok z `docs/TECHNICAL_SPECIFICATION.md`, które realizuje zmiana.
+2. Sprawdź zależności i kryteria poprzedniego kroku. Nie rozpoczynaj backendu, jeśli wymagany komponent wizualny lub kontrakt warstwy prezentacji nie został wcześniej przygotowany.
+3. Ogranicz zmianę do najmniejszego kompletnego „klocka Lego”, który można niezależnie sprawdzić.
+4. Po implementacji porównaj rezultat ponownie z dokumentacją, zwłaszcza z sekcjami dotyczącymi separacji prezentacji, bezpieczeństwa i zasad pracy zespołowej.
+5. Jeżeli ukończenie zadania zmienia stan roadmapy, zakres lub decyzję architektoniczną, zaktualizuj odpowiedni plik w `docs/` w tym samym zestawie zmian.
+
+## Reguły architektoniczne
+
+- Stosuj podejście Outside-In: najpierw prototyp i komponent wizualny, potem `ThemeInterface`, a dopiero później logika rdzenia i modułów.
+- Oddzielaj HTML i szczegóły motywu od logiki PHP. Moduły nie mogą zależeć od konkretnego frameworka CSS ani implementacji szablonu.
+- Traktuj `core/` jako stabilny rdzeń, a nowe funkcje projektuj jako niezależne moduły z jawnymi zależnościami.
+- Nie omijaj warstw `Theme`, `Database` i `Security` bez udokumentowanego powodu.
+- Nie odczytuj bezpośrednio danych `$_GET`, `$_POST` ani innych danych wejściowych w modułach; najpierw je waliduj i normalizuj.
+- Domyślnie koduj dane wyświetlane w HTML za pomocą `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, używaj przygotowanych zapytań i zabezpieczaj formularze zmieniające stan tokenami CSRF.
+- Zachowuj zgodność z PHP 8.5 i nie wprowadzaj frameworka aplikacyjnego ani automatyzacji sprzecznej z założeniami projektu bez zmiany dokumentacji.
+
+## Weryfikacja
+
+- Przed zakończeniem pracy uruchom wszystkie testy i kontrole dostępne w repozytorium.
+- Jeżeli repozytorium zawiera `gradlew`, nadaj mu wykonywalność (`chmod +x gradlew`) i zawsze uruchom `./gradlew test --console=plain`.
+- Dla zmienionych plików PHP uruchom co najmniej `php -l`; dla statycznego HTML/CSS/JavaScript użyj dostępnych walidatorów lub testu uruchomieniowego.
+- Nie deklaruj ukończenia etapu, jeśli nie da się wykazać zgodności z jego kryteriami albo jasno opisać ograniczenia środowiska.
+>>>>>>> theirs
