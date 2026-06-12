@@ -1,219 +1,124 @@
-<<<<<<< ours
-# Instrukcje dla agentów AI — miniPORTAL
+# Instrukcje pracy nad miniPORTAL
 
-Ten plik określa, jak agenci AI mają pracować nad projektem miniPORTAL. **Plan projektu jest źródłem prawdy** — zawsze zaczynaj od dokumentacji w katalogu `docs/`.
+Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
----
+1. `README.md` - mapę dokumentacji projektu.
+2. `docs/SZKIC.md` - pierwotne założenia i wymaganie maksymalnej modularności.
+3. `docs/TECHNICAL_SPECIFICATION.md` - architekturę, bezpieczeństwo i plan wykonawczy.
 
-## 1. Źródło prawdy
+Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfikacją techniczną albo najpierw zaktualizuj dokumentację.
 
-| Dokument | Zawartość |
-|----------|-----------|
-| [docs/TECHNICAL_SPECIFICATION.md](docs/TECHNICAL_SPECIFICATION.md) | Architektura, fazy rozwoju, plan wykonawczy, zasady bezpieczeństwa |
+## Zasady pracy
 
-Przed rozpoczęciem pracy:
+- Stosuj Outside-In: prototyp, `ThemeInterface`, rdzeń, moduły, manager modułów.
+- Wskaż fazę i krok specyfikacji realizowane przez zmianę.
+- Nie rozpoczynaj kolejnej fazy bez spełnienia zależności poprzedniej.
+- Ogranicz zmianę do najmniejszego kompletnego elementu, który można niezależnie sprawdzić.
+- Zachowuj podział Core -> Modules -> Templates.
+- Moduły nie mogą zależeć od HTML ani konkretnego frameworka CSS.
+- Preferowaną fasadą operacji bazodanowych rdzenia jest `core/database/CrudApp.class.php`, korzystająca z Medoo.
+- Nie omijaj warstw Theme, Database/CrudApp i Security bez udokumentowanego powodu.
+- Nie odczytuj bezpośrednio `$_GET` ani `$_POST` w modułach; dane wejściowe waliduj i normalizuj.
+- Koduj dane HTML przez `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, używaj przygotowanych zapytań i tokenów CSRF.
+- Zachowuj zgodność z PHP 8.5 i nie wprowadzaj frameworka aplikacyjnego bez zmiany dokumentacji.
+- Minimalizuj diff i nie rozbudowuj starego katalogu `theme/`; nowa prezentacja trafia do `templates/`.
 
-1. Przeczytaj odpowiednie sekcje specyfikacji technicznej.
-2. Sprawdź sekcję **„Status realizacji planu”** poniżej — nie duplikuj ukończonych zadań.
-3. Wykonuj **następny niewykonany krok** zgodnie z kolejnością faz (Outside-In: najpierw frontend, potem backend).
+## Weryfikacja
 
-Jeśli w repozytorium istnieje kod sprzeczny ze specyfikacją (np. `theme/` zamiast `templates/`), **nowa praca musi iść zgodnie ze specyfikacją**. Istniejący kod traktuj jako materiał do migracji lub refaktoryzacji — nie rozbudowuj go w sprzecznej strukturze bez uzasadnienia w specyfikacji.
+- Uruchom wszystkie kontrole dostępne w repozytorium.
+- Dla zmienionych plików PHP uruchom co najmniej `php -l`.
+- Dla statycznego HTML/CSS/JavaScript użyj dostępnego walidatora albo testu uruchomieniowego.
+- Jeśli repozytorium zawiera `gradlew`, uruchom `chmod +x gradlew` i `./gradlew test --console=plain`.
+- Nie deklaruj ukończenia bez wykazania kryteriów lub opisania ograniczeń środowiska.
 
----
+## Status realizacji
 
-## 2. Zasady pracy agenta
+> **Ostatnia aktualizacja:** 2026-06-12 - dodano bezpieczne ładowanie konfiguracji środowiskowej z pliku poza DocumentRoot.
 
-### Podejście Outside-In
-
-1. **Faza 1** — prototyp wizualny (HTML/stylebook, Bootstrap 5)
-2. **Faza 2** — abstrakcja szablonu (`ThemeInterface`, klasa `Theme`)
-3. **Faza 3** — rdzeń systemu (autoloader, router, baza, security, bootstrap)
-4. **Faza 4** — stałe moduły (`core_auth`, `core_pages`)
-5. **Faza 5** — manager modułów (system „Lego”)
-
-Nie przeskakuj faz. Nie implementuj backendu, zanim nie ma gotowego stylebooka i interfejsu szablonu.
-
-### Architektura
-
-- Trzy warstwy: **Core** → **Modules** → **Templates**
-- Moduły nie znają szczegółów HTML — korzystają z metod szablonu
-- PSR-4 autoloader dla `core/` i `modules/`
-- Bezpieczeństwo: `htmlspecialchars`, CSRF, prepared statements, brak bezpośredniego dostępu do `$_GET`/`$_POST` bez filtrowania
-
-### Zakres zmian
-
-- Minimalizuj diff — tylko to, co wynika z bieżącego kroku planu
-- Dopasuj się do konwencji istniejącego kodu w obrębie tej samej warstwy
-- Nie dodawaj testów, komentarzy ani plików pomocniczych, o ile użytkownik tego nie prosi
-
-### Po zakończeniu sesji — obowiązkowa aktualizacja statusu
-
-Na końcu każdej sesji pracy agent **musi** zaktualizować sekcję 3 tego pliku:
-
-1. Oznacz ukończone zadania jako `[x]`.
-2. Uzupełnij **„Ostatnia aktualizacja”** (data + krótki opis).
-3. W **„Następne kroki”** wpisz 1–3 konkretne zadania na kolejną sesję.
-4. Jeśli odkryjesz rozbieżność między kodem a specyfikacją, dodaj wpis w **„Uwagi / blokery”**.
-
----
-
-## 3. Status realizacji planu
-
-> **Ostatnia aktualizacja:** 2026-06-10 — utworzenie pliku AGENTS.md; projekt na wczesnym etapie, przed realizacją planu ze specyfikacji.
-
-### Faza 0 — dokumentacja i fundament repozytorium
+### Faza 0 - dokumentacja i fundament
 
 | Status | Zadanie |
 |--------|---------|
-| [x] | Specyfikacja techniczna (`docs/TECHNICAL_SPECIFICATION.md`) |
-| [x] | README z linkiem do dokumentacji |
-| [x] | Instrukcje dla agentów AI (`AGENTS.md`) |
-| [ ] | Struktura katalogów zgodna z sekcją 2 specyfikacji |
-| [ ] | `config/config.php` |
-| [ ] | Punkt wejścia `index.php` |
+| [x] | Specyfikacja techniczna |
+| [x] | README i instrukcje agentów |
+| [x] | Podstawowa struktura `config/`, `core/`, `modules/`, `templates/`, `cache/` |
+| [x] | `config/config.php` |
+| [x] | Punkt wejścia `index.php` |
 
-**Stan obecny:** istnieją `config/app.php`, `core/database/`, `core/libs/Medoo.php`, katalog `theme/default/` — to nie jest jeszcze docelowa struktura ze specyfikacji (`templates/`, `modules/`, `cache/` itd.).
-
-### Krok 1 — przygotowanie fundamentu projektu
+### Krok 2 - prototyp wizualny i stylebook
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Utworzenie struktury katalogów (sekcja 2 specyfikacji) |
-| [ ] | Przygotowanie `config/config.php` |
-| [ ] | Stworzenie punktu wejścia `index.php` |
-
-### Krok 2 — prototyp wizualny i stylebook
-
-| Status | Zadanie |
-|--------|---------|
-| [ ] | Plik `templates/default/stylebook.html` |
-| [ ] | Komponenty Bootstrap 5: navbar, cards, tables, forms, buttons, alerts, footers |
+| [x] | `templates/default/stylebook.html` |
+| [x] | Navbar, cards, tables, forms, buttons, alerts i footer |
 | [ ] | Dopracowanie CSS i animacji |
-| [ ] | Wersja 1 strony głównej SyntaxDevTeam.pl (Faza 1, pkt 3) |
+| [ ] | Wersja 1 strony głównej SyntaxDevTeam.pl |
 
-**Stan obecny:** istnieje `theme/default/index.html` i pliki CSS/JS — wymaga migracji do `templates/default/stylebook.html` lub przepisania zgodnie ze specyfikacją.
-
-### Krok 3 — odwzorowanie prototypu w PHP
+### Krok 3 - odwzorowanie prototypu w PHP
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Definicja `ThemeInterface` |
-| [ ] | Implementacja klasy `Theme` w `templates/default/theme.php` |
-| [ ] | Metody: `start_card/end_card`, `render_button`, `render_alert`, `render_form`, `render_table`, `csrf_field` |
-| [ ] | Weryfikacja użycia z poziomu modułu bez zależności od HTML |
+| [x] | `ThemeInterface` |
+| [x] | `templates/default/theme.php` |
+| [x] | Metody kart, przycisków, alertów, formularzy, tabel i CSRF |
+| [x] | Użycie metod motywu przez integracyjny `index.php` |
 
-### Krok 4 — implementacja rdzenia systemu
+### Krok 4 - rdzeń systemu
 
 | Status | Zadanie |
 |--------|---------|
 | [ ] | Autoloader PSR-4 |
-| [ ] | `Router.php` |
-| [ ] | `Database.php` (wrapper PDO/Medoo) |
-| [ ] | `Security.php` (filtrowanie, CSRF, XSS, sesje) |
-| [ ] | `Bootstrap.php` |
-| [ ] | `ThemeEngine.php` |
+| [ ] | Router |
+| [x] | Startowa integracja bazy przez fasadę `CrudApp`/Medoo |
+| [ ] | Security |
+| [x] | Startowy Bootstrap |
+| [ ] | ThemeEngine z wyborem motywu |
 
-**Stan obecny:** `core/libs/Medoo.php` i `core/database/CrudApp.class.php` — materiał do integracji lub refaktoryzacji w docelową warstwę `core/`.
-
-### Krok 5 — pierwsze moduły
+### Kroki 5-6
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Moduł stron statycznych (`modules/core_pages/`) |
-| [ ] | Moduł autoryzacji i ról (`modules/core_auth/`) — Argon2id, ACL |
-| [ ] | Moduł artykułów (`modules/articles/`) jako przykład rozbudowy |
+| [ ] | Moduły `core_pages`, `core_auth`, `articles` |
+| [ ] | Manager i instalator modułów |
+| [ ] | Aktywacja modułów przez router |
 
-### Krok 6 — system modularny (Lego)
+## Następne kroki
 
-| Status | Zadanie |
-|--------|---------|
-| [ ] | Manager modułów (skan `modules/`, odczyt `info.json`) |
-| [ ] | Instalator (`install.sql`, tabela `modules_config`) |
-| [ ] | Aktywacja / deaktywacja modułów przez router |
+1. Dodać autoloader PSR-4 i usunąć ręczne `require_once` z Bootstrapa.
+2. Utworzyć `ThemeEngine`, który wybierze motyw z konfiguracji.
+3. Dodać `Security` i bezpieczny obiekt żądania przed implementacją routera.
 
-### Przyszły rozwój (poza MVP)
-
-| Status | Zadanie |
-|--------|---------|
-| [ ] | Hooks API |
-| [ ] | Slug Router (przyjazne URL) |
-| [ ] | Audit Log |
-
----
-
-## 4. Następne kroki (priorytet)
-
-1. **Utworzyć docelową strukturę katalogów** zgodnie z sekcją 2 specyfikacji (`config/`, `core/`, `modules/`, `templates/`, `cache/`, `index.php`).
-2. **Przenieść lub przepisać** istniejący prototyp z `theme/default/` do `templates/default/stylebook.html`.
-3. **Przygotować `config/config.php`** i minimalny `index.php` jako front controller.
-
----
-
-## 5. Uwagi / blokery
+## Uwagi / blokery
 
 | Data | Opis |
 |------|------|
-| 2026-06-10 | Struktura katalogów w repozytorium (`theme/`, `config/app.php`) nie odpowiada jeszcze specyfikacji (`templates/`, `config/config.php`). Wymagana migracja przed dalszym rozwojem. |
+| 2026-06-10 | Stary katalog `theme/` pozostaje materiałem migracyjnym; nowy kod trafia do `templates/`. |
+| 2026-06-12 | Środowisko CLI udostępnia PHP 8.4.15, mimo że docelowa specyfikacja wymaga PHP 8.5. |
+| 2026-06-12 | Połączenie z bazą wymaga zmiennych środowiskowych `DB_ENABLED=1` i `DB_*`; dane dostępowe usunięto z kodu. |
+| 2026-06-12 | Produkcyjny plik środowiskowy znajduje się domyślnie w `/etc/miniportal/miniportal.env`; `.env.example` nie może zawierać sekretów. |
 
----
+## Historia sesji
 
-## 6. Szablon wpisu po sesji agenta
-
-Skopiuj i uzupełnij na końcu pracy:
-
-```markdown
-### Sesja: YYYY-MM-DD
+### Sesja: 2026-06-12
 
 **Wykonano:**
-- ...
+- przygotowano `index.php` jako widoczny punkt integracji,
+- dodano startowy `Bootstrap` i diagnostykę warstw,
+- podłączono `CrudApp` jako preferowaną fasadę Medoo,
+- utworzono kontrakt oraz domyślną implementację motywu,
+- przeniesiono konfigurację bazy do zmiennych środowiskowych.
 
-**Zaktualizowano status:** (lista checkboxów zmienionych z [ ] na [x])
+**Zaktualizowano status:** fundament projektu, pierwszy kontrakt motywu i startowa integracja rdzenia.
 
-**Następne kroki:**
-1. ...
-2. ...
+**Następne kroki:** autoloader, `ThemeEngine`, `Security`.
 
-**Uwagi:** (opcjonalnie)
-```
+### Sesja: 2026-06-12 - konfiguracja środowiska
 
-Wpis dodaj nad sekcją „Następne kroki” lub w dedykowanej sekcji historii sesji, jeśli powstanie.
-=======
-# Instrukcje pracy nad miniPORTAL
+**Wykonano:**
+- dodano obsługę `/etc/miniportal/miniportal.env`,
+- dodano `.env.example`, reguły Git i dokumentację konfiguracji Apache,
+- opisano komplet ustawień aplikacji i połączenia `CrudApp`.
 
-## Dokumentacja jest źródłem wymagań
+**Zaktualizowano status:** konfiguracja środowiskowa jest gotowa do uzupełnienia na serwerze.
 
-Przed rozpoczęciem każdego etapu pracy oraz przed zmianą zakresu przeczytaj:
-
-1. `README.md` — mapa dokumentacji projektu.
-2. `docs/SZKIC.md` — pierwotne założenia produktu i wymaganie maksymalnej modularności.
-3. `docs/TECHNICAL_SPECIFICATION.md` — obowiązująca architektura, standardy bezpieczeństwa i plan wykonawczy.
-
-Nie opieraj decyzji wyłącznie na aktualnym kodzie. Jeśli kod, szkic i specyfikacja są niespójne, zatrzymaj implementację, nazwij rozbieżność i wybierz rozwiązanie zgodne ze specyfikacją techniczną albo najpierw zaktualizuj dokumentację.
-
-## Praca etapami
-
-Dla każdego zadania:
-
-1. Wskaż fazę i krok z `docs/TECHNICAL_SPECIFICATION.md`, które realizuje zmiana.
-2. Sprawdź zależności i kryteria poprzedniego kroku. Nie rozpoczynaj backendu, jeśli wymagany komponent wizualny lub kontrakt warstwy prezentacji nie został wcześniej przygotowany.
-3. Ogranicz zmianę do najmniejszego kompletnego „klocka Lego”, który można niezależnie sprawdzić.
-4. Po implementacji porównaj rezultat ponownie z dokumentacją, zwłaszcza z sekcjami dotyczącymi separacji prezentacji, bezpieczeństwa i zasad pracy zespołowej.
-5. Jeżeli ukończenie zadania zmienia stan roadmapy, zakres lub decyzję architektoniczną, zaktualizuj odpowiedni plik w `docs/` w tym samym zestawie zmian.
-
-## Reguły architektoniczne
-
-- Stosuj podejście Outside-In: najpierw prototyp i komponent wizualny, potem `ThemeInterface`, a dopiero później logika rdzenia i modułów.
-- Oddzielaj HTML i szczegóły motywu od logiki PHP. Moduły nie mogą zależeć od konkretnego frameworka CSS ani implementacji szablonu.
-- Traktuj `core/` jako stabilny rdzeń, a nowe funkcje projektuj jako niezależne moduły z jawnymi zależnościami.
-- Nie omijaj warstw `Theme`, `Database` i `Security` bez udokumentowanego powodu.
-- Nie odczytuj bezpośrednio danych `$_GET`, `$_POST` ani innych danych wejściowych w modułach; najpierw je waliduj i normalizuj.
-- Domyślnie koduj dane wyświetlane w HTML za pomocą `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, używaj przygotowanych zapytań i zabezpieczaj formularze zmieniające stan tokenami CSRF.
-- Zachowuj zgodność z PHP 8.5 i nie wprowadzaj frameworka aplikacyjnego ani automatyzacji sprzecznej z założeniami projektu bez zmiany dokumentacji.
-
-## Weryfikacja
-
-- Przed zakończeniem pracy uruchom wszystkie testy i kontrole dostępne w repozytorium.
-- Jeżeli repozytorium zawiera `gradlew`, nadaj mu wykonywalność (`chmod +x gradlew`) i zawsze uruchom `./gradlew test --console=plain`.
-- Dla zmienionych plików PHP uruchom co najmniej `php -l`; dla statycznego HTML/CSS/JavaScript użyj dostępnych walidatorów lub testu uruchomieniowego.
-- Nie deklaruj ukończenia etapu, jeśli nie da się wykazać zgodności z jego kryteriami albo jasno opisać ograniczenia środowiska.
->>>>>>> theirs
+**Następne kroki:** utworzenie produkcyjnego pliku poza repozytorium i test połączenia z bazą.
