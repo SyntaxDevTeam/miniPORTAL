@@ -156,14 +156,16 @@ Cel tej fazy:
 
 ### Faza 4: Stałe moduły rdzenia
 
-#### 4.1 Moduł użytkowników i uprawnień
-- logowanie i wylogowanie
-- hashowanie haseł przez password_hash() z Argon2id
-- sesje administratora
-- ACL / role:
-  - Administrator
-  - Redaktor
-  - Użytkownik
+#### 4.1 Panel administracyjny i moduł użytkowników
+
+Szczegółowy plan znajduje się w `docs/ADMIN_PANEL_PLAN.md`.
+
+- prototyp panelu zgodny z Outside-In
+- wspólny model użytkownika i wielu zewnętrznych tożsamości
+- logowanie GitHub, Discord i Google przez adaptery dostawców
+- lokalne role i uprawnienia niezależne od dostawcy logowania
+- sesje administratora, ochrona tras i audit log
+- opcjonalne konto lokalne Argon2id wyłącznie jako mechanizm awaryjny
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron
@@ -255,14 +257,25 @@ Cel tej fazy:
 5. Bootstrap
 
 ### Krok 5: wdrożenie pierwszych modułów
-1. Moduł stron statycznych
-2. Moduł autoryzacji i ról
-3. Moduł artykułów jako przykład dynamicznej rozbudowy
+1. Prototyp panelu i ekranu logowania.
+2. Kontrakt panelu, menu i rejestracji modułów.
+3. `core_auth`: użytkownicy, tożsamości, ACL i ochrona tras.
+4. Adapter logowania GitHub.
+5. Adapter logowania Discord.
+6. Adapter logowania Google OpenID Connect.
+7. Szkielet panelu: dashboard, profil, użytkownicy, role i audit log.
+8. `core_pages`: CRUD stron przez `CrudApp`.
+9. `articles`: przykład niezależnego modułu.
 
 ### Krok 6: uruchomienie systemu modularnego
-1. Instalator modułów
-2. Konfiguracja modułów w bazie
-3. Weryfikacja aktywacji / deaktywacji bloków „Lego”
+1. Stabilizacja `ModuleInterface` na podstawie działających modułów.
+2. Walidacja `info.json`, zależności i wersji.
+3. Instalator oraz migracje bazodanowe.
+4. Konfiguracja modułów w `modules_config`.
+5. Rejestracja i wyłączanie tras, menu oraz uprawnień.
+6. Aktualizacja i odinstalowanie modułu.
+7. Ochrona modułów stałych przed wyłączeniem i usunięciem.
+8. Audit log wszystkich operacji managera.
 
 ---
 
