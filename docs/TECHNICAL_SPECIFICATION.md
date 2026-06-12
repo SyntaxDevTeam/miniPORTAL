@@ -31,6 +31,7 @@ miniPORTAL/
 │   ├── database/
 │   │   └── CrudApp.class.php # Główna fasada CRUD oparta na Medoo
 │   ├── Router.php           # Proste trasowanie URL
+│   ├── Request.php          # Filtrowany i normalizowany dostęp do żądania
 │   ├── Security.php         # Filtrowanie, CSRF, XSS, sesje
 │   └── ThemeEngine.php      # Menedżer warstw szablonu
 ├── modules/                 # Moduły systemu
@@ -148,6 +149,10 @@ Cel tej fazy:
    - walidacja i normalizacja
    - tokeny CSRF
    - zabezpieczenie sesji
+   - nagłówki CSP, HSTS, frame protection i polityka uprawnień
+
+5. Moduły otrzymują dane wejściowe wyłącznie przez obiekt `Request`; bezpośredni dostęp
+   do `$_GET`, `$_POST` i `$_SERVER` pozostaje odpowiedzialnością warstwy Core.
 
 ### Faza 4: Stałe moduły rdzenia
 
@@ -244,7 +249,7 @@ Cel tej fazy:
 
 ### Krok 4: implementacja rdzenia systemu
 1. Autoloader
-2. Router
+2. Router oraz filtrowany obiekt Request
 3. Integracja fasady `CrudApp`/Medoo
 4. Security
 5. Bootstrap

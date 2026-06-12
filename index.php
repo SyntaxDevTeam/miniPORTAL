@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
-use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\Autoloader;
+use SyntaxDevTeam\Cms\Core\Bootstrap;
+use SyntaxDevTeam\Cms\Core\Request;
+use SyntaxDevTeam\Cms\Core\Router;
 
 require_once __DIR__ . '/core/Autoloader.php';
 
@@ -12,45 +14,140 @@ Autoloader::register();
 $config = require __DIR__ . '/config/config.php';
 $application = Bootstrap::boot($config);
 $theme = $application->theme();
+$security = $application->security();
+$router = new Router();
 
-$theme->start_page(
-    'miniPORTAL - etap 1',
-    'Punkt wejścia łączący konfigurację, rdzeń, warstwę CRUD i system szablonów.'
-);
-$theme->start_header(
-    'Rdzeń jest widoczny i testowalny',
-    'Index uruchamia aplikację, składa zależności i przekazuje prezentację do aktywnego motywu.'
-);
-$theme->end_header();
+$renderStart = static function (string $title, string $lead) use ($theme): void {
+    $theme->start_page(
+        $title . ' - miniPORTAL',
+        $lead
+    );
+    $theme->start_header($title, $lead);
+    $theme->end_header();
+    $theme->start_section();
+};
 
-$theme->start_section();
-$theme->start_grid();
-$theme->start_column('lg-7');
-$theme->start_card('Co działa w tym etapie', 'Namacalny rezultat');
-$theme->render_text('Poniższa tabela powstaje z danych rdzenia, ale jej HTML generuje wyłącznie klasa motywu.');
-$theme->end_card();
-$theme->end_column();
-$theme->start_column('lg-5');
-$theme->start_card('Następny kierunek', 'Architektura');
-$theme->render_text('Kolejne elementy rdzenia będą podłączane tutaj przez Bootstrap, a operacje bazodanowe przez CrudApp.');
-$theme->render_button('Zobacz stronę główną', 'templates/default/homepage.html');
-echo ' ';
-$theme->render_button('Otwórz stylebook', 'templates/default/stylebook.html');
-$theme->end_card();
-$theme->end_column();
-$theme->end_grid();
+$renderEnd = static function () use ($theme): void {
+    $theme->end_section();
+    $theme->end_page();
+};
 
-$theme->render_table(
-    ['Element', 'Implementacja', 'Status'],
-    $application->diagnostics()
-);
+$router->get('/', static function () use ($application, $theme, $renderStart, $renderEnd): void {
+    $renderStart(
+        'Rdzeń jest widoczny i testowalny',
+        'Front Controller uruchamia bezpieczeństwo, rozpoznaje żądanie i przekazuje je do właściwej trasy.'
+    );
 
-$theme->render_alert(
-    $application->database() === null
-        ? 'Baza jest wyłączona. Ustaw DB_ENABLED=1 oraz zmienne DB_*, aby przetestować połączenie przez CrudApp.'
-        : 'Połączenie z bazą zostało zestawione przez warstwę CrudApp.',
-    $application->database() === null ? 'warning' : 'success'
-);
-$theme->end_section();
+    $theme->start_grid();
+    $theme->start_column('lg-7');
+    $theme->start_card('Co działa w tym etapie', 'Krok 4 / rdzeń');
+    $theme->render_text('Tabela pokazuje elementy złożone przez Bootstrap. Żaden widok nie odczytuje bezpośrednio danych globalnych.');
+    $theme->end_card();
+    $theme->end_column();
+    $theme->start_column('lg-5');
+    $theme->start_card('Test bezpieczeństwa', 'Namacalny rezultat');
+    $theme->render_text('Formularz demonstracyjny przechodzi przez Router, Request i walidację tokenu CSRF.');
+    $theme->render_button('Otwórz test CSRF', 'index.php?route=/security-demo');
+    $theme->end_card();
+    $theme->end_column();
+    $theme->end_grid();
 
-$theme->end_page();
+    $theme->render_table(
+        ['Element', 'Implementacja', 'Status'],
+        $application->diagnostics()
+    );
+
+    $theme->render_alert(
+        $application->database() === null
+            ? 'Baza jest wyłączona. Ustaw DB_ENABLED=1 oraz zmienne DB_*, aby przetestować połączenie przez CrudApp.'
+            : 'Połączenie z bazą zostało zestawione przez warstwę CrudApp.',
+        $application->database() === null ? 'warning' : 'success'
+    );
+
+    $renderEnd();
+});
+
+$router->get('/security-demo', static function () use ($security, $theme, $renderStart, $renderEnd): void {
+    $renderStart(
+        'Test Security i Request',
+        'Wyślij formularz, aby sprawdzić filtrowanie wejścia, sesję i ochronę CSRF.'
+    );
+
+    $theme->render_form(
+        'index.php?route=/security-demo',
+        [
+            [
+                'name' => 'message',
+                'label' => 'Wiadomość testowa',
+                'type' => 'text',
+                'value' => 'miniPORTAL działa bezpiecznie',
+            ],
+            [
+                'name' => 'level',
+                'label' => 'Poziom',
+                'type' => 'select',
+                'value' => 'core',
+                'options' => [
+                    'core' => 'Core',
+                    'module' => 'Module',
+                    'template' => 'Template',
+                ],
+            ],
+            [
+                'name' => 'confirmed',
+                'label' => 'Potwierdzam wysłanie danych',
+                'type' => 'checkbox',
+            ],
+        ],
+        'Wyślij bezpiecznie',
+        $security->csrfToken()
+    );
+
+    $renderEnd();
+});
+
+$router->post('/security-demo', static function (Request $request) use ($security, $theme, $renderStart, $renderEnd): void {
+    $renderStart(
+        'Wynik bezpiecznego żądania',
+        'Dane zostały pobrane przez Request i zweryfikowane przed przekazaniem do widoku.'
+    );
+
+    if (!$security->validateCsrfToken($request->postString('_token'))) {
+        http_response_code(403);
+        $theme->render_alert('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+        $renderEnd();
+        return;
+    }
+
+    $message = $request->postString('message');
+    $level = $request->postString('level');
+    $confirmed = $request->postBool('confirmed') ? 'Tak' : 'Nie';
+
+    $theme->render_alert('Token CSRF został poprawnie zweryfikowany.', 'success');
+    $theme->render_table(
+        ['Pole', 'Wartość'],
+        [
+            ['Wiadomość', $message],
+            ['Poziom', $level],
+            ['Potwierdzenie', $confirmed],
+        ]
+    );
+
+    $renderEnd();
+});
+
+$status = $router->dispatch($application->request());
+
+if ($status === 404) {
+    http_response_code(404);
+    $renderStart('Nie znaleziono trasy', 'Router nie ma zarejestrowanego widoku dla podanego adresu.');
+    $theme->render_alert('Błąd 404: sprawdź adres lub wróć do dashboardu rdzenia.', 'warning');
+    $theme->render_button('Wróć do dashboardu', 'index.php');
+    $renderEnd();
+} elseif ($status === 405) {
+    http_response_code(405);
+    $renderStart('Niedozwolona metoda', 'Trasa istnieje, ale nie obsługuje użytej metody HTTP.');
+    $theme->render_alert('Błąd 405: użyj metody przewidzianej dla tej operacji.', 'danger');
+    $theme->render_button('Wróć do dashboardu', 'index.php');
+    $renderEnd();
+}

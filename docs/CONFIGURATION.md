@@ -46,6 +46,8 @@ APP_NAME="miniPORTAL"
 APP_DEBUG=false
 APP_TIMEZONE="Europe/Warsaw"
 APP_THEME="default"
+SESSION_NAME="MINIPORTALSESSID"
+SESSION_SAME_SITE="Lax"
 
 DB_ENABLED=true
 DB_DRIVER="mysql"
@@ -98,6 +100,8 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_DEBUG` | Szczegóły błędów diagnostycznych |
 | `APP_TIMEZONE` | Strefa czasowa PHP |
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
+| `SESSION_NAME` | Nazwa bezpiecznego cookie sesji |
+| `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |

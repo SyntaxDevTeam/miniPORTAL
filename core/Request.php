@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SyntaxDevTeam\Cms\Core;
+
+final class Request
+{
+    private function __construct(
+        private readonly string $method,
+        private readonly string $path,
+        private readonly array $query,
+        private readonly array $post,
+        private readonly array $server,
+    ) {
+    }
+
+    public static function fromGlobals(): self
+    {
+        return self::fromArrays($_GET, $_POST, $_SERVER);
+    }
+
+    public static function fromArrays(array $query, array $post, array $server): self
+    {
+        $method = strtoupper((string) ($server['REQUEST_METHOD'] ?? 'GET'));
+        $path = self::resolvePath($query, $server);
+
+        return new self(
+            preg_match('/^[A-Z]+$/', $method) === 1 ? $method : 'GET',
+            $path,
+            self::normalizeArray($query),
+            self::normalizeArray($post),
+            self::normalizeArray($server),
+        );
+    }
+
+    public function method(): string
+    {
+        return $this->method;
+    }
+
+    public function path(): string
+    {
+        return $this->path;
+    }
+
+    public function queryString(string $key, string $default = ''): string
+    {
+        return $this->stringValue($this->query, $key, $default);
+    }
+
+    public function postString(string $key, string $default = ''): string
+    {
+        return $this->stringValue($this->post, $key, $default);
+    }
+
+    public function postBool(string $key): bool
+    {
+        return filter_var($this->post[$key] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    public function postInt(string $key, ?int $default = null): ?int
+    {
+        $value = $this->post[$key] ?? null;
+
+        if (!is_scalar($value)) {
+            return $default;
+        }
+
+        $filtered = filter_var($value, FILTER_VALIDATE_INT);
+
+        return $filtered === false ? $default : $filtered;
+    }
+
+    public function isSecure(): bool
+    {
+        $https = strtolower($this->stringValue($this->server, 'HTTPS'));
+
+        return $https === 'on' || $https === '1' || $this->stringValue($this->server, 'SERVER_PORT') === '443';
+    }
+
+    private static function resolvePath(array $query, array $server): string
+    {
+        $route = $query['route'] ?? null;
+
+        if (is_scalar($route) && trim((string) $route) !== '') {
+            return self::normalizePath((string) $route);
+        }
+
+        $uri = (string) ($server['REQUEST_URI'] ?? '/');
+        $path = (string) (parse_url($uri, PHP_URL_PATH) ?? '/');
+
+        if ($path === '/index.php' || str_ends_with($path, '/index.php')) {
+            return '/';
+        }
+
+        return self::normalizePath($path);
+    }
+
+    private static function normalizePath(string $path): string
+    {
+        $path = '/' . ltrim(trim($path), '/');
+        $path = preg_replace('#/+#', '/', $path) ?? '/';
+
+        return $path !== '/' ? rtrim($path, '/') : '/';
+    }
+
+    private static function normalizeArray(array $values): array
+    {
+        $normalized = [];
+
+        foreach ($values as $key => $value) {
+            $normalizedKey = is_int($key) ? $key : self::normalizeString((string) $key);
+
+            if (is_array($value)) {
+                $normalized[$normalizedKey] = self::normalizeArray($value);
+                continue;
+            }
+
+            if (is_scalar($value) || $value === null) {
+                $normalized[$normalizedKey] = is_string($value)
+                    ? self::normalizeString($value)
+                    : $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private static function normalizeString(string $value): string
+    {
+        return trim(str_replace("\0", '', $value));
+    }
+
+    private function stringValue(array $source, string $key, string $default = ''): string
+    {
+        $value = $source[$key] ?? $default;
+
+        return is_scalar($value) ? (string) $value : $default;
+    }
+}

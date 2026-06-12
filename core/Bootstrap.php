@@ -16,6 +16,8 @@ final class Bootstrap
     private function __construct(
         private readonly array $config,
         private readonly ThemeInterface $theme,
+        private readonly Request $request,
+        private readonly Security $security,
     ) {
     }
 
@@ -24,9 +26,13 @@ final class Bootstrap
         $timezone = (string) ($config['app']['timezone'] ?? 'UTC');
         date_default_timezone_set($timezone);
 
+        $request = Request::fromGlobals();
+        $security = new Security($config['session'] ?? []);
+        $security->boot($request);
+
         $themeName = (string) ($config['app']['theme'] ?? 'default');
         $themeEngine = new ThemeEngine(dirname(__DIR__) . '/templates');
-        $application = new self($config, $themeEngine->load($themeName));
+        $application = new self($config, $themeEngine->load($themeName), $request, $security);
         $application->bootDatabase();
 
         return $application;
@@ -42,6 +48,16 @@ final class Bootstrap
         return $this->database;
     }
 
+    public function request(): Request
+    {
+        return $this->request;
+    }
+
+    public function security(): Security
+    {
+        return $this->security;
+    }
+
     public function diagnostics(): array
     {
         return [
@@ -50,6 +66,9 @@ final class Bootstrap
             ['Autoloader', Autoloader::class, 'Gotowy'],
             ['Silnik startowy', self::class, 'Gotowy'],
             ['ThemeEngine', ThemeEngine::class, 'Gotowy'],
+            ['Security', Security::class, 'Gotowy'],
+            ['Request', Request::class, 'Gotowy'],
+            ['Router', Router::class, 'Gotowy'],
             ['Szablon', $this->theme::class, 'Gotowy'],
             ['Stylebook', 'templates/default/stylebook.html', 'Gotowy'],
         ];

@@ -40,7 +40,7 @@ final class Theme implements ThemeInterface
     public function start_header(string $title, string $lead = ''): void
     {
         echo '<header class="stylebook-hero border-bottom"><div class="container py-5">';
-        echo '<p class="eyebrow mb-2">Etap 1 / punkt integracji</p>';
+        echo '<p class="eyebrow mb-2">miniPORTAL / punkt integracji</p>';
         echo '<h1 class="display-4 fw-bold">' . $this->escape($title) . '</h1>';
 
         if ($lead !== '') {

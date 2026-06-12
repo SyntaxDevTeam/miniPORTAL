@@ -1,5 +1,7 @@
 # Instrukcje pracy nad miniPORTAL
 
+> **Ostatnia aktualizacja:** 2026-06-12 - ukończono Krok 4: Security, Request, Router i pełny przepływ Front Controllera.
+
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
 1. `README.md` - mapę dokumentacji projektu.
@@ -64,25 +66,27 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | Status | Zadanie |
 |--------|---------|
 | [x] | Autoloader PSR-4 z mapą zgodności dla `CrudApp.class.php` |
-| [ ] | Router |
+| [x] | Router z obsługą 404 i 405 |
 | [x] | Startowa integracja bazy przez fasadę `CrudApp`/Medoo |
-| [ ] | Security |
+| [x] | Security: sesja, CSRF, CSP i nagłówki ochronne |
 | [x] | Startowy Bootstrap |
 | [x] | ThemeEngine z wyborem motywu |
+| [x] | Filtrowany i normalizowany obiekt Request |
 
 ### Kroki 5-6
 
 | Status | Zadanie |
 |--------|---------|
+| [ ] | Przygotowanie Panelu admin |
 | [ ] | Moduły `core_pages`, `core_auth`, `articles` |
 | [ ] | Manager i instalator modułów |
 | [ ] | Aktywacja modułów przez router |
 
 ## Następne kroki
 
-1. Dodać `Security` z bezpieczną sesją, tokenami CSRF i filtrowaniem wejścia.
-2. Utworzyć obiekt żądania bez bezpośredniego używania `$_GET` i `$_POST` w modułach.
-3. Zaimplementować Router korzystający z bezpiecznego obiektu żądania.
+1. Rozpocząć Krok 5 od prototypu i modułu stron statycznych `core_pages`.
+2. Zdefiniować minimalny kontrakt modułu oraz sposób rejestracji jego tras.
+3. Przygotować model danych stron wykorzystujący wyłącznie fasadę `CrudApp`.
 
 ## Uwagi / blokery
 
@@ -93,6 +97,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-12 | Połączenie z bazą wymaga zmiennych środowiskowych `DB_ENABLED=1` i `DB_*`; dane dostępowe usunięto z kodu. |
 | 2026-06-12 | Produkcyjny plik środowiskowy znajduje się domyślnie w `/etc/miniportal/miniportal.env`; `.env.example` nie może zawierać sekretów. |
 | 2026-06-12 | `CrudApp.class.php` zachowuje historyczną nazwę pliku; autoloader obsługuje ją przez jawną mapę zgodności. |
+| 2026-06-12 | Statyczne prototypy omijają Front Controller; nagłówki `Security` dotyczą dynamicznych odpowiedzi aplikacji. |
 
 ## Historia sesji
 
@@ -146,3 +151,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 **Zaktualizowano status:** autoloader i `ThemeEngine` ukończone.
 
 **Następne kroki:** `Security`, bezpieczny obiekt żądania i Router.
+
+### Sesja: 2026-06-12 - ukończenie Kroku 4
+
+**Wykonano:**
+- dodano bezpieczną sesję z cookie `HttpOnly`, `SameSite` i trybem ścisłym,
+- dodano CSP, ochronę ramek, MIME sniffing, referrer policy, permissions policy i HSTS dla HTTPS,
+- dodano 256-bitowe tokeny CSRF i walidację `hash_equals`,
+- utworzono obiekt `Request` normalizujący GET, POST, URI, typy logiczne i liczby,
+- utworzono Router rozróżniający trasy, metody oraz odpowiedzi 404 i 405,
+- podłączono demonstracyjny formularz CSRF do Front Controllera,
+- potwierdzono kodowanie prób XSS przez warstwę motywu.
+
+**Zaktualizowano status:** wszystkie zaplanowane elementy Kroku 4 ukończone.
+
+**Następne kroki:** Krok 5, moduł `core_pages` i kontrakt rejestracji modułów.

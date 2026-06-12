@@ -45,6 +45,10 @@ return [
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'theme' => (string) $env('APP_THEME', 'default'),
     ],
+    'session' => [
+        'name' => (string) $env('SESSION_NAME', 'MINIPORTALSESSID'),
+        'same_site' => (string) $env('SESSION_SAME_SITE', 'Lax'),
+    ],
     'database' => [
         'enabled' => $envBool('DB_ENABLED', $databaseName !== '' && $databaseUser !== ''),
         'database_type' => (string) $env('DB_DRIVER', 'mysql'),
