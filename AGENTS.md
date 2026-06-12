@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-12 - szczegółowo rozpisano Kroki 5-6, panel administracyjny, ACL oraz logowanie GitHub, Discord i Google.
+> **Ostatnia aktualizacja:** 2026-06-12 - ukończono Krok 5A: statyczny prototyp panelu administracyjnego i logowania.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -77,12 +77,12 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | `templates/default/admin-stylebook.html` |
-| [ ] | Ekran logowania GitHub / Discord / Google |
-| [ ] | Dashboard, sidebar, topbar i breadcrumb |
-| [ ] | Tabele, filtry, formularze, paginacja i potwierdzenia |
-| [ ] | Widoki 403, 404, stan pusty, sukces i błąd |
-| [ ] | Responsywność i dostępność panelu |
+| [x] | `templates/default/admin-stylebook.html` |
+| [x] | Ekran logowania GitHub / Discord / Google |
+| [x] | Dashboard, sidebar, topbar i breadcrumb |
+| [x] | Tabele, filtry, formularze, paginacja i potwierdzenia |
+| [x] | Widoki 403, 404, stan pusty, sukces i błąd |
+| [x] | Responsywność i dostępność panelu |
 
 ### Krok 5B - kontrakt panelu i uwierzytelnianie
 
@@ -123,9 +123,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Przygotować `templates/default/admin-stylebook.html` z ekranem logowania i szkieletem dashboardu.
-2. Na podstawie prototypu zdefiniować komponenty panelu wymagane w `ThemeInterface`.
-3. Przed implementacją OAuth skonfigurować bazę oraz produkcyjny plik środowiskowy.
+1. Na podstawie ukończonego prototypu zdefiniować komponenty panelu wymagane w `ThemeInterface`.
+2. Zaprojektować `AdminMenuRegistry` i minimalny `ModuleInterface`.
+3. Przed modelem `core_auth` skonfigurować bazę oraz produkcyjny plik środowiskowy.
 
 ## Uwagi / blokery
 
@@ -241,3 +241,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 **Zaktualizowano status:** Kroki 5-6 mają szczegółowe, niezależnie weryfikowalne zadania.
 
 **Następne kroki:** statyczny prototyp panelu i ekranu logowania.
+
+### Sesja: 2026-06-12 - Krok 5A
+
+**Wykonano:**
+- utworzono `templates/default/admin-stylebook.html`,
+- przygotowano jednolity ekran logowania GitHub, Discord i Google,
+- zbudowano responsywny shell panelu z sidebar, topbar, breadcrumb i mobilnym offcanvasem,
+- dodano dashboard, metryki, aktywność i stan modułów,
+- dodano filtrowaną tabelę, paginację, formularz redakcyjny i modal potwierdzenia,
+- zdefiniowano widoki sukcesu, błędu, 403, 404, pustego stanu i ładowania,
+- podłączono prototyp do nawigacji istniejących widoków.
+
+**Zaktualizowano status:** wszystkie zadania Kroku 5A ukończone.
+
+**Następne kroki:** komponenty panelu w `ThemeInterface`, `AdminMenuRegistry` i `ModuleInterface`.

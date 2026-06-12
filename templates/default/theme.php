@@ -24,6 +24,7 @@ final class Theme implements ThemeInterface
         echo '<nav class="navbar border-bottom"><div class="container">';
         echo '<a class="navbar-brand fw-bold" href="index.php">&lt;/&gt; miniPORTAL</a>';
         echo '<div class="d-flex gap-2">';
+        echo '<a class="btn btn-sm btn-outline-light" href="templates/default/admin-stylebook.html">Panel admin</a>';
         echo '<a class="btn btn-sm btn-outline-light" href="templates/default/homepage.html">Strona główna</a>';
         echo '<a class="btn btn-sm btn-outline-light" href="templates/default/stylebook.html">Stylebook</a>';
         echo '</div>';
