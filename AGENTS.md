@@ -31,10 +31,6 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 - Jeśli repozytorium zawiera `gradlew`, uruchom `chmod +x gradlew` i `./gradlew test --console=plain`.
 - Nie deklaruj ukończenia bez wykazania kryteriów lub opisania ograniczeń środowiska.
 
-## Status realizacji
-
-> **Ostatnia aktualizacja:** 2026-06-12 - dodano autoloader, pełniejszy kontrakt formularzy i `ThemeEngine` wybierający motyw z konfiguracji.
-
 ### Faza 0 - dokumentacja i fundament
 
 | Status | Zadanie |
