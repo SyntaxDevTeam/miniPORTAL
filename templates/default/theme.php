@@ -200,6 +200,171 @@ final class Theme implements ThemeInterface
         echo '<input type="hidden" name="_token" value="' . $this->escape($token) . '">';
     }
 
+    public function start_admin_page(string $title, array $menuItems, string $activePath, array $user): void
+    {
+        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<meta name="description" content="Panel administracyjny miniPORTAL">';
+        echo '<title>' . $this->escape($title) . ' - miniPORTAL Admin</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
+        echo '<a class="visually-hidden-focusable skip-link" href="#admin-main">Przejdź do treści panelu</a>';
+        echo '<div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="adminMobileSidebar" ';
+        echo 'aria-labelledby="adminMobileSidebarLabel"><div class="offcanvas-header border-bottom">';
+        echo '<h2 class="offcanvas-title h5" id="adminMobileSidebarLabel">miniPORTAL Admin</h2>';
+        echo '<button class="btn-close btn-close-white" type="button" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>';
+        echo '</div><div class="offcanvas-body p-0">';
+        $this->renderAdminMenu($menuItems, $activePath, true);
+        echo '</div></div>';
+        echo '<div class="admin-preview rounded-0 border-0"><div class="admin-shell">';
+        echo '<aside class="admin-sidebar" aria-label="Nawigacja panelu"><div class="admin-sidebar-header">';
+        echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin-demo">';
+        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL</span></a></div>';
+        $this->renderAdminMenu($menuItems, $activePath);
+        echo '<div class="admin-sidebar-footer"><div class="admin-user">';
+        echo '<span class="admin-avatar" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
+        echo '<span class="admin-user-copy"><strong>' . $this->escape($user['name']) . '</strong>';
+        echo '<span>' . $this->escape($user['role']) . '</span></span></div></div></aside>';
+        echo '<div class="admin-workspace"><header class="admin-topbar">';
+        echo '<button class="admin-icon-button d-lg-none" type="button" data-admin-sidebar-toggle aria-label="Otwórz nawigację panelu">MN</button>';
+        echo '<div class="admin-search"><span class="admin-search-mark" aria-hidden="true">SZ</span>';
+        echo '<label class="visually-hidden" for="admin-global-search">Szukaj w panelu</label>';
+        echo '<input class="form-control" id="admin-global-search" type="search" placeholder="Szukaj w panelu..."></div>';
+        echo '<div class="ms-auto d-flex align-items-center gap-2">';
+        echo '<a class="admin-icon-button text-decoration-none" href="index.php" aria-label="Wróć do strony głównej">HM</a>';
+        echo '<span class="admin-avatar d-none d-sm-grid" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
+        echo '</div></header><main id="admin-main" class="admin-content">';
+    }
+
+    public function end_admin_page(): void
+    {
+        echo '</main></div></div></div>';
+        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
+        echo '<script src="templates/default/assets/js/admin.js"></script></body></html>';
+    }
+
+    public function start_admin_content(
+        string $title,
+        string $lead = '',
+        array $breadcrumbs = [],
+        ?array $action = null,
+    ): void {
+        if ($breadcrumbs !== []) {
+            echo '<nav aria-label="Breadcrumb"><ol class="breadcrumb admin-breadcrumb">';
+            foreach ($breadcrumbs as $index => $breadcrumb) {
+                $isLast = $index === array_key_last($breadcrumbs);
+                if ($isLast || $breadcrumb['href'] === '') {
+                    echo '<li class="breadcrumb-item active" aria-current="page">' . $this->escape($breadcrumb['label']) . '</li>';
+                } else {
+                    echo '<li class="breadcrumb-item"><a href="' . $this->escape($breadcrumb['href']) . '">';
+                    echo $this->escape($breadcrumb['label']) . '</a></li>';
+                }
+            }
+            echo '</ol></nav>';
+        }
+
+        echo '<div class="admin-page-heading"><div><h1>' . $this->escape($title) . '</h1>';
+        if ($lead !== '') {
+            echo '<p class="text-secondary mb-0">' . $this->escape($lead) . '</p>';
+        }
+        echo '</div>';
+        if ($action !== null) {
+            echo '<a class="btn btn-primary" href="' . $this->escape($action['href']) . '">';
+            echo $this->escape($action['label']) . '</a>';
+        }
+        echo '</div>';
+    }
+
+    public function end_admin_content(): void
+    {
+    }
+
+    public function start_admin_metrics(): void
+    {
+        echo '<div class="metric-grid mb-4">';
+    }
+
+    public function render_admin_metric(string $label, string $value, string $symbol, string $detail = ''): void
+    {
+        echo '<article class="metric-card" data-symbol="' . $this->escape(substr($symbol, 0, 3)) . '">';
+        echo '<span class="metric-label">' . $this->escape($label) . '</span>';
+        echo '<strong class="metric-value">' . $this->escape($value) . '</strong>';
+        if ($detail !== '') {
+            echo '<span class="metric-change">' . $this->escape($detail) . '</span>';
+        }
+        echo '</article>';
+    }
+
+    public function end_admin_metrics(): void
+    {
+        echo '</div>';
+    }
+
+    public function start_admin_panel(string $title, string $meta = ''): void
+    {
+        echo '<section class="admin-panel"><div class="admin-panel-header"><h2 class="h5 mb-0">';
+        echo $this->escape($title) . '</h2>';
+        if ($meta !== '') {
+            echo '<span class="status-badge status-badge-published">' . $this->escape($meta) . '</span>';
+        }
+        echo '</div><div class="admin-panel-body">';
+    }
+
+    public function end_admin_panel(): void
+    {
+        echo '</div></section>';
+    }
+
+    public function render_admin_table(array $headers, array $rows): void
+    {
+        echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table">';
+        echo '<thead><tr>';
+        foreach ($headers as $header) {
+            echo '<th scope="col">' . $this->escape($header) . '</th>';
+        }
+        echo '</tr></thead><tbody>';
+        foreach ($rows as $row) {
+            echo '<tr>';
+            foreach ($row as $cell) {
+                echo '<td>' . $this->escape((string) $cell) . '</td>';
+            }
+            echo '</tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
+    private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void
+    {
+        echo '<nav class="admin-nav">';
+        $currentSection = null;
+
+        foreach ($menuItems as $item) {
+            if ($item['section'] !== $currentSection) {
+                $currentSection = $item['section'];
+                echo '<span class="admin-nav-label">' . $this->escape($currentSection) . '</span>';
+            }
+
+            $active = $item['path'] === $activePath;
+            echo '<a class="admin-nav-link' . ($active ? ' active' : '') . '" href="index.php?route=';
+            echo rawurlencode($item['path']) . '"';
+            if ($active) {
+                echo ' aria-current="page"';
+            }
+            if ($mobile) {
+                echo ' data-bs-dismiss="offcanvas"';
+            }
+            echo '>';
+            echo '<span class="admin-nav-icon" aria-hidden="true">' . $this->escape($item['icon']) . '</span>';
+            echo $this->escape($item['label']) . '</a>';
+        }
+
+        echo '</nav>';
+    }
+
     private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

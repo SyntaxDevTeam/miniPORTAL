@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-12 - ukończono Krok 5A: statyczny prototyp panelu administracyjnego i logowania.
+> **Ostatnia aktualizacja:** 2026-06-12 - rozpoczęto Krok 5B: komponenty panelu, `ModuleInterface` i `AdminMenuRegistry`.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -88,8 +88,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Komponenty panelu w `ThemeInterface` |
-| [ ] | `ModuleInterface` i `AdminMenuRegistry` |
+| [x] | Komponenty panelu w `ThemeInterface` |
+| [x] | `ModuleInterface` i `AdminMenuRegistry` |
 | [ ] | Model `users`, `user_identities`, ról i uprawnień |
 | [ ] | `AuthService`, ACL i ochrona tras `/admin/*` |
 | [ ] | Adapter GitHub OAuth |
@@ -123,9 +123,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Na podstawie ukończonego prototypu zdefiniować komponenty panelu wymagane w `ThemeInterface`.
-2. Zaprojektować `AdminMenuRegistry` i minimalny `ModuleInterface`.
-3. Przed modelem `core_auth` skonfigurować bazę oraz produkcyjny plik środowiskowy.
+1. Skonfigurować bazę oraz produkcyjny plik środowiskowy przed modelem `core_auth`.
+2. Przygotować migracje `users`, `user_identities`, ról i uprawnień.
+3. Zaimplementować `AuthService`, ACL i ochronę tras `/admin/*`.
 
 ## Uwagi / blokery
 
@@ -256,3 +256,17 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 **Zaktualizowano status:** wszystkie zadania Kroku 5A ukończone.
 
 **Następne kroki:** komponenty panelu w `ThemeInterface`, `AdminMenuRegistry` i `ModuleInterface`.
+
+### Sesja: 2026-06-12 - początek Kroku 5B
+
+**Wykonano:**
+- odwzorowano shell panelu, breadcrumb, metryki, panele i tabele w `ThemeInterface`,
+- zaimplementowano komponenty panelu w domyślnym motywie,
+- dodano `AdminMenuRegistry` z filtrowaniem według uprawnień i ochroną duplikatów,
+- zdefiniowano minimalny `ModuleInterface`,
+- utworzono `DemoAdminModule`, który rejestruje menu i trasy bez generowania HTML,
+- uruchomiono dynamiczny panel pod `/admin-demo`, `/admin-demo/pages` i `/admin-demo/articles`.
+
+**Zaktualizowano status:** dwa pierwsze zadania Kroku 5B ukończone.
+
+**Następne kroki:** konfiguracja DB, model tożsamości i lokalne ACL.

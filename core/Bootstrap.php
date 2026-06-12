@@ -69,6 +69,8 @@ final class Bootstrap
             ['Security', Security::class, 'Gotowy'],
             ['Request', Request::class, 'Gotowy'],
             ['Router', Router::class, 'Gotowy'],
+            ['ModuleInterface', ModuleInterface::class, 'Gotowy'],
+            ['Menu panelu', AdminMenuRegistry::class, 'Gotowy'],
             ['Szablon', $this->theme::class, 'Gotowy'],
             ['Stylebook', 'templates/default/stylebook.html', 'Gotowy'],
         ];

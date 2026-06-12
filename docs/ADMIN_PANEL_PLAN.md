@@ -152,6 +152,14 @@ Rejestracja dostawców nie jest potrzebna do wykonania statycznego prototypu pan
 3. `AdminMenuRegistry` z pozycjami menu zależnymi od uprawnień.
 4. `ModuleInterface` z rejestracją tras, menu i wymaganych uprawnień.
 
+Stan implementacji:
+
+- `ThemeInterface` udostępnia układ panelu, breadcrumb, metryki, panele i tabelę,
+- `AdminMenuRegistry` filtruje pozycje według uprawnień i odrzuca duplikaty tras,
+- `ModuleInterface` deklaruje identyfikator, wymagane uprawnienia, menu i trasy,
+- `DemoAdminModule` potwierdza separację modułu od HTML na trasach `/admin-demo/*`,
+- właściwy `AdminLayout` i ochrona tras powstaną razem z `core_auth`.
+
 ### 5.3 Moduł `core_auth`
 
 1. Migracje tabel użytkowników, tożsamości i ACL.

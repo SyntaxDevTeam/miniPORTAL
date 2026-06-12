@@ -56,4 +56,48 @@ interface ThemeInterface
     public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void;
 
     public function csrf_field(string $token): void;
+
+    /**
+     * @param list<array{
+     *     section: string,
+     *     label: string,
+     *     path: string,
+     *     icon: string,
+     *     permission: string,
+     *     order: int
+     * }> $menuItems
+     * @param array{name: string, role: string, initials: string} $user
+     */
+    public function start_admin_page(string $title, array $menuItems, string $activePath, array $user): void;
+
+    public function end_admin_page(): void;
+
+    /**
+     * @param list<array{label: string, href: string}> $breadcrumbs
+     * @param array{label: string, href: string}|null $action
+     */
+    public function start_admin_content(
+        string $title,
+        string $lead = '',
+        array $breadcrumbs = [],
+        ?array $action = null,
+    ): void;
+
+    public function end_admin_content(): void;
+
+    public function start_admin_metrics(): void;
+
+    public function render_admin_metric(string $label, string $value, string $symbol, string $detail = ''): void;
+
+    public function end_admin_metrics(): void;
+
+    public function start_admin_panel(string $title, string $meta = ''): void;
+
+    public function end_admin_panel(): void;
+
+    /**
+     * @param list<string> $headers
+     * @param list<list<scalar|null>> $rows
+     */
+    public function render_admin_table(array $headers, array $rows): void;
 }

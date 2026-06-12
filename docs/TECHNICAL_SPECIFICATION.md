@@ -33,6 +33,8 @@ miniPORTAL/
 │   ├── Router.php           # Proste trasowanie URL
 │   ├── Request.php          # Filtrowany i normalizowany dostęp do żądania
 │   ├── Security.php         # Filtrowanie, CSRF, XSS, sesje
+│   ├── ModuleInterface.php  # Kontrakt rejestracji tras, menu i uprawnień
+│   ├── AdminMenuRegistry.php # Menu panelu filtrowane przez ACL
 │   └── ThemeEngine.php      # Menedżer warstw szablonu
 ├── modules/                 # Moduły systemu
 │   ├── core_pages/          # Stały moduł: strony statyczne
@@ -57,6 +59,8 @@ miniPORTAL/
 - moduły nie powinny zależeć od konkretnej implementacji szablonu
 - szablony są wymienialne bez zmian w logice modułów
 - rdzeń korzysta z `CrudApp` jako preferowanej warstwy pośredniczącej nad Medoo; bezpośredni dostęp do Medoo jest ograniczony do tej fasady i uzasadnionych operacji specjalistycznych
+- moduł rejestruje trasy i pozycje menu przez kontrakty Core, ale nie generuje HTML
+- widoczność pozycji panelu wynika z lokalnych uprawnień przekazanych do `AdminMenuRegistry`
 
 ---
 

@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Core\Autoloader;
+use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
+use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
 require_once __DIR__ . '/core/Autoloader.php';
 
@@ -16,6 +18,14 @@ $application = Bootstrap::boot($config);
 $theme = $application->theme();
 $security = $application->security();
 $router = new Router();
+$adminMenu = new AdminMenuRegistry();
+$demoAdminModule = new DemoAdminModule(
+    $theme,
+    $adminMenu,
+    ['admin.access', 'pages.view', 'articles.view']
+);
+$demoAdminModule->registerAdminMenu($adminMenu);
+$demoAdminModule->registerRoutes($router);
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(
@@ -48,6 +58,8 @@ $router->get('/', static function () use ($application, $theme, $renderStart, $r
     $theme->start_card('Test bezpieczeństwa', 'Namacalny rezultat');
     $theme->render_text('Formularz demonstracyjny przechodzi przez Router, Request i walidację tokenu CSRF.');
     $theme->render_button('Otwórz test CSRF', 'index.php?route=/security-demo');
+    echo ' ';
+    $theme->render_button('Otwórz panel modułowy', 'index.php?route=/admin-demo');
     $theme->end_card();
     $theme->end_column();
     $theme->end_grid();
