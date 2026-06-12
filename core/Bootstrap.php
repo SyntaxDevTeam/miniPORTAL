@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace SyntaxDevTeam\Cms\Core;
 
 use SyntaxDevTeam\Cms\Database\CrudApp;
-use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme;
 use Throwable;
-
-require_once __DIR__ . '/ThemeInterface.php';
-require_once dirname(__DIR__) . '/templates/default/theme.php';
-require_once __DIR__ . '/database/CrudApp.class.php';
 
 final class Bootstrap
 {
@@ -29,7 +24,9 @@ final class Bootstrap
         $timezone = (string) ($config['app']['timezone'] ?? 'UTC');
         date_default_timezone_set($timezone);
 
-        $application = new self($config, new Theme());
+        $themeName = (string) ($config['app']['theme'] ?? 'default');
+        $themeEngine = new ThemeEngine(dirname(__DIR__) . '/templates');
+        $application = new self($config, $themeEngine->load($themeName));
         $application->bootDatabase();
 
         return $application;
@@ -50,7 +47,9 @@ final class Bootstrap
         return [
             ['Konfiguracja', 'config/config.php', 'Gotowa'],
             ['Warstwa CRUD', CrudApp::class, $this->databaseStatus],
+            ['Autoloader', Autoloader::class, 'Gotowy'],
             ['Silnik startowy', self::class, 'Gotowy'],
+            ['ThemeEngine', ThemeEngine::class, 'Gotowy'],
             ['Szablon', $this->theme::class, 'Gotowy'],
             ['Stylebook', 'templates/default/stylebook.html', 'Gotowy'],
         ];

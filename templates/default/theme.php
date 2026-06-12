@@ -23,7 +23,10 @@ final class Theme implements ThemeInterface
         echo '</head><body>';
         echo '<nav class="navbar border-bottom"><div class="container">';
         echo '<a class="navbar-brand fw-bold" href="index.php">&lt;/&gt; miniPORTAL</a>';
+        echo '<div class="d-flex gap-2">';
+        echo '<a class="btn btn-sm btn-outline-light" href="templates/default/homepage.html">Strona główna</a>';
         echo '<a class="btn btn-sm btn-outline-light" href="templates/default/stylebook.html">Stylebook</a>';
+        echo '</div>';
         echo '</div></nav><main>';
     }
 
@@ -143,17 +146,49 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div>';
     }
 
-    public function render_form(string $action, array $fields, string $submitLabel): void
+    public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void
     {
         echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="post">';
 
+        if ($csrfToken !== '') {
+            $this->csrf_field($csrfToken);
+        }
+
         foreach ($fields as $field) {
             $name = $this->escape($field['name']);
-            $type = $this->escape($field['type'] ?? 'text');
-            echo '<div class="mb-3"><label class="form-label" for="' . $name . '">';
-            echo $this->escape($field['label']) . '</label>';
-            echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="' . $type . '" value="';
-            echo $this->escape($field['value'] ?? '') . '"></div>';
+            $label = $this->escape($field['label']);
+            $type = $field['type'] ?? 'text';
+            $value = $this->escape($field['value'] ?? '');
+
+            if ($type === 'checkbox') {
+                $checked = ($field['checked'] ?? false) ? ' checked' : '';
+                echo '<div class="form-check mb-3">';
+                echo '<input class="form-check-input" id="' . $name . '" name="' . $name . '" type="checkbox" value="1"' . $checked . '>';
+                echo '<label class="form-check-label" for="' . $name . '">' . $label . '</label></div>';
+                continue;
+            }
+
+            echo '<div class="mb-3"><label class="form-label" for="' . $name . '">' . $label . '</label>';
+
+            if ($type === 'textarea') {
+                $rows = max(2, min(20, (int) ($field['rows'] ?? 5)));
+                echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '">';
+                echo $value . '</textarea>';
+            } elseif ($type === 'select') {
+                echo '<select class="form-select" id="' . $name . '" name="' . $name . '">';
+                foreach ($field['options'] ?? [] as $optionValue => $optionLabel) {
+                    $selected = (string) $optionValue === ($field['value'] ?? '') ? ' selected' : '';
+                    echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
+                    echo $this->escape($optionLabel) . '</option>';
+                }
+                echo '</select>';
+            } else {
+                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
+                $type = in_array($type, $allowedTypes, true) ? $type : 'text';
+                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="' . $type . '" value="' . $value . '">';
+            }
+
+            echo '</div>';
         }
 
         echo '<button class="btn btn-primary" type="submit">' . $this->escape($submitLabel) . '</button></form>';

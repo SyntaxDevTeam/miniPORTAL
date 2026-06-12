@@ -43,9 +43,17 @@ interface ThemeInterface
     public function render_table(array $headers, array $rows): void;
 
     /**
-     * @param list<array{name: string, label: string, type?: string, value?: string}> $fields
+     * @param list<array{
+     *     name: string,
+     *     label: string,
+     *     type?: string,
+     *     value?: string,
+     *     options?: array<string, string>,
+     *     checked?: bool,
+     *     rows?: int
+     * }> $fields
      */
-    public function render_form(string $action, array $fields, string $submitLabel): void;
+    public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void;
 
     public function csrf_field(string $token): void;
 }

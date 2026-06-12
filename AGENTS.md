@@ -33,7 +33,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Status realizacji
 
-> **Ostatnia aktualizacja:** 2026-06-12 - dodano bezpieczne ładowanie konfiguracji środowiskowej z pliku poza DocumentRoot.
+> **Ostatnia aktualizacja:** 2026-06-12 - dodano autoloader, pełniejszy kontrakt formularzy i `ThemeEngine` wybierający motyw z konfiguracji.
 
 ### Faza 0 - dokumentacja i fundament
 
@@ -51,8 +51,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 |--------|---------|
 | [x] | `templates/default/stylebook.html` |
 | [x] | Navbar, cards, tables, forms, buttons, alerts i footer |
-| [ ] | Dopracowanie CSS i animacji |
-| [ ] | Wersja 1 strony głównej SyntaxDevTeam.pl |
+| [x] | Dopracowanie CSS i animacji |
+| [x] | Wersja 1 strony głównej SyntaxDevTeam.pl |
 
 ### Krok 3 - odwzorowanie prototypu w PHP
 
@@ -67,12 +67,12 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Autoloader PSR-4 |
+| [x] | Autoloader PSR-4 z mapą zgodności dla `CrudApp.class.php` |
 | [ ] | Router |
 | [x] | Startowa integracja bazy przez fasadę `CrudApp`/Medoo |
 | [ ] | Security |
 | [x] | Startowy Bootstrap |
-| [ ] | ThemeEngine z wyborem motywu |
+| [x] | ThemeEngine z wyborem motywu |
 
 ### Kroki 5-6
 
@@ -84,9 +84,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Dodać autoloader PSR-4 i usunąć ręczne `require_once` z Bootstrapa.
-2. Utworzyć `ThemeEngine`, który wybierze motyw z konfiguracji.
-3. Dodać `Security` i bezpieczny obiekt żądania przed implementacją routera.
+1. Dodać `Security` z bezpieczną sesją, tokenami CSRF i filtrowaniem wejścia.
+2. Utworzyć obiekt żądania bez bezpośredniego używania `$_GET` i `$_POST` w modułach.
+3. Zaimplementować Router korzystający z bezpiecznego obiektu żądania.
 
 ## Uwagi / blokery
 
@@ -96,6 +96,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-12 | Środowisko CLI udostępnia PHP 8.4.15, mimo że docelowa specyfikacja wymaga PHP 8.5. |
 | 2026-06-12 | Połączenie z bazą wymaga zmiennych środowiskowych `DB_ENABLED=1` i `DB_*`; dane dostępowe usunięto z kodu. |
 | 2026-06-12 | Produkcyjny plik środowiskowy znajduje się domyślnie w `/etc/miniportal/miniportal.env`; `.env.example` nie może zawierać sekretów. |
+| 2026-06-12 | `CrudApp.class.php` zachowuje historyczną nazwę pliku; autoloader obsługuje ją przez jawną mapę zgodności. |
 
 ## Historia sesji
 
@@ -122,3 +123,30 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 **Zaktualizowano status:** konfiguracja środowiskowa jest gotowa do uzupełnienia na serwerze.
 
 **Następne kroki:** utworzenie produkcyjnego pliku poza repozytorium i test połączenia z bazą.
+
+### Sesja: 2026-06-12 - ukończenie Kroku 2
+
+**Wykonano:**
+- dopracowano wspólny system kolorów, stanów interakcji i responsywności,
+- dodano animacje wejścia, orbitę demonstracyjną i obsługę `prefers-reduced-motion`,
+- uzupełniono stylebook o demonstrację ruchu i nawigację między prototypami,
+- utworzono `templates/default/homepage.html` jako wersję 1 strony SyntaxDevTeam.pl,
+- podłączono oba prototypy do integracyjnego `index.php`.
+
+**Zaktualizowano status:** wszystkie zadania Kroku 2 oznaczono jako ukończone.
+
+**Następne kroki:** audyt kontraktu `ThemeInterface`, autoloader PSR-4 i `ThemeEngine`.
+
+### Sesja: 2026-06-12 - autoloader i ThemeEngine
+
+**Wykonano:**
+- rozszerzono formularze motywu o `select`, `textarea`, checkbox i automatyczne pole CSRF,
+- dodano autoloader przestrzeni `Core`, `Modules` i `Templates`,
+- zachowano ładowanie istniejącego `CrudApp.class.php` przez mapę zgodności,
+- dodano `ThemeEngine` walidujący i ładujący motyw wskazany przez `APP_THEME`,
+- usunięto ręczne zależności Bootstrapa od konkretnego motywu,
+- zapisano `CrudApp` jako preferowaną fasadę bazy w specyfikacji.
+
+**Zaktualizowano status:** autoloader i `ThemeEngine` ukończone.
+
+**Następne kroki:** `Security`, bezpieczny obiekt żądania i Router.

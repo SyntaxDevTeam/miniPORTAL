@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Core\Bootstrap;
+use SyntaxDevTeam\Cms\Core\Autoloader;
 
-require_once __DIR__ . '/core/Bootstrap.php';
+require_once __DIR__ . '/core/Autoloader.php';
+
+Autoloader::register();
 
 $config = require __DIR__ . '/config/config.php';
 $application = Bootstrap::boot($config);
@@ -30,6 +33,8 @@ $theme->end_column();
 $theme->start_column('lg-5');
 $theme->start_card('Następny kierunek', 'Architektura');
 $theme->render_text('Kolejne elementy rdzenia będą podłączane tutaj przez Bootstrap, a operacje bazodanowe przez CrudApp.');
+$theme->render_button('Zobacz stronę główną', 'templates/default/homepage.html');
+echo ' ';
 $theme->render_button('Otwórz stylebook', 'templates/default/stylebook.html');
 $theme->end_card();
 $theme->end_column();

@@ -28,7 +28,8 @@ miniPORTAL/
 │   └── config.php
 ├── core/                    # Rdzeń systemu (Engine)
 │   ├── Bootstrap.php        # Inicjalizacja systemu, sesji, bezpieczeństwa
-│   ├── Database.php         # Wrapper PDO / Medoo
+│   ├── database/
+│   │   └── CrudApp.class.php # Główna fasada CRUD oparta na Medoo
 │   ├── Router.php           # Proste trasowanie URL
 │   ├── Security.php         # Filtrowanie, CSRF, XSS, sesje
 │   └── ThemeEngine.php      # Menedżer warstw szablonu
@@ -54,6 +55,7 @@ miniPORTAL/
 - każda warstwa ma jasno określone zadania
 - moduły nie powinny zależeć od konkretnej implementacji szablonu
 - szablony są wymienialne bez zmian w logice modułów
+- rdzeń korzysta z `CrudApp` jako preferowanej warstwy pośredniczącej nad Medoo; bezpośredni dostęp do Medoo jest ograniczony do tej fasady i uzasadnionych operacji specjalistycznych
 
 ---
 
@@ -139,7 +141,7 @@ Cel tej fazy:
 ### Faza 3: Rdzeń systemu i bezpieczeństwo
 
 1. Implementacja autoloadera PSR-4.
-2. Utworzenie warstwy PDO/Medoo wrapper.
+2. Integracja `CrudApp` jako warstwy pośredniczącej nad Medoo/PDO.
 3. Bezpieczne przygotowanie zapytań (Prepared Statements).
 4. Wprowadzenie komponentu Security:
    - filtrowanie danych wejściowych
@@ -243,7 +245,7 @@ Cel tej fazy:
 ### Krok 4: implementacja rdzenia systemu
 1. Autoloader
 2. Router
-3. Database wrapper
+3. Integracja fasady `CrudApp`/Medoo
 4. Security
 5. Bootstrap
 
