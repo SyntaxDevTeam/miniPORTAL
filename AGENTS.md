@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - wdrożono podstawowy CRUD i publikację modułu `core_pages`.
+> **Ostatnia aktualizacja:** 2026-06-13 - spięto dynamiczną stronę główną, panel i źródła wizualne Outside-In.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -161,6 +161,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | GitHub, Discord i Google są aktywne w środowisku, a `AUTH_AUDIT_HASH_KEY` pseudonimizuje IP przez HMAC. |
 | 2026-06-13 | `core_pages` używa `CrudApp`, unikalnego slugu, stanów `draft/published`, CSRF i uprawnień `pages.*`. |
 | 2026-06-13 | Publiczna trasa `/page?slug=...` pokazuje wyłącznie strony opublikowane i koduje treść przed HTML. |
+| 2026-06-13 | Trasa `/` renderuje dynamiczną wersję prototypu homepage i automatycznie pokazuje opublikowane strony z `core_pages`. |
+| 2026-06-13 | Prototypy HTML pozostają źródłami wyglądu; administrator otwiera je przez chronioną sekcję `/admin/design-system`. |
 
 ## Historia sesji
 
@@ -368,3 +370,19 @@ do Kroku 5C `core_pages`.
 są ukończone. Formularz podstawowy jest gotowy do rozszerzenia o WYSIWYG.
 
 **Następne kroki:** integracja WYSIWYG oraz niezależny moduł `articles`.
+
+### Sesja: 2026-06-13 - spięcie przepływu Outside-In
+
+**Wykonano:**
+- zastąpiono diagnostyczny widok `/` dynamiczną wersją gotowego prototypu homepage,
+- dodano na stronie głównej link do logowania albo panelu zależnie od sesji,
+- podłączono listę opublikowanych stron `core_pages` do homepage,
+- zachowano statyczne prototypy jako źródła wyglądu i dokumentację komponentów,
+- dodano chronioną sekcję `/admin/design-system` z linkami do stylebooków,
+- przeniesiono test `Security` i `Request` do zestawu materiałów panelu,
+- poprawiono link marki panelu tak, aby prowadził do właściwego dashboardu.
+
+**Zaktualizowano status:** publiczna strona, logowanie, panel, treści i wizualne
+źródła projektu tworzą jeden namacalny przepływ Outside-In.
+
+**Następne kroki:** WYSIWYG dla `core_pages` oraz niezależny moduł `articles`.

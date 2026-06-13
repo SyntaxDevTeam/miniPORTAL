@@ -135,6 +135,12 @@ Cel tej fazy:
 - zobaczyć finalny efekt wizualny przed napisaniem logiki PHP
 - ustalić standard UX/UI jako fundament dla dalszego rozwoju
 
+Stan integracji:
+- aktywna trasa `/` odwzorowuje `templates/default/homepage.html` przez `ThemeInterface`,
+- opublikowane treści `core_pages` pojawiają się dynamicznie na stronie głównej,
+- prototypy pozostają referencyjnymi źródłami wyglądu dostępnymi z panelu pod
+  `/admin/design-system`.
+
 ### Faza 2: Abstrakcja szablonu do PHP
 
 1. Definicja interfejsu ThemeInterface.

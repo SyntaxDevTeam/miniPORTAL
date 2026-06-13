@@ -8,6 +8,107 @@ use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
 final class Theme implements ThemeInterface
 {
+    public function render_homepage(array $pages, bool $authenticated): void
+    {
+        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<meta name="description" content="SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.">';
+        echo '<meta name="theme-color" content="#080c12"><title>SyntaxDevTeam - software dla społeczności</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/homepage.css"></head><body>';
+        echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
+        echo '<nav class="navbar navbar-expand-lg border-bottom fixed-top" data-site-nav aria-label="Główna nawigacja"><div class="container">';
+        echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> SyntaxDevTeam</a>';
+        echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
+        echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
+        echo '<li class="nav-item"><a class="nav-link" href="#projects">Projekty</a></li>';
+        echo '<li class="nav-item"><a class="nav-link" href="#stack">Technologie</a></li>';
+        if ($pages !== []) {
+            echo '<li class="nav-item"><a class="nav-link" href="#pages">Strony</a></li>';
+        }
+        echo '<li class="nav-item"><a class="nav-link" href="#contact">Kontakt</a></li>';
+        echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="index.php?route=';
+        echo $authenticated ? '/admin' : '/admin/login';
+        echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
+
+        echo '<header id="top" class="home-hero"><div class="container py-5"><div class="row align-items-center g-5">';
+        echo '<div class="col-lg-7 reveal is-visible"><p class="eyebrow">Minecraft / Discord / Android / Backend</p>';
+        echo '<h1 class="home-title fw-bold">Kod, który zasila <span>społeczności.</span></h1>';
+        echo '<p class="home-lead mt-4">Projektujemy pluginy serwerowe, automatyzacje Discord, aplikacje mobilne i modułowe systemy WWW, które można rozwijać bez przepisywania wszystkiego od początku.</p>';
+        echo '<div class="hero-actions mt-4"><a class="btn btn-primary btn-lg" href="#projects">Poznaj projekty</a>';
+        echo '<a class="btn btn-outline-light btn-lg" href="index.php?route=' . ($authenticated ? '/admin' : '/admin/login') . '">';
+        echo $authenticated ? 'Przejdź do panelu' : 'Panel administracyjny';
+        echo '</a></div><div class="hero-metrics mt-5">';
+        echo '<div class="hero-metric"><strong>Paper</strong><span>pluginy serwerowe</span></div>';
+        echo '<div class="hero-metric"><strong>Discord</strong><span>boty i automatyzacje</span></div>';
+        echo '<div class="hero-metric"><strong>PHP 8.5</strong><span>modułowy miniPORTAL</span></div></div></div>';
+        echo '<div class="col-lg-5 reveal is-visible"><div class="terminal" aria-label="Status systemu"><div class="terminal-bar">';
+        echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';
+        echo '<span>syntaxdevteam.pl/build</span></div><pre><code>$ ./workspace status' . "\n\n";
+        echo 'CoreAuth     READY' . "\n" . 'CorePages    PUBLISHED' . "\n" . 'ThemeEngine  ONLINE' . "\n" . 'CrudApp      CONNECTED' . "\n\n";
+        echo 'architecture: MODULAR' . "\n" . 'security:     ENABLED' . "\n" . 'status:       READY_TO_BUILD</code></pre></div></div></div></div></header>';
+
+        echo '<main id="content"><section id="projects" class="home-section"><div class="container">';
+        echo '<div class="home-heading reveal"><p class="eyebrow">01 / Wybrane realizacje</p>';
+        echo '<h2 class="fw-bold">Niezależne projekty. Wspólny standard jakości.</h2>';
+        echo '<p class="lead text-secondary">Każdy produkt jest osobnym modułem, ale korzysta ze sprawdzonych fundamentów.</p></div>';
+        echo '<div class="project-grid">';
+        $projects = [
+            ['PunisherX', 'System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.', 'cyan', true],
+            ['SyntaxCore', 'Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.', 'violet', false],
+            ['Econify', 'Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.', 'violet', false],
+            ['miniPORTAL', 'Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.', 'cyan', true],
+        ];
+        foreach ($projects as $index => [$title, $description, $accent, $wide]) {
+            echo '<article class="showcase-card project-card ' . ($wide ? 'project-card-wide ' : '') . 'reveal" data-accent="' . $accent . '">';
+            echo '<span class="project-number">PROJECT / ' . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT) . '</span>';
+            echo '<h3>' . $this->escape($title) . '</h3><p class="text-secondary">' . $this->escape($description) . '</p>';
+            echo '<a class="btn btn-outline-light" href="#contact">Dowiedz się więcej</a></article>';
+        }
+        echo '</div></div></section>';
+
+        echo '<section id="stack" class="home-section"><div class="container"><div class="home-heading reveal">';
+        echo '<p class="eyebrow">02 / Technologie</p><h2 class="fw-bold">Dobieramy narzędzia do problemu.</h2>';
+        echo '<p class="lead text-secondary">Bez zbędnej warstwy abstrakcji, z naciskiem na bezpieczeństwo i utrzymanie.</p></div>';
+        echo '<div class="row g-4">';
+        foreach ([
+            ['Serwery', 'Paper & Folia', 'Kotlin, Adventure i nowoczesne środowiska serwerowe.'],
+            ['Automatyzacja', 'Discord & OAuth', 'Boty, logowanie federacyjne, ACL i integracje API.'],
+            ['Web', 'PHP & CrudApp', 'PHP 8.5, Medoo, MySQL i wymienna warstwa Theme.'],
+        ] as $index => [$label, $title, $description]) {
+            echo '<div class="col-lg-4 reveal"><article class="showcase-card stack-card h-100" data-number="0' . ($index + 1) . '">';
+            echo '<p class="showcase-label">' . $this->escape($label) . '</p><h3>' . $this->escape($title) . '</h3>';
+            echo '<p class="text-secondary">' . $this->escape($description) . '</p></article></div>';
+        }
+        echo '</div></div></section>';
+
+        if ($pages !== []) {
+            echo '<section id="pages" class="home-section"><div class="container"><div class="home-heading reveal">';
+            echo '<p class="eyebrow">03 / Opublikowane strony</p><h2 class="fw-bold">Treści zarządzane przez miniPORTAL.</h2>';
+            echo '<p class="lead text-secondary">Poniższe pozycje pochodzą dynamicznie z modułu core_pages.</p></div><div class="row g-4">';
+            foreach ($pages as $page) {
+                echo '<div class="col-md-6 col-lg-4 reveal"><article class="showcase-card h-100">';
+                echo '<p class="showcase-label">PAGE / ' . $this->escape($page['slug']) . '</p>';
+                echo '<h3 class="h4">' . $this->escape($page['title']) . '</h3>';
+                echo '<a class="btn btn-outline-light mt-3" href="index.php?route=/page&amp;slug=' . $this->escape(rawurlencode($page['slug'])) . '">Czytaj</a>';
+                echo '</article></div>';
+            }
+            echo '</div></div></section>';
+        }
+
+        echo '<section id="contact" class="home-section"><div class="container"><div class="contact-panel reveal"><div>';
+        echo '<p class="eyebrow mb-2">04 / Kontakt</p><h2 class="h1 fw-bold">Zbudujmy coś użytecznego.</h2>';
+        echo '<p class="text-secondary mb-0">Plugin, bot, aplikacja czy system WWW - zacznijmy od konkretnego problemu.</p></div>';
+        echo '<a class="btn btn-primary btn-lg" href="mailto:contact@syntaxdevteam.pl">contact@syntaxdevteam.pl</a>';
+        echo '</div></div></section></main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
+        echo '<span>&copy; 2026 SyntaxDevTeam</span><span>Projektowane modułowo. Rozwijane świadomie.</span></div></footer>';
+        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
+        echo '<script src="templates/default/assets/js/site.js"></script></body></html>';
+    }
+
     public function start_page(string $title, string $description = ''): void
     {
         $title = $this->escape($title);
@@ -643,6 +744,32 @@ final class Theme implements ThemeInterface
         $this->render_button('Wróć do strony głównej', 'index.php', 'outline-light');
         $this->end_section();
         $this->end_page();
+    }
+
+    public function render_admin_resources(array $resources, array $menuItems, array $user): void
+    {
+        $this->start_admin_page('Wzorce UI', $menuItems, '/admin/design-system', $user);
+        $this->start_admin_content(
+            'Wzorce UI i diagnostyka',
+            'Źródła wizualne Outside-In oraz punkty kontrolne działającego systemu.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Wzorce UI', 'href' => ''],
+            ]
+        );
+        $this->start_admin_panel('Materiały projektu', count($resources) . ' odnośniki');
+        echo '<div class="row g-3">';
+        foreach ($resources as $resource) {
+            echo '<div class="col-md-6"><article class="showcase-card h-100">';
+            echo '<h2 class="h5">' . $this->escape($resource['label']) . '</h2>';
+            echo '<p class="text-secondary">' . $this->escape($resource['description']) . '</p>';
+            echo '<a class="btn btn-sm btn-outline-light" href="' . $this->escape($resource['href']) . '">Otwórz</a>';
+            echo '</article></div>';
+        }
+        echo '</div>';
+        $this->end_admin_panel();
+        $this->end_admin_content();
+        $this->end_admin_page();
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

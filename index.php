@@ -133,41 +133,17 @@ $renderEnd = static function () use ($theme): void {
     $theme->end_page();
 };
 
-$router->get('/', static function () use ($application, $theme, $renderStart, $renderEnd): void {
-    $renderStart(
-        'Rdzeń jest widoczny i testowalny',
-        'Front Controller uruchamia bezpieczeństwo, rozpoznaje żądanie i przekazuje je do właściwej trasy.'
-    );
+$router->get('/', static function () use ($application, $theme, $auth): void {
+    $pages = [];
 
-    $theme->start_grid();
-    $theme->start_column('lg-7');
-    $theme->start_card('Co działa w tym etapie', 'Krok 4 / rdzeń');
-    $theme->render_text('Tabela pokazuje elementy złożone przez Bootstrap. Żaden widok nie odczytuje bezpośrednio danych globalnych.');
-    $theme->end_card();
-    $theme->end_column();
-    $theme->start_column('lg-5');
-    $theme->start_card('Test bezpieczeństwa', 'Namacalny rezultat');
-    $theme->render_text('Formularz demonstracyjny przechodzi przez Router, Request i walidację tokenu CSRF.');
-    $theme->render_button('Otwórz test CSRF', 'index.php?route=/security-demo');
-    echo ' ';
-    $theme->render_button('Otwórz panel modułowy', 'index.php?route=/admin');
-    $theme->end_card();
-    $theme->end_column();
-    $theme->end_grid();
+    if ($application->database() !== null) {
+        $pages = array_map(
+            static fn ($page): array => ['title' => $page->title, 'slug' => $page->slug],
+            (new PageRepository($application->database()))->published()
+        );
+    }
 
-    $theme->render_table(
-        ['Element', 'Implementacja', 'Status'],
-        $application->diagnostics()
-    );
-
-    $theme->render_alert(
-        $application->database() === null
-            ? 'Baza jest wyłączona. Ustaw DB_ENABLED=1 oraz zmienne DB_*, aby przetestować połączenie przez CrudApp.'
-            : 'Połączenie z bazą zostało zestawione przez warstwę CrudApp.',
-        $application->database() === null ? 'warning' : 'success'
-    );
-
-    $renderEnd();
+    $theme->render_homepage($pages, $auth->user() !== null);
 });
 
 $router->get('/security-demo', static function () use ($security, $theme, $renderStart, $renderEnd): void {

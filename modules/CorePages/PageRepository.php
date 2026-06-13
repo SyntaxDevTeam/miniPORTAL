@@ -32,6 +32,24 @@ final class PageRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /**
+     * @return list<Page>
+     */
+    public function published(): array
+    {
+        $statement = $this->database->query(
+            'SELECT id, title, slug, content, status, author_id, published_at, created_at, updated_at '
+            . 'FROM core_pages WHERE status = :status ORDER BY published_at DESC, id DESC',
+            [':status' => 'published']
+        );
+
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać opublikowanych stron.');
+        }
+
+        return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public function find(int $id): ?Page
     {
         $statement = $this->database->query(

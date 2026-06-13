@@ -43,6 +43,7 @@ final class DemoAdminModule implements ModuleInterface
         $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
         $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
+        $menu->add('System', 'Wzorce UI', '/admin/design-system', 'UI', 'admin.access', 70);
     }
 
     public function registerRoutes(Router $router): void
@@ -66,6 +67,11 @@ final class DemoAdminModule implements ModuleInterface
             'modules.view',
             'Widok managera modułów jest dostępny wyłącznie użytkownikom z właściwym uprawnieniem.'
         )));
+        $router->get('/admin/design-system', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderResources()
+        ));
     }
 
     private function renderDashboard(): void
@@ -115,6 +121,48 @@ final class DemoAdminModule implements ModuleInterface
         );
         $this->theme->end_admin_panel();
         $this->endPage();
+    }
+
+    private function renderResources(): void
+    {
+        $user = $this->auth->user();
+
+        if ($user === null) {
+            return;
+        }
+
+        $this->theme->render_admin_resources(
+            [
+                [
+                    'label' => 'Strona główna - prototyp',
+                    'href' => 'templates/default/homepage.html',
+                    'description' => 'Pierwotne źródło wyglądu dynamicznej strony głównej.',
+                ],
+                [
+                    'label' => 'Stylebook publiczny',
+                    'href' => 'templates/default/stylebook.html',
+                    'description' => 'Karty, formularze, tabele, alerty i typografia motywu.',
+                ],
+                [
+                    'label' => 'Stylebook panelu',
+                    'href' => 'templates/default/admin-stylebook.html',
+                    'description' => 'Dashboard, sidebar, formularze i stany panelu administracyjnego.',
+                ],
+                [
+                    'label' => 'Test Security / Request',
+                    'href' => 'index.php?route=/security-demo',
+                    'description' => 'Dynamiczny test CSRF, normalizacji wejścia i warstwy Theme.',
+                ],
+            ],
+            $this->menu->visibleFor($user->permissions),
+            [
+                'name' => $user->displayName,
+                'role' => ucfirst($user->primaryRole()),
+                'initials' => $user->initials(),
+                'logout_action' => 'index.php?route=/admin/logout',
+                'logout_token' => $this->security->csrfToken(),
+            ]
+        );
     }
 
     private function startPage(string $title, string $activePath, string $lead): void

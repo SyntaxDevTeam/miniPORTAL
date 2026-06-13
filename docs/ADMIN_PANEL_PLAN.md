@@ -159,6 +159,8 @@ Stan implementacji:
 - `ModuleInterface` deklaruje identyfikator, wymagane uprawnienia, menu i trasy,
 - `DemoAdminModule` potwierdza separację modułu od HTML na chronionych trasach `/admin/*`,
 - układ panelu pokazuje menu przefiltrowane według uprawnień bieżącego użytkownika.
+- sekcja `/admin/design-system` łączy działający panel ze statycznym stylebookiem,
+  prototypem homepage, prototypem panelu i testem warstw Core.
 
 ### 5.3 Moduł `core_auth`
 

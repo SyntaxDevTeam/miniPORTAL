@@ -6,6 +6,11 @@ namespace SyntaxDevTeam\Cms\Core;
 
 interface ThemeInterface
 {
+    /**
+     * @param list<array{title: string, slug: string}> $pages
+     */
+    public function render_homepage(array $pages, bool $authenticated): void;
+
     public function start_page(string $title, string $description = ''): void;
 
     public function end_page(): void;
@@ -178,4 +183,11 @@ interface ThemeInterface
     public function render_public_page(string $title, string $content, string $publishedAt): void;
 
     public function render_page_not_found(string $title, string $message): void;
+
+    /**
+     * @param list<array{label: string, href: string, description: string}> $resources
+     * @param list<array{section: string, label: string, path: string, icon: string, permission: string, order: int}> $menuItems
+     * @param array{name: string, role: string, initials: string, logout_action?: string, logout_token?: string} $user
+     */
+    public function render_admin_resources(array $resources, array $menuItems, array $user): void;
 }
