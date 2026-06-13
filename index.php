@@ -8,18 +8,22 @@ use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\DiscordIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\GitHubIdentityProvider;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\GoogleIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
+use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
+use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
 require_once __DIR__ . '/core/Autoloader.php';
@@ -48,9 +52,14 @@ $userRepository = match ($authStorage) {
 $auth = new AuthService($userRepository, $security);
 $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
+$audit = new AuditLogService(
+    $application->database(),
+    (string) ($authConfig['audit_hash_key'] ?? '')
+);
 $providerConfig = is_array($authConfig['providers'] ?? null) ? $authConfig['providers'] : [];
 $githubConfig = is_array($providerConfig['github'] ?? null) ? $providerConfig['github'] : [];
 $discordConfig = is_array($providerConfig['discord'] ?? null) ? $providerConfig['discord'] : [];
+$googleConfig = is_array($providerConfig['google'] ?? null) ? $providerConfig['google'] : [];
 $providers = new IdentityProviderRegistry();
 $httpClient = new NativeHttpClient();
 $providers->add(new GitHubIdentityProvider(
@@ -65,21 +74,46 @@ $providers->add(new DiscordIdentityProvider(
     (string) ($discordConfig['client_secret'] ?? ''),
     (string) ($discordConfig['callback_url'] ?? '')
 ));
+$providers->add(new GoogleIdentityProvider(
+    $httpClient,
+    (string) ($googleConfig['client_id'] ?? ''),
+    (string) ($googleConfig['client_secret'] ?? ''),
+    (string) ($googleConfig['callback_url'] ?? '')
+));
 $coreAuthModule = new CoreAuthModule(
     $theme,
     $security,
     $auth,
     $providers,
     new OAuthStateStore(),
+    $audit,
     $authDemoEnabled
 );
 $coreAuthModule->registerRoutes($router);
+$corePagesModule = $application->database() !== null
+    ? new CorePagesModule(
+        $theme,
+        $adminMenu,
+        new PageRepository($application->database()),
+        $auth,
+        $access,
+        $security,
+        $audit
+    )
+    : null;
+
+if ($corePagesModule !== null) {
+    $corePagesModule->registerAdminMenu($adminMenu);
+    $corePagesModule->registerRoutes($router);
+}
+
 $demoAdminModule = new DemoAdminModule(
     $theme,
     $adminMenu,
     $auth,
     $access,
-    $security
+    $security,
+    $audit
 );
 $demoAdminModule->registerAdminMenu($adminMenu);
 $demoAdminModule->registerRoutes($router);

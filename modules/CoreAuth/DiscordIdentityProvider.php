@@ -38,7 +38,7 @@ final class DiscordIdentityProvider implements IdentityProviderInterface
             && filter_var($this->callbackUrl, FILTER_VALIDATE_URL) !== false;
     }
 
-    public function authorizationUrl(string $state, string $_codeChallenge): string
+    public function authorizationUrl(string $state, string $_codeChallenge, string $_nonce): string
     {
         $this->assertConfigured();
 
@@ -52,7 +52,7 @@ final class DiscordIdentityProvider implements IdentityProviderInterface
         ], '', '&', PHP_QUERY_RFC3986);
     }
 
-    public function resolveIdentity(string $code, string $_codeVerifier): ExternalIdentity
+    public function resolveIdentity(string $code, string $_codeVerifier, string $_nonce): ExternalIdentity
     {
         $this->assertConfigured();
 

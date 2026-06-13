@@ -6,11 +6,13 @@ namespace SyntaxDevTeam\Cms\Modules\System;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 
 final class DemoAdminModule implements ModuleInterface
 {
@@ -20,6 +22,7 @@ final class DemoAdminModule implements ModuleInterface
         private readonly AuthService $auth,
         private readonly AdminAccessGate $access,
         private readonly Security $security,
+        private readonly AuditLogService $audit,
     ) {
     }
 
@@ -36,34 +39,28 @@ final class DemoAdminModule implements ModuleInterface
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
-        $menu->add('Treść', 'Strony', '/admin/pages', 'PG', 'pages.view', 20);
         $menu->add('Treść', 'Artykuły', '/admin/articles', 'AR', 'articles.view', 30);
         $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
+        $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
     }
 
     public function registerRoutes(Router $router): void
     {
-        $router->get('/admin', fn () => $this->guard('admin.access', fn () => $this->renderDashboard()));
-        $router->get('/admin/pages', fn () => $this->guard('pages.view', fn () => $this->renderSection(
-            'Strony',
-            '/admin/pages',
-            'pages.view',
-            'Ta trasa została zarejestrowana przez moduł. Pełny CRUD powstanie w module core_pages.'
-        )));
-        $router->get('/admin/articles', fn () => $this->guard('articles.view', fn () => $this->renderSection(
+        $router->get('/admin', fn (Request $request) => $this->guard($request, 'admin.access', fn () => $this->renderDashboard()));
+        $router->get('/admin/articles', fn (Request $request) => $this->guard($request, 'articles.view', fn () => $this->renderSection(
             'Artykuły',
             '/admin/articles',
             'articles.view',
             'Ta trasa demonstruje niezależną pozycję menu i osobne uprawnienie modułu.'
         )));
-        $router->get('/admin/users', fn () => $this->guard('users.view', fn () => $this->renderSection(
+        $router->get('/admin/users', fn (Request $request) => $this->guard($request, 'users.view', fn () => $this->renderSection(
             'Użytkownicy',
             '/admin/users',
             'users.view',
             'Administrator może zarządzać użytkownikami, redaktor otrzyma dla tej trasy odpowiedź 403.'
         )));
-        $router->get('/admin/modules', fn () => $this->guard('modules.view', fn () => $this->renderSection(
+        $router->get('/admin/modules', fn (Request $request) => $this->guard($request, 'modules.view', fn () => $this->renderSection(
             'Moduły',
             '/admin/modules',
             'modules.view',
@@ -157,11 +154,13 @@ final class DemoAdminModule implements ModuleInterface
         $this->theme->end_admin_page();
     }
 
-    private function guard(string $permission, callable $handler): void
+    private function guard(Request $request, string $permission, callable $handler): void
     {
         $decision = $this->access->check($permission);
+        $userId = $this->auth->user()?->id;
 
         if ($decision === AdminAccessGate::UNAUTHENTICATED) {
+            $this->audit->record($request, 'admin_access', 'unauthenticated', null);
             http_response_code(401);
             $this->theme->render_admin_access_state(
                 401,
@@ -174,6 +173,7 @@ final class DemoAdminModule implements ModuleInterface
         }
 
         if ($decision === AdminAccessGate::FORBIDDEN) {
+            $this->audit->record($request, 'admin_access', 'forbidden', null, $userId);
             http_response_code(403);
             $this->theme->render_admin_access_state(
                 403,
@@ -185,6 +185,7 @@ final class DemoAdminModule implements ModuleInterface
             return;
         }
 
+        $this->audit->record($request, 'admin_access', 'allowed', null, $userId);
         $handler();
     }
 }

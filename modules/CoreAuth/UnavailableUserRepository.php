@@ -15,4 +15,17 @@ final class UnavailableUserRepository implements UserRepositoryInterface
     {
         return null;
     }
+
+    public function linkIdentity(int $userId, ExternalIdentity $identity): void
+    {
+    }
+
+    public function unlinkIdentity(int $userId, string $provider, string $subject): bool
+    {
+        return false;
+    }
+
+    public function touchIdentity(int $userId, string $provider, string $subject): void
+    {
+    }
 }

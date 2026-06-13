@@ -131,4 +131,51 @@ interface ThemeInterface
         string $actionHref,
         string $actionLabel,
     ): void;
+
+    /**
+     * @param array{name: string, role: string} $user
+     * @param list<array{name: string, label: string, configured: bool, linked: bool}> $providers
+     */
+    public function render_admin_identities(
+        array $user,
+        array $providers,
+        string $unlinkAction,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void;
+
+    /**
+     * @param list<array{id: int, title: string, slug: string, status: string, updated_at: string}> $pages
+     * @param list<array{section: string, label: string, path: string, icon: string, permission: string, order: int}> $menuItems
+     * @param array{name: string, role: string, initials: string, logout_action?: string, logout_token?: string} $user
+     * @param list<string> $permissions
+     */
+    public function render_admin_pages(
+        array $pages,
+        array $menuItems,
+        array $user,
+        array $permissions,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void;
+
+    /**
+     * @param array{id: int, title: string, slug: string, content: string, status: string}|null $page
+     * @param list<array{section: string, label: string, path: string, icon: string, permission: string, order: int}> $menuItems
+     * @param array{name: string, role: string, initials: string, logout_action?: string, logout_token?: string} $user
+     */
+    public function render_admin_page_form(
+        ?array $page,
+        array $menuItems,
+        array $user,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void;
+
+    public function render_public_page(string $title, string $content, string $publishedAt): void;
+
+    public function render_page_not_found(string $title, string $message): void;
 }

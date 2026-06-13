@@ -44,8 +44,28 @@ final class AuthService
 
         $this->security->regenerateSession();
         $_SESSION[self::SESSION_USER_ID] = $user->id;
+        $this->users->touchIdentity($user->id, $identity->provider, $identity->subject);
 
         return $user;
+    }
+
+    public function linkIdentity(ExternalIdentity $identity): bool
+    {
+        $user = $this->user();
+
+        if ($user === null || $this->users->findByIdentity($identity->provider, $identity->subject) !== null) {
+            return false;
+        }
+
+        $this->users->linkIdentity($user->id, $identity);
+        return true;
+    }
+
+    public function unlinkIdentity(string $provider, string $subject): bool
+    {
+        $user = $this->user();
+
+        return $user !== null && $this->users->unlinkIdentity($user->id, $provider, $subject);
     }
 
     public function logout(): void

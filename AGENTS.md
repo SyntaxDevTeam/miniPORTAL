@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - dodano bootstrap pierwszego administratora i adapter Discord OAuth.
+> **Ostatnia aktualizacja:** 2026-06-13 - wdrożono podstawowy CRUD i publikację modułu `core_pages`.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -95,17 +95,17 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Wykonanie migracji `CoreAuth/install.sql` na skonfigurowanej bazie |
 | [x] | Adapter GitHub OAuth |
 | [x] | Adapter Discord OAuth |
-| [ ] | Adapter Google OpenID Connect |
-| [ ] | Łączenie wielu tożsamości z jednym kontem |
+| [x] | Adapter Google OpenID Connect |
+| [x] | Łączenie wielu tożsamości z jednym kontem |
 | [x] | Bootstrap pierwszego administratora |
-| [ ] | Audit log logowań i operacji administracyjnych |
+| [x] | Audit log logowań i operacji administracyjnych |
 
 ### Krok 5C - moduły treści
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | `core_pages`: CRUD, slug, status i publikacja |
-| [ ] | Uprawnienia granularne `pages.*` |
+| [x] | `core_pages`: CRUD, slug, status i publikacja |
+| [x] | Uprawnienia granularne `pages.*` |
 | [ ] | WYSIWYG po ukończeniu formularza podstawowego |
 | [ ] | `articles` jako niezależny moduł z własnymi trasami i menu |
 
@@ -124,9 +124,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Uruchomić kontrolowany bootstrap dla właściwego loginu GitHub.
-2. Zarejestrować aplikację Discord i uzupełnić `DISCORD_CLIENT_ID` oraz `DISCORD_CLIENT_SECRET`.
-3. Zaimplementować adapter Google OpenID Connect.
+1. Dodać WYSIWYG po działającym formularzu podstawowym `core_pages`.
+2. Przygotować `articles` jako niezależny moduł z własnymi trasami i menu.
+3. Ustalić kontrakt wersjonowania treści i planowania publikacji.
 
 ## Uwagi / blokery
 
@@ -134,8 +134,6 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | Tabela `users` jest pusta; mechanizm bootstrapu jest gotowy, ale właściwy login GitHub nie może być bezpiecznie odgadnięty. | Uruchomić `bin/bootstrap-admin.php` dla potwierdzonego loginu zgodnie z `docs/CONFIGURATION.md`. |
-| 2026-06-13 | Adapter Discord jest gotowy, ale `DISCORD_CLIENT_ID` i `DISCORD_CLIENT_SECRET` nie są jeszcze ustawione. | Zarejestrować aplikację i callback Discord, a sekrety zapisać poza repozytorium. |
 | 2026-06-12 | Stary katalog `theme/` nadal istnieje obok docelowego `templates/`. | Po potwierdzeniu migracji potrzebnych zasobów usunąć stary katalog w osobnym, kontrolowanym zadaniu. |
 
 ### Uwagi architektoniczne
@@ -155,6 +153,14 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Konfiguracja GitHub jest aktywna; publiczny panel generuje poprawne przekierowanie OAuth. |
 | 2026-06-13 | Bootstrap administratora korzysta z numerycznego GitHub `subject`, transakcji i blokady bazodanowej; nie łączy kont po e-mailu. |
 | 2026-06-13 | Adapter Discord korzysta z Authorization Code, `state` i minimalnych zakresów `identify email`. |
+| 2026-06-13 | GitHub i Discord są aktywne w środowisku i generują poprawne przekierowania OAuth. |
+| 2026-06-13 | Google OIDC waliduje podpis RS256, `iss`, `aud`, `exp`, `iat`, `nonce` i PKCE. |
+| 2026-06-13 | Łączenie tożsamości wymaga aktywnej sesji tego samego konta i nie pozwala usunąć ostatniego providera. |
+| 2026-06-13 | Audit log zapisuje wyniki logowania, callbacków, wylogowania, ACL, bootstrapu oraz zmian tożsamości; nie zapisuje tokenów. |
+| 2026-06-13 | Pierwszy użytkownik jest aktywny, ma tożsamość GitHub i lokalną rolę `administrator`; bootstrap nie jest już dostępny. |
+| 2026-06-13 | GitHub, Discord i Google są aktywne w środowisku, a `AUTH_AUDIT_HASH_KEY` pseudonimizuje IP przez HMAC. |
+| 2026-06-13 | `core_pages` używa `CrudApp`, unikalnego slugu, stanów `draft/published`, CSRF i uprawnień `pages.*`. |
+| 2026-06-13 | Publiczna trasa `/page?slug=...` pokazuje wyłącznie strony opublikowane i koduje treść przed HTML. |
 
 ## Historia sesji
 
@@ -322,8 +328,43 @@ Pełny test z GitHub wymaga zewnętrznej rejestracji aplikacji i sekretów.
 - podłączono Discord do wspólnego rejestru providerów i widoku logowania,
 - potwierdzono, że nieskonfigurowany Discord pozostaje niewidoczny i zwraca 503.
 
-**Zaktualizowano status:** mechanizm bootstrapu i adapter Discord są ukończone.
+ **Zaktualizowano status:** mechanizm bootstrapu i adapter Discord są ukończone.
 Operacyjne utworzenie administratora wymaga potwierdzonego loginu GitHub, a pełny
 test Discord wymaga zewnętrznych danych aplikacji.
 
 **Następne kroki:** utworzenie pierwszego konta administratora i adapter Google OIDC.
+
+### Sesja: 2026-06-13 - Google OIDC, tożsamości i audit log
+
+**Wykonano:**
+- dodano adapter Google OIDC z `state`, `nonce`, PKCE i walidacją podpisu RS256,
+- dodano kontekst OAuth rozróżniający logowanie od łączenia kont,
+- dodano widok `/admin/identities` oraz operacje łączenia i odłączania providerów,
+- zablokowano automatyczne łączenie po e-mailu i usunięcie ostatniej tożsamości,
+- dodano `AuditLogService` zapisujący operacje do `auth_events`,
+- objęto audytem logowania, callbacki, wylogowanie, ACL, bootstrap i zmiany kont,
+- potwierdzono aktywną konfigurację GitHub i Discord.
+
+**Zaktualizowano status:** trzy ostatnie implementacyjne zadania Kroku 5B są ukończone.
+Google i pseudonimizacja IP oczekują wyłącznie na zewnętrzną konfigurację sekretów.
+Pierwszy administrator istnieje już w bazie.
+
+**Następne kroki:** konfiguracja Google i klucza audit logu, następnie przejście
+do Kroku 5C `core_pages`.
+
+### Sesja: 2026-06-13 - podstawowy moduł `core_pages`
+
+**Wykonano:**
+- potwierdzono aktywną konfigurację Google i klucza HMAC audit logu,
+- dodano migrację tabeli `core_pages` z unikalnym slugiem i indeksami,
+- dodano model `Page` oraz repozytorium korzystające z `CrudApp`,
+- wdrożono listę, tworzenie, edycję, publikację, cofnięcie publikacji i usuwanie,
+- dodano granularną ochronę `pages.view/create/edit/delete/publish`,
+- podłączono menu i trasy modułu bez generowania HTML w logice modułu,
+- dodano publiczny odczyt opublikowanej strony po slugu,
+- potwierdzono CSRF, audit log i kodowanie próby XSS.
+
+**Zaktualizowano status:** podstawowy CRUD `core_pages` i uprawnienia `pages.*`
+są ukończone. Formularz podstawowy jest gotowy do rozszerzenia o WYSIWYG.
+
+**Następne kroki:** integracja WYSIWYG oraz niezależny moduł `articles`.

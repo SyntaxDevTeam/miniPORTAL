@@ -62,4 +62,61 @@ final class InMemoryUserRepository implements UserRepositoryInterface
 
         return null;
     }
+
+    public function linkIdentity(int $userId, ExternalIdentity $identity): void
+    {
+        $user = $this->users[$userId] ?? null;
+
+        if ($user === null || $this->findByIdentity($identity->provider, $identity->subject) !== null) {
+            return;
+        }
+
+        $this->users[$userId] = new User(
+            $user->id,
+            $user->displayName,
+            $user->email,
+            $user->avatarUrl,
+            $user->status,
+            $user->roles,
+            $user->permissions,
+            [...$user->identities, $identity]
+        );
+    }
+
+    public function unlinkIdentity(int $userId, string $provider, string $subject): bool
+    {
+        $user = $this->users[$userId] ?? null;
+
+        if ($user === null || count($user->identities) <= 1) {
+            return false;
+        }
+
+        $identities = array_values(array_filter(
+            $user->identities,
+            static fn (ExternalIdentity $identity): bool => !(
+                $identity->provider === $provider && $identity->subject === $subject
+            )
+        ));
+
+        if (count($identities) === count($user->identities)) {
+            return false;
+        }
+
+        $this->users[$userId] = new User(
+            $user->id,
+            $user->displayName,
+            $user->email,
+            $user->avatarUrl,
+            $user->status,
+            $user->roles,
+            $user->permissions,
+            $identities
+        );
+
+        return true;
+    }
+
+    public function touchIdentity(int $userId, string $provider, string $subject): void
+    {
+    }
 }

@@ -184,10 +184,14 @@ tożsamości implementują `IdentityProviderInterface` i są rejestrowani przez
 `state` i PKCE. Adapter Discord używa Authorization Code oraz zakresów
 `identify email`. Pierwszy administrator jest tworzony kontrolowaną komendą CLI,
 która zapisuje stały identyfikator dostawcy zamiast łączyć konto po e-mailu.
+Google używa OpenID Connect z lokalną walidacją podpisu ID tokenu, `nonce`,
+issuer, audience i czasu ważności. Łączenie providerów wymaga aktywnej sesji,
+a operacje uwierzytelniania i ACL trafiają do `auth_events`.
 
 #### 4.2 Moduł stron statycznych
-- CRUD dla stron
-- generowanie podstron
+- CRUD dla stron przez `CrudApp`
+- unikalny slug i publiczna trasa opublikowanej strony
+- stany `draft` i `published` oraz granularne uprawnienia `pages.*`
 - integracja z edytorem WYSIWYG (np. TinyMCE lub CKEditor 5)
 - opcjonalny autozapis do localStorage / bazy danych
 

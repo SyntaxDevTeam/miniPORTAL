@@ -47,6 +47,53 @@ final class CrudAppUserRepository implements UserRepositoryInterface
             : $this->findById((int) $userId);
     }
 
+    public function linkIdentity(int $userId, ExternalIdentity $identity): void
+    {
+        if ($this->findByIdentity($identity->provider, $identity->subject) !== null) {
+            throw new RuntimeException('Ta tożsamość jest już połączona z kontem.');
+        }
+
+        $this->database->insert('user_identities', [
+            'user_id' => $userId,
+            'provider' => $identity->provider,
+            'provider_subject' => $identity->subject,
+            'provider_login' => $identity->login,
+            'provider_email' => $identity->email,
+            'email_verified' => $identity->emailVerified ? 1 : 0,
+        ]);
+    }
+
+    public function unlinkIdentity(int $userId, string $provider, string $subject): bool
+    {
+        $count = $this->database->count('user_identities', ['user_id' => $userId]);
+
+        if ($count <= 1) {
+            return false;
+        }
+
+        $statement = $this->database->delete('user_identities', [
+            'user_id' => $userId,
+            'provider' => $provider,
+            'provider_subject' => $subject,
+        ]);
+
+        return $statement !== null && $statement->rowCount() === 1;
+    }
+
+    public function touchIdentity(int $userId, string $provider, string $subject): void
+    {
+        $this->database->update('user_identities', [
+            'last_used_at' => date('Y-m-d H:i:s'),
+        ], [
+            'user_id' => $userId,
+            'provider' => $provider,
+            'provider_subject' => $subject,
+        ]);
+        $this->database->update('users', [
+            'last_login_at' => date('Y-m-d H:i:s'),
+        ], ['id' => $userId]);
+    }
+
     private function hydrate(array $row): User
     {
         $userId = (int) $row['id'];

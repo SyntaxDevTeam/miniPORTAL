@@ -51,12 +51,16 @@ SESSION_SAME_SITE="Lax"
 
 AUTH_STORAGE="database"
 AUTH_DEMO_ENABLED=false
+AUTH_AUDIT_HASH_KEY="wstaw_tutaj_losowy_sekret_minimum_32_znaki"
 GITHUB_CLIENT_ID=""
 GITHUB_CLIENT_SECRET=""
 GITHUB_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback"
 DISCORD_CLIENT_ID=""
 DISCORD_CLIENT_SECRET=""
 DISCORD_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback"
 
 DB_ENABLED=true
 DB_DRIVER="mysql"
@@ -113,12 +117,16 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
 | `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |
 | `AUTH_DEMO_ENABLED` | Włącza lokalne konta demonstracyjne; na serwerze publicznym zawsze `false` |
+| `AUTH_AUDIT_HASH_KEY` | Sekret HMAC do pseudonimizacji adresów IP w `auth_events`; minimum 32 losowe znaki |
 | `GITHUB_CLIENT_ID` | Client ID zarejestrowanej GitHub App albo OAuth App |
 | `GITHUB_CLIENT_SECRET` | Sekret aplikacji GitHub, przechowywany wyłącznie poza repozytorium |
 | `GITHUB_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback` |
 | `DISCORD_CLIENT_ID` | Client ID aplikacji z Discord Developer Portal |
 | `DISCORD_CLIENT_SECRET` | Sekret aplikacji Discord, przechowywany poza repozytorium |
 | `DISCORD_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback` |
+| `GOOGLE_CLIENT_ID` | Client ID klienta OAuth 2.0 typu Web application |
+| `GOOGLE_CLIENT_SECRET` | Sekret klienta Google, przechowywany poza repozytorium |
+| `GOOGLE_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback` |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |
@@ -189,3 +197,36 @@ https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback
 Następnie ustaw `DISCORD_CLIENT_ID` i `DISCORD_CLIENT_SECRET`. Adapter prosi
 wyłącznie o zakresy `identify email`, waliduje jednorazowy `state` i nie zapisuje
 tokenów dostawcy.
+
+## Konfiguracja Google OpenID Connect
+
+W Google Cloud Console utwórz klienta OAuth 2.0 typu Web application i dodaj:
+
+```text
+https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback
+```
+
+Następnie ustaw `GOOGLE_CLIENT_ID` i `GOOGLE_CLIENT_SECRET`. Adapter używa zakresów
+`openid email profile`, `state`, `nonce` i PKCE. ID token jest lokalnie sprawdzany
+pod kątem podpisu RS256, `iss`, `aud`, `exp`, `iat` oraz `nonce`.
+
+Wygeneruj również osobny sekret audit logu:
+
+```bash
+openssl rand -hex 32
+```
+
+Wynik zapisz jako `AUTH_AUDIT_HASH_KEY`. Bez tej wartości zdarzenia nadal są
+zapisywane, ale adres IP jest pomijany zamiast używania słabego klucza.
+
+## Łączenie tożsamości
+
+Zalogowany użytkownik może otworzyć:
+
+```text
+https://new.syntaxdevteam.pl/index.php?route=/admin/identities
+```
+
+Nowy provider jest dołączany wyłącznie w aktywnej sesji tego samego użytkownika.
+System nie łączy kont na podstawie e-maila i nie pozwala odłączyć ostatniej
+tożsamości umożliwiającej logowanie.

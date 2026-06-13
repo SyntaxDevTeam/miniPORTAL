@@ -20,6 +20,7 @@ final class CoreAuthModule implements ModuleInterface
         private readonly AuthService $auth,
         private readonly IdentityProviderRegistry $providers,
         private readonly OAuthStateStore $oauthStates,
+        private readonly AuditLogService $audit,
         private readonly bool $demoEnabled = false,
     ) {
     }
@@ -43,16 +44,22 @@ final class CoreAuthModule implements ModuleInterface
         $router->get('/admin/login', fn () => $this->renderLogin());
         $router->post('/admin/login', fn (Request $request) => $this->login($request));
         $router->post('/admin/logout', fn (Request $request) => $this->logout($request));
+        $router->get('/admin/identities', fn () => $this->renderIdentities());
+        $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
 
         foreach ($this->providers->all() as $provider) {
             $name = $provider->name();
             $router->get(
                 "/admin/auth/{$name}",
-                fn () => $this->startProviderLogin($name)
+                fn (Request $request) => $this->startProviderLogin($request, $name)
             );
             $router->get(
                 "/admin/auth/{$name}/callback",
                 fn (Request $request) => $this->completeProviderLogin($request, $name)
+            );
+            $router->get(
+                "/admin/identity/{$name}/link",
+                fn (Request $request) => $this->startProviderLogin($request, $name, 'link')
             );
         }
     }
@@ -94,11 +101,25 @@ final class CoreAuthModule implements ModuleInterface
         );
     }
 
-    private function startProviderLogin(string $name): void
+    private function startProviderLogin(Request $request, string $name, string $purpose = 'login'): void
     {
         $provider = $this->providers->get($name);
+        $user = $this->auth->user();
+
+        if ($purpose === 'link' && $user === null) {
+            http_response_code(401);
+            $this->theme->render_admin_access_state(
+                401,
+                'Wymagane logowanie',
+                'Połączenie dodatkowej tożsamości wymaga aktywnej sesji.',
+                'index.php?route=/admin/login',
+                'Przejdź do logowania'
+            );
+            return;
+        }
 
         if ($provider === null || !$provider->isConfigured()) {
+            $this->audit->record($request, 'oauth_start', 'provider_unavailable', $name, $user?->id);
             http_response_code(503);
             $this->theme->render_admin_access_state(
                 503,
@@ -110,38 +131,57 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
-        $oauth = $this->oauthStates->issue($name);
-        header('Location: ' . $provider->authorizationUrl($oauth['state'], $oauth['challenge']), true, 302);
+        $oauth = $this->oauthStates->issue($name, $purpose, $user?->id);
+        $this->audit->record($request, 'oauth_start', $purpose, $name, $user?->id);
+        header(
+            'Location: ' . $provider->authorizationUrl($oauth['state'], $oauth['challenge'], $oauth['nonce']),
+            true,
+            302
+        );
     }
 
     private function completeProviderLogin(Request $request, string $name): void
     {
         $provider = $this->providers->get($name);
         $state = $request->queryString('state');
-        $verifier = $this->oauthStates->consume($name, $state);
+        $context = $this->oauthStates->consume($name, $state);
 
-        if ($provider === null || !$provider->isConfigured() || $verifier === null) {
+        if ($provider === null || !$provider->isConfigured() || $context === null) {
+            $this->audit->record($request, 'oauth_callback', 'invalid_state', $name);
             http_response_code(403);
             $this->renderLogin('Odpowiedź dostawcy ma nieprawidłowy lub wygasły parametr state.', 'danger');
             return;
         }
 
         if ($request->queryString('error') !== '') {
+            $this->audit->record($request, 'oauth_callback', 'provider_denied', $name, $context->userId);
             http_response_code(401);
             $this->renderLogin('Logowanie zostało anulowane albo odrzucone przez dostawcę.', 'warning');
             return;
         }
 
         try {
-            $identity = $provider->resolveIdentity($request->queryString('code'), $verifier);
+            $identity = $provider->resolveIdentity(
+                $request->queryString('code'),
+                $context->verifier,
+                $context->nonce
+            );
+
+            if ($context->purpose === 'link') {
+                $this->completeIdentityLink($request, $identity, $context);
+                return;
+            }
+
             $user = $this->auth->loginIdentity($identity);
         } catch (Throwable) {
+            $this->audit->record($request, 'oauth_callback', 'provider_error', $name, $context->userId);
             http_response_code(502);
             $this->renderLogin('Nie udało się potwierdzić tożsamości u dostawcy.', 'danger');
             return;
         }
 
         if ($user === null) {
+            $this->audit->record($request, 'login', 'identity_unlinked', $name);
             http_response_code(403);
             $this->renderLogin(
                 'Tożsamość została potwierdzona, ale nie jest jeszcze połączona z aktywnym kontem miniPORTAL.',
@@ -150,18 +190,21 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
+        $this->audit->record($request, 'login', 'success', $name, $user->id);
         header('Location: index.php?route=/admin', true, 303);
     }
 
     private function login(Request $request): void
     {
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'login_demo', 'invalid_csrf', 'demo');
             http_response_code(403);
             $this->renderLogin('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
             return;
         }
 
         if (!$this->demoEnabled || $request->postString('provider') !== 'demo') {
+            $this->audit->record($request, 'login_demo', 'disabled', 'demo');
             http_response_code(401);
             $this->renderLogin('Logowanie demonstracyjne jest wyłączone.', 'danger');
             return;
@@ -175,17 +218,20 @@ final class CoreAuthModule implements ModuleInterface
         $user = $this->auth->loginIdentity($identity);
 
         if ($user === null) {
+            $this->audit->record($request, 'login_demo', 'identity_unlinked', 'demo');
             http_response_code(401);
             $this->renderLogin('Nie znaleziono aktywnego konta dla wybranej tożsamości.', 'danger');
             return;
         }
 
+        $this->audit->record($request, 'login_demo', 'success', 'demo', $user->id);
         header('Location: index.php?route=/admin', true, 303);
     }
 
     private function logout(Request $request): void
     {
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'logout', 'invalid_csrf', null, $this->auth->user()?->id);
             http_response_code(403);
             $this->theme->render_admin_access_state(
                 403,
@@ -197,7 +243,115 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
+        $userId = $this->auth->user()?->id;
         $this->auth->logout();
+        $this->audit->record($request, 'logout', 'success', null, $userId);
         header('Location: index.php?route=/admin/login', true, 303);
+    }
+
+    private function completeIdentityLink(
+        Request $request,
+        ExternalIdentity $identity,
+        OAuthStateContext $context,
+    ): void {
+        $user = $this->auth->user();
+
+        if ($user === null || $context->userId !== $user->id) {
+            $this->audit->record($request, 'identity_link', 'session_mismatch', $identity->provider);
+            http_response_code(403);
+            $this->renderLogin('Sesja łączenia tożsamości wygasła lub została zmieniona.', 'danger');
+            return;
+        }
+
+        if (!$this->auth->linkIdentity($identity)) {
+            $this->audit->record($request, 'identity_link', 'already_linked', $identity->provider, $user->id);
+            $this->renderIdentities('Ta tożsamość jest już połączona z kontem.', 'warning');
+            return;
+        }
+
+        $this->audit->record($request, 'identity_link', 'success', $identity->provider, $user->id);
+        $this->renderIdentities('Nowa tożsamość została połączona z kontem.', 'success');
+    }
+
+    private function unlinkIdentity(Request $request): void
+    {
+        $user = $this->auth->user();
+
+        if ($user === null) {
+            http_response_code(401);
+            $this->theme->render_admin_access_state(
+                401,
+                'Wymagane logowanie',
+                'Odłączenie tożsamości wymaga aktywnej sesji.',
+                'index.php?route=/admin/login',
+                'Przejdź do logowania'
+            );
+            return;
+        }
+
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'identity_unlink', 'invalid_csrf', null, $user->id);
+            http_response_code(403);
+            $this->renderIdentities('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $provider = $request->postString('provider');
+        $identity = null;
+        foreach ($user->identities as $candidate) {
+            if ($candidate->provider === $provider) {
+                $identity = $candidate;
+                break;
+            }
+        }
+
+        if ($identity === null || !$this->auth->unlinkIdentity($identity->provider, $identity->subject)) {
+            $this->audit->record($request, 'identity_unlink', 'rejected', $provider, $user->id);
+            $this->renderIdentities('Nie można odłączyć ostatniej albo nieistniejącej tożsamości.', 'warning');
+            return;
+        }
+
+        $this->audit->record($request, 'identity_unlink', 'success', $provider, $user->id);
+        $this->renderIdentities('Tożsamość została odłączona.', 'success');
+    }
+
+    private function renderIdentities(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+
+        if ($user === null) {
+            http_response_code(401);
+            $this->theme->render_admin_access_state(
+                401,
+                'Wymagane logowanie',
+                'Zarządzanie tożsamościami wymaga aktywnej sesji.',
+                'index.php?route=/admin/login',
+                'Przejdź do logowania'
+            );
+            return;
+        }
+
+        $linkedProviders = array_map(
+            static fn (ExternalIdentity $identity): string => $identity->provider,
+            $user->identities
+        );
+        $providers = array_map(
+            static fn (IdentityProviderInterface $provider): array => [
+                'name' => $provider->name(),
+                'label' => $provider->label(),
+                'configured' => $provider->isConfigured(),
+                'linked' => in_array($provider->name(), $linkedProviders, true),
+            ],
+            $this->providers->all()
+        );
+
+        $this->theme->render_admin_identities(
+            ['name' => $user->displayName, 'role' => ucfirst($user->primaryRole())],
+            $providers,
+            'index.php?route=/admin/identity/unlink',
+            $this->security->csrfToken(),
+            $message,
+            $variant
+        );
     }
 }

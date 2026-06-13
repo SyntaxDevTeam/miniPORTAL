@@ -39,7 +39,7 @@ final class GitHubIdentityProvider implements IdentityProviderInterface
             && filter_var($this->callbackUrl, FILTER_VALIDATE_URL) !== false;
     }
 
-    public function authorizationUrl(string $state, string $codeChallenge): string
+    public function authorizationUrl(string $state, string $codeChallenge, string $_nonce): string
     {
         $this->assertConfigured();
 
@@ -53,7 +53,7 @@ final class GitHubIdentityProvider implements IdentityProviderInterface
         ], '', '&', PHP_QUERY_RFC3986);
     }
 
-    public function resolveIdentity(string $code, string $codeVerifier): ExternalIdentity
+    public function resolveIdentity(string $code, string $codeVerifier, string $_nonce): ExternalIdentity
     {
         $this->assertConfigured();
 

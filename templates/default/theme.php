@@ -161,6 +161,11 @@ final class Theme implements ThemeInterface
             $type = $field['type'] ?? 'text';
             $value = $this->escape($field['value'] ?? '');
 
+            if ($type === 'hidden') {
+                echo '<input type="hidden" name="' . $name . '" value="' . $value . '">';
+                continue;
+            }
+
             if ($type === 'checkbox') {
                 $checked = ($field['checked'] ?? false) ? ' checked' : '';
                 echo '<div class="form-check mb-3">';
@@ -221,7 +226,7 @@ final class Theme implements ThemeInterface
         echo '</div></div>';
         echo '<div class="admin-preview rounded-0 border-0"><div class="admin-shell">';
         echo '<aside class="admin-sidebar" aria-label="Nawigacja panelu"><div class="admin-sidebar-header">';
-        echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin-demo">';
+        echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin">';
         echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL</span></a></div>';
         $this->renderAdminMenu($menuItems, $activePath);
         echo '<div class="admin-sidebar-footer"><div class="admin-user">';
@@ -425,6 +430,219 @@ final class Theme implements ThemeInterface
         echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
         echo '<a class="btn btn-primary" href="' . $this->escape($actionHref) . '">' . $this->escape($actionLabel) . '</a>';
         echo '</section></main></body></html>';
+    }
+
+    public function render_admin_identities(
+        array $user,
+        array $providers,
+        string $unlinkAction,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<title>Połączone konta - miniPORTAL Admin</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '</head><body class="admin-stylebook"><main class="container py-5">';
+        echo '<a class="admin-brand text-decoration-none mb-4" href="index.php?route=/admin">';
+        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
+        echo '<section class="admin-panel mt-4"><div class="admin-panel-header">';
+        echo '<div><p class="showcase-label mb-1">Profil</p><h1 class="h3 mb-1">Połączone tożsamości</h1>';
+        echo '<p class="text-secondary mb-0">' . $this->escape($user['name']) . ' · ' . $this->escape($user['role']) . '</p></div>';
+        echo '<a class="btn btn-outline-light" href="index.php?route=/admin">Wróć do panelu</a></div>';
+
+        if ($message !== '') {
+            $allowedVariants = ['success', 'danger', 'warning', 'info'];
+            $variant = in_array($variant, $allowedVariants, true) ? $variant : 'info';
+            echo '<div class="alert alert-' . $variant . ' mx-4 mt-4" role="alert">' . $this->escape($message) . '</div>';
+        }
+
+        echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
+        echo '<thead><tr><th>Dostawca</th><th>Status</th><th class="text-end">Akcja</th></tr></thead><tbody>';
+        foreach ($providers as $provider) {
+            echo '<tr><td><strong>' . $this->escape($provider['label']) . '</strong></td><td>';
+            echo $provider['linked']
+                ? '<span class="badge text-bg-success">Połączono</span>'
+                : ($provider['configured']
+                    ? '<span class="badge text-bg-secondary">Dostępny</span>'
+                    : '<span class="badge text-bg-dark">Nieskonfigurowany</span>');
+            echo '</td><td class="text-end">';
+
+            if ($provider['linked']) {
+                echo '<form class="d-inline" action="' . $this->escape($unlinkAction) . '" method="post">';
+                $this->csrf_field($csrfToken);
+                echo '<input type="hidden" name="provider" value="' . $this->escape($provider['name']) . '">';
+                echo '<button class="btn btn-sm btn-outline-danger" type="submit">Odłącz</button></form>';
+            } elseif ($provider['configured']) {
+                echo '<a class="btn btn-sm btn-primary" href="index.php?route=/admin/identity/';
+                echo $this->escape(rawurlencode($provider['name'])) . '/link">Połącz</a>';
+            } else {
+                echo '<span class="text-secondary">Brak konfiguracji</span>';
+            }
+            echo '</td></tr>';
+        }
+        echo '</tbody></table></div></section></main></body></html>';
+    }
+
+    public function render_admin_pages(
+        array $pages,
+        array $menuItems,
+        array $user,
+        array $permissions,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $allows = static fn (string $permission): bool => in_array('*', $permissions, true)
+            || in_array($permission, $permissions, true);
+
+        $this->start_admin_page('Strony', $menuItems, '/admin/pages', $user);
+        $this->start_admin_content(
+            'Strony',
+            'Twórz, edytuj i publikuj treści przez moduł core_pages.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strony', 'href' => ''],
+            ],
+            $allows('pages.create')
+                ? ['label' => 'Dodaj stronę', 'href' => 'index.php?route=/admin/pages/create']
+                : null
+        );
+
+        if ($message !== '') {
+            $this->render_alert($message, $variant);
+        }
+
+        $this->start_admin_panel('Lista stron', count($pages) . ' rekordów');
+
+        if ($pages === []) {
+            echo '<div class="state-card border-0"><span class="state-icon" aria-hidden="true">PG</span>';
+            echo '<h2 class="h5">Brak stron</h2><p class="text-secondary mb-0">Utwórz pierwszy szkic, aby rozpocząć.</p></div>';
+        } else {
+            echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
+            echo '<thead><tr><th>Tytuł</th><th>Slug</th><th>Status</th><th>Aktualizacja</th><th class="text-end">Akcje</th></tr></thead><tbody>';
+            foreach ($pages as $page) {
+                echo '<tr><td><strong>' . $this->escape($page['title']) . '</strong></td>';
+                echo '<td><code>' . $this->escape($page['slug']) . '</code></td>';
+                echo '<td><span class="badge ' . ($page['status'] === 'published' ? 'text-bg-success' : 'text-bg-secondary') . '">';
+                echo $page['status'] === 'published' ? 'Opublikowana' : 'Szkic';
+                echo '</span></td><td>' . $this->escape($page['updated_at']) . '</td><td class="text-end">';
+
+                if ($allows('pages.edit')) {
+                    echo '<a class="btn btn-sm btn-outline-light me-1" href="index.php?route=/admin/pages/edit&amp;id=';
+                    echo $this->escape((string) $page['id']) . '">Edytuj</a>';
+                }
+                if ($allows('pages.publish')) {
+                    echo '<form class="d-inline" action="index.php?route=/admin/pages/publish" method="post">';
+                    $this->csrf_field($csrfToken);
+                    echo '<input type="hidden" name="id" value="' . $this->escape((string) $page['id']) . '">';
+                    echo '<input type="hidden" name="action" value="' . ($page['status'] === 'published' ? 'draft' : 'publish') . '">';
+                    echo '<button class="btn btn-sm btn-outline-primary me-1" type="submit">';
+                    echo $page['status'] === 'published' ? 'Cofnij' : 'Publikuj';
+                    echo '</button></form>';
+                }
+                if ($allows('pages.delete')) {
+                    echo '<form class="d-inline" action="index.php?route=/admin/pages/delete" method="post">';
+                    $this->csrf_field($csrfToken);
+                    echo '<input type="hidden" name="id" value="' . $this->escape((string) $page['id']) . '">';
+                    echo '<button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button></form>';
+                }
+                echo '</td></tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+
+        $this->end_admin_panel();
+        $this->end_admin_content();
+        $this->end_admin_page();
+    }
+
+    public function render_admin_page_form(
+        ?array $page,
+        array $menuItems,
+        array $user,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $editing = $page !== null;
+        $title = $editing ? 'Edytuj stronę' : 'Dodaj stronę';
+
+        $this->start_admin_page($title, $menuItems, '/admin/pages', $user);
+        $this->start_admin_content(
+            $title,
+            'Podstawowy formularz treści bez zależności od edytora WYSIWYG.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
+                ['label' => $editing ? 'Edycja' : 'Nowa', 'href' => ''],
+            ]
+        );
+
+        if ($message !== '') {
+            $this->render_alert($message, $variant);
+        }
+
+        $this->start_admin_panel('Dane strony', $editing ? 'ID ' . $page['id'] : 'Nowy szkic');
+        $this->render_form(
+            $editing
+                ? 'index.php?route=/admin/pages/edit'
+                : 'index.php?route=/admin/pages/create',
+            [
+                ...($editing ? [[
+                    'name' => 'id',
+                    'label' => 'ID',
+                    'type' => 'hidden',
+                    'value' => (string) $page['id'],
+                ]] : []),
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $page['title'] ?? ''],
+                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page['slug'] ?? ''],
+                [
+                    'name' => 'content',
+                    'label' => 'Treść',
+                    'type' => 'textarea',
+                    'rows' => 12,
+                    'value' => $page['content'] ?? '',
+                ],
+            ],
+            $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
+            $csrfToken
+        );
+        $this->end_admin_panel();
+        $this->end_admin_content();
+        $this->end_admin_page();
+    }
+
+    public function render_public_page(string $title, string $content, string $publishedAt): void
+    {
+        $this->start_page($title . ' - miniPORTAL', $title);
+        $this->start_header($title, 'Opublikowano: ' . $publishedAt);
+        $this->end_header();
+        $this->start_section();
+        echo '<article class="showcase-card">';
+
+        foreach (preg_split('/\R{2,}/', trim($content)) ?: [] as $paragraph) {
+            echo '<p>' . nl2br($this->escape($paragraph)) . '</p>';
+        }
+
+        echo '<a class="btn btn-outline-light" href="index.php">Wróć do strony głównej</a></article>';
+        $this->end_section();
+        $this->end_page();
+    }
+
+    public function render_page_not_found(string $title, string $message): void
+    {
+        $this->start_page('404 - miniPORTAL', $message);
+        $this->start_header($title, $message);
+        $this->end_header();
+        $this->start_section();
+        $this->render_alert($message, 'warning');
+        $this->render_button('Wróć do strony głównej', 'index.php', 'outline-light');
+        $this->end_section();
+        $this->end_page();
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

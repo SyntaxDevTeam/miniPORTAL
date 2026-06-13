@@ -12,7 +12,7 @@ interface IdentityProviderInterface
 
     public function isConfigured(): bool;
 
-    public function authorizationUrl(string $state, string $codeChallenge): string;
+    public function authorizationUrl(string $state, string $codeChallenge, string $nonce): string;
 
-    public function resolveIdentity(string $code, string $codeVerifier): ExternalIdentity;
+    public function resolveIdentity(string $code, string $codeVerifier, string $nonce): ExternalIdentity;
 }

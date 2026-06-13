@@ -72,6 +72,12 @@ final class FirstAdminBootstrapper
                     'user_id' => $userId,
                     'role_id' => (int) $administratorRole,
                 ]);
+                $database->insert('auth_events', [
+                    'user_id' => $userId,
+                    'provider' => $identity->provider,
+                    'event_type' => 'admin_bootstrap',
+                    'result' => 'success',
+                ]);
             });
 
             if (!is_int($userId) || $userId < 1) {

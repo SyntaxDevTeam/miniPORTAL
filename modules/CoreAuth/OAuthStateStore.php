@@ -12,9 +12,9 @@ final class OAuthStateStore
     private const MAX_AGE = 600;
 
     /**
-     * @return array{state: string, verifier: string, challenge: string}
+     * @return array{state: string, verifier: string, challenge: string, nonce: string}
      */
-    public function issue(string $provider): array
+    public function issue(string $provider, string $purpose = 'login', ?int $userId = null): array
     {
         $this->assertSession();
         $this->prune();
@@ -22,10 +22,14 @@ final class OAuthStateStore
         $state = $this->base64Url(random_bytes(32));
         $verifier = $this->base64Url(random_bytes(64));
         $challenge = $this->base64Url(hash('sha256', $verifier, true));
+        $nonce = $this->base64Url(random_bytes(32));
 
         $_SESSION[self::SESSION_KEY][$state] = [
             'provider' => $provider,
             'verifier' => $verifier,
+            'nonce' => $nonce,
+            'purpose' => $purpose,
+            'user_id' => $userId,
             'created_at' => time(),
         ];
 
@@ -33,10 +37,11 @@ final class OAuthStateStore
             'state' => $state,
             'verifier' => $verifier,
             'challenge' => $challenge,
+            'nonce' => $nonce,
         ];
     }
 
-    public function consume(string $provider, string $state): ?string
+    public function consume(string $provider, string $state): ?OAuthStateContext
     {
         $this->assertSession();
         $this->prune();
@@ -48,8 +53,20 @@ final class OAuthStateStore
         }
 
         $verifier = $entry['verifier'] ?? null;
+        $nonce = $entry['nonce'] ?? null;
+        $purpose = $entry['purpose'] ?? null;
+        $userId = $entry['user_id'] ?? null;
 
-        return is_string($verifier) && $verifier !== '' ? $verifier : null;
+        if (!is_string($verifier) || $verifier === '' || !is_string($nonce) || !is_string($purpose)) {
+            return null;
+        }
+
+        return new OAuthStateContext(
+            $verifier,
+            $nonce,
+            $purpose,
+            is_int($userId) ? $userId : null
+        );
     }
 
     private function prune(): void

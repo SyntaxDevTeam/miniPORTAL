@@ -186,13 +186,16 @@ Stan implementacji:
 - `IdentityProviderRegistry` udostępnia wspólny kontrakt adapterów,
 - adapter GitHub realizuje Authorization Code, `state`, PKCE i mapowanie profilu,
 - adapter Discord realizuje Authorization Code, `state` i zakresy `identify email`,
+- adapter Google realizuje OIDC z `nonce`, PKCE i walidacją podpisanego ID tokenu,
 - `FirstAdminBootstrapper` atomowo tworzy pierwsze konto wyłącznie w pustej bazie,
+- profil pozwala łączyć i odłączać providerów bez automatycznego scalania po e-mailu,
+- `AuditLogService` zapisuje logowania, wylogowania, callbacki, ACL i zmiany tożsamości,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
 
 Migrację `modules/CoreAuth/install.sql` wykonano i zweryfikowano na skonfigurowanej
-bazie. GitHub jest skonfigurowany w środowisku. Pełny test Discord wymaga
-rejestracji aplikacji i uzupełnienia `DISCORD_CLIENT_ID` oraz
-`DISCORD_CLIENT_SECRET`.
+bazie. GitHub i Discord są skonfigurowane w środowisku. Pełny test Google wymaga
+rejestracji klienta i uzupełnienia `GOOGLE_CLIENT_ID` oraz `GOOGLE_CLIENT_SECRET`.
+Pierwszy aktywny administrator z tożsamością GitHub istnieje już w bazie.
 
 ### 5.4 Szkielet panelu administracyjnego
 
@@ -210,6 +213,15 @@ rejestracji aplikacji i uzupełnienia `DISCORD_CLIENT_ID` oraz
 3. WYSIWYG dopiero po działającym formularzu podstawowym.
 4. Walidacja przez `Request`, CSRF przez `Security`, dane przez `CrudApp`.
 5. Uprawnienia granularne `pages.*`.
+
+Stan implementacji:
+
+- tabela `core_pages` zawiera slug, status, autora i datę publikacji,
+- `PageRepository` wykonuje operacje przez fasadę `CrudApp`,
+- panel obsługuje tworzenie, edycję, publikację, cofnięcie publikacji i usuwanie,
+- każda trasa wymaga osobnego uprawnienia `pages.*` oraz poprawnego CSRF,
+- publiczna trasa `/page?slug=...` pokazuje tylko opublikowane rekordy,
+- treść tekstowa jest kodowana przed HTML; WYSIWYG pozostaje kolejnym etapem.
 
 ### 5.6 Moduł `articles`
 

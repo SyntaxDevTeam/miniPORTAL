@@ -52,6 +52,7 @@ return [
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
         'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),
+        'audit_hash_key' => (string) $env('AUTH_AUDIT_HASH_KEY', ''),
         'providers' => [
             'github' => [
                 'client_id' => (string) $env('GITHUB_CLIENT_ID', ''),
@@ -67,6 +68,14 @@ return [
                 'callback_url' => (string) $env(
                     'DISCORD_CALLBACK_URL',
                     'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback'
+                ),
+            ],
+            'google' => [
+                'client_id' => (string) $env('GOOGLE_CLIENT_ID', ''),
+                'client_secret' => (string) $env('GOOGLE_CLIENT_SECRET', ''),
+                'callback_url' => (string) $env(
+                    'GOOGLE_CALLBACK_URL',
+                    'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback'
                 ),
             ],
         ],

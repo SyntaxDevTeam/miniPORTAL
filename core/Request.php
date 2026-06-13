@@ -49,6 +49,19 @@ final class Request
         return $this->stringValue($this->query, $key, $default);
     }
 
+    public function queryInt(string $key, ?int $default = null): ?int
+    {
+        $value = $this->query[$key] ?? null;
+
+        if (!is_scalar($value)) {
+            return $default;
+        }
+
+        $filtered = filter_var($value, FILTER_VALIDATE_INT);
+
+        return $filtered === false ? $default : $filtered;
+    }
+
     public function postString(string $key, string $default = ''): string
     {
         return $this->stringValue($this->post, $key, $default);
@@ -77,6 +90,16 @@ final class Request
         $https = strtolower($this->stringValue($this->server, 'HTTPS'));
 
         return $https === 'on' || $https === '1' || $this->stringValue($this->server, 'SERVER_PORT') === '443';
+    }
+
+    public function clientIp(): string
+    {
+        return $this->stringValue($this->server, 'REMOTE_ADDR');
+    }
+
+    public function userAgent(): string
+    {
+        return substr($this->stringValue($this->server, 'HTTP_USER_AGENT'), 0, 512);
     }
 
     private static function resolvePath(array $query, array $server): string
