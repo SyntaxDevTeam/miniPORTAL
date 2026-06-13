@@ -181,7 +181,9 @@ repozytorium użytkowników, `AuthService`, `AuthorizationService` oraz
 a dostęp produkcyjny do danych przechodzi przez `CrudAppUserRepository`. Dostawcy
 tożsamości implementują `IdentityProviderInterface` i są rejestrowani przez
 `IdentityProviderRegistry`; pierwszą implementacją jest adapter GitHub z ochroną
-`state` i PKCE.
+`state` i PKCE. Adapter Discord używa Authorization Code oraz zakresów
+`identify email`. Pierwszy administrator jest tworzony kontrolowaną komendą CLI,
+która zapisuje stały identyfikator dostawcy zamiast łączyć konto po e-mailu.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron

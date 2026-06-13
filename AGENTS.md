@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - wykonano migrację `CoreAuth` i dodano adapter GitHub OAuth.
+> **Ostatnia aktualizacja:** 2026-06-13 - dodano bootstrap pierwszego administratora i adapter Discord OAuth.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -94,10 +94,10 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `AuthService`, ACL i ochrona tras `/admin/*` |
 | [x] | Wykonanie migracji `CoreAuth/install.sql` na skonfigurowanej bazie |
 | [x] | Adapter GitHub OAuth |
-| [ ] | Adapter Discord OAuth |
+| [x] | Adapter Discord OAuth |
 | [ ] | Adapter Google OpenID Connect |
 | [ ] | Łączenie wielu tożsamości z jednym kontem |
-| [ ] | Bootstrap pierwszego administratora |
+| [x] | Bootstrap pierwszego administratora |
 | [ ] | Audit log logowań i operacji administracyjnych |
 
 ### Krok 5C - moduły treści
@@ -124,9 +124,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Zarejestrować aplikację GitHub i uzupełnić `GITHUB_CLIENT_ID` oraz `GITHUB_CLIENT_SECRET`.
-2. Przygotować bootstrap pierwszego administratora.
-3. Zaimplementować adapter Discord OAuth.
+1. Uruchomić kontrolowany bootstrap dla właściwego loginu GitHub.
+2. Zarejestrować aplikację Discord i uzupełnić `DISCORD_CLIENT_ID` oraz `DISCORD_CLIENT_SECRET`.
+3. Zaimplementować adapter Google OpenID Connect.
 
 ## Uwagi / blokery
 
@@ -134,7 +134,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | Adapter GitHub jest zaimplementowany, ale w środowisku nie ma jeszcze `GITHUB_CLIENT_ID` ani `GITHUB_CLIENT_SECRET`. | Zarejestrować GitHub App lub OAuth App z callbackiem opisanym w `docs/CONFIGURATION.md` i uzupełnić sekrety poza repozytorium. |
+| 2026-06-13 | Tabela `users` jest pusta; mechanizm bootstrapu jest gotowy, ale właściwy login GitHub nie może być bezpiecznie odgadnięty. | Uruchomić `bin/bootstrap-admin.php` dla potwierdzonego loginu zgodnie z `docs/CONFIGURATION.md`. |
+| 2026-06-13 | Adapter Discord jest gotowy, ale `DISCORD_CLIENT_ID` i `DISCORD_CLIENT_SECRET` nie są jeszcze ustawione. | Zarejestrować aplikację i callback Discord, a sekrety zapisać poza repozytorium. |
 | 2026-06-12 | Stary katalog `theme/` nadal istnieje obok docelowego `templates/`. | Po potwierdzeniu migracji potrzebnych zasobów usunąć stary katalog w osobnym, kontrolowanym zadaniu. |
 
 ### Uwagi architektoniczne
@@ -151,6 +152,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Repozytorium pamięciowe i konta demonstracyjne są dostępne wyłącznie po jawnym ustawieniu `AUTH_DEMO_ENABLED=1`; domyślnie logowanie demonstracyjne jest wyłączone. |
 | 2026-06-13 | `/etc/miniportal/miniportal.env` jest czytelny dla `www-data`, sterownik `pdo_mysql` działa, a migracja `CoreAuth` została wykonana na bazie. |
 | 2026-06-13 | Adapter GitHub używa Authorization Code, jednorazowego `state` i PKCE `S256`; token dostawcy nie jest zapisywany. |
+| 2026-06-13 | Konfiguracja GitHub jest aktywna; publiczny panel generuje poprawne przekierowanie OAuth. |
+| 2026-06-13 | Bootstrap administratora korzysta z numerycznego GitHub `subject`, transakcji i blokady bazodanowej; nie łączy kont po e-mailu. |
+| 2026-06-13 | Adapter Discord korzysta z Authorization Code, `state` i minimalnych zakresów `identify email`. |
 
 ## Historia sesji
 
@@ -306,3 +310,20 @@ i kontrakt adapterów GitHub, Discord oraz Google.
 Pełny test z GitHub wymaga zewnętrznej rejestracji aplikacji i sekretów.
 
 **Następne kroki:** bootstrap pierwszego administratora oraz adapter Discord.
+
+### Sesja: 2026-06-13 - bootstrap administratora i Discord
+
+**Wykonano:**
+- potwierdzono aktywną konfigurację i przekierowanie GitHub OAuth,
+- dodano `FirstAdminBootstrapper` z transakcją i blokadą bazodanową,
+- dodano komendę `bin/bootstrap-admin.php` oraz bezpieczny tryb `--dry-run`,
+- bootstrap rozwiązuje login GitHub do niezmiennego numerycznego `subject`,
+- dodano adapter Discord Authorization Code z walidacją `state`,
+- podłączono Discord do wspólnego rejestru providerów i widoku logowania,
+- potwierdzono, że nieskonfigurowany Discord pozostaje niewidoczny i zwraca 503.
+
+**Zaktualizowano status:** mechanizm bootstrapu i adapter Discord są ukończone.
+Operacyjne utworzenie administratora wymaga potwierdzonego loginu GitHub, a pełny
+test Discord wymaga zewnętrznych danych aplikacji.
+
+**Następne kroki:** utworzenie pierwszego konta administratora i adapter Google OIDC.

@@ -12,6 +12,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\DiscordIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\GitHubIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
@@ -49,12 +50,20 @@ $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
 $providerConfig = is_array($authConfig['providers'] ?? null) ? $authConfig['providers'] : [];
 $githubConfig = is_array($providerConfig['github'] ?? null) ? $providerConfig['github'] : [];
+$discordConfig = is_array($providerConfig['discord'] ?? null) ? $providerConfig['discord'] : [];
 $providers = new IdentityProviderRegistry();
+$httpClient = new NativeHttpClient();
 $providers->add(new GitHubIdentityProvider(
-    new NativeHttpClient(),
+    $httpClient,
     (string) ($githubConfig['client_id'] ?? ''),
     (string) ($githubConfig['client_secret'] ?? ''),
     (string) ($githubConfig['callback_url'] ?? '')
+));
+$providers->add(new DiscordIdentityProvider(
+    $httpClient,
+    (string) ($discordConfig['client_id'] ?? ''),
+    (string) ($discordConfig['client_secret'] ?? ''),
+    (string) ($discordConfig['callback_url'] ?? '')
 ));
 $coreAuthModule = new CoreAuthModule(
     $theme,

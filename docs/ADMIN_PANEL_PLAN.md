@@ -185,11 +185,14 @@ Stan implementacji:
 - logowanie i wylogowanie wymagają CSRF, a identyfikator sesji jest rotowany,
 - `IdentityProviderRegistry` udostępnia wspólny kontrakt adapterów,
 - adapter GitHub realizuje Authorization Code, `state`, PKCE i mapowanie profilu,
+- adapter Discord realizuje Authorization Code, `state` i zakresy `identify email`,
+- `FirstAdminBootstrapper` atomowo tworzy pierwsze konto wyłącznie w pustej bazie,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
 
 Migrację `modules/CoreAuth/install.sql` wykonano i zweryfikowano na skonfigurowanej
-bazie. Pełny test GitHub z rzeczywistym callbackiem wymaga rejestracji aplikacji
-i uzupełnienia `GITHUB_CLIENT_ID` oraz `GITHUB_CLIENT_SECRET`.
+bazie. GitHub jest skonfigurowany w środowisku. Pełny test Discord wymaga
+rejestracji aplikacji i uzupełnienia `DISCORD_CLIENT_ID` oraz
+`DISCORD_CLIENT_SECRET`.
 
 ### 5.4 Szkielet panelu administracyjnego
 

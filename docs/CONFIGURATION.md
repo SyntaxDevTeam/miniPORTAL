@@ -54,6 +54,9 @@ AUTH_DEMO_ENABLED=false
 GITHUB_CLIENT_ID=""
 GITHUB_CLIENT_SECRET=""
 GITHUB_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback"
+DISCORD_CLIENT_ID=""
+DISCORD_CLIENT_SECRET=""
+DISCORD_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback"
 
 DB_ENABLED=true
 DB_DRIVER="mysql"
@@ -113,6 +116,9 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `GITHUB_CLIENT_ID` | Client ID zarejestrowanej GitHub App albo OAuth App |
 | `GITHUB_CLIENT_SECRET` | Sekret aplikacji GitHub, przechowywany wyłącznie poza repozytorium |
 | `GITHUB_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback` |
+| `DISCORD_CLIENT_ID` | Client ID aplikacji z Discord Developer Portal |
+| `DISCORD_CLIENT_SECRET` | Sekret aplikacji Discord, przechowywany poza repozytorium |
+| `DISCORD_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback` |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |
@@ -152,3 +158,34 @@ https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback
 Po otrzymaniu Client ID i sekretu uzupełnij `GITHUB_CLIENT_ID` oraz
 `GITHUB_CLIENT_SECRET` w `/etc/miniportal/miniportal.env`, a następnie przeładuj
 Apache. Bez obu wartości przycisk GitHub pozostaje niewidoczny.
+
+## Bootstrap pierwszego administratora
+
+Mechanizm działa wyłącznie, gdy tabela `users` jest pusta. Najpierw sprawdź,
+jakie konto i niezmienny identyfikator GitHub zostaną użyte:
+
+```bash
+sudo -u www-data php bin/bootstrap-admin.php --dry-run LOGIN_GITHUB
+```
+
+Jeśli dane są poprawne, wykonaj operację bez `--dry-run`:
+
+```bash
+sudo -u www-data php bin/bootstrap-admin.php LOGIN_GITHUB
+```
+
+Komenda pobiera numeryczny GitHub `subject`, a następnie w jednej transakcji tworzy
+aktywnego użytkownika, tożsamość GitHub i przypisanie roli `administrator`.
+Ponowne uruchomienie po utworzeniu konta jest blokowane.
+
+## Konfiguracja Discord
+
+W Discord Developer Portal zarejestruj dokładny redirect:
+
+```text
+https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback
+```
+
+Następnie ustaw `DISCORD_CLIENT_ID` i `DISCORD_CLIENT_SECRET`. Adapter prosi
+wyłącznie o zakresy `identify email`, waliduje jednorazowy `state` i nie zapisuje
+tokenów dostawcy.

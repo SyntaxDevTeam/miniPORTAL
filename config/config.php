@@ -61,6 +61,14 @@ return [
                     'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback'
                 ),
             ],
+            'discord' => [
+                'client_id' => (string) $env('DISCORD_CLIENT_ID', ''),
+                'client_secret' => (string) $env('DISCORD_CLIENT_SECRET', ''),
+                'callback_url' => (string) $env(
+                    'DISCORD_CALLBACK_URL',
+                    'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback'
+                ),
+            ],
         ],
     ],
     'database' => [
