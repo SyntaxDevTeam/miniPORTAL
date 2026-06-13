@@ -12,7 +12,11 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\GitHubIdentityProvider;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
@@ -43,7 +47,23 @@ $userRepository = match ($authStorage) {
 $auth = new AuthService($userRepository, $security);
 $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
-$coreAuthModule = new CoreAuthModule($theme, $security, $auth, $authDemoEnabled);
+$providerConfig = is_array($authConfig['providers'] ?? null) ? $authConfig['providers'] : [];
+$githubConfig = is_array($providerConfig['github'] ?? null) ? $providerConfig['github'] : [];
+$providers = new IdentityProviderRegistry();
+$providers->add(new GitHubIdentityProvider(
+    new NativeHttpClient(),
+    (string) ($githubConfig['client_id'] ?? ''),
+    (string) ($githubConfig['client_secret'] ?? ''),
+    (string) ($githubConfig['callback_url'] ?? '')
+));
+$coreAuthModule = new CoreAuthModule(
+    $theme,
+    $security,
+    $auth,
+    $providers,
+    new OAuthStateStore(),
+    $authDemoEnabled
+);
 $coreAuthModule->registerRoutes($router);
 $demoAdminModule = new DemoAdminModule(
     $theme,

@@ -51,6 +51,9 @@ SESSION_SAME_SITE="Lax"
 
 AUTH_STORAGE="database"
 AUTH_DEMO_ENABLED=false
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+GITHUB_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback"
 
 DB_ENABLED=true
 DB_DRIVER="mysql"
@@ -107,6 +110,9 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
 | `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |
 | `AUTH_DEMO_ENABLED` | Włącza lokalne konta demonstracyjne; na serwerze publicznym zawsze `false` |
+| `GITHUB_CLIENT_ID` | Client ID zarejestrowanej GitHub App albo OAuth App |
+| `GITHUB_CLIENT_SECRET` | Sekret aplikacji GitHub, przechowywany wyłącznie poza repozytorium |
+| `GITHUB_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback` |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |
@@ -133,3 +139,16 @@ AUTH_STORAGE=memory AUTH_DEMO_ENABLED=1 php -S 127.0.0.1:8765
 
 Tryb ten udostępnia testowe role administratora i redaktora. Nie wolno włączać go
 w środowisku publicznym.
+
+## Konfiguracja GitHub
+
+Adapter GitHub korzysta z Authorization Code, jednorazowego `state` i PKCE `S256`.
+W ustawieniach GitHub App lub OAuth App wpisz dokładnie:
+
+```text
+https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback
+```
+
+Po otrzymaniu Client ID i sekretu uzupełnij `GITHUB_CLIENT_ID` oraz
+`GITHUB_CLIENT_SECRET` w `/etc/miniportal/miniportal.env`, a następnie przeładuj
+Apache. Bez obu wartości przycisk GitHub pozostaje niewidoczny.

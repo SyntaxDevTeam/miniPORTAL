@@ -362,9 +362,9 @@ final class Theme implements ThemeInterface
         echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
         echo '<a class="admin-brand text-decoration-none" href="index.php">';
         echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
-        echo '<p class="showcase-label mt-5 mb-2">Demonstracja ACL</p>';
-        echo '<h1 class="h2 fw-bold">Wybierz lokalną tożsamość testową</h1>';
-        echo '<p class="text-secondary">To nie jest logowanie produkcyjne. Adaptery OAuth zostaną podłączone w kolejnych zadaniach.</p>';
+        echo '<p class="showcase-label mt-5 mb-2">Bezpieczny dostęp</p>';
+        echo '<h1 class="h2 fw-bold">Zaloguj się do panelu</h1>';
+        echo '<p class="text-secondary">Konto i uprawnienia pozostają lokalne, niezależnie od wybranego dostawcy tożsamości.</p>';
 
         if ($message !== '') {
             $allowedVariants = ['success', 'danger', 'warning', 'info'];
@@ -374,12 +374,23 @@ final class Theme implements ThemeInterface
 
         echo '<div class="provider-list">';
         foreach ($identities as $identity) {
+            $icon = strtoupper(substr($identity['provider'], 0, 2));
+
+            if (($identity['href'] ?? '') !== '') {
+                echo '<a class="provider-button text-decoration-none" href="' . $this->escape($identity['href']) . '">';
+                echo '<span class="provider-icon provider-icon-github" aria-hidden="true">' . $this->escape($icon) . '</span>';
+                echo '<span><strong class="d-block">' . $this->escape($identity['label']) . '</strong>';
+                echo '<small class="text-secondary">' . $this->escape($identity['description']) . '</small></span>';
+                echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></a>';
+                continue;
+            }
+
             echo '<form action="' . $this->escape($action) . '" method="post">';
             $this->csrf_field($csrfToken);
             echo '<input type="hidden" name="provider" value="' . $this->escape($identity['provider']) . '">';
             echo '<input type="hidden" name="subject" value="' . $this->escape($identity['subject']) . '">';
             echo '<button class="provider-button" type="submit"><span class="provider-icon provider-icon-github" aria-hidden="true">';
-            echo $this->escape(strtoupper(substr($identity['subject'], 0, 2))) . '</span>';
+            echo $this->escape($icon) . '</span>';
             echo '<span><strong class="d-block">' . $this->escape($identity['label']) . '</strong>';
             echo '<small class="text-secondary">' . $this->escape($identity['description']) . '</small></span>';
             echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></button></form>';
@@ -389,8 +400,8 @@ final class Theme implements ThemeInterface
             echo '<h2 class="h5">Brak aktywnych dostawców</h2>';
             echo '<p class="text-secondary mb-0">Skonfiguruj adapter OAuth albo świadomie włącz tryb demonstracyjny.</p></div>';
         }
-        echo '</div><div class="security-note mt-4"><span aria-hidden="true">[DEV]</span>';
-        echo '<span>Sesja jest rotowana po logowaniu, a każdy formularz wymaga poprawnego tokenu CSRF.</span></div>';
+        echo '</div><div class="security-note mt-4"><span aria-hidden="true">[SEC]</span>';
+        echo '<span>Przepływy zewnętrzne używają state i PKCE, a sesja jest rotowana po zalogowaniu.</span></div>';
         echo '</section></div></div></main></body></html>';
     }
 

@@ -112,7 +112,8 @@ interface ThemeInterface
      *     provider: string,
      *     subject: string,
      *     label: string,
-     *     description: string
+     *     description: string,
+     *     href?: string
      * }> $identities
      */
     public function render_admin_login(

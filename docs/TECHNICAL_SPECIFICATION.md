@@ -178,7 +178,10 @@ Szczegółowy plan znajduje się w `docs/ADMIN_PANEL_PLAN.md`.
 Aktualny kontrakt `CoreAuth` składa się z modeli `User` i `ExternalIdentity`,
 repozytorium użytkowników, `AuthService`, `AuthorizationService` oraz
 `AdminAccessGate`. Schemat SQL znajduje się w `modules/CoreAuth/install.sql`,
-a dostęp produkcyjny do danych przechodzi przez `CrudAppUserRepository`.
+a dostęp produkcyjny do danych przechodzi przez `CrudAppUserRepository`. Dostawcy
+tożsamości implementują `IdentityProviderInterface` i są rejestrowani przez
+`IdentityProviderRegistry`; pierwszą implementacją jest adapter GitHub z ochroną
+`state` i PKCE.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron

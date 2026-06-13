@@ -52,6 +52,16 @@ return [
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
         'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),
+        'providers' => [
+            'github' => [
+                'client_id' => (string) $env('GITHUB_CLIENT_ID', ''),
+                'client_secret' => (string) $env('GITHUB_CLIENT_SECRET', ''),
+                'callback_url' => (string) $env(
+                    'GITHUB_CALLBACK_URL',
+                    'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback'
+                ),
+            ],
+        ],
     ],
     'database' => [
         'enabled' => $envBool('DB_ENABLED', $databaseName !== '' && $databaseUser !== ''),

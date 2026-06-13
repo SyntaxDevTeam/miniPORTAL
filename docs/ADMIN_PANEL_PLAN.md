@@ -183,11 +183,13 @@ Stan implementacji:
 - `CrudAppUserRepository` odczytuje konto, role i uprawnienia przez fasadę `CrudApp`,
 - `AuthService`, `AuthorizationService` i `AdminAccessGate` chronią trasy `/admin/*`,
 - logowanie i wylogowanie wymagają CSRF, a identyfikator sesji jest rotowany,
+- `IdentityProviderRegistry` udostępnia wspólny kontrakt adapterów,
+- adapter GitHub realizuje Authorization Code, `state`, PKCE i mapowanie profilu,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
 
-Migracja nie została jeszcze wykonana na rzeczywistej bazie. Wymaga to konfiguracji
-`DB_*`, ustawienia `AUTH_STORAGE=database` i kontrolowanego uruchomienia
-`modules/CoreAuth/install.sql`.
+Migrację `modules/CoreAuth/install.sql` wykonano i zweryfikowano na skonfigurowanej
+bazie. Pełny test GitHub z rzeczywistym callbackiem wymaga rejestracji aplikacji
+i uzupełnienia `GITHUB_CLIENT_ID` oraz `GITHUB_CLIENT_SECRET`.
 
 ### 5.4 Szkielet panelu administracyjnego
 

@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - dodano model `core_auth`, lokalne ACL i ochronę tras `/admin/*`.
+> **Ostatnia aktualizacja:** 2026-06-13 - wykonano migrację `CoreAuth` i dodano adapter GitHub OAuth.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -92,8 +92,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `ModuleInterface` i `AdminMenuRegistry` |
 | [x] | Model `users`, `user_identities`, ról i uprawnień |
 | [x] | `AuthService`, ACL i ochrona tras `/admin/*` |
-| [ ] | Wykonanie migracji `CoreAuth/install.sql` na skonfigurowanej bazie |
-| [ ] | Adapter GitHub OAuth |
+| [x] | Wykonanie migracji `CoreAuth/install.sql` na skonfigurowanej bazie |
+| [x] | Adapter GitHub OAuth |
 | [ ] | Adapter Discord OAuth |
 | [ ] | Adapter Google OpenID Connect |
 | [ ] | Łączenie wielu tożsamości z jednym kontem |
@@ -124,9 +124,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Skonfigurować produkcyjny plik środowiskowy i bazę danych.
-2. Wykonać oraz zweryfikować migrację `modules/CoreAuth/install.sql`.
-3. Przygotować bootstrap pierwszego administratora i kontrakt adapterów tożsamości.
+1. Zarejestrować aplikację GitHub i uzupełnić `GITHUB_CLIENT_ID` oraz `GITHUB_CLIENT_SECRET`.
+2. Przygotować bootstrap pierwszego administratora.
+3. Zaimplementować adapter Discord OAuth.
 
 ## Uwagi / blokery
 
@@ -134,8 +134,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | Plik `/etc/miniportal/miniportal.env` nie jest obecnie dostępny dla aplikacji. | Utworzyć plik według `docs/CONFIGURATION.md` i nadać grupie `www-data` prawo odczytu. |
-| 2026-06-13 | Baza danych jest wyłączona (`DB_ENABLED=false`), więc migracja `CoreAuth/install.sql` i repozytorium `CrudAppUserRepository` nie zostały sprawdzone na rzeczywistych tabelach. | Skonfigurować `DB_*`, utworzyć bazę, wykonać migrację i ustawić `AUTH_STORAGE=database`. |
+| 2026-06-13 | Adapter GitHub jest zaimplementowany, ale w środowisku nie ma jeszcze `GITHUB_CLIENT_ID` ani `GITHUB_CLIENT_SECRET`. | Zarejestrować GitHub App lub OAuth App z callbackiem opisanym w `docs/CONFIGURATION.md` i uzupełnić sekrety poza repozytorium. |
 | 2026-06-12 | Stary katalog `theme/` nadal istnieje obok docelowego `templates/`. | Po potwierdzeniu migracji potrzebnych zasobów usunąć stary katalog w osobnym, kontrolowanym zadaniu. |
 
 ### Uwagi architektoniczne
@@ -150,6 +149,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-12 | Dla GitHub przed implementacją trzeba wybrać GitHub App albo OAuth App; GitHub rekomenduje GitHub App dla nowych integracji. |
 | 2026-06-12 | Implementacja adapterów wymaga rejestracji aplikacji i callbacków u GitHub, Discord i Google; nie blokuje to statycznego prototypu panelu. |
 | 2026-06-13 | Repozytorium pamięciowe i konta demonstracyjne są dostępne wyłącznie po jawnym ustawieniu `AUTH_DEMO_ENABLED=1`; domyślnie logowanie demonstracyjne jest wyłączone. |
+| 2026-06-13 | `/etc/miniportal/miniportal.env` jest czytelny dla `www-data`, sterownik `pdo_mysql` działa, a migracja `CoreAuth` została wykonana na bazie. |
+| 2026-06-13 | Adapter GitHub używa Authorization Code, jednorazowego `state` i PKCE `S256`; token dostawcy nie jest zapisywany. |
 
 ## Historia sesji
 
@@ -288,3 +289,20 @@ na rzeczywistej bazie pozostaje zablokowane przez brak konfiguracji DB.
 
 **Następne kroki:** uruchomienie migracji, bootstrap pierwszego administratora
 i kontrakt adapterów GitHub, Discord oraz Google.
+
+### Sesja: 2026-06-13 - migracja i adapter GitHub
+
+**Wykonano:**
+- potwierdzono odczyt `/etc/miniportal/miniportal.env` przez `www-data`,
+- potwierdzono połączenie MySQL przez `CrudApp` i sterownik `pdo_mysql`,
+- wykonano migrację `modules/CoreAuth/install.sql`,
+- zweryfikowano siedem tabel, role, uprawnienia i indeks tożsamości,
+- dodano `IdentityProviderInterface`, rejestr dostawców i magazyn OAuth,
+- zaimplementowano adapter GitHub z Authorization Code, `state` i PKCE,
+- podłączono trasy startu i callbacku do `CoreAuthModule`,
+- sprawdzono publiczny widok logowania przez HTTPS.
+
+**Zaktualizowano status:** migracja i implementacja adaptera GitHub są ukończone.
+Pełny test z GitHub wymaga zewnętrznej rejestracji aplikacji i sekretów.
+
+**Następne kroki:** bootstrap pierwszego administratora oraz adapter Discord.
