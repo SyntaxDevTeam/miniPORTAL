@@ -52,6 +52,9 @@ SESSION_SAME_SITE="Lax"
 AUTH_STORAGE="database"
 AUTH_DEMO_ENABLED=false
 AUTH_AUDIT_HASH_KEY="wstaw_tutaj_losowy_sekret_minimum_32_znaki"
+AUTH_OAUTH_WINDOW_SECONDS=600
+AUTH_OAUTH_START_LIMIT=10
+AUTH_OAUTH_CALLBACK_LIMIT=20
 GITHUB_CLIENT_ID=""
 GITHUB_CLIENT_SECRET=""
 GITHUB_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback"
@@ -118,6 +121,9 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |
 | `AUTH_DEMO_ENABLED` | Włącza lokalne konta demonstracyjne; na serwerze publicznym zawsze `false` |
 | `AUTH_AUDIT_HASH_KEY` | Sekret HMAC do pseudonimizacji adresów IP w `auth_events`; minimum 32 losowe znaki |
+| `AUTH_OAUTH_WINDOW_SECONDS` | Okno sesyjnego limitera prób OAuth; minimum 60 sekund |
+| `AUTH_OAUTH_START_LIMIT` | Maksymalna liczba rozpoczęć OAuth na provider i sesję w jednym oknie |
+| `AUTH_OAUTH_CALLBACK_LIMIT` | Maksymalna liczba callbacków OAuth na provider i sesję w jednym oknie |
 | `GITHUB_CLIENT_ID` | Client ID zarejestrowanej GitHub App albo OAuth App |
 | `GITHUB_CLIENT_SECRET` | Sekret aplikacji GitHub, przechowywany wyłącznie poza repozytorium |
 | `GITHUB_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback` |
@@ -230,3 +236,19 @@ https://new.syntaxdevteam.pl/index.php?route=/admin/identities
 Nowy provider jest dołączany wyłącznie w aktywnej sesji tego samego użytkownika.
 System nie łączy kont na podstawie e-maila i nie pozwala odłączyć ostatniej
 tożsamości umożliwiającej logowanie.
+
+## Ochrona publicznego katalogu i logów
+
+Główny `.htaccess` blokuje bezpośredni dostęp HTTP do `.git`, kodu Core, modułów,
+migracji SQL, dokumentacji technicznej, konfiguracji, cache i plików motywu PHP.
+Publiczne pozostają `index.php`, statyczne prototypy HTML oraz assety motywu.
+
+Callbacki OAuth zawierają jednorazowy parametr `code`, dlatego oba VirtualHosty
+muszą pomijać je w access logu:
+
+```apache
+SetEnvIfExpr "%{QUERY_STRING} =~ m#route=(?:%2[Ff]|/)admin(?:%2[Ff]|/)auth(?:%2[Ff]|/)[^&]+(?:%2[Ff]|/)callback#" oauth_callback
+CustomLog ${APACHE_LOG_DIR}/new.syntaxdevteam.pl_access.log combined env=!oauth_callback
+```
+
+Po zmianie zawsze wykonaj `sudo apache2ctl configtest` przed przeładowaniem usługi.

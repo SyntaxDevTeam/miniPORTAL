@@ -155,8 +155,10 @@ Rejestracja dostawców nie jest potrzebna do wykonania statycznego prototypu pan
 Stan implementacji:
 
 - `ThemeInterface` udostępnia układ panelu, breadcrumb, metryki, panele i tabelę,
+- ogólna tabela akcji obsługuje linki i formularze POST z CSRF bez znajomości modułu,
 - `AdminMenuRegistry` filtruje pozycje według uprawnień i odrzuca duplikaty tras,
 - `ModuleInterface` deklaruje identyfikator, wymagane uprawnienia, menu i trasy,
+- `ModuleRegistry` uruchamia rejestrację menu i tras wszystkich aktywnych modułów,
 - `DemoAdminModule` potwierdza separację modułu od HTML na chronionych trasach `/admin/*`,
 - układ panelu pokazuje menu przefiltrowane według uprawnień bieżącego użytkownika.
 - sekcja `/admin/design-system` łączy działający panel ze statycznym stylebookiem,
@@ -192,12 +194,12 @@ Stan implementacji:
 - `FirstAdminBootstrapper` atomowo tworzy pierwsze konto wyłącznie w pustej bazie,
 - profil pozwala łączyć i odłączać providerów bez automatycznego scalania po e-mailu,
 - `AuditLogService` zapisuje logowania, wylogowania, callbacki, ACL i zmiany tożsamości,
+- sesyjny limiter ogranicza rozpoczęcia i callbacki osobno dla każdego providera,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
 
 Migrację `modules/CoreAuth/install.sql` wykonano i zweryfikowano na skonfigurowanej
-bazie. GitHub i Discord są skonfigurowane w środowisku. Pełny test Google wymaga
-rejestracji klienta i uzupełnienia `GOOGLE_CLIENT_ID` oraz `GOOGLE_CLIENT_SECRET`.
-Pierwszy aktywny administrator z tożsamością GitHub istnieje już w bazie.
+bazie. GitHub, Discord i Google są skonfigurowane i zostały sprawdzone w pełnym
+przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsamości.
 
 ### 5.4 Szkielet panelu administracyjnego
 
@@ -260,3 +262,8 @@ Panel można uznać za gotowy do rozbudowy, gdy:
 - `core_pages` wykonuje pełny CRUD przez `CrudApp`,
 - zdarzenia logowania i działania administracyjne trafiają do audit logu,
 - testy obejmują CSRF, `state`, replay callbacku, 403 i blokadę konta.
+
+Runner `php tests/run.php` obejmuje normalizację `Request`, CSRF, związanie `state`
+z providerem, replay, limiter OAuth, brak uprawnienia i zablokowane konto. Pełne
+testy integracyjne callbacków zewnętrznych pozostają testami operacyjnymi, ponieważ
+wymagają interakcji z kontami dostawców.

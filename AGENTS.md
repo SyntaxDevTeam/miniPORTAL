@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - spięto dynamiczną stronę główną, panel i źródła wizualne Outside-In.
+> **Ostatnia aktualizacja:** 2026-06-13 - audyt zgodności, ochrona wdrożenia i korekta kontraktów modułów.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -99,6 +99,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Łączenie wielu tożsamości z jednym kontem |
 | [x] | Bootstrap pierwszego administratora |
 | [x] | Audit log logowań i operacji administracyjnych |
+| [x] | Sesyjny limiter rozpoczęć i callbacków OAuth |
+| [x] | Testy CSRF, `state`, replay, ACL i blokady konta |
 
 ### Krok 5C - moduły treści
 
@@ -114,6 +116,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | Status | Zadanie |
 |--------|---------|
 | [ ] | Stabilny `ModuleInterface` na podstawie działających modułów |
+| [x] | Startowy `ModuleRegistry` jako jeden punkt uruchamiania modułów |
 | [ ] | Walidacja `info.json`, zależności i zgodności wersji |
 | [ ] | Instalator SQL i migracje |
 | [ ] | Rejestr `modules_config` |
@@ -124,9 +127,10 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Dodać WYSIWYG po działającym formularzu podstawowym `core_pages`.
-2. Przygotować `articles` jako niezależny moduł z własnymi trasami i menu.
-3. Ustalić kontrakt wersjonowania treści i planowania publikacji.
+1. Przygotować `articles` jako drugi rzeczywisty moduł korzystający wyłącznie z ogólnych komponentów Theme.
+2. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz metadane `info.json`.
+3. Zastąpić demonstracyjne sekcje użytkowników i modułów rzeczywistymi modułami lub ukryć je do czasu implementacji.
+4. Dopiero potem dodać WYSIWYG oraz zaprojektować cache z jednoznacznym unieważnianiem.
 
 ## Uwagi / blokery
 
@@ -134,7 +138,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-12 | Stary katalog `theme/` nadal istnieje obok docelowego `templates/`. | Po potwierdzeniu migracji potrzebnych zasobów usunąć stary katalog w osobnym, kontrolowanym zadaniu. |
+| 2026-06-13 | `DemoAdminModule` nadal udostępnia atrapy sekcji Artykuły, Użytkownicy i Moduły. | Zastępować je kolejno rzeczywistymi modułami; nie traktować atrap jako ukończonych funkcji. |
+| 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 
 ### Uwagi architektoniczne
 
@@ -163,6 +168,11 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Publiczna trasa `/page?slug=...` pokazuje wyłącznie strony opublikowane i koduje treść przed HTML. |
 | 2026-06-13 | Trasa `/` renderuje dynamiczną wersję prototypu homepage i automatycznie pokazuje opublikowane strony z `core_pages`. |
 | 2026-06-13 | Prototypy HTML pozostają źródłami wyglądu; administrator otwiera je przez chronioną sekcję `/admin/design-system`. |
+| 2026-06-13 | Główny `.htaccess` blokuje `.git`, kod Core/Modules, SQL, konfigurację i dokumentację techniczną; assety i prototypy pozostają publiczne. |
+| 2026-06-13 | Callbacki OAuth są pomijane w access logu Apache, a historyczne wartości `code` i `state` zostały zredagowane. |
+| 2026-06-13 | `core_pages` składa panel z ogólnych komponentów Theme; kontrakt nie zawiera już metod nazwanych według modułu. |
+| 2026-06-13 | `ModuleRegistry` jest pojedynczym punktem rejestracji menu i tras modułów w `index.php`. |
+| 2026-06-13 | Stary katalog `theme/` nie miał aktywnych odwołań i został usunięty po potwierdzeniu migracji do `templates/`. |
 
 ## Historia sesji
 
@@ -386,3 +396,19 @@ są ukończone. Formularz podstawowy jest gotowy do rozszerzenia o WYSIWYG.
 źródła projektu tworzą jeden namacalny przepływ Outside-In.
 
 **Następne kroki:** WYSIWYG dla `core_pages` oraz niezależny moduł `articles`.
+
+### Sesja: 2026-06-13 - audyt zgodności i etap korekcyjny
+
+**Wykonano:**
+- zablokowano publiczny dostęp do `.git`, kodu, SQL, konfiguracji, testów i dokumentacji technicznej,
+- wyłączono zapisywanie callbacków OAuth w access logu i zredagowano historyczne `code` oraz `state`,
+- dodano konfigurowalny limiter prób OAuth i testy CSRF, `state`, replay, ACL oraz blokady konta,
+- dodano `ModuleRegistry` jako jeden punkt uruchamiania modułów,
+- usunięto metody `core_pages` z globalnego `ThemeInterface` na rzecz ogólnej tabeli akcji,
+- usunięto nieużywany katalog `theme/` po potwierdzeniu migracji do `templates/`.
+
+**Zaktualizowano status:** projekt wrócił do komponentowego kontraktu Theme i kontrolowanej
+rejestracji modułów; atrapy panelu oraz cache pozostają jawnie oznaczonymi brakami.
+
+**Następne kroki:** rzeczywisty moduł `articles`, stabilizacja metadanych modułów,
+a następnie WYSIWYG i cache z kontraktem unieważniania.

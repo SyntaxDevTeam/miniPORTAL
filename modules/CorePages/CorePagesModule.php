@@ -13,6 +13,7 @@ use SyntaxDevTeam\Cms\Core\ThemeInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
 final class CorePagesModule implements ModuleInterface
 {
@@ -111,30 +112,79 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        $this->theme->render_admin_pages(
-            array_map(
-                static fn (Page $page): array => [
-                    'id' => $page->id,
-                    'title' => $page->title,
-                    'slug' => $page->slug,
-                    'status' => $page->status,
-                    'updated_at' => $page->updatedAt,
-                ],
-                $this->pages->all()
-            ),
+        $pages = $this->pages->all();
+        $allows = static fn (string $permission): bool => in_array('*', $user->permissions, true)
+            || in_array($permission, $user->permissions, true);
+
+        $this->theme->start_admin_page(
+            'Strony',
             $this->menu->visibleFor($user->permissions),
-            [
-                'name' => $user->displayName,
-                'role' => ucfirst($user->primaryRole()),
-                'initials' => $user->initials(),
-                'logout_action' => 'index.php?route=/admin/logout',
-                'logout_token' => $this->security->csrfToken(),
-            ],
-            $user->permissions,
-            $this->security->csrfToken(),
-            $message,
-            $variant
+            '/admin/pages',
+            $this->adminUser($user)
         );
+        $this->theme->start_admin_content(
+            'Strony',
+            'Twórz, edytuj i publikuj treści przez moduł core_pages.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strony', 'href' => ''],
+            ],
+            $allows('pages.create')
+                ? ['label' => 'Dodaj stronę', 'href' => 'index.php?route=/admin/pages/create']
+                : null
+        );
+
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+
+        $this->theme->start_admin_panel('Lista stron', count($pages) . ' rekordów');
+
+        if ($pages === []) {
+            $this->theme->render_alert('Brak stron. Utwórz pierwszy szkic, aby rozpocząć.', 'info');
+        } else {
+            $this->theme->render_admin_action_table(
+                ['Tytuł', 'Slug', 'Status', 'Aktualizacja'],
+                array_map(
+                    static fn (Page $page): array => [
+                        'cells' => [
+                            $page->title,
+                            $page->slug,
+                            $page->status === 'published' ? 'Opublikowana' : 'Szkic',
+                            $page->updatedAt,
+                        ],
+                        'actions' => array_values(array_filter([
+                            $allows('pages.edit') ? [
+                                'label' => 'Edytuj',
+                                'href' => 'index.php?route=/admin/pages/edit&id=' . $page->id,
+                                'variant' => 'outline-light',
+                            ] : null,
+                            $allows('pages.publish') ? [
+                                'label' => $page->status === 'published' ? 'Cofnij' : 'Publikuj',
+                                'action' => 'index.php?route=/admin/pages/publish',
+                                'fields' => [
+                                    'id' => $page->id,
+                                    'action' => $page->status === 'published' ? 'draft' : 'publish',
+                                ],
+                                'variant' => 'outline-primary',
+                            ] : null,
+                            $allows('pages.delete') ? [
+                                'label' => 'Usuń',
+                                'action' => 'index.php?route=/admin/pages/delete',
+                                'fields' => ['id' => $page->id],
+                                'variant' => 'outline-danger',
+                            ] : null,
+                        ])),
+                    ],
+                    $pages
+                ),
+                $this->security->csrfToken()
+            );
+        }
+
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
     }
 
     private function renderEdit(Request $request): void
@@ -164,26 +214,57 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        $this->theme->render_admin_page_form(
-            $page === null ? null : [
-                'id' => $page->id,
-                'title' => $page->title,
-                'slug' => $page->slug,
-                'content' => $page->content,
-                'status' => $page->status,
-            ],
+        $editing = $page !== null;
+        $title = $editing ? 'Edytuj stronę' : 'Dodaj stronę';
+
+        $this->theme->start_admin_page(
+            $title,
             $this->menu->visibleFor($user->permissions),
-            [
-                'name' => $user->displayName,
-                'role' => ucfirst($user->primaryRole()),
-                'initials' => $user->initials(),
-                'logout_action' => 'index.php?route=/admin/logout',
-                'logout_token' => $this->security->csrfToken(),
-            ],
-            $this->security->csrfToken(),
-            $message,
-            $variant
+            '/admin/pages',
+            $this->adminUser($user)
         );
+        $this->theme->start_admin_content(
+            $title,
+            'Podstawowy formularz treści bez zależności od edytora WYSIWYG.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
+                ['label' => $editing ? 'Edycja' : 'Nowa', 'href' => ''],
+            ]
+        );
+
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+
+        $this->theme->start_admin_panel('Dane strony', $editing ? 'ID ' . $page->id : 'Nowy szkic');
+        $this->theme->render_form(
+            $editing
+                ? 'index.php?route=/admin/pages/edit'
+                : 'index.php?route=/admin/pages/create',
+            [
+                ...($editing ? [[
+                    'name' => 'id',
+                    'label' => 'ID',
+                    'type' => 'hidden',
+                    'value' => (string) $page->id,
+                ]] : []),
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
+                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
+                [
+                    'name' => 'content',
+                    'label' => 'Treść',
+                    'type' => 'textarea',
+                    'rows' => 12,
+                    'value' => $page?->content ?? '',
+                ],
+            ],
+            $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
     }
 
     private function create(Request $request): void
@@ -353,5 +434,16 @@ final class CorePagesModule implements ModuleInterface
         }
 
         $handler();
+    }
+
+    private function adminUser(User $user): array
+    {
+        return [
+            'name' => $user->displayName,
+            'role' => ucfirst($user->primaryRole()),
+            'initials' => $user->initials(),
+            'logout_action' => 'index.php?route=/admin/logout',
+            'logout_token' => $this->security->csrfToken(),
+        ];
     }
 }

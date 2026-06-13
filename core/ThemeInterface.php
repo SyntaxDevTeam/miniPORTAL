@@ -113,6 +113,21 @@ interface ThemeInterface
     public function render_admin_table(array $headers, array $rows): void;
 
     /**
+     * @param list<string> $headers
+     * @param list<array{
+     *     cells: list<scalar|null>,
+     *     actions: list<array{
+     *         label: string,
+     *         variant?: string,
+     *         href?: string,
+     *         action?: string,
+     *         fields?: array<string, scalar>
+     *     }>
+     * }> $rows
+     */
+    public function render_admin_action_table(array $headers, array $rows, string $csrfToken): void;
+
+    /**
      * @param list<array{
      *     provider: string,
      *     subject: string,
@@ -145,36 +160,6 @@ interface ThemeInterface
         array $user,
         array $providers,
         string $unlinkAction,
-        string $csrfToken,
-        string $message = '',
-        string $variant = 'info',
-    ): void;
-
-    /**
-     * @param list<array{id: int, title: string, slug: string, status: string, updated_at: string}> $pages
-     * @param list<array{section: string, label: string, path: string, icon: string, permission: string, order: int}> $menuItems
-     * @param array{name: string, role: string, initials: string, logout_action?: string, logout_token?: string} $user
-     * @param list<string> $permissions
-     */
-    public function render_admin_pages(
-        array $pages,
-        array $menuItems,
-        array $user,
-        array $permissions,
-        string $csrfToken,
-        string $message = '',
-        string $variant = 'info',
-    ): void;
-
-    /**
-     * @param array{id: int, title: string, slug: string, content: string, status: string}|null $page
-     * @param list<array{section: string, label: string, path: string, icon: string, permission: string, order: int}> $menuItems
-     * @param array{name: string, role: string, initials: string, logout_action?: string, logout_token?: string} $user
-     */
-    public function render_admin_page_form(
-        ?array $page,
-        array $menuItems,
-        array $user,
         string $csrfToken,
         string $message = '',
         string $variant = 'info',

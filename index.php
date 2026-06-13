@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
+use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
@@ -20,6 +21,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
@@ -36,6 +38,7 @@ $theme = $application->theme();
 $security = $application->security();
 $router = new Router();
 $adminMenu = new AdminMenuRegistry();
+$modules = new ModuleRegistry();
 $authConfig = $config['auth'] ?? [];
 $authStorage = (string) ($authConfig['storage'] ?? 'database');
 $authDemoEnabled = ($authConfig['demo_enabled'] ?? false) === true;
@@ -86,15 +89,23 @@ $coreAuthModule = new CoreAuthModule(
     $auth,
     $providers,
     new OAuthStateStore(),
+    new OAuthAttemptLimiter(
+        (int) ($authConfig['oauth_window_seconds'] ?? 600),
+        (int) ($authConfig['oauth_start_limit'] ?? 10),
+        (int) ($authConfig['oauth_callback_limit'] ?? 20)
+    ),
     $audit,
     $authDemoEnabled
 );
-$coreAuthModule->registerRoutes($router);
-$corePagesModule = $application->database() !== null
+$modules->add($coreAuthModule);
+$pageRepository = $application->database() !== null
+    ? new PageRepository($application->database())
+    : null;
+$corePagesModule = $pageRepository !== null
     ? new CorePagesModule(
         $theme,
         $adminMenu,
-        new PageRepository($application->database()),
+        $pageRepository,
         $auth,
         $access,
         $security,
@@ -103,8 +114,7 @@ $corePagesModule = $application->database() !== null
     : null;
 
 if ($corePagesModule !== null) {
-    $corePagesModule->registerAdminMenu($adminMenu);
-    $corePagesModule->registerRoutes($router);
+    $modules->add($corePagesModule);
 }
 
 $demoAdminModule = new DemoAdminModule(
@@ -115,8 +125,8 @@ $demoAdminModule = new DemoAdminModule(
     $security,
     $audit
 );
-$demoAdminModule->registerAdminMenu($adminMenu);
-$demoAdminModule->registerRoutes($router);
+$modules->add($demoAdminModule);
+$modules->boot($adminMenu, $router);
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(
@@ -133,13 +143,13 @@ $renderEnd = static function () use ($theme): void {
     $theme->end_page();
 };
 
-$router->get('/', static function () use ($application, $theme, $auth): void {
+$router->get('/', static function () use ($pageRepository, $theme, $auth): void {
     $pages = [];
 
-    if ($application->database() !== null) {
+    if ($pageRepository !== null) {
         $pages = array_map(
             static fn ($page): array => ['title' => $page->title, 'slug' => $page->slug],
-            (new PageRepository($application->database()))->published()
+            $pageRepository->published()
         );
     }
 

@@ -20,6 +20,7 @@ final class CoreAuthModule implements ModuleInterface
         private readonly AuthService $auth,
         private readonly IdentityProviderRegistry $providers,
         private readonly OAuthStateStore $oauthStates,
+        private readonly OAuthAttemptLimiter $oauthLimiter,
         private readonly AuditLogService $audit,
         private readonly bool $demoEnabled = false,
     ) {
@@ -118,6 +119,11 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
+        if (!$this->oauthLimiter->allowStart($name)) {
+            $this->rejectRateLimit($request, $name, $user?->id);
+            return;
+        }
+
         if ($provider === null || !$provider->isConfigured()) {
             $this->audit->record($request, 'oauth_start', 'provider_unavailable', $name, $user?->id);
             http_response_code(503);
@@ -142,6 +148,11 @@ final class CoreAuthModule implements ModuleInterface
 
     private function completeProviderLogin(Request $request, string $name): void
     {
+        if (!$this->oauthLimiter->allowCallback($name)) {
+            $this->rejectRateLimit($request, $name, $this->auth->user()?->id);
+            return;
+        }
+
         $provider = $this->providers->get($name);
         $state = $request->queryString('state');
         $context = $this->oauthStates->consume($name, $state);
@@ -383,6 +394,20 @@ final class CoreAuthModule implements ModuleInterface
             'Location: index.php?route=/admin/identities&notice=' . rawurlencode($notice),
             true,
             303
+        );
+    }
+
+    private function rejectRateLimit(Request $request, string $provider, ?int $userId): void
+    {
+        $this->audit->record($request, 'oauth_rate_limit', 'rejected', $provider, $userId);
+        header('Retry-After: ' . $this->oauthLimiter->retryAfter());
+        http_response_code(429);
+        $this->theme->render_admin_access_state(
+            429,
+            'Zbyt wiele prób',
+            'Limit prób uwierzytelniania został przekroczony. Spróbuj ponownie później.',
+            'index.php?route=/admin/login',
+            'Wróć do logowania'
         );
     }
 }

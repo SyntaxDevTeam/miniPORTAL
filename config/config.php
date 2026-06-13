@@ -35,6 +35,12 @@ $envBool = static function (string $name, bool $default = false) use ($env): boo
     return filter_var($env($name, $default), FILTER_VALIDATE_BOOL);
 };
 
+$envInt = static function (string $name, int $default, int $minimum = 1) use ($env): int {
+    $value = filter_var($env($name, $default), FILTER_VALIDATE_INT);
+
+    return $value === false ? $default : max($minimum, $value);
+};
+
 $databaseName = (string) $env('DB_NAME', '');
 $databaseUser = (string) $env('DB_USER', '');
 
@@ -53,6 +59,9 @@ return [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
         'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),
         'audit_hash_key' => (string) $env('AUTH_AUDIT_HASH_KEY', ''),
+        'oauth_window_seconds' => $envInt('AUTH_OAUTH_WINDOW_SECONDS', 600, 60),
+        'oauth_start_limit' => $envInt('AUTH_OAUTH_START_LIMIT', 10),
+        'oauth_callback_limit' => $envInt('AUTH_OAUTH_CALLBACK_LIMIT', 20),
         'providers' => [
             'github' => [
                 'client_id' => (string) $env('GITHUB_CLIENT_ID', ''),

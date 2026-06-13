@@ -212,8 +212,7 @@ final class Theme implements ThemeInterface
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void
     {
-        $allowedVariants = ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'];
-        $variant = in_array($variant, $allowedVariants, true) ? $variant : 'primary';
+        $variant = $this->buttonVariant($variant);
 
         echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '">';
         echo $this->escape($label) . '</a>';
@@ -448,6 +447,51 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div>';
     }
 
+    public function render_admin_action_table(array $headers, array $rows, string $csrfToken): void
+    {
+        echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
+        echo '<thead><tr>';
+        foreach ($headers as $header) {
+            echo '<th scope="col">' . $this->escape($header) . '</th>';
+        }
+        echo '<th scope="col" class="text-end">Akcje</th></tr></thead><tbody>';
+
+        foreach ($rows as $row) {
+            echo '<tr>';
+            foreach ($row['cells'] as $cell) {
+                echo '<td>' . $this->escape((string) $cell) . '</td>';
+            }
+            echo '<td class="text-end">';
+
+            foreach ($row['actions'] as $action) {
+                $variant = $this->buttonVariant($action['variant'] ?? 'outline-light');
+                $label = $this->escape($action['label']);
+
+                if (isset($action['href'])) {
+                    echo '<a class="btn btn-sm btn-' . $variant . ' me-1" href="';
+                    echo $this->escape($action['href']) . '">' . $label . '</a>';
+                    continue;
+                }
+
+                if (!isset($action['action'])) {
+                    continue;
+                }
+
+                echo '<form class="d-inline" action="' . $this->escape($action['action']) . '" method="post">';
+                $this->csrf_field($csrfToken);
+                foreach ($action['fields'] ?? [] as $name => $value) {
+                    echo '<input type="hidden" name="' . $this->escape((string) $name) . '" value="';
+                    echo $this->escape((string) $value) . '">';
+                }
+                echo '<button class="btn btn-sm btn-' . $variant . ' me-1" type="submit">' . $label . '</button></form>';
+            }
+
+            echo '</td></tr>';
+        }
+
+        echo '</tbody></table></div>';
+    }
+
     public function render_admin_login(
         string $action,
         array $identities,
@@ -588,135 +632,6 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div></section></main></body></html>';
     }
 
-    public function render_admin_pages(
-        array $pages,
-        array $menuItems,
-        array $user,
-        array $permissions,
-        string $csrfToken,
-        string $message = '',
-        string $variant = 'info',
-    ): void {
-        $allows = static fn (string $permission): bool => in_array('*', $permissions, true)
-            || in_array($permission, $permissions, true);
-
-        $this->start_admin_page('Strony', $menuItems, '/admin/pages', $user);
-        $this->start_admin_content(
-            'Strony',
-            'Twórz, edytuj i publikuj treści przez moduł core_pages.',
-            [
-                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
-                ['label' => 'Strony', 'href' => ''],
-            ],
-            $allows('pages.create')
-                ? ['label' => 'Dodaj stronę', 'href' => 'index.php?route=/admin/pages/create']
-                : null
-        );
-
-        if ($message !== '') {
-            $this->render_alert($message, $variant);
-        }
-
-        $this->start_admin_panel('Lista stron', count($pages) . ' rekordów');
-
-        if ($pages === []) {
-            echo '<div class="state-card border-0"><span class="state-icon" aria-hidden="true">PG</span>';
-            echo '<h2 class="h5">Brak stron</h2><p class="text-secondary mb-0">Utwórz pierwszy szkic, aby rozpocząć.</p></div>';
-        } else {
-            echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
-            echo '<thead><tr><th>Tytuł</th><th>Slug</th><th>Status</th><th>Aktualizacja</th><th class="text-end">Akcje</th></tr></thead><tbody>';
-            foreach ($pages as $page) {
-                echo '<tr><td><strong>' . $this->escape($page['title']) . '</strong></td>';
-                echo '<td><code>' . $this->escape($page['slug']) . '</code></td>';
-                echo '<td><span class="badge ' . ($page['status'] === 'published' ? 'text-bg-success' : 'text-bg-secondary') . '">';
-                echo $page['status'] === 'published' ? 'Opublikowana' : 'Szkic';
-                echo '</span></td><td>' . $this->escape($page['updated_at']) . '</td><td class="text-end">';
-
-                if ($allows('pages.edit')) {
-                    echo '<a class="btn btn-sm btn-outline-light me-1" href="index.php?route=/admin/pages/edit&amp;id=';
-                    echo $this->escape((string) $page['id']) . '">Edytuj</a>';
-                }
-                if ($allows('pages.publish')) {
-                    echo '<form class="d-inline" action="index.php?route=/admin/pages/publish" method="post">';
-                    $this->csrf_field($csrfToken);
-                    echo '<input type="hidden" name="id" value="' . $this->escape((string) $page['id']) . '">';
-                    echo '<input type="hidden" name="action" value="' . ($page['status'] === 'published' ? 'draft' : 'publish') . '">';
-                    echo '<button class="btn btn-sm btn-outline-primary me-1" type="submit">';
-                    echo $page['status'] === 'published' ? 'Cofnij' : 'Publikuj';
-                    echo '</button></form>';
-                }
-                if ($allows('pages.delete')) {
-                    echo '<form class="d-inline" action="index.php?route=/admin/pages/delete" method="post">';
-                    $this->csrf_field($csrfToken);
-                    echo '<input type="hidden" name="id" value="' . $this->escape((string) $page['id']) . '">';
-                    echo '<button class="btn btn-sm btn-outline-danger" type="submit">Usuń</button></form>';
-                }
-                echo '</td></tr>';
-            }
-            echo '</tbody></table></div>';
-        }
-
-        $this->end_admin_panel();
-        $this->end_admin_content();
-        $this->end_admin_page();
-    }
-
-    public function render_admin_page_form(
-        ?array $page,
-        array $menuItems,
-        array $user,
-        string $csrfToken,
-        string $message = '',
-        string $variant = 'info',
-    ): void {
-        $editing = $page !== null;
-        $title = $editing ? 'Edytuj stronę' : 'Dodaj stronę';
-
-        $this->start_admin_page($title, $menuItems, '/admin/pages', $user);
-        $this->start_admin_content(
-            $title,
-            'Podstawowy formularz treści bez zależności od edytora WYSIWYG.',
-            [
-                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
-                ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
-                ['label' => $editing ? 'Edycja' : 'Nowa', 'href' => ''],
-            ]
-        );
-
-        if ($message !== '') {
-            $this->render_alert($message, $variant);
-        }
-
-        $this->start_admin_panel('Dane strony', $editing ? 'ID ' . $page['id'] : 'Nowy szkic');
-        $this->render_form(
-            $editing
-                ? 'index.php?route=/admin/pages/edit'
-                : 'index.php?route=/admin/pages/create',
-            [
-                ...($editing ? [[
-                    'name' => 'id',
-                    'label' => 'ID',
-                    'type' => 'hidden',
-                    'value' => (string) $page['id'],
-                ]] : []),
-                ['name' => 'title', 'label' => 'Tytuł', 'value' => $page['title'] ?? ''],
-                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page['slug'] ?? ''],
-                [
-                    'name' => 'content',
-                    'label' => 'Treść',
-                    'type' => 'textarea',
-                    'rows' => 12,
-                    'value' => $page['content'] ?? '',
-                ],
-            ],
-            $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
-            $csrfToken
-        );
-        $this->end_admin_panel();
-        $this->end_admin_content();
-        $this->end_admin_page();
-    }
-
     public function render_public_page(string $title, string $content, string $publishedAt): void
     {
         $this->start_page($title . ' - miniPORTAL', $title);
@@ -803,5 +718,29 @@ final class Theme implements ThemeInterface
     private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function buttonVariant(string $variant): string
+    {
+        $allowed = [
+            'primary',
+            'secondary',
+            'success',
+            'danger',
+            'warning',
+            'info',
+            'light',
+            'dark',
+            'outline-primary',
+            'outline-secondary',
+            'outline-success',
+            'outline-danger',
+            'outline-warning',
+            'outline-info',
+            'outline-light',
+            'outline-dark',
+        ];
+
+        return in_array($variant, $allowed, true) ? $variant : 'outline-light';
     }
 }

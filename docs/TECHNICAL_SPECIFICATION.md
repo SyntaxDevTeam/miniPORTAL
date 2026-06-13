@@ -60,6 +60,10 @@ miniPORTAL/
 - szablony są wymienialne bez zmian w logice modułów
 - rdzeń korzysta z `CrudApp` jako preferowanej warstwy pośredniczącej nad Medoo; bezpośredni dostęp do Medoo jest ograniczony do tej fasady i uzasadnionych operacji specjalistycznych
 - moduł rejestruje trasy i pozycje menu przez kontrakty Core, ale nie generuje HTML
+- `ModuleRegistry` jest pojedynczym punktem rejestracji i uruchamiania modułów;
+  ręczne wywołania `registerRoutes()` i `registerAdminMenu()` poza rejestrem są zabronione
+- `ThemeInterface` udostępnia komponenty ogólne, a nie metody nazwane według modułów;
+  moduły składają widoki z layoutu, formularzy, alertów i tabel akcji
 - widoczność pozycji panelu wynika z lokalnych uprawnień przekazanych do `AdminMenuRegistry`
 - `CoreAuth` przechowuje konto lokalnie, a dostawców GitHub, Discord i Google traktuje
   jako zewnętrzne tożsamości przypięte przez parę `(provider, provider_subject)`
@@ -192,7 +196,8 @@ tożsamości implementują `IdentityProviderInterface` i są rejestrowani przez
 która zapisuje stały identyfikator dostawcy zamiast łączyć konto po e-mailu.
 Google używa OpenID Connect z lokalną walidacją podpisu ID tokenu, `nonce`,
 issuer, audience i czasu ważności. Łączenie providerów wymaga aktywnej sesji,
-a operacje uwierzytelniania i ACL trafiają do `auth_events`.
+a operacje uwierzytelniania i ACL trafiają do `auth_events`. Próby rozpoczęcia
+i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron przez `CrudApp`
@@ -237,6 +242,9 @@ a operacje uwierzytelniania i ACL trafiają do `auth_events`.
 - ograniczenie liczby zapytań do bazy danych
 - indeksowanie kolumn takich jak slug, category_id, created_at
 - FULLTEXT dla wyszukiwarki, jeśli zostanie zaimplementowana
+
+Cache pozostaje wymaganiem zaplanowanym. Nie należy wdrażać go przed ustabilizowaniem
+kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
 
 ### 5.3 Propozycje autorskie do przyszłego rozwoju
 
@@ -296,7 +304,7 @@ a operacje uwierzytelniania i ACL trafiają do `auth_events`.
 9. `articles`: przykład niezależnego modułu.
 
 ### Krok 6: uruchomienie systemu modularnego
-1. Stabilizacja `ModuleInterface` na podstawie działających modułów.
+1. Stabilizacja `ModuleInterface` i `ModuleRegistry` na podstawie działających modułów.
 2. Walidacja `info.json`, zależności i wersji.
 3. Instalator oraz migracje bazodanowe.
 4. Konfiguracja modułów w `modules_config`.
@@ -311,6 +319,8 @@ a operacje uwierzytelniania i ACL trafiają do `auth_events`.
 
 - każda funkcjonalność powinna być zaprojektowana najpierw jako komponent wizualny
 - każda zmiana w szablonie musi być odzwierciedlona w metodach ThemeInterface
+- funkcja specyficzna dla jednego modułu nie może rozszerzać `ThemeInterface`;
+  moduł składa ją z istniejących komponentów albo proponuje nowy komponent ogólny
 - wszystkie zapytania do bazy mają być przygotowane przez warstwę DB
 - moduły nie powinny mieć bezpośredniego dostępu do danych $_GET / $_POST bez filtrowania
 - każda nowa funkcja jest rozwijana najpierw jako „klocek” modularny
