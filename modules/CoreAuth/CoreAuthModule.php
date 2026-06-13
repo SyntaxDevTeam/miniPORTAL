@@ -44,7 +44,7 @@ final class CoreAuthModule implements ModuleInterface
         $router->get('/admin/login', fn () => $this->renderLogin());
         $router->post('/admin/login', fn (Request $request) => $this->login($request));
         $router->post('/admin/logout', fn (Request $request) => $this->logout($request));
-        $router->get('/admin/identities', fn () => $this->renderIdentities());
+        $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
 
         foreach ($this->providers->all() as $provider) {
@@ -173,7 +173,12 @@ final class CoreAuthModule implements ModuleInterface
             }
 
             $user = $this->auth->loginIdentity($identity);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            error_log(sprintf(
+                'miniPORTAL OAuth callback failed: provider=%s exception=%s',
+                $name,
+                $exception::class
+            ));
             $this->audit->record($request, 'oauth_callback', 'provider_error', $name, $context->userId);
             http_response_code(502);
             $this->renderLogin('Nie udało się potwierdzić tożsamości u dostawcy.', 'danger');
@@ -265,12 +270,12 @@ final class CoreAuthModule implements ModuleInterface
 
         if (!$this->auth->linkIdentity($identity)) {
             $this->audit->record($request, 'identity_link', 'already_linked', $identity->provider, $user->id);
-            $this->renderIdentities('Ta tożsamość jest już połączona z kontem.', 'warning');
+            $this->redirectToIdentities('already-linked');
             return;
         }
 
         $this->audit->record($request, 'identity_link', 'success', $identity->provider, $user->id);
-        $this->renderIdentities('Nowa tożsamość została połączona z kontem.', 'success');
+        $this->redirectToIdentities('linked');
     }
 
     private function unlinkIdentity(Request $request): void
@@ -352,6 +357,32 @@ final class CoreAuthModule implements ModuleInterface
             $this->security->csrfToken(),
             $message,
             $variant
+        );
+    }
+
+    private function renderIdentitiesNotice(Request $request): void
+    {
+        $notice = $request->queryString('notice');
+
+        if ($notice === 'linked') {
+            $this->renderIdentities('Nowa tożsamość została połączona z kontem.', 'success');
+            return;
+        }
+
+        if ($notice === 'already-linked') {
+            $this->renderIdentities('Ta tożsamość jest już połączona z kontem.', 'warning');
+            return;
+        }
+
+        $this->renderIdentities();
+    }
+
+    private function redirectToIdentities(string $notice): void
+    {
+        header(
+            'Location: index.php?route=/admin/identities&notice=' . rawurlencode($notice),
+            true,
+            303
         );
     }
 }
