@@ -234,6 +234,14 @@ Stan implementacji:
 3. Panel redakcyjny oparty na komponentach `core_pages`.
 4. Demonstracja niezależnego modułu rejestrującego własne trasy i menu.
 
+Stan implementacji:
+
+- `article_categories` i `articles` przechowują kategorie, autora, status i daty publikacji,
+- panel obsługuje kategorie oraz pełny CRUD artykułów z uprawnieniami `articles.*`,
+- publiczne trasy `/articles` i `/article?slug=...` pokazują wyłącznie opublikowane treści,
+- moduł korzysta z `CrudApp`, `Request`, `Security`, audit logu i ogólnych komponentów Theme,
+- `modules/Articles/info.json` jest pierwszym rzeczywistym przykładem metadanych dla Kroku 6.
+
 ## 6. Manager modułów
 
 Manager powstaje po działających modułach stałych, ponieważ ich kontrakt wyznaczy

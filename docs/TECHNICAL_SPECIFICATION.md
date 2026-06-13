@@ -303,6 +303,13 @@ kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
 8. `core_pages`: CRUD stron przez `CrudApp`.
 9. `articles`: przykład niezależnego modułu.
 
+Stan Kroku 5:
+
+- `core_pages` i `articles` są rzeczywistymi, odrębnymi modułami treści,
+- oba rejestrują menu i trasy przez `ModuleRegistry`,
+- oba składają panel z ogólnych komponentów `ThemeInterface`,
+- `articles` dostarcza pierwszy plik `info.json`, który wyznacza wejście do Kroku 6.
+
 ### Krok 6: uruchomienie systemu modularnego
 1. Stabilizacja `ModuleInterface` i `ModuleRegistry` na podstawie działających modułów.
 2. Walidacja `info.json`, zależności i wersji.

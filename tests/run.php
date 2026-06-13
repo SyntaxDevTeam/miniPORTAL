@@ -132,6 +132,20 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert(count($menu->visibleFor(['test.view'])) === 1);
 });
 
+$test('Articles metadata exposes the initial module contract', static function () use ($assert): void {
+    $metadata = json_decode(
+        (string) file_get_contents(dirname(__DIR__) . '/modules/Articles/info.json'),
+        true,
+        32,
+        JSON_THROW_ON_ERROR
+    );
+
+    $assert(($metadata['id'] ?? null) === 'articles');
+    $assert(($metadata['version'] ?? null) === '1.0.0');
+    $assert(($metadata['install'] ?? null) === 'install.sql');
+    $assert(in_array('core_auth', $metadata['requires']['modules'] ?? [], true));
+});
+
 session_destroy();
 
 if ($failures !== []) {

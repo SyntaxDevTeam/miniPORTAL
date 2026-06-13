@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace SyntaxDevTeam\Cms\Templates\DefaultTheme;
 
+use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
 final class Theme implements ThemeInterface
 {
-    public function render_homepage(array $pages, bool $authenticated): void
+    public function render_homepage(array $sections, array $pages, bool $authenticated): void
     {
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
@@ -23,70 +24,35 @@ final class Theme implements ThemeInterface
         echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> SyntaxDevTeam</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
-        echo '<li class="nav-item"><a class="nav-link" href="#projects">Projekty</a></li>';
-        echo '<li class="nav-item"><a class="nav-link" href="#stack">Technologie</a></li>';
+        foreach ($sections as $section) {
+            if ($section['type'] === 'hero') {
+                continue;
+            }
+            echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($section['key']) . '">';
+            echo $this->escape($this->navigationLabel($section)) . '</a></li>';
+        }
         if ($pages !== []) {
             echo '<li class="nav-item"><a class="nav-link" href="#pages">Strony</a></li>';
         }
-        echo '<li class="nav-item"><a class="nav-link" href="#contact">Kontakt</a></li>';
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="index.php?route=';
         echo $authenticated ? '/admin' : '/admin/login';
         echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
 
-        echo '<header id="top" class="home-hero"><div class="container py-5"><div class="row align-items-center g-5">';
-        echo '<div class="col-lg-7 reveal is-visible"><p class="eyebrow">Minecraft / Discord / Android / Backend</p>';
-        echo '<h1 class="home-title fw-bold">Kod, który zasila <span>społeczności.</span></h1>';
-        echo '<p class="home-lead mt-4">Projektujemy pluginy serwerowe, automatyzacje Discord, aplikacje mobilne i modułowe systemy WWW, które można rozwijać bez przepisywania wszystkiego od początku.</p>';
-        echo '<div class="hero-actions mt-4"><a class="btn btn-primary btn-lg" href="#projects">Poznaj projekty</a>';
-        echo '<a class="btn btn-outline-light btn-lg" href="index.php?route=' . ($authenticated ? '/admin' : '/admin/login') . '">';
-        echo $authenticated ? 'Przejdź do panelu' : 'Panel administracyjny';
-        echo '</a></div><div class="hero-metrics mt-5">';
-        echo '<div class="hero-metric"><strong>Paper</strong><span>pluginy serwerowe</span></div>';
-        echo '<div class="hero-metric"><strong>Discord</strong><span>boty i automatyzacje</span></div>';
-        echo '<div class="hero-metric"><strong>PHP 8.5</strong><span>modułowy miniPORTAL</span></div></div></div>';
-        echo '<div class="col-lg-5 reveal is-visible"><div class="terminal" aria-label="Status systemu"><div class="terminal-bar">';
-        echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';
-        echo '<span>syntaxdevteam.pl/build</span></div><pre><code>$ ./workspace status' . "\n\n";
-        echo 'CoreAuth     READY' . "\n" . 'CorePages    PUBLISHED' . "\n" . 'ThemeEngine  ONLINE' . "\n" . 'CrudApp      CONNECTED' . "\n\n";
-        echo 'architecture: MODULAR' . "\n" . 'security:     ENABLED' . "\n" . 'status:       READY_TO_BUILD</code></pre></div></div></div></div></header>';
+        $heroRendered = false;
+        echo '<main id="content">';
+        foreach ($sections as $section) {
+            if ($section['type'] === 'hero' && !$heroRendered) {
+                $this->renderHomepageHero($section, $authenticated);
+                $heroRendered = true;
+                continue;
+            }
 
-        echo '<main id="content"><section id="projects" class="home-section"><div class="container">';
-        echo '<div class="home-heading reveal"><p class="eyebrow">01 / Wybrane realizacje</p>';
-        echo '<h2 class="fw-bold">Niezależne projekty. Wspólny standard jakości.</h2>';
-        echo '<p class="lead text-secondary">Każdy produkt jest osobnym modułem, ale korzysta ze sprawdzonych fundamentów.</p></div>';
-        echo '<div class="project-grid">';
-        $projects = [
-            ['PunisherX', 'System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.', 'cyan', true],
-            ['SyntaxCore', 'Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.', 'violet', false],
-            ['Econify', 'Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.', 'violet', false],
-            ['miniPORTAL', 'Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.', 'cyan', true],
-        ];
-        foreach ($projects as $index => [$title, $description, $accent, $wide]) {
-            echo '<article class="showcase-card project-card ' . ($wide ? 'project-card-wide ' : '') . 'reveal" data-accent="' . $accent . '">';
-            echo '<span class="project-number">PROJECT / ' . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT) . '</span>';
-            echo '<h3>' . $this->escape($title) . '</h3><p class="text-secondary">' . $this->escape($description) . '</p>';
-            echo '<a class="btn btn-outline-light" href="#contact">Dowiedz się więcej</a></article>';
+            $this->renderHomepageSection($section);
         }
-        echo '</div></div></section>';
-
-        echo '<section id="stack" class="home-section"><div class="container"><div class="home-heading reveal">';
-        echo '<p class="eyebrow">02 / Technologie</p><h2 class="fw-bold">Dobieramy narzędzia do problemu.</h2>';
-        echo '<p class="lead text-secondary">Bez zbędnej warstwy abstrakcji, z naciskiem na bezpieczeństwo i utrzymanie.</p></div>';
-        echo '<div class="row g-4">';
-        foreach ([
-            ['Serwery', 'Paper & Folia', 'Kotlin, Adventure i nowoczesne środowiska serwerowe.'],
-            ['Automatyzacja', 'Discord & OAuth', 'Boty, logowanie federacyjne, ACL i integracje API.'],
-            ['Web', 'PHP & CrudApp', 'PHP 8.5, Medoo, MySQL i wymienna warstwa Theme.'],
-        ] as $index => [$label, $title, $description]) {
-            echo '<div class="col-lg-4 reveal"><article class="showcase-card stack-card h-100" data-number="0' . ($index + 1) . '">';
-            echo '<p class="showcase-label">' . $this->escape($label) . '</p><h3>' . $this->escape($title) . '</h3>';
-            echo '<p class="text-secondary">' . $this->escape($description) . '</p></article></div>';
-        }
-        echo '</div></div></section>';
 
         if ($pages !== []) {
             echo '<section id="pages" class="home-section"><div class="container"><div class="home-heading reveal">';
-            echo '<p class="eyebrow">03 / Opublikowane strony</p><h2 class="fw-bold">Treści zarządzane przez miniPORTAL.</h2>';
+            echo '<p class="eyebrow">Opublikowane strony</p><h2 class="fw-bold">Treści zarządzane przez miniPORTAL.</h2>';
             echo '<p class="lead text-secondary">Poniższe pozycje pochodzą dynamicznie z modułu core_pages.</p></div><div class="row g-4">';
             foreach ($pages as $page) {
                 echo '<div class="col-md-6 col-lg-4 reveal"><article class="showcase-card h-100">';
@@ -98,11 +64,7 @@ final class Theme implements ThemeInterface
             echo '</div></div></section>';
         }
 
-        echo '<section id="contact" class="home-section"><div class="container"><div class="contact-panel reveal"><div>';
-        echo '<p class="eyebrow mb-2">04 / Kontakt</p><h2 class="h1 fw-bold">Zbudujmy coś użytecznego.</h2>';
-        echo '<p class="text-secondary mb-0">Plugin, bot, aplikacja czy system WWW - zacznijmy od konkretnego problemu.</p></div>';
-        echo '<a class="btn btn-primary btn-lg" href="mailto:contact@syntaxdevteam.pl">contact@syntaxdevteam.pl</a>';
-        echo '</div></div></section></main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
+        echo '</main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
         echo '<span>&copy; 2026 SyntaxDevTeam</span><span>Projektowane modułowo. Rozwijane świadomie.</span></div></footer>';
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
@@ -125,9 +87,9 @@ final class Theme implements ThemeInterface
         echo '<nav class="navbar border-bottom"><div class="container">';
         echo '<a class="navbar-brand fw-bold" href="index.php">&lt;/&gt; miniPORTAL</a>';
         echo '<div class="d-flex gap-2">';
-        echo '<a class="btn btn-sm btn-outline-light" href="templates/default/admin-stylebook.html">Panel admin</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="templates/default/homepage.html">Strona główna</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="templates/default/stylebook.html">Stylebook</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="index.php">Strona główna</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/articles">Artykuły</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/admin">Panel</a>';
         echo '</div>';
         echo '</div></nav><main>';
     }
@@ -259,7 +221,8 @@ final class Theme implements ThemeInterface
             $name = $this->escape($field['name']);
             $label = $this->escape($field['label']);
             $type = $field['type'] ?? 'text';
-            $value = $this->escape($field['value'] ?? '');
+            $rawValue = (string) ($field['value'] ?? '');
+            $value = $this->escape($rawValue);
 
             if ($type === 'hidden') {
                 echo '<input type="hidden" name="' . $name . '" value="' . $value . '">';
@@ -276,7 +239,29 @@ final class Theme implements ThemeInterface
 
             echo '<div class="mb-3"><label class="form-label" for="' . $name . '">' . $label . '</label>';
 
-            if ($type === 'textarea') {
+            if ($type === 'richtext') {
+                $safeValue = (new RichTextSanitizer())->sanitize($rawValue);
+                echo '<div class="richtext-editor" data-richtext>';
+                echo '<div class="editor-toolbar" role="toolbar" aria-label="Formatowanie treści">';
+                foreach ([
+                    ['bold', 'B', 'Pogrubienie'],
+                    ['italic', 'I', 'Kursywa'],
+                    ['underline', 'U', 'Podkreślenie'],
+                    ['insertUnorderedList', 'UL', 'Lista punktowana'],
+                    ['insertOrderedList', 'OL', 'Lista numerowana'],
+                ] as [$command, $caption, $ariaLabel]) {
+                    echo '<button class="editor-tool" type="button" data-richtext-command="' . $command . '" aria-label="';
+                    echo $ariaLabel . '">' . $caption . '</button>';
+                }
+                foreach (['p' => 'Akapit', 'h2' => 'Nagłówek 2', 'h3' => 'Nagłówek 3', 'blockquote' => 'Cytat'] as $tag => $caption) {
+                    echo '<button class="editor-tool" type="button" data-richtext-block="' . $tag . '">';
+                    echo $caption . '</button>';
+                }
+                echo '</div><div class="richtext-surface form-control" id="' . $name . '-editor" contenteditable="true" ';
+                echo 'data-richtext-surface aria-labelledby="' . $name . '-label">' . $safeValue . '</div>';
+                echo '<textarea class="visually-hidden" id="' . $name . '" name="' . $name . '" data-richtext-input>';
+                echo $value . '</textarea></div>';
+            } elseif ($type === 'textarea') {
                 $rows = max(2, min(20, (int) ($field['rows'] ?? 5)));
                 echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '">';
                 echo $value . '</textarea>';
@@ -294,6 +279,9 @@ final class Theme implements ThemeInterface
                 echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="' . $type . '" value="' . $value . '">';
             }
 
+            if (($field['help'] ?? '') !== '') {
+                echo '<div class="form-text">' . $this->escape((string) $field['help']) . '</div>';
+            }
             echo '</div>';
         }
 

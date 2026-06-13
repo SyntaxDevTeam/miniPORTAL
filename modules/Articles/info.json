@@ -1,0 +1,14 @@
+{
+  "id": "articles",
+  "name": "Artykuły",
+  "version": "1.0.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.5",
+    "miniportal": ">=0.1.0",
+    "modules": ["core_auth"]
+  },
+  "protected": false,
+  "install": "install.sql"
+}

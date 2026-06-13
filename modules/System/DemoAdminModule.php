@@ -39,7 +39,6 @@ final class DemoAdminModule implements ModuleInterface
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
-        $menu->add('Treść', 'Artykuły', '/admin/articles', 'AR', 'articles.view', 30);
         $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
         $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
@@ -49,12 +48,6 @@ final class DemoAdminModule implements ModuleInterface
     public function registerRoutes(Router $router): void
     {
         $router->get('/admin', fn (Request $request) => $this->guard($request, 'admin.access', fn () => $this->renderDashboard()));
-        $router->get('/admin/articles', fn (Request $request) => $this->guard($request, 'articles.view', fn () => $this->renderSection(
-            'Artykuły',
-            '/admin/articles',
-            'articles.view',
-            'Ta trasa demonstruje niezależną pozycję menu i osobne uprawnienie modułu.'
-        )));
         $router->get('/admin/users', fn (Request $request) => $this->guard($request, 'users.view', fn () => $this->renderSection(
             'Użytkownicy',
             '/admin/users',

@@ -109,7 +109,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `core_pages`: CRUD, slug, status i publikacja |
 | [x] | Uprawnienia granularne `pages.*` |
 | [ ] | WYSIWYG po ukończeniu formularza podstawowego |
-| [ ] | `articles` jako niezależny moduł z własnymi trasami i menu |
+| [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 
 ### Krok 6 - system modułów
 
@@ -127,8 +127,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Przygotować `articles` jako drugi rzeczywisty moduł korzystający wyłącznie z ogólnych komponentów Theme.
-2. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz metadane `info.json`.
+1. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz walidację `info.json`.
+2. Wydzielić deklaratywne tworzenie modułów z `index.php` przed implementacją managera.
 3. Zastąpić demonstracyjne sekcje użytkowników i modułów rzeczywistymi modułami lub ukryć je do czasu implementacji.
 4. Dopiero potem dodać WYSIWYG oraz zaprojektować cache z jednoznacznym unieważnianiem.
 
@@ -138,7 +138,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | `DemoAdminModule` nadal udostępnia atrapy sekcji Artykuły, Użytkownicy i Moduły. | Zastępować je kolejno rzeczywistymi modułami; nie traktować atrap jako ukończonych funkcji. |
+| 2026-06-13 | `DemoAdminModule` nadal udostępnia atrapy sekcji Użytkownicy i Moduły. | Zastępować je kolejno rzeczywistymi modułami; nie traktować atrap jako ukończonych funkcji. |
 | 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 
 ### Uwagi architektoniczne
@@ -173,6 +173,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | `core_pages` składa panel z ogólnych komponentów Theme; kontrakt nie zawiera już metod nazwanych według modułu. |
 | 2026-06-13 | `ModuleRegistry` jest pojedynczym punktem rejestracji menu i tras modułów w `index.php`. |
 | 2026-06-13 | Stary katalog `theme/` nie miał aktywnych odwołań i został usunięty po potwierdzeniu migracji do `templates/`. |
+| 2026-06-13 | `articles` ma osobne tabele kategorii i treści, pełny CRUD, publikację, publiczną listę i widok, ACL, CSRF oraz audit log. |
+| 2026-06-13 | Migracja `modules/Articles/install.sql` została wykonana; DDL MySQL zatwierdza się automatycznie i nie może być traktowane jak jedna transakcja PDO. |
 
 ## Historia sesji
 
@@ -412,3 +414,20 @@ rejestracji modułów; atrapy panelu oraz cache pozostają jawnie oznaczonymi br
 
 **Następne kroki:** rzeczywisty moduł `articles`, stabilizacja metadanych modułów,
 a następnie WYSIWYG i cache z kontraktem unieważniania.
+
+### Sesja: 2026-06-13 - moduł `articles`
+
+**Wykonano:**
+- dodano encje kategorii i artykułu oraz repozytorium korzystające z `CrudApp`,
+- dodano migrację z kluczami obcymi, unikalnymi slugami i indeksami publikacji,
+- wdrożono panelowy CRUD artykułów, kategorie, publikację i granularne `articles.*`,
+- dodano publiczną listę `/articles` i widok `/article?slug=...`,
+- moduł rejestruje własne menu i trasy przez `ModuleRegistry`,
+- usunięto demonstracyjną atrapę artykułów z `DemoAdminModule`,
+- wykonano migrację oraz pełny test repozytorium i przepływu HTTP z CSRF.
+
+**Zaktualizowano status:** Krok 5C ma dwa rzeczywiste moduły treści korzystające
+z tych samych ogólnych komponentów Theme.
+
+**Następne kroki:** walidator `info.json`, deklaratywna fabryka modułów i początek
+rejestru `modules_config`.

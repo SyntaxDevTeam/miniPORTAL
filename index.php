@@ -24,6 +24,8 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
+use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
+use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
@@ -115,6 +117,22 @@ $corePagesModule = $pageRepository !== null
 
 if ($corePagesModule !== null) {
     $modules->add($corePagesModule);
+}
+
+$articlesModule = $application->database() !== null
+    ? new ArticlesModule(
+        $theme,
+        $adminMenu,
+        new ArticleRepository($application->database()),
+        $auth,
+        $access,
+        $security,
+        $audit
+    )
+    : null;
+
+if ($articlesModule !== null) {
+    $modules->add($articlesModule);
 }
 
 $demoAdminModule = new DemoAdminModule(

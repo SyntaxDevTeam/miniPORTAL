@@ -7,9 +7,19 @@ namespace SyntaxDevTeam\Cms\Core;
 interface ThemeInterface
 {
     /**
+     * @param list<array{
+     *     key: string,
+     *     type: string,
+     *     eyebrow: string,
+     *     title: string,
+     *     content_html: string,
+     *     layout: string,
+     *     button_label: string,
+     *     button_url: string
+     * }> $sections
      * @param list<array{title: string, slug: string}> $pages
      */
-    public function render_homepage(array $pages, bool $authenticated): void;
+    public function render_homepage(array $sections, array $pages, bool $authenticated): void;
 
     public function start_page(string $title, string $description = ''): void;
 
@@ -55,7 +65,8 @@ interface ThemeInterface
      *     value?: string,
      *     options?: array<string, string>,
      *     checked?: bool,
-     *     rows?: int
+     *     rows?: int,
+     *     help?: string
      * }> $fields
      */
     public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void;
