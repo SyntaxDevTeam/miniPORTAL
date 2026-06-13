@@ -701,6 +701,11 @@ body.admin-stylebook {
   border-radius: 0.85rem;
 }
 
+.access-state-card {
+  width: min(100%, 34rem);
+  margin-inline: auto;
+}
+
 .state-code {
   color: rgba(var(--mp-primary-rgb), 0.24);
   font-size: 3.25rem;

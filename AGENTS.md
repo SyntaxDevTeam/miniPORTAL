@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-12 - rozpoczęto Krok 5B: komponenty panelu, `ModuleInterface` i `AdminMenuRegistry`.
+> **Ostatnia aktualizacja:** 2026-06-13 - dodano model `core_auth`, lokalne ACL i ochronę tras `/admin/*`.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -90,8 +90,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 |--------|---------|
 | [x] | Komponenty panelu w `ThemeInterface` |
 | [x] | `ModuleInterface` i `AdminMenuRegistry` |
-| [ ] | Model `users`, `user_identities`, ról i uprawnień |
-| [ ] | `AuthService`, ACL i ochrona tras `/admin/*` |
+| [x] | Model `users`, `user_identities`, ról i uprawnień |
+| [x] | `AuthService`, ACL i ochrona tras `/admin/*` |
+| [ ] | Wykonanie migracji `CoreAuth/install.sql` na skonfigurowanej bazie |
 | [ ] | Adapter GitHub OAuth |
 | [ ] | Adapter Discord OAuth |
 | [ ] | Adapter Google OpenID Connect |
@@ -123,9 +124,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Skonfigurować bazę oraz produkcyjny plik środowiskowy przed modelem `core_auth`.
-2. Przygotować migracje `users`, `user_identities`, ról i uprawnień.
-3. Zaimplementować `AuthService`, ACL i ochronę tras `/admin/*`.
+1. Skonfigurować produkcyjny plik środowiskowy i bazę danych.
+2. Wykonać oraz zweryfikować migrację `modules/CoreAuth/install.sql`.
+3. Przygotować bootstrap pierwszego administratora i kontrakt adapterów tożsamości.
 
 ## Uwagi / blokery
 
@@ -133,8 +134,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-12 | Plik `/etc/miniportal/miniportal.env` nie jest obecnie dostępny dla aplikacji. | Utworzyć plik według `docs/CONFIGURATION.md` i nadać grupie `www-data` prawo odczytu. |
-| 2026-06-12 | Baza danych jest wyłączona (`DB_ENABLED=false`), więc nie można jeszcze wykonywać testów `CrudApp` na rzeczywistych tabelach. | Skonfigurować `DB_*`, utworzyć bazę i włączyć połączenie przed modelem `core_auth` i `core_pages`. |
+| 2026-06-13 | Plik `/etc/miniportal/miniportal.env` nie jest obecnie dostępny dla aplikacji. | Utworzyć plik według `docs/CONFIGURATION.md` i nadać grupie `www-data` prawo odczytu. |
+| 2026-06-13 | Baza danych jest wyłączona (`DB_ENABLED=false`), więc migracja `CoreAuth/install.sql` i repozytorium `CrudAppUserRepository` nie zostały sprawdzone na rzeczywistych tabelach. | Skonfigurować `DB_*`, utworzyć bazę, wykonać migrację i ustawić `AUTH_STORAGE=database`. |
 | 2026-06-12 | Stary katalog `theme/` nadal istnieje obok docelowego `templates/`. | Po potwierdzeniu migracji potrzebnych zasobów usunąć stary katalog w osobnym, kontrolowanym zadaniu. |
 
 ### Uwagi architektoniczne
@@ -148,6 +149,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-12 | Konto i role są lokalne; GitHub, Discord i Google dostarczają wyłącznie zewnętrzne tożsamości. Konto nie może być automatycznie łączone wyłącznie po adresie e-mail. |
 | 2026-06-12 | Dla GitHub przed implementacją trzeba wybrać GitHub App albo OAuth App; GitHub rekomenduje GitHub App dla nowych integracji. |
 | 2026-06-12 | Implementacja adapterów wymaga rejestracji aplikacji i callbacków u GitHub, Discord i Google; nie blokuje to statycznego prototypu panelu. |
+| 2026-06-13 | Repozytorium pamięciowe i konta demonstracyjne są dostępne wyłącznie po jawnym ustawieniu `AUTH_DEMO_ENABLED=1`; domyślnie logowanie demonstracyjne jest wyłączone. |
 
 ## Historia sesji
 
@@ -270,3 +272,19 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 **Zaktualizowano status:** dwa pierwsze zadania Kroku 5B ukończone.
 
 **Następne kroki:** konfiguracja DB, model tożsamości i lokalne ACL.
+
+### Sesja: 2026-06-13 - model i ACL `core_auth`
+
+**Wykonano:**
+- dodano migrację użytkowników, tożsamości, ról, uprawnień i zdarzeń logowania,
+- utworzono modele `User` i `ExternalIdentity` oraz repozytoria pamięciowe i `CrudApp`,
+- zaimplementowano `AuthService`, `AuthorizationService` i `AdminAccessGate`,
+- przeniesiono panel na chronione trasy `/admin/*`,
+- dodano filtrowanie menu według ACL, odpowiedzi 401/403 i bezpieczne wylogowanie,
+- zabezpieczono lokalne konta demonstracyjne flagą `AUTH_DEMO_ENABLED`.
+
+**Zaktualizowano status:** model i lokalne ACL Kroku 5B są gotowe; wykonanie migracji
+na rzeczywistej bazie pozostaje zablokowane przez brak konfiguracji DB.
+
+**Następne kroki:** uruchomienie migracji, bootstrap pierwszego administratora
+i kontrakt adapterów GitHub, Discord oraz Google.

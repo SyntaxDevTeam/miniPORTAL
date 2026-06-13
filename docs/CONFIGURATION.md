@@ -49,6 +49,9 @@ APP_THEME="default"
 SESSION_NAME="MINIPORTALSESSID"
 SESSION_SAME_SITE="Lax"
 
+AUTH_STORAGE="database"
+AUTH_DEMO_ENABLED=false
+
 DB_ENABLED=true
 DB_DRIVER="mysql"
 DB_HOST="127.0.0.1"
@@ -61,8 +64,8 @@ DB_COLLATION="utf8mb4_general_ci"
 DB_LOGGING=false
 ```
 
-`APP_DEBUG` powinno być `false` na publicznym serwerze. `DB_LOGGING` włączaj tylko
-tymczasowo podczas diagnostyki.
+`APP_DEBUG` i `AUTH_DEMO_ENABLED` powinny być `false` na publicznym serwerze.
+`DB_LOGGING` włączaj tylko tymczasowo podczas diagnostyki.
 
 ## Przygotowanie MySQL
 
@@ -102,6 +105,8 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
 | `SESSION_NAME` | Nazwa bezpiecznego cookie sesji |
 | `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
+| `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |
+| `AUTH_DEMO_ENABLED` | Włącza lokalne konta demonstracyjne; na serwerze publicznym zawsze `false` |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |
@@ -119,3 +124,12 @@ MINIPORTAL_ENV_FILE="$PWD/.env.local" php -S 127.0.0.1:8765
 ```
 
 Pliku `.env.local` nie dodawaj do Git.
+
+Do lokalnego sprawdzenia ACL bez bazy można jawnie uruchomić tryb demonstracyjny:
+
+```bash
+AUTH_STORAGE=memory AUTH_DEMO_ENABLED=1 php -S 127.0.0.1:8765
+```
+
+Tryb ten udostępnia testowe role administratora i redaktora. Nie wolno włączać go
+w środowisku publicznym.

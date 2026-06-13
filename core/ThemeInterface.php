@@ -66,7 +66,13 @@ interface ThemeInterface
      *     permission: string,
      *     order: int
      * }> $menuItems
-     * @param array{name: string, role: string, initials: string} $user
+     * @param array{
+     *     name: string,
+     *     role: string,
+     *     initials: string,
+     *     logout_action?: string,
+     *     logout_token?: string
+     * } $user
      */
     public function start_admin_page(string $title, array $menuItems, string $activePath, array $user): void;
 
@@ -100,4 +106,28 @@ interface ThemeInterface
      * @param list<list<scalar|null>> $rows
      */
     public function render_admin_table(array $headers, array $rows): void;
+
+    /**
+     * @param list<array{
+     *     provider: string,
+     *     subject: string,
+     *     label: string,
+     *     description: string
+     * }> $identities
+     */
+    public function render_admin_login(
+        string $action,
+        array $identities,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void;
+
+    public function render_admin_access_state(
+        int $status,
+        string $title,
+        string $message,
+        string $actionHref,
+        string $actionLabel,
+    ): void;
 }

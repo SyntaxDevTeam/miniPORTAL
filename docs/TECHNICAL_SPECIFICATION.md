@@ -38,7 +38,7 @@ miniPORTAL/
 │   └── ThemeEngine.php      # Menedżer warstw szablonu
 ├── modules/                 # Moduły systemu
 │   ├── core_pages/          # Stały moduł: strony statyczne
-│   ├── core_auth/           # Stały moduł: logowanie i uprawnienia
+│   ├── CoreAuth/            # Stały moduł: logowanie i uprawnienia
 │   └── articles/            # Przykładowy moduł rozszerzeń
 │       ├── info.json
 │       ├── install.sql
@@ -61,6 +61,10 @@ miniPORTAL/
 - rdzeń korzysta z `CrudApp` jako preferowanej warstwy pośredniczącej nad Medoo; bezpośredni dostęp do Medoo jest ograniczony do tej fasady i uzasadnionych operacji specjalistycznych
 - moduł rejestruje trasy i pozycje menu przez kontrakty Core, ale nie generuje HTML
 - widoczność pozycji panelu wynika z lokalnych uprawnień przekazanych do `AdminMenuRegistry`
+- `CoreAuth` przechowuje konto lokalnie, a dostawców GitHub, Discord i Google traktuje
+  jako zewnętrzne tożsamości przypięte przez parę `(provider, provider_subject)`
+- testowe repozytorium pamięciowe może działać wyłącznie po jawnym ustawieniu
+  `AUTH_DEMO_ENABLED=1`; konfiguracja publiczna używa `AUTH_STORAGE=database`
 
 ---
 
@@ -170,6 +174,11 @@ Szczegółowy plan znajduje się w `docs/ADMIN_PANEL_PLAN.md`.
 - lokalne role i uprawnienia niezależne od dostawcy logowania
 - sesje administratora, ochrona tras i audit log
 - opcjonalne konto lokalne Argon2id wyłącznie jako mechanizm awaryjny
+
+Aktualny kontrakt `CoreAuth` składa się z modeli `User` i `ExternalIdentity`,
+repozytorium użytkowników, `AuthService`, `AuthorizationService` oraz
+`AdminAccessGate`. Schemat SQL znajduje się w `modules/CoreAuth/install.sql`,
+a dostęp produkcyjny do danych przechodzi przez `CrudAppUserRepository`.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron

@@ -49,6 +49,10 @@ return [
         'name' => (string) $env('SESSION_NAME', 'MINIPORTALSESSID'),
         'same_site' => (string) $env('SESSION_SAME_SITE', 'Lax'),
     ],
+    'auth' => [
+        'storage' => (string) $env('AUTH_STORAGE', 'database'),
+        'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),
+    ],
     'database' => [
         'enabled' => $envBool('DB_ENABLED', $databaseName !== '' && $databaseUser !== ''),
         'database_type' => (string) $env('DB_DRIVER', 'mysql'),

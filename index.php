@@ -7,6 +7,14 @@ use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
 require_once __DIR__ . '/core/Autoloader.php';
@@ -19,10 +27,30 @@ $theme = $application->theme();
 $security = $application->security();
 $router = new Router();
 $adminMenu = new AdminMenuRegistry();
+$authConfig = $config['auth'] ?? [];
+$authStorage = (string) ($authConfig['storage'] ?? 'database');
+$authDemoEnabled = ($authConfig['demo_enabled'] ?? false) === true;
+/** @var UserRepositoryInterface $userRepository */
+$userRepository = match ($authStorage) {
+    'database' => $application->database() !== null
+        ? new CrudAppUserRepository($application->database())
+        : new UnavailableUserRepository(),
+    'memory' => $authDemoEnabled
+        ? new InMemoryUserRepository()
+        : new UnavailableUserRepository(),
+    default => throw new RuntimeException('Nieobsługiwany magazyn AUTH_STORAGE.'),
+};
+$auth = new AuthService($userRepository, $security);
+$authorization = new AuthorizationService();
+$access = new AdminAccessGate($auth, $authorization);
+$coreAuthModule = new CoreAuthModule($theme, $security, $auth, $authDemoEnabled);
+$coreAuthModule->registerRoutes($router);
 $demoAdminModule = new DemoAdminModule(
     $theme,
     $adminMenu,
-    ['admin.access', 'pages.view', 'articles.view']
+    $auth,
+    $access,
+    $security
 );
 $demoAdminModule->registerAdminMenu($adminMenu);
 $demoAdminModule->registerRoutes($router);
@@ -59,7 +87,7 @@ $router->get('/', static function () use ($application, $theme, $renderStart, $r
     $theme->render_text('Formularz demonstracyjny przechodzi przez Router, Request i walidację tokenu CSRF.');
     $theme->render_button('Otwórz test CSRF', 'index.php?route=/security-demo');
     echo ' ';
-    $theme->render_button('Otwórz panel modułowy', 'index.php?route=/admin-demo');
+    $theme->render_button('Otwórz panel modułowy', 'index.php?route=/admin');
     $theme->end_card();
     $theme->end_column();
     $theme->end_grid();

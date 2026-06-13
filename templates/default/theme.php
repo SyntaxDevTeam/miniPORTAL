@@ -235,6 +235,11 @@ final class Theme implements ThemeInterface
         echo '<input class="form-control" id="admin-global-search" type="search" placeholder="Szukaj w panelu..."></div>';
         echo '<div class="ms-auto d-flex align-items-center gap-2">';
         echo '<a class="admin-icon-button text-decoration-none" href="index.php" aria-label="Wróć do strony głównej">HM</a>';
+        if (($user['logout_action'] ?? '') !== '' && ($user['logout_token'] ?? '') !== '') {
+            echo '<form action="' . $this->escape($user['logout_action']) . '" method="post" class="m-0">';
+            $this->csrf_field($user['logout_token']);
+            echo '<button class="admin-icon-button" type="submit" aria-label="Wyloguj">EX</button></form>';
+        }
         echo '<span class="admin-avatar d-none d-sm-grid" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
         echo '</div></header><main id="admin-main" class="admin-content">';
     }
@@ -335,6 +340,80 @@ final class Theme implements ThemeInterface
             echo '</tr>';
         }
         echo '</tbody></table></div>';
+    }
+
+    public function render_admin_login(
+        string $action,
+        array $identities,
+        string $csrfToken,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<meta name="description" content="Logowanie do panelu miniPORTAL">';
+        echo '<title>Logowanie - miniPORTAL Admin</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
+        echo '<main class="min-vh-100 d-grid align-items-center py-4"><div class="container">';
+        echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
+        echo '<a class="admin-brand text-decoration-none" href="index.php">';
+        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
+        echo '<p class="showcase-label mt-5 mb-2">Demonstracja ACL</p>';
+        echo '<h1 class="h2 fw-bold">Wybierz lokalną tożsamość testową</h1>';
+        echo '<p class="text-secondary">To nie jest logowanie produkcyjne. Adaptery OAuth zostaną podłączone w kolejnych zadaniach.</p>';
+
+        if ($message !== '') {
+            $allowedVariants = ['success', 'danger', 'warning', 'info'];
+            $variant = in_array($variant, $allowedVariants, true) ? $variant : 'info';
+            echo '<div class="alert alert-' . $variant . '" role="alert">' . $this->escape($message) . '</div>';
+        }
+
+        echo '<div class="provider-list">';
+        foreach ($identities as $identity) {
+            echo '<form action="' . $this->escape($action) . '" method="post">';
+            $this->csrf_field($csrfToken);
+            echo '<input type="hidden" name="provider" value="' . $this->escape($identity['provider']) . '">';
+            echo '<input type="hidden" name="subject" value="' . $this->escape($identity['subject']) . '">';
+            echo '<button class="provider-button" type="submit"><span class="provider-icon provider-icon-github" aria-hidden="true">';
+            echo $this->escape(strtoupper(substr($identity['subject'], 0, 2))) . '</span>';
+            echo '<span><strong class="d-block">' . $this->escape($identity['label']) . '</strong>';
+            echo '<small class="text-secondary">' . $this->escape($identity['description']) . '</small></span>';
+            echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></button></form>';
+        }
+        if ($identities === []) {
+            echo '<div class="state-card py-4"><span class="state-icon" aria-hidden="true">OFF</span>';
+            echo '<h2 class="h5">Brak aktywnych dostawców</h2>';
+            echo '<p class="text-secondary mb-0">Skonfiguruj adapter OAuth albo świadomie włącz tryb demonstracyjny.</p></div>';
+        }
+        echo '</div><div class="security-note mt-4"><span aria-hidden="true">[DEV]</span>';
+        echo '<span>Sesja jest rotowana po logowaniu, a każdy formularz wymaga poprawnego tokenu CSRF.</span></div>';
+        echo '</section></div></div></main></body></html>';
+    }
+
+    public function render_admin_access_state(
+        int $status,
+        string $title,
+        string $message,
+        string $actionHref,
+        string $actionLabel,
+    ): void {
+        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<title>' . $this->escape((string) $status) . ' - miniPORTAL Admin</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '</head><body class="admin-stylebook"><main class="container min-vh-100 d-grid align-items-center py-5">';
+        echo '<section class="state-card access-state-card">';
+        echo '<span class="state-code">' . $this->escape((string) $status) . '</span>';
+        echo '<h1 class="h3">' . $this->escape($title) . '</h1>';
+        echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
+        echo '<a class="btn btn-primary" href="' . $this->escape($actionHref) . '">' . $this->escape($actionLabel) . '</a>';
+        echo '</section></main></body></html>';
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

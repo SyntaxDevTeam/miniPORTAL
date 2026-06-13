@@ -157,8 +157,8 @@ Stan implementacji:
 - `ThemeInterface` udostępnia układ panelu, breadcrumb, metryki, panele i tabelę,
 - `AdminMenuRegistry` filtruje pozycje według uprawnień i odrzuca duplikaty tras,
 - `ModuleInterface` deklaruje identyfikator, wymagane uprawnienia, menu i trasy,
-- `DemoAdminModule` potwierdza separację modułu od HTML na trasach `/admin-demo/*`,
-- właściwy `AdminLayout` i ochrona tras powstaną razem z `core_auth`.
+- `DemoAdminModule` potwierdza separację modułu od HTML na chronionych trasach `/admin/*`,
+- układ panelu pokazuje menu przefiltrowane według uprawnień bieżącego użytkownika.
 
 ### 5.3 Moduł `core_auth`
 
@@ -175,6 +175,19 @@ Stan implementacji:
 
 Opcjonalne logowanie lokalne z Argon2id należy traktować jako konto awaryjne, nie
 domyślną ścieżkę panelu. Wymaga osobnej decyzji i polityki odzyskiwania dostępu.
+
+Stan implementacji:
+
+- `install.sql` definiuje użytkowników, tożsamości, role, uprawnienia i `auth_events`,
+- modele domenowe oddzielają konto od zewnętrznej tożsamości,
+- `CrudAppUserRepository` odczytuje konto, role i uprawnienia przez fasadę `CrudApp`,
+- `AuthService`, `AuthorizationService` i `AdminAccessGate` chronią trasy `/admin/*`,
+- logowanie i wylogowanie wymagają CSRF, a identyfikator sesji jest rotowany,
+- repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
+
+Migracja nie została jeszcze wykonana na rzeczywistej bazie. Wymaga to konfiguracji
+`DB_*`, ustawienia `AUTH_STORAGE=database` i kontrolowanego uruchomienia
+`modules/CoreAuth/install.sql`.
 
 ### 5.4 Szkielet panelu administracyjnego
 
