@@ -237,7 +237,12 @@ final class Theme implements ThemeInterface
                 continue;
             }
 
-            echo '<div class="mb-3"><label class="form-label" for="' . $name . '">' . $label . '</label>';
+            echo '<div class="mb-3">';
+            if ($type === 'richtext') {
+                echo '<span class="form-label" id="' . $name . '-label">' . $label . '</span>';
+            } else {
+                echo '<label class="form-label" for="' . $name . '">' . $label . '</label>';
+            }
 
             if ($type === 'richtext') {
                 $safeValue = (new RichTextSanitizer())->sanitize($rawValue);
@@ -673,6 +678,115 @@ final class Theme implements ThemeInterface
         $this->end_admin_panel();
         $this->end_admin_content();
         $this->end_admin_page();
+    }
+
+    /**
+     * @param array{
+     *     key: string,
+     *     type: string,
+     *     eyebrow: string,
+     *     title: string,
+     *     content_html: string,
+     *     layout: string,
+     *     button_label: string,
+     *     button_url: string
+     * } $section
+     */
+    private function renderHomepageHero(array $section, bool $authenticated): void
+    {
+        $content = (new RichTextSanitizer())->sanitize($section['content_html']);
+
+        echo '<header id="' . $this->escape($section['key']) . '" class="home-hero"><div class="container py-5">';
+        echo '<div class="row align-items-center g-5"><div class="col-lg-7 reveal is-visible">';
+        if ($section['eyebrow'] !== '') {
+            echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
+        }
+        echo '<h1 class="home-title fw-bold">' . $this->escape($section['title']) . '</h1>';
+        echo '<div class="home-lead managed-home-content mt-4">' . $content . '</div>';
+        echo '<div class="hero-actions mt-4">';
+        if ($section['button_label'] !== '' && $this->safeHref($section['button_url']) !== '') {
+            echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($this->safeHref($section['button_url'])) . '">';
+            echo $this->escape($section['button_label']) . '</a>';
+        }
+        echo '<a class="btn btn-outline-light btn-lg" href="index.php?route=' . ($authenticated ? '/admin' : '/admin/login') . '">';
+        echo $authenticated ? 'Przejdź do panelu' : 'Panel administracyjny';
+        echo '</a></div></div><div class="col-lg-5 reveal is-visible">';
+        echo '<div class="terminal" aria-label="Status systemu"><div class="terminal-bar">';
+        echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';
+        echo '<i class="terminal-dot" aria-hidden="true"></i><span>syntaxdevteam.pl/build</span></div>';
+        echo '<pre><code>$ ./workspace status' . "\n\n";
+        echo 'CoreAuth     READY' . "\n" . 'CorePages    EDITABLE' . "\n" . 'ThemeEngine  ONLINE' . "\n";
+        echo 'CrudApp      CONNECTED' . "\n\n" . 'architecture: MODULAR' . "\n";
+        echo 'security:     ENABLED' . "\n" . 'status:       READY_TO_BUILD</code></pre></div>';
+        echo '</div></div></div></header>';
+    }
+
+    /**
+     * @param array{
+     *     key: string,
+     *     type: string,
+     *     eyebrow: string,
+     *     title: string,
+     *     content_html: string,
+     *     layout: string,
+     *     button_label: string,
+     *     button_url: string
+     * } $section
+     */
+    private function renderHomepageSection(array $section): void
+    {
+        $layouts = ['full', 'split', 'columns', 'accent'];
+        $layout = in_array($section['layout'], $layouts, true) ? $section['layout'] : 'full';
+        $content = (new RichTextSanitizer())->sanitize($section['content_html']);
+        $href = $this->safeHref($section['button_url']);
+
+        echo '<section id="' . $this->escape($section['key']) . '" class="home-section managed-home-section">';
+        echo '<div class="container">';
+
+        if ($section['type'] === 'cta') {
+            echo '<div class="contact-panel reveal"><div>';
+            if ($section['eyebrow'] !== '') {
+                echo '<p class="eyebrow mb-2">' . $this->escape($section['eyebrow']) . '</p>';
+            }
+            echo '<h2 class="h1 fw-bold">' . $this->escape($section['title']) . '</h2>';
+            echo '<div class="managed-home-content text-secondary mb-0">' . $content . '</div></div>';
+            if ($section['button_label'] !== '' && $href !== '') {
+                echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($href) . '">';
+                echo $this->escape($section['button_label']) . '</a>';
+            }
+            echo '</div></div></section>';
+            return;
+        }
+
+        echo '<div class="managed-home-layout managed-home-layout-' . $layout . ' reveal">';
+        echo '<div class="home-heading mb-0">';
+        if ($section['eyebrow'] !== '') {
+            echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
+        }
+        echo '<h2 class="fw-bold">' . $this->escape($section['title']) . '</h2></div>';
+        echo '<div class="managed-home-content">' . $content;
+        if ($section['button_label'] !== '' && $href !== '') {
+            echo '<p class="mt-4 mb-0"><a class="btn btn-outline-light" href="' . $this->escape($href) . '">';
+            echo $this->escape($section['button_label']) . '</a></p>';
+        }
+        echo '</div></div></div></section>';
+    }
+
+    /**
+     * @param array{eyebrow: string, title: string} $section
+     */
+    private function navigationLabel(array $section): string
+    {
+        $label = preg_replace('/^\s*\d+\s*\/\s*/', '', $section['eyebrow']) ?? '';
+
+        return $label !== '' ? $label : $section['title'];
+    }
+
+    private function safeHref(string $href): string
+    {
+        $href = trim($href);
+
+        return preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $href) === 1 ? $href : '';
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

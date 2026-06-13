@@ -27,6 +27,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
+use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
@@ -103,11 +104,15 @@ $modules->add($coreAuthModule);
 $pageRepository = $application->database() !== null
     ? new PageRepository($application->database())
     : null;
-$corePagesModule = $pageRepository !== null
+$homepageSectionRepository = $application->database() !== null
+    ? new HomepageSectionRepository($application->database())
+    : null;
+$corePagesModule = $pageRepository !== null && $homepageSectionRepository !== null
     ? new CorePagesModule(
         $theme,
         $adminMenu,
         $pageRepository,
+        $homepageSectionRepository,
         $auth,
         $access,
         $security,
@@ -161,8 +166,9 @@ $renderEnd = static function () use ($theme): void {
     $theme->end_page();
 };
 
-$router->get('/', static function () use ($pageRepository, $theme, $auth): void {
+$router->get('/', static function () use ($pageRepository, $homepageSectionRepository, $theme, $auth): void {
     $pages = [];
+    $sections = [];
 
     if ($pageRepository !== null) {
         $pages = array_map(
@@ -171,7 +177,14 @@ $router->get('/', static function () use ($pageRepository, $theme, $auth): void 
         );
     }
 
-    $theme->render_homepage($pages, $auth->user() !== null);
+    if ($homepageSectionRepository !== null) {
+        $sections = array_map(
+            static fn ($section): array => $section->toThemeData(),
+            $homepageSectionRepository->visible()
+        );
+    }
+
+    $theme->render_homepage($sections, $pages, $auth->user() !== null);
 });
 
 $router->get('/security-demo', static function () use ($security, $theme, $renderStart, $renderEnd): void {

@@ -10,6 +10,11 @@ final class RichTextSanitizer
 
     public function sanitize(string $html): string
     {
+        $html = preg_replace(
+            '#<(script|style|iframe|object|embed|svg|math)\b[^>]*>.*?</\1\s*>#is',
+            '',
+            $html
+        ) ?? '';
         $html = str_ireplace(
             ['<div>', '</div>', '<div><br></div>'],
             ['<p>', '</p>', '<p><br></p>'],

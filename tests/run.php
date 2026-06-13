@@ -7,6 +7,7 @@ use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
+use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
@@ -84,6 +85,16 @@ $test('CSRF accepts only the session token', static function () use ($assert): v
     $assert(strlen($token) === 64);
     $assert($security->validateCsrfToken($token));
     $assert(!$security->validateCsrfToken(str_repeat('0', 64)));
+});
+
+$test('Rich text keeps formatting and removes executable markup', static function () use ($assert): void {
+    $sanitizer = new RichTextSanitizer();
+    $result = $sanitizer->sanitize(
+        '<h2 class="x">Nagłówek</h2><p onclick="alert(1)">Treść <strong>ważna</strong>'
+        . '<script>alert(1)</script><img src=x onerror=alert(2)></p>'
+    );
+
+    $assert($result === '<h2>Nagłówek</h2><p>Treść <strong>ważna</strong></p>');
 });
 
 $test('Authorization rejects missing permission and blocked account', static function () use ($assert): void {

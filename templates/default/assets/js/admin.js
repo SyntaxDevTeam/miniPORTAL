@@ -74,3 +74,40 @@ document.querySelectorAll("[data-provider-demo]").forEach((button) => {
     }
   });
 });
+
+document.querySelectorAll("[data-richtext]").forEach((editor) => {
+  const surface = editor.querySelector("[data-richtext-surface]");
+  const input = editor.querySelector("[data-richtext-input]");
+
+  if (!surface || !input) {
+    return;
+  }
+
+  const sync = () => {
+    input.value = surface.innerHTML;
+  };
+
+  editor.querySelectorAll("[data-richtext-command]").forEach((button) => {
+    button.addEventListener("click", () => {
+      surface.focus();
+      document.execCommand(button.dataset.richtextCommand, false);
+      sync();
+    });
+  });
+
+  editor.querySelectorAll("[data-richtext-block]").forEach((button) => {
+    button.addEventListener("click", () => {
+      surface.focus();
+      document.execCommand("formatBlock", false, button.dataset.richtextBlock);
+      sync();
+    });
+  });
+
+  surface.addEventListener("input", sync);
+  surface.addEventListener("paste", (event) => {
+    event.preventDefault();
+    const text = event.clipboardData?.getData("text/plain") || "";
+    document.execCommand("insertText", false, text);
+  });
+  surface.closest("form")?.addEventListener("submit", sync);
+});

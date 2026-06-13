@@ -108,7 +108,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 |--------|---------|
 | [x] | `core_pages`: CRUD, slug, status i publikacja |
 | [x] | Uprawnienia granularne `pages.*` |
-| [ ] | WYSIWYG po ukończeniu formularza podstawowego |
+| [x] | Sekcje strony głównej: typ, nagłówki, treść, układ, kolejność i widoczność |
+| [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
+| [ ] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 
 ### Krok 6 - system modułów
@@ -127,10 +129,10 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz walidację `info.json`.
-2. Wydzielić deklaratywne tworzenie modułów z `index.php` przed implementacją managera.
-3. Zastąpić demonstracyjne sekcje użytkowników i modułów rzeczywistymi modułami lub ukryć je do czasu implementacji.
-4. Dopiero potem dodać WYSIWYG oraz zaprojektować cache z jednoznacznym unieważnianiem.
+1. Rozszerzyć kontrolowany WYSIWYG na zwykłe podstrony `core_pages`.
+2. Dodać podgląd roboczy i autozapis sekcji strony głównej.
+3. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz walidację `info.json`.
+4. Wydzielić deklaratywne tworzenie modułów z `index.php` przed implementacją managera.
 
 ## Uwagi / blokery
 
@@ -175,8 +177,24 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Stary katalog `theme/` nie miał aktywnych odwołań i został usunięty po potwierdzeniu migracji do `templates/`. |
 | 2026-06-13 | `articles` ma osobne tabele kategorii i treści, pełny CRUD, publikację, publiczną listę i widok, ACL, CSRF oraz audit log. |
 | 2026-06-13 | Migracja `modules/Articles/install.sql` została wykonana; DDL MySQL zatwierdza się automatycznie i nie może być traktowane jak jedna transakcja PDO. |
+| 2026-06-13 | `core_pages` zarządza sekcjami strony głównej przez tabelę `homepage_sections`; moduł przechowuje dane i wariant układu, a aktywny motyw odpowiada za HTML oraz CSS. |
+| 2026-06-13 | Lokalny edytor WYSIWYG dopuszcza wyłącznie kontrolowane znaczniki tekstowe; skrypty, osadzenia, obrazy i atrybuty HTML są usuwane po stronie serwera. |
 
 ## Historia sesji
+
+### Sesja: 2026-06-13 - edytor strony głównej
+
+**Wykonano:**
+- dodano model i migrację sekcji strony głównej,
+- dodano panel CRUD sekcji, zmianę kolejności, układu i widoczności,
+- dodano lokalny edytor WYSIWYG z serwerową allowlistą HTML,
+- podłączono dynamiczne renderowanie sekcji przez `ThemeInterface`,
+- wykonano migrację i utworzono cztery sekcje startowe.
+
+**Zaktualizowano status:** edycja strony głównej ma pierwszeństwo przed dalszą
+rozbudową modułu artykułów i stanowi ukończony element Kroku 5C.
+
+**Następne kroki:** podgląd roboczy, autozapis i WYSIWYG zwykłych podstron.
 
 ### Sesja: 2026-06-12
 

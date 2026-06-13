@@ -152,6 +152,52 @@
   letter-spacing: -0.045em;
 }
 
+.managed-home-layout {
+  display: grid;
+  gap: clamp(2rem, 6vw, 5rem);
+}
+
+.managed-home-layout-split {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+}
+
+.managed-home-layout-columns .managed-home-content {
+  columns: 2 18rem;
+  column-gap: 2rem;
+}
+
+.managed-home-layout-accent {
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+  background:
+    linear-gradient(125deg, rgba(var(--mp-primary-rgb), 0.11), transparent 55%),
+    var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+  box-shadow: var(--mp-shadow);
+}
+
+.managed-home-content {
+  color: var(--mp-muted);
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.managed-home-content h2,
+.managed-home-content h3 {
+  break-after: avoid;
+  color: var(--bs-body-color);
+}
+
+.managed-home-content blockquote {
+  padding-left: 1rem;
+  border-left: 3px solid var(--mp-primary);
+}
+
+.managed-home-content > :last-child {
+  margin-bottom: 0;
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -246,6 +292,10 @@
   .project-card,
   .project-card-wide {
     grid-column: span 6;
+  }
+
+  .managed-home-layout-split {
+    grid-template-columns: 1fr;
   }
 }
 

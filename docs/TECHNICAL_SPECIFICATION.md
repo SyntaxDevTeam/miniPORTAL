@@ -203,7 +203,10 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 - CRUD dla stron przez `CrudApp`
 - unikalny slug i publiczna trasa opublikowanej strony
 - stany `draft` i `published` oraz granularne uprawnienia `pages.*`
-- integracja z edytorem WYSIWYG (np. TinyMCE lub CKEditor 5)
+- edytowalne sekcje strony głównej: typ, nagłówki, treść, układ, widoczność i kolejność
+- lokalny edytor WYSIWYG oparty na kontrolowanej allowliście formatowania
+- renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
+- późniejsze rozszerzenie WYSIWYG na zwykłe podstrony
 - opcjonalny autozapis do localStorage / bazy danych
 
 ### Faza 5: Manager modułów (Lego System)
@@ -301,11 +304,13 @@ kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
 6. Adapter logowania Google OpenID Connect.
 7. Szkielet panelu: dashboard, profil, użytkownicy, role i audit log.
 8. `core_pages`: CRUD stron przez `CrudApp`.
-9. `articles`: przykład niezależnego modułu.
+9. `core_pages`: edytor sekcji strony głównej i kontrolowany WYSIWYG.
+10. `articles`: przykład niezależnego modułu.
 
 Stan Kroku 5:
 
 - `core_pages` i `articles` są rzeczywistymi, odrębnymi modułami treści,
+- `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
 - oba rejestrują menu i trasy przez `ModuleRegistry`,
 - oba składają panel z ogólnych komponentów `ThemeInterface`,
 - `articles` dostarcza pierwszy plik `info.json`, który wyznacza wejście do Kroku 6.

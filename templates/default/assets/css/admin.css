@@ -666,6 +666,32 @@ body.admin-stylebook {
   border-radius: 0.55rem 0.55rem 0 0;
 }
 
+.richtext-editor {
+  border-radius: 0.55rem;
+}
+
+.richtext-surface {
+  min-height: 18rem;
+  overflow-y: auto;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  line-height: 1.7;
+}
+
+.richtext-surface:focus {
+  position: relative;
+  z-index: 1;
+}
+
+.richtext-surface h2,
+.richtext-surface h3 {
+  margin-top: 1.4em;
+}
+
+.richtext-surface p:last-child {
+  margin-bottom: 0;
+}
+
 .editor-tool {
   min-width: 2rem;
   height: 2rem;
