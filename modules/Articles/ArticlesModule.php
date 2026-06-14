@@ -123,7 +123,8 @@ final class ArticlesModule implements ModuleInterface
         $this->theme->start_page('Artykuły - SyntaxDevTeam', 'Opublikowane artykuły SyntaxDevTeam.');
         $this->theme->start_header(
             'Artykuły',
-            $category !== '' ? 'Kategoria: ' . $category : 'Wiadomości, poradniki i informacje projektowe.'
+            $category !== '' ? 'Kategoria: ' . $category : 'Wiadomości, poradniki i informacje projektowe.',
+            'SyntaxDevTeam / Artykuły'
         );
         $this->theme->end_header();
         $this->theme->start_section();
@@ -168,7 +169,8 @@ final class ArticlesModule implements ModuleInterface
         $this->theme->start_page($article->title . ' - SyntaxDevTeam', $article->summary);
         $this->theme->start_header(
             $article->title,
-            $article->categoryName . ' | Opublikowano: ' . ($article->publishedAt ?? $article->updatedAt)
+            $article->categoryName . ' | Opublikowano: ' . ($article->publishedAt ?? $article->updatedAt),
+            'Artykuł / ' . $article->categoryName
         );
         $this->theme->end_header();
         $this->theme->start_section();

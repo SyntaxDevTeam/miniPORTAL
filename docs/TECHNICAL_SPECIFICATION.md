@@ -215,6 +215,7 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
   obrazy, kod liniowy i bloki kodu; surowy HTML jest kodowany
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
 - wspólny renderer bezpiecznej treści dla sekcji homepage, kart, podstron i artykułów
+- wspólny publiczny branding motywu oraz edytowalne nadtytuły podstron
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
 - autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia
   bez nadpisywania danych z bazy i czyszczony po potwierdzonym zapisie

@@ -139,6 +139,10 @@ MD;
         '<a href="https://example.com/actions" rel="nofollow noopener noreferrer">'
         . '<img src="https://example.com/build.svg" alt="Build" loading="lazy"></a>'
     ));
+    $assert(
+        $renderer->render('Myślą, większą kontrolą i kończącą się zawartością.', 'markdown')
+        === '<p>Myślą, większą kontrolą i kończącą się zawartością.</p>'
+    );
     $assert(str_contains($result, '<table>'));
     $assert(str_contains($result, 'type="checkbox" disabled checked'));
     $assert(str_contains($result, '&lt;script&gt;alert(1)&lt;/script&gt;'));

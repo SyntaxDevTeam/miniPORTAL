@@ -404,3 +404,20 @@ wybranej podstrony zamiast pozycji opcji na liście.
 
 **Zaktualizowano status:** badge z README GitHub renderują się jako klikalne
 grafiki zamiast technicznych znaczników parsera.
+
+### Sesja: 2026-06-14 - publiczny branding, nadtytuły i UTF-8
+
+**Wykonano:**
+- ujednolicono publiczne logo i stopkę jako `SyntaxDevTeam`,
+- pozostawiono nazwę `miniPORTAL` wyłącznie dla panelu i warstwy systemowej,
+- dodano konfigurację `SITE_NAME` i `SITE_EYEBROW`,
+- rozszerzono kontrakt Theme o jawny nadtytuł widoku,
+- dodano edytowalne pole `eyebrow` do `core_pages` wraz z migracją,
+- ustawiono startowe nadtytuły istniejących stron projektowych i prawnych,
+- dodano kontekstowe nadtytuły listy artykułów, artykułu, podstron i błędu 404,
+- potwierdzono `utf8mb4` bazy oraz poprawne bajty UTF-8 treści `MedStock`,
+- poprawiono parser Markdown, który bez trybu Unicode interpretował bajt litery
+  `ą` jako znak nowej linii NEL.
+
+**Zaktualizowano status:** publiczne widoki korzystają z jednej marki, a
+nadtytuły podstron można zmieniać z panelu administracyjnego.

@@ -46,6 +46,8 @@ APP_NAME="miniPORTAL"
 APP_DEBUG=false
 APP_TIMEZONE="Europe/Warsaw"
 APP_THEME="default"
+SITE_NAME="SyntaxDevTeam"
+SITE_EYEBROW="Software dla społeczności"
 SESSION_NAME="MINIPORTALSESSID"
 SESSION_SAME_SITE="Lax"
 
@@ -116,6 +118,8 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_DEBUG` | Szczegóły błędów diagnostycznych |
 | `APP_TIMEZONE` | Strefa czasowa PHP |
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
+| `SITE_NAME` | Publiczna nazwa marki używana w logo, tytułach i stopce |
+| `SITE_EYEBROW` | Domyślny nadtytuł publicznych widoków bez własnej wartości |
 | `SESSION_NAME` | Nazwa bezpiecznego cookie sesji |
 | `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
 | `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |

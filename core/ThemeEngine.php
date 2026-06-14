@@ -13,7 +13,7 @@ final class ThemeEngine
     ) {
     }
 
-    public function load(string $themeName): ThemeInterface
+    public function load(string $themeName, array $config = []): ThemeInterface
     {
         if (preg_match('/^[a-z][a-z0-9_-]*$/', $themeName) !== 1) {
             throw new RuntimeException('Nazwa motywu zawiera niedozwolone znaki.');
@@ -33,7 +33,7 @@ final class ThemeEngine
             throw new RuntimeException("Motyw {$themeName} nie udostępnia klasy {$className}.");
         }
 
-        $theme = new $className();
+        $theme = new $className($config);
 
         if (!$theme instanceof ThemeInterface) {
             throw new RuntimeException("Motyw {$themeName} nie implementuje ThemeInterface.");

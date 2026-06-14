@@ -136,10 +136,10 @@ $modules->boot($adminMenu, $router);
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(
-        $title . ' - miniPORTAL',
+        $title . ' - SyntaxDevTeam',
         $lead
     );
-    $theme->start_header($title, $lead);
+    $theme->start_header($title, $lead, 'SyntaxDevTeam / System');
     $theme->end_header();
     $theme->start_section();
 };

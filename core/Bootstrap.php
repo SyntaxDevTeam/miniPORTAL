@@ -32,7 +32,12 @@ final class Bootstrap
 
         $themeName = (string) ($config['app']['theme'] ?? 'default');
         $themeEngine = new ThemeEngine(dirname(__DIR__) . '/templates');
-        $application = new self($config, $themeEngine->load($themeName), $request, $security);
+        $application = new self(
+            $config,
+            $themeEngine->load($themeName, $config['app'] ?? []),
+            $request,
+            $security
+        );
         $application->bootDatabase();
 
         return $application;

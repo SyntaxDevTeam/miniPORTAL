@@ -10,7 +10,7 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class PageRepository
 {
-    private const COLUMNS = 'id, title, slug, summary, meta_description, content, content_format, page_type, '
+    private const COLUMNS = 'id, title, slug, eyebrow, summary, meta_description, content, content_format, page_type, '
         . 'navigation_area, navigation_label, sort_order, status, author_id, published_at, created_at, updated_at';
 
     public function __construct(
@@ -166,6 +166,7 @@ final class PageRepository
             (int) $row['id'],
             (string) $row['title'],
             (string) $row['slug'],
+            (string) ($row['eyebrow'] ?? ''),
             (string) ($row['summary'] ?? ''),
             (string) ($row['meta_description'] ?? ''),
             (string) $row['content'],

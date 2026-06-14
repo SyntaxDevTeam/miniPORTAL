@@ -1038,7 +1038,8 @@ final class CorePagesModule implements ModuleInterface
             $page->publishedAt ?? $page->updatedAt,
             $page->metaDescription !== '' ? $page->metaDescription : $page->summary,
             $page->pageType,
-            $page->contentFormat
+            $page->contentFormat,
+            $page->eyebrow
         );
     }
 
@@ -1051,7 +1052,8 @@ final class CorePagesModule implements ModuleInterface
         );
         $this->theme->start_header(
             'Podstrony',
-            'Opisy projektów, dodatkowe informacje oraz dokumenty prawne.'
+            'Opisy projektów, dodatkowe informacje oraz dokumenty prawne.',
+            'SyntaxDevTeam / Podstrony'
         );
         $this->theme->end_header();
         $this->theme->start_section();
@@ -1236,6 +1238,12 @@ final class CorePagesModule implements ModuleInterface
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
                 [
+                    'name' => 'eyebrow',
+                    'label' => 'Nadtytuł',
+                    'value' => $page?->eyebrow ?? '',
+                    'help' => 'Krótka etykieta nad tytułem, np. PROJEKT / CLEANERX. Puste pole użyje wartości domyślnej.',
+                ],
+                [
                     'name' => 'page_type',
                     'label' => 'Typ podstrony',
                     'type' => 'select',
@@ -1418,6 +1426,7 @@ final class CorePagesModule implements ModuleInterface
         $data = [
             'title' => $title,
             'slug' => $slug,
+            'eyebrow' => substr($request->postString('eyebrow'), 0, 160),
             'summary' => substr($request->postString('summary'), 0, 320),
             'meta_description' => substr($request->postString('meta_description'), 0, 255),
             'content' => $content,

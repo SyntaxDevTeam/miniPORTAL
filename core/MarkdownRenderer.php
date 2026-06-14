@@ -8,7 +8,7 @@ final class MarkdownRenderer
 {
     public function render(string $markdown): string
     {
-        $lines = preg_split('/\R/', str_replace("\t", '    ', trim($markdown))) ?: [];
+        $lines = preg_split('/\R/u', str_replace("\t", '    ', trim($markdown))) ?: [];
 
         return $this->renderBlocks($lines);
     }

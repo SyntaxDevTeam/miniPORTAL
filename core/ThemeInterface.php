@@ -44,7 +44,7 @@ interface ThemeInterface
 
     public function end_page(): void;
 
-    public function start_header(string $title, string $lead = ''): void;
+    public function start_header(string $title, string $lead = '', string $eyebrow = ''): void;
 
     public function end_header(): void;
 
@@ -204,6 +204,7 @@ interface ThemeInterface
         string $description = '',
         string $pageType = 'standard',
         string $contentFormat = 'html',
+        string $eyebrow = '',
     ): void;
 
     public function render_rich_content(string $content, string $format = 'html'): void;

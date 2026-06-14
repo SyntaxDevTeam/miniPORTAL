@@ -10,6 +10,7 @@ final readonly class Page
         public int $id,
         public string $title,
         public string $slug,
+        public string $eyebrow,
         public string $summary,
         public string $metaDescription,
         public string $content,

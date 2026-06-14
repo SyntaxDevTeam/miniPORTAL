@@ -10,6 +10,16 @@ use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
 final class Theme implements ThemeInterface
 {
+    private readonly string $publicName;
+
+    private readonly string $publicEyebrow;
+
+    public function __construct(array $config = [])
+    {
+        $this->publicName = trim((string) ($config['public_name'] ?? 'SyntaxDevTeam')) ?: 'SyntaxDevTeam';
+        $this->publicEyebrow = trim((string) ($config['public_eyebrow'] ?? 'Software dla społeczności'));
+    }
+
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
     {
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
@@ -22,7 +32,8 @@ final class Theme implements ThemeInterface
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
         echo '<nav class="navbar navbar-expand-lg border-bottom fixed-top" data-site-nav aria-label="Główna nawigacja"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> SyntaxDevTeam</a>';
+        echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> ';
+        echo $this->escape($this->publicName) . '</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
         foreach ($sections as $section) {
@@ -80,7 +91,7 @@ final class Theme implements ThemeInterface
         }
 
         echo '</main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
-        echo '<span>&copy; 2026 SyntaxDevTeam</span><span class="d-flex flex-wrap gap-3">';
+        echo '<span>&copy; 2026 ' . $this->escape($this->publicName) . '</span><span class="d-flex flex-wrap gap-3">';
         foreach ($pages as $page) {
             if ($page['navigation_area'] !== 'footer') {
                 continue;
@@ -110,7 +121,8 @@ final class Theme implements ThemeInterface
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '</head><body>';
         echo '<nav class="navbar border-bottom"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="/index.php">&lt;/&gt; miniPORTAL</a>';
+        echo '<a class="navbar-brand fw-bold" href="/index.php"><span aria-hidden="true">&lt;/&gt;</span> ';
+        echo $this->escape($this->publicName) . '</a>';
         echo '<div class="d-flex gap-2">';
         echo '<a class="btn btn-sm btn-outline-light" href="/index.php">Strona główna</a>';
         echo '<a class="btn btn-sm btn-outline-light" href="/index.php?route=/articles">Artykuły</a>';
@@ -122,14 +134,17 @@ final class Theme implements ThemeInterface
     public function end_page(): void
     {
         echo '</main><footer class="border-top py-4"><div class="container text-secondary small">';
-        echo 'miniPORTAL · Core → Modules → Templates';
+        echo '&copy; 2026 ' . $this->escape($this->publicName);
         echo '</div></footer></body></html>';
     }
 
-    public function start_header(string $title, string $lead = ''): void
+    public function start_header(string $title, string $lead = '', string $eyebrow = ''): void
     {
         echo '<header class="stylebook-hero border-bottom"><div class="container py-5">';
-        echo '<p class="eyebrow mb-2">miniPORTAL / punkt integracji</p>';
+        $eyebrow = trim($eyebrow) !== '' ? trim($eyebrow) : $this->publicEyebrow;
+        if ($eyebrow !== '') {
+            echo '<p class="eyebrow mb-2">' . $this->escape($eyebrow) . '</p>';
+        }
         echo '<h1 class="display-4 fw-bold">' . $this->escape($title) . '</h1>';
 
         if ($lead !== '') {
@@ -682,14 +697,19 @@ final class Theme implements ThemeInterface
         string $description = '',
         string $pageType = 'standard',
         string $contentFormat = 'html',
+        string $eyebrow = '',
     ): void {
         $labels = [
             'project' => 'Projekt',
             'legal' => 'Dokument prawny',
             'standard' => 'Informacje',
         ];
-        $this->start_page($title . ' - miniPORTAL', $description !== '' ? $description : $title);
-        $this->start_header($title, ($labels[$pageType] ?? $labels['standard']) . ' · Opublikowano: ' . $publishedAt);
+        $this->start_page($title . ' - ' . $this->publicName, $description !== '' ? $description : $title);
+        $this->start_header(
+            $title,
+            ($labels[$pageType] ?? $labels['standard']) . ' · Opublikowano: ' . $publishedAt,
+            $eyebrow
+        );
         $this->end_header();
         $this->start_section();
         echo '<article class="showcase-card managed-home-content">';
@@ -719,8 +739,8 @@ final class Theme implements ThemeInterface
 
     public function render_page_not_found(string $title, string $message): void
     {
-        $this->start_page('404 - miniPORTAL', $message);
-        $this->start_header($title, $message);
+        $this->start_page('404 - ' . $this->publicName, $message);
+        $this->start_header($title, $message, '404 / Nie znaleziono');
         $this->end_header();
         $this->start_section();
         $this->render_alert($message, 'warning');
