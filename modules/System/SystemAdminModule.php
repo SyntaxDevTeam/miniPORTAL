@@ -56,27 +56,18 @@ final class SystemAdminModule implements ModuleInterface
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
-        $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
-        $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
         $menu->add('System', 'Wzorce UI', '/admin/design-system', 'UI', 'admin.access', 70);
     }
 
     public function registerRoutes(Router $router): void
     {
         $router->get('/admin', fn (Request $request) => $this->guard($request, 'admin.access', fn () => $this->renderDashboard()));
-        $router->get('/admin/users', fn (Request $request) => $this->guard($request, 'users.view', fn () => $this->renderSection(
-            'Użytkownicy',
-            '/admin/users',
-            'users.view',
-            'Administrator może zarządzać użytkownikami, redaktor otrzyma dla tej trasy odpowiedź 403.'
-        )));
-        $router->get('/admin/modules', fn (Request $request) => $this->guard($request, 'modules.view', fn () => $this->renderSection(
-            'Moduły',
-            '/admin/modules',
+        $router->get('/admin/modules', fn (Request $request) => $this->guard(
+            $request,
             'modules.view',
-            'Manager odczytuje manifesty, stan aktywności i historię migracji.'
-        )));
+            fn () => $this->renderModules()
+        ));
         $router->post('/admin/modules/install', fn (Request $request) => $this->guard(
             $request,
             'modules.install',
@@ -102,21 +93,30 @@ final class SystemAdminModule implements ModuleInterface
     private function renderDashboard(): void
     {
         $visibleMenu = $this->menu->visibleFor($this->auth->user()?->permissions ?? []);
+        $moduleEntries = $this->moduleManager?->modules() ?? [];
+        $activeModules = count(array_filter(
+            $moduleEntries,
+            static fn (array $entry): bool => $entry['state']->isActive()
+        ));
+        $pendingMigrations = array_sum(array_map(
+            static fn (array $entry): int => count($entry['pending']),
+            $moduleEntries
+        ));
 
         $this->startPage(
             'Dashboard',
             '/admin',
-            'Menu po lewej zostało zarejestrowane przez moduły i odfiltrowane według przykładowych uprawnień.'
+            'Stan uruchomionych modułów, migracji i menu wynikający z bieżącej konfiguracji.'
         );
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Widoczne pozycje menu', (string) count($visibleMenu), 'ACL', 'Zależne od uprawnień');
-        $this->theme->render_admin_metric('Moduł systemowy', $this->id(), 'MOD', 'Dashboard i manager modułów');
-        $this->theme->render_admin_metric('Wymagane uprawnienie', 'admin.access', 'ACL', 'Deklarowane przez moduł');
+        $this->theme->render_admin_metric('Aktywne moduły', (string) $activeModules, 'MOD', count($moduleEntries) . ' wykrytych');
+        $this->theme->render_admin_metric('Oczekujące migracje', (string) $pendingMigrations, 'SQL', 'Kontrola SHA-256');
         $this->theme->render_admin_metric('Warstwa HTML', 'Theme', 'UI', 'Moduł nie zna znaczników');
         $this->theme->end_admin_metrics();
 
-        $this->theme->start_admin_panel('Kontrakt modułu', 'Krok 5B');
+        $this->theme->start_admin_panel('Stan architektury', 'Krok 6');
         $this->theme->render_admin_table(
             ['Odpowiedzialność', 'Właściciel'],
             [
@@ -124,32 +124,12 @@ final class SystemAdminModule implements ModuleInterface
                 ['Pozycje menu', 'AdminMenuRegistry'],
                 ['Filtrowanie menu', 'Lista uprawnień użytkownika'],
                 ['Układ i HTML', 'ThemeInterface'],
+                ['Stan modułów', 'modules_config'],
+                ['Historia migracji', 'module_migrations'],
             ]
         );
         $this->theme->end_admin_panel();
 
-        $this->endPage();
-    }
-
-    private function renderSection(string $title, string $path, string $permission, string $description): void
-    {
-        if ($path === '/admin/modules') {
-            $this->renderModules();
-            return;
-        }
-
-        $this->startPage($title, $path, $description);
-        $this->theme->start_admin_panel('Rejestracja modułu', $permission);
-        $this->theme->render_admin_table(
-            ['Element', 'Wartość'],
-            [
-                ['Moduł', $this->id()],
-                ['Trasa', $path],
-                ['Uprawnienie menu', $permission],
-                ['Stan', 'Prototyp kontraktu'],
-            ]
-        );
-        $this->theme->end_admin_panel();
         $this->endPage();
     }
 
@@ -177,9 +157,15 @@ final class SystemAdminModule implements ModuleInterface
             $manifest = $entry['manifest'];
             $state = $entry['state'];
             $pending = $entry['pending'];
+            $loadable = $entry['loadable'];
             $actions = [];
 
-            if (!$state->isInstalled() && $allows('modules.install') && $manifest->installFile !== null) {
+            if (
+                $loadable
+                && !$state->isInstalled()
+                && $allows('modules.install')
+                && $manifest->installFile !== null
+            ) {
                 $actions[] = [
                     'label' => 'Zainstaluj',
                     'action' => 'index.php?route=/admin/modules/install',
@@ -187,7 +173,7 @@ final class SystemAdminModule implements ModuleInterface
                     'variant' => 'primary',
                 ];
             }
-            if ($state->isInstalled() && $pending !== [] && $allows('modules.install')) {
+            if ($loadable && $state->isInstalled() && $pending !== [] && $allows('modules.install')) {
                 $actions[] = [
                     'label' => 'Migracje (' . count($pending) . ')',
                     'action' => 'index.php?route=/admin/modules/migrate',
@@ -195,7 +181,7 @@ final class SystemAdminModule implements ModuleInterface
                     'variant' => 'outline-primary',
                 ];
             }
-            if ($state->isInstalled() && !$manifest->protected && $allows('modules.toggle')) {
+            if ($loadable && $state->isInstalled() && !$manifest->protected && $allows('modules.toggle')) {
                 $actions[] = [
                     'label' => $state->isActive() ? 'Wyłącz' : 'Włącz',
                     'action' => 'index.php?route=/admin/modules/toggle',
@@ -213,6 +199,7 @@ final class SystemAdminModule implements ModuleInterface
                     $state->version . ' / ' . $manifest->version,
                     $this->moduleStatusLabel($state->status),
                     $manifest->protected ? 'Chroniony' : 'Rozszerzenie',
+                    $loadable ? 'Fabryka gotowa' : 'Brak fabryki',
                     $pending === [] ? 'Brak' : implode(', ', $pending),
                 ],
                 'actions' => $actions,
@@ -221,7 +208,7 @@ final class SystemAdminModule implements ModuleInterface
 
         $this->theme->start_admin_panel('Rejestr modułów', count($rows) . ' manifesty');
         $this->theme->render_admin_action_table(
-            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Oczekujące migracje'],
+            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Uruchamianie', 'Oczekujące migracje'],
             $rows,
             $this->security->csrfToken()
         );

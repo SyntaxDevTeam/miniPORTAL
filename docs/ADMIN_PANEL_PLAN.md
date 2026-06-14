@@ -159,7 +159,8 @@ Stan implementacji:
 - `AdminMenuRegistry` filtruje pozycje według uprawnień i odrzuca duplikaty tras,
 - `ModuleInterface` deklaruje identyfikator, wymagane uprawnienia, menu i trasy,
 - `ModuleRegistry` uruchamia rejestrację menu i tras wszystkich aktywnych modułów,
-- `DemoAdminModule` potwierdza separację modułu od HTML na chronionych trasach `/admin/*`,
+- `SystemAdminModule` dostarcza dashboard, manager modułów i zasoby systemowe,
+- `CoreAuthModule` jest właścicielem menu i tras użytkowników oraz połączonych tożsamości,
 - układ panelu pokazuje menu przefiltrowane według uprawnień bieżącego użytkownika.
 - sekcja `/admin/design-system` łączy działający panel ze statycznym stylebookiem,
   prototypem homepage, prototypem panelu i testem warstw Core.
@@ -194,6 +195,9 @@ Stan implementacji:
 - `FirstAdminBootstrapper` atomowo tworzy pierwsze konto wyłącznie w pustej bazie,
 - profil pozwala łączyć i odłączać providerów bez automatycznego scalania po e-mailu,
 - `AuditLogService` zapisuje logowania, wylogowania, callbacki, ACL i zmiany tożsamości,
+- `/admin/users` pokazuje lokalne konta, role, statusy i podłączonych providerów,
+- `users.manage` pozwala atomowo zmienić status i jedną rolę startową; operacja
+  chroni własne konto oraz ostatniego aktywnego administratora,
 - sesyjny limiter ogranicza rozpoczęcia i callbacki osobno dla każdego providera,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
 
@@ -209,6 +213,13 @@ przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsa
 4. Zarządzanie użytkownikami, rolami i uprawnieniami.
 5. Audit log i komunikaty systemowe.
 6. Ochrona każdej trasy konkretnym uprawnieniem.
+
+Stan implementacji:
+
+- dashboard pokazuje rzeczywistą liczbę aktywnych modułów i oczekujących migracji,
+- lista użytkowników oraz edycja statusu i roli działają przez `CoreAuth`,
+- definicje ról i ich zestawy uprawnień są nadal danymi systemowymi bez osobnego edytora,
+- osobny widok przeglądania audit logu pozostaje do wdrożenia.
 
 ### 5.5 Moduł `core_pages`
 
@@ -271,6 +282,10 @@ topologicznego uruchamiania zależności, deklaratywnych fabryk w `config/module
 rejestru `modules_config` i historii `module_migrations`. DDL MySQL/MariaDB może
 zatwierdzać się automatycznie, dlatego historia jest zapisywana dopiero po pełnym
 powodzeniu pliku SQL i nie jest opisywana jako jedna transakcja.
+
+Samo znalezienie `info.json` nie uprawnia do wykonania kodu ani SQL. Dopóki moduł
+nie ma znanej fabryki w `config/modules.php`, manager pokazuje stan „Brak fabryki”
+i blokuje operacje. Automatyczne pakiety wymagają osobnego, bezpiecznego kontraktu.
 
 ## 7. Kryterium ukończenia
 

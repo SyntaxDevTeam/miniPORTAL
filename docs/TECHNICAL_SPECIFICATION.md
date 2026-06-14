@@ -240,6 +240,8 @@ Stan managera:
   migracje są przy instalacji oznaczane jako stan bazowy,
 - wyłączenie rozszerzenia usuwa jego trasy i menu od następnego żądania,
 - zależności aktywnych modułów oraz moduły chronione nie mogą zostać wyłączone,
+- manifest bez deklaratywnej fabryki w `config/modules.php` jest widoczny, ale jego
+  instalacja, migracja i aktywacja są blokowane,
 - `/admin/modules` wymaga ACL, CSRF i zapisuje wynik operacji do audit logu.
 
 ---
@@ -353,7 +355,10 @@ Stan fundamentu Kroku 6:
 - `ModuleBootstrapper` ładuje deklaracje z `config/modules.php`,
 - Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
-- `SystemAdminModule` udostępnia manager instalacji, migracji i aktywacji.
+- `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
+  migracji i aktywacji,
+- `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;
+  zmiana statusu i roli jest wykonywana atomowo przez repozytorium `CrudApp`.
 
 ---
 

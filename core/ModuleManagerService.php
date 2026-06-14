@@ -13,6 +13,7 @@ final class ModuleManagerService
         private readonly ModuleManifestValidator $validator,
         private readonly ModuleStateRepository $states,
         private readonly ModuleInstaller $installer,
+        private readonly array $registeredDirectories,
     ) {
     }
 
@@ -33,7 +34,12 @@ final class ModuleManagerService
     }
 
     /**
-     * @return list<array{manifest: ModuleManifest, state: ModuleState, pending: list<string>}>
+     * @return list<array{
+     *     manifest: ModuleManifest,
+     *     state: ModuleState,
+     *     pending: list<string>,
+     *     loadable: bool
+     * }>
      */
     public function modules(): array
     {
@@ -47,6 +53,7 @@ final class ModuleManagerService
                 'manifest' => $manifest,
                 'state' => $state,
                 'pending' => $state->isInstalled() ? $this->installer->pendingMigrations($manifest) : [],
+                'loadable' => $this->isLoadable($manifest),
             ];
         }
 
@@ -56,6 +63,7 @@ final class ModuleManagerService
     public function install(string $moduleId): void
     {
         $manifest = $this->manifest($moduleId);
+        $this->assertLoadable($manifest);
         foreach ($manifest->requiredModules as $dependency) {
             if (!$this->states->find($dependency)?->isActive()) {
                 throw new RuntimeException("Najpierw aktywuj wymagany moduł {$dependency}.");
@@ -69,12 +77,16 @@ final class ModuleManagerService
      */
     public function migrate(string $moduleId): array
     {
-        return $this->installer->migrate($this->manifest($moduleId));
+        $manifest = $this->manifest($moduleId);
+        $this->assertLoadable($manifest);
+
+        return $this->installer->migrate($manifest);
     }
 
     public function toggle(string $moduleId, bool $active): void
     {
         $manifest = $this->manifest($moduleId);
+        $this->assertLoadable($manifest);
         $state = $this->states->find($moduleId);
         if ($state === null || !$state->isInstalled()) {
             throw new RuntimeException("Moduł {$moduleId} nie jest zainstalowany.");
@@ -113,5 +125,19 @@ final class ModuleManagerService
         }
 
         return $manifest;
+    }
+
+    private function assertLoadable(ModuleManifest $manifest): void
+    {
+        if (!$this->isLoadable($manifest)) {
+            throw new RuntimeException(
+                "Moduł {$manifest->id} nie ma zarejestrowanej fabryki wykonawczej."
+            );
+        }
+    }
+
+    private function isLoadable(ModuleManifest $manifest): bool
+    {
+        return in_array(basename($manifest->directory), $this->registeredDirectories, true);
     }
 }

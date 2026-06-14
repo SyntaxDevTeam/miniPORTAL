@@ -103,7 +103,16 @@ $moduleInstaller = $application->database() !== null && $moduleStates !== null
     ? new ModuleInstaller($application->database(), $moduleStates)
     : null;
 $moduleManager = $moduleStates !== null && $moduleInstaller !== null
-    ? new ModuleManagerService(__DIR__ . '/modules', $manifestValidator, $moduleStates, $moduleInstaller)
+    ? new ModuleManagerService(
+        __DIR__ . '/modules',
+        $manifestValidator,
+        $moduleStates,
+        $moduleInstaller,
+        array_values(array_map(
+            static fn (array $definition): string => (string) ($definition['directory'] ?? ''),
+            $moduleDefinitions
+        ))
+    )
     : null;
 $moduleBootstrapper = new ModuleBootstrapper(
     __DIR__ . '/modules',

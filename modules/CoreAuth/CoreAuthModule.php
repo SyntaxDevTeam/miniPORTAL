@@ -22,6 +22,9 @@ final class CoreAuthModule implements ModuleInterface
         private readonly OAuthStateStore $oauthStates,
         private readonly OAuthAttemptLimiter $oauthLimiter,
         private readonly AuditLogService $audit,
+        private readonly AdminMenuRegistry $menu,
+        private readonly AdminAccessGate $access,
+        private readonly ?UserAdministrationRepository $userAdministration,
         private readonly bool $demoEnabled = false,
     ) {
     }
@@ -53,6 +56,8 @@ final class CoreAuthModule implements ModuleInterface
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
+        $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
+        $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
     }
 
     public function registerRoutes(Router $router): void
@@ -60,6 +65,21 @@ final class CoreAuthModule implements ModuleInterface
         $router->get('/admin/login', fn () => $this->renderLogin());
         $router->post('/admin/login', fn (Request $request) => $this->login($request));
         $router->post('/admin/logout', fn (Request $request) => $this->logout($request));
+        $router->get('/admin/users', fn (Request $request) => $this->guard(
+            $request,
+            'users.view',
+            fn () => $this->renderUsers()
+        ));
+        $router->get('/admin/users/edit', fn (Request $request) => $this->guard(
+            $request,
+            'users.manage',
+            fn () => $this->renderUserEdit($request)
+        ));
+        $router->post('/admin/users/edit', fn (Request $request) => $this->guard(
+            $request,
+            'users.manage',
+            fn () => $this->updateUser($request)
+        ));
         $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
 
@@ -115,6 +135,155 @@ final class CoreAuthModule implements ModuleInterface
                 : 'Żaden dostawca logowania nie jest jeszcze skonfigurowany.'),
             $message !== '' ? $variant : 'warning'
         );
+    }
+
+    private function renderUsers(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $this->startAdminPage(
+            'Użytkownicy',
+            '/admin/users',
+            'Konta lokalne, role i statusy niezależne od dostawców logowania.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        if ($this->userAdministration === null) {
+            $this->theme->render_alert('Zarządzanie użytkownikami wymaga bazy danych.', 'danger');
+            $this->endAdminPage();
+            return;
+        }
+
+        $canManage = in_array('*', $user->permissions, true)
+            || in_array('users.manage', $user->permissions, true);
+        $records = $this->userAdministration->all();
+        $this->theme->start_admin_panel('Konta użytkowników', count($records) . ' rekordów');
+        $this->theme->render_admin_action_table(
+            ['Użytkownik', 'Status', 'Role', 'Tożsamości', 'Ostatnie logowanie'],
+            array_map(
+                static fn (UserAdminRecord $record): array => [
+                    'cells' => [
+                        $record->displayName . ($record->email !== null ? ' (' . $record->email . ')' : ''),
+                        match ($record->status) {
+                            'active' => 'Aktywny',
+                            'blocked' => 'Zablokowany',
+                            default => 'Oczekujący',
+                        },
+                        $record->roles !== [] ? implode(', ', $record->roles) : 'Brak',
+                        $record->providers !== [] ? implode(', ', $record->providers) : 'Brak',
+                        $record->lastLoginAt ?? 'Nigdy',
+                    ],
+                    'actions' => $canManage ? [[
+                        'label' => 'Edytuj',
+                        'href' => 'index.php?route=/admin/users/edit&id=' . $record->id,
+                        'variant' => 'outline-light',
+                    ]] : [],
+                ],
+                $records
+            ),
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function renderUserEdit(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $id = $request->queryInt('id') ?? $request->postInt('id') ?? 0;
+        $record = null;
+        foreach ($this->userAdministration?->all() ?? [] as $candidate) {
+            if ($candidate->id === $id) {
+                $record = $candidate;
+                break;
+            }
+        }
+        if ($record === null || $this->userAdministration === null) {
+            http_response_code(404);
+            $this->theme->render_admin_access_state(
+                404,
+                'Nie znaleziono użytkownika',
+                'Wybrane konto nie istnieje.',
+                'index.php?route=/admin/users',
+                'Wróć do użytkowników'
+            );
+            return;
+        }
+
+        $this->startAdminPage(
+            'Edytuj użytkownika',
+            '/admin/users',
+            'Status i rola są lokalne; dostawca OAuth nie nadaje uprawnień.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel($record->displayName, 'ID ' . $record->id);
+        $this->theme->render_form(
+            'index.php?route=/admin/users/edit',
+            [
+                ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $record->id],
+                [
+                    'name' => 'status',
+                    'label' => 'Status konta',
+                    'type' => 'select',
+                    'value' => $record->status,
+                    'options' => [
+                        'active' => 'Aktywny',
+                        'blocked' => 'Zablokowany',
+                        'pending' => 'Oczekujący',
+                    ],
+                ],
+                [
+                    'name' => 'role',
+                    'label' => 'Rola',
+                    'type' => 'select',
+                    'value' => $record->roles[0] ?? 'user',
+                    'options' => $this->userAdministration->roles(),
+                ],
+            ],
+            'Zapisz użytkownika',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function updateUser(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'user_update', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderUserEdit($request, 'Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        $userId = $request->postInt('id') ?? 0;
+        try {
+            $this->userAdministration->updateAccount(
+                $userId,
+                $request->postString('status'),
+                $request->postString('role'),
+                $actor->id
+            );
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'user_update', 'failed', null, $actor->id);
+            $this->renderUserEdit($request, $exception->getMessage(), 'danger');
+            return;
+        }
+
+        $this->audit->record($request, 'user_update', 'success', null, $actor->id);
+        header('Location: index.php?route=/admin/users', true, 303);
     }
 
     private function startProviderLogin(Request $request, string $name, string $purpose = 'login'): void
@@ -423,6 +592,69 @@ final class CoreAuthModule implements ModuleInterface
             'Limit prób uwierzytelniania został przekroczony. Spróbuj ponownie później.',
             'index.php?route=/admin/login',
             'Wróć do logowania'
+        );
+    }
+
+    private function startAdminPage(string $title, string $activePath, string $lead): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $this->theme->start_admin_page(
+            $title,
+            $this->menu->visibleFor($user->permissions),
+            $activePath,
+            [
+                'name' => $user->displayName,
+                'role' => ucfirst($user->primaryRole()),
+                'initials' => $user->initials(),
+                'logout_action' => 'index.php?route=/admin/logout',
+                'logout_token' => $this->security->csrfToken(),
+            ]
+        );
+        $this->theme->start_admin_content(
+            $title,
+            $lead,
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => $title, 'href' => ''],
+            ]
+        );
+    }
+
+    private function endAdminPage(): void
+    {
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function guard(Request $request, string $permission, callable $handler): void
+    {
+        $decision = $this->access->check($permission);
+        if ($decision === AdminAccessGate::ALLOWED) {
+            $handler();
+            return;
+        }
+
+        $status = $decision === AdminAccessGate::UNAUTHENTICATED ? 401 : 403;
+        $this->audit->record(
+            $request,
+            'users_access',
+            $status === 401 ? 'unauthenticated' : 'forbidden',
+            null,
+            $this->auth->user()?->id
+        );
+        http_response_code($status);
+        $this->theme->render_admin_access_state(
+            $status,
+            $status === 401 ? 'Wymagane logowanie' : 'Brak uprawnienia',
+            $status === 401
+                ? 'Ta trasa wymaga aktywnej sesji.'
+                : "Twoje konto nie posiada uprawnienia {$permission}.",
+            $status === 401 ? 'index.php?route=/admin/login' : 'index.php?route=/admin',
+            $status === 401 ? 'Przejdź do logowania' : 'Wróć do dashboardu'
         );
     }
 }

@@ -7,6 +7,7 @@ use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\UserAdministrationRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
@@ -28,6 +29,11 @@ return [
                 (int) ($services['auth_config']['oauth_callback_limit'] ?? 20)
             ),
             $services['audit'],
+            $services['admin_menu'],
+            $services['access'],
+            $services['database'] !== null
+                ? new UserAdministrationRepository($services['database'])
+                : null,
             $services['auth_demo_enabled']
         ),
     ],

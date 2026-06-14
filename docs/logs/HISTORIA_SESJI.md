@@ -1,3 +1,19 @@
+### Sesja: 2026-06-14 - audyt SystemAdminModule i panel użytkowników
+
+**Wykonano:**
+- porównano odpowiedzialności panelu z `SZKIC.md` i specyfikacją techniczną,
+- usunięto atrapę użytkowników z `SystemAdminModule`,
+- przeniesiono menu użytkowników i tożsamości do ich właściciela `CoreAuth`,
+- dodano listę kont, statusów, ról, providerów i dat ostatniego logowania,
+- dodano atomową zmianę statusu i roli z ACL, CSRF i audit logiem,
+- zabezpieczono własne konto i ostatniego aktywnego administratora,
+- dashboard pokazuje rzeczywisty stan modułów i oczekujących migracji.
+- zablokowano instalowanie manifestów bez zarejestrowanej fabryki wykonawczej.
+
+**Zaktualizowano status:** podział Core -> Modules -> Templates jest ponownie
+spójny z planem. Otwarte pozostają edytor definicji ról/uprawnień, widok audit logu
+oraz aktualizacja i odinstalowanie rozszerzeń.
+
 ### Sesja: 2026-06-14 - trwały manager modułów
 
 **Wykonano:**

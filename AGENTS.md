@@ -97,6 +97,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Adapter Discord OAuth |
 | [x] | Adapter Google OpenID Connect |
 | [x] | Łączenie wielu tożsamości z jednym kontem |
+| [x] | Lista użytkowników oraz zmiana lokalnego statusu i roli |
 | [x] | Bootstrap pierwszego administratora |
 | [x] | Audit log logowań i operacji administracyjnych |
 | [x] | Sesyjny limiter rozpoczęć i callbacków OAuth |
@@ -139,7 +140,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 1. Dodać kontrolowaną aktualizację wersji modułu.
 2. Dodać bezpieczne odinstalowanie rozszerzeń wraz z opcją zachowania danych.
 3. Rozbudować manager o podgląd historii wykonanych migracji.
-4. Zastąpić demonstracyjny widok `/admin/users` rzeczywistym modułem użytkowników.
+4. Dodać edytor definicji ról i przypisanych uprawnień.
 
 ## Uwagi / blokery
 
@@ -147,7 +148,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-14 | `SystemAdminModule` nadal udostępnia atrapę sekcji Użytkownicy. | Zastąpić ją rzeczywistym modułem zarządzania użytkownikami; nie traktować atrapy jako ukończonej funkcji. |
+| 2026-06-14 | Manifest wykryty w `modules/` bez fabryki w `config/modules.php` jest widoczny, ale nie może być instalowany ani aktywowany. | Zaprojektować bezpieczny kontrakt pakietu modułu i deklaratywnej fabryki przed automatycznym ładowaniem obcego kodu. |
 | 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 | 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
 
@@ -195,6 +196,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-14 | Sekcje homepage, karty, podstrony i artykuły przechowują format `html`/`markdown`; wspólny renderer Core koduje surowy HTML Markdown i obsługuje składnię w stylu GitHub. |
 | 2026-06-14 | `modules_config` steruje uruchamianiem modułów; wyłączony moduł nie rejestruje tras ani menu, a moduły chronione pozostają aktywne. |
 | 2026-06-14 | `module_migrations` przechowuje nazwę i SHA-256 migracji; zmiana wykonanego pliku jest odrzucana zamiast uruchamiana ponownie. |
+| 2026-06-14 | `CoreAuth` jest właścicielem tras i menu użytkowników oraz tożsamości; `SystemAdminModule` odpowiada wyłącznie za dashboard, manager modułów i zasoby systemowe. |
+| 2026-06-14 | Zmiana statusu i roli użytkownika jest atomowa oraz chroni własne konto i ostatniego aktywnego administratora. |
+| 2026-06-14 | Manager nie wykonuje SQL modułu bez zarejestrowanej fabryki wykonawczej; stan „Brak fabryki” jest widoczny w panelu. |
 
 ## Historia sesji
 
