@@ -108,6 +108,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 |--------|---------|
 | [x] | `core_pages`: CRUD, slug, status i publikacja |
 | [x] | Uprawnienia granularne `pages.*` |
+| [x] | Podstrony projektowe, informacyjne i prawne z opisem SEO |
+| [x] | Nawigacja główna/stopka, kolejność i publiczne adresy `/p/slug` |
+| [x] | Powiązanie kart strony głównej z opublikowanymi podstronami |
 | [x] | Sekcje strony głównej: typ, nagłówki, treść, układ, kolejność i widoczność |
 | [x] | Elementy sekcji kolumnowych: karty, CTA, wariant, szerokość i kolejność |
 | [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
@@ -186,6 +189,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Układ `columns` korzysta z tabeli `homepage_section_items`; moduł przechowuje warianty `primary`, `violet`, `neutral` i szerokość logiczną, a motyw mapuje je na responsywną siatkę kart. |
 | 2026-06-14 | `ModuleInterface` deklaruje wersję, zależności i ochronę; `ModuleRegistry` uruchamia moduły w kolejności topologicznej i odrzuca brakujące lub cykliczne zależności. |
 | 2026-06-14 | Każdy aktywny moduł ma walidowany `info.json`; deklaratywne fabryki znajdują się w `config/modules.php`, a `index.php` nie tworzy konkretnych modułów. |
+| 2026-06-14 | `core_pages` przechowuje uniwersalne dokumenty typu `standard`, `project` i `legal`; opublikowane strony mogą pojawiać się w menu głównym albo stopce i mają adres `/p/slug`. |
+| 2026-06-14 | Element strony głównej może wskazywać `page_id`; motyw tworzy link wyłącznie wtedy, gdy powiązana podstrona jest opublikowana. |
 
 ## Historia sesji
 
@@ -200,6 +205,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 **Zaktualizowano status:** cztery pozycje z sekcji „Następne kroki” są ukończone.
 Krok 6 może przejść do trwałego rejestru i managera modułów.
+
+### Sesja: 2026-06-14 - uniwersalne podstrony
+
+**Wykonano:**
+- rozszerzono `core_pages` o typ dokumentu, skrót i opis SEO,
+- dodano pozycję w menu głównym lub stopce oraz kolejność,
+- dodano publiczną listę `/pages` i adresy dokumentów `/p/slug`,
+- zachowano kompatybilną trasę `/page?slug=...`,
+- umożliwiono wybór powiązanej podstrony w kartach homepage.
+
+**Zaktualizowano status:** `core_pages` obsługuje opisy projektów, strony
+informacyjne oraz dokumenty takie jak polityka prywatności i informacje RODO.
 
 ### Sesja: 2026-06-13 - edytor strony głównej
 

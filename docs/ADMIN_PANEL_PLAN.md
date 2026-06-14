@@ -217,6 +217,9 @@ przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsa
 3. Kontrolowany WYSIWYG po działającym formularzu podstawowym.
 4. Walidacja przez `Request`, CSRF przez `Security`, dane przez `CrudApp`.
 5. Uprawnienia granularne `pages.*`.
+6. Typ dokumentu: informacyjny, projektowy lub prawny.
+7. Skrót, opis SEO, miejsce w nawigacji i kolejność.
+8. Powiązanie elementów homepage z opublikowaną podstroną.
 
 Stan implementacji:
 
@@ -225,6 +228,9 @@ Stan implementacji:
 - panel obsługuje tworzenie, edycję, publikację, cofnięcie publikacji i usuwanie,
 - każda trasa wymaga osobnego uprawnienia `pages.*` oraz poprawnego CSRF,
 - publiczna trasa `/page?slug=...` pokazuje tylko opublikowane rekordy,
+- czytelna trasa `/p/slug` i katalog `/pages` działają przez Front Controller,
+- strony mogą automatycznie pojawiać się w menu głównym albo stopce,
+- karty projektów mogą wskazywać wybraną podstronę przez `page_id`,
 - podstrony i sekcje strony głównej korzystają z kontrolowanego WYSIWYG,
 - `RichTextSanitizer` usuwa kod wykonywalny i atrybuty HTML przed zapisem,
 - formularze treści mają lokalny autozapis, a homepage udostępnia podgląd roboczy.

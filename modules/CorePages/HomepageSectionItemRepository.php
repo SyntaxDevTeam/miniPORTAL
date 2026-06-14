@@ -20,11 +20,14 @@ final class HomepageSectionItemRepository
      */
     public function forSection(int $sectionId, bool $visibleOnly = false): array
     {
-        $sql = 'SELECT * FROM homepage_section_items WHERE section_id = :section_id';
+        $sql = "SELECT i.*, CASE WHEN p.status = 'published' THEN p.slug ELSE '' END AS page_slug "
+            . 'FROM homepage_section_items AS i '
+            . 'LEFT JOIN core_pages AS p ON p.id = i.page_id '
+            . 'WHERE i.section_id = :section_id';
         if ($visibleOnly) {
-            $sql .= ' AND is_visible = 1';
+            $sql .= ' AND i.is_visible = 1';
         }
-        $sql .= ' ORDER BY sort_order ASC, id ASC';
+        $sql .= ' ORDER BY i.sort_order ASC, i.id ASC';
         $statement = $this->database->query($sql, [':section_id' => $sectionId]);
 
         if ($statement === null) {
@@ -37,7 +40,10 @@ final class HomepageSectionItemRepository
     public function find(int $id): ?HomepageSectionItem
     {
         $statement = $this->database->query(
-            'SELECT * FROM homepage_section_items WHERE id = :id LIMIT 1',
+            "SELECT i.*, CASE WHEN p.status = 'published' THEN p.slug ELSE '' END AS page_slug "
+            . 'FROM homepage_section_items AS i '
+            . 'LEFT JOIN core_pages AS p ON p.id = i.page_id '
+            . 'WHERE i.id = :id LIMIT 1',
             [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -148,6 +154,8 @@ final class HomepageSectionItemRepository
         return new HomepageSectionItem(
             (int) $row['id'],
             (int) $row['section_id'],
+            $row['page_id'] !== null ? (int) $row['page_id'] : null,
+            (string) ($row['page_slug'] ?? ''),
             (string) ($row['label'] ?? ''),
             (string) $row['title'],
             (string) $row['content'],

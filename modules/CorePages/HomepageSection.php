@@ -41,7 +41,8 @@ final readonly class HomepageSection
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
-     *         width: string
+     *         width: string,
+     *         page_slug: string
      *     }>
      * }
      */

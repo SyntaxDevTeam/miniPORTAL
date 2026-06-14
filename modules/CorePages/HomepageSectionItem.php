@@ -9,6 +9,8 @@ final readonly class HomepageSectionItem
     public function __construct(
         public int $id,
         public int $sectionId,
+        public ?int $pageId,
+        public string $pageSlug,
         public string $label,
         public string $title,
         public string $content,
@@ -42,6 +44,7 @@ final readonly class HomepageSectionItem
             'button_url' => $this->buttonUrl,
             'variant' => $this->variant,
             'width' => $this->width,
+            'page_slug' => $this->pageSlug,
         ];
     }
 }

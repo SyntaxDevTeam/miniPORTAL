@@ -31,8 +31,17 @@ final class Theme implements ThemeInterface
             echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($section['key']) . '">';
             echo $this->escape($this->navigationLabel($section)) . '</a></li>';
         }
-        if ($pages !== []) {
-            echo '<li class="nav-item"><a class="nav-link" href="#pages">Strony</a></li>';
+        foreach ($pages as $page) {
+            if ($page['navigation_area'] !== 'main') {
+                continue;
+            }
+            echo '<li class="nav-item"><a class="nav-link" href="/p/';
+            echo $this->escape(rawurlencode($page['slug'])) . '">';
+            echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
+            echo '</a></li>';
+        }
+        if ($pages !== [] && array_filter($pages, static fn (array $page): bool => $page['navigation_area'] === 'main') === []) {
+            echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="index.php?route=';
         echo $authenticated ? '/admin' : '/admin/login';
@@ -58,14 +67,27 @@ final class Theme implements ThemeInterface
                 echo '<div class="col-md-6 col-lg-4 reveal"><article class="showcase-card h-100">';
                 echo '<p class="showcase-label">PAGE / ' . $this->escape($page['slug']) . '</p>';
                 echo '<h3 class="h4">' . $this->escape($page['title']) . '</h3>';
-                echo '<a class="btn btn-outline-light mt-3" href="index.php?route=/page&amp;slug=' . $this->escape(rawurlencode($page['slug'])) . '">Czytaj</a>';
+                if ($page['summary'] !== '') {
+                    echo '<p class="text-secondary">' . $this->escape($page['summary']) . '</p>';
+                }
+                echo '<a class="btn btn-outline-light mt-3" href="/p/' . $this->escape(rawurlencode($page['slug'])) . '">Czytaj</a>';
                 echo '</article></div>';
             }
             echo '</div></div></section>';
         }
 
         echo '</main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
-        echo '<span>&copy; 2026 SyntaxDevTeam</span><span>Projektowane modułowo. Rozwijane świadomie.</span></div></footer>';
+        echo '<span>&copy; 2026 SyntaxDevTeam</span><span class="d-flex flex-wrap gap-3">';
+        foreach ($pages as $page) {
+            if ($page['navigation_area'] !== 'footer') {
+                continue;
+            }
+            echo '<a class="text-secondary" href="/p/';
+            echo $this->escape(rawurlencode($page['slug'])) . '">';
+            echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
+            echo '</a>';
+        }
+        echo '<span>Projektowane modułowo. Rozwijane świadomie.</span></span></div></footer>';
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="templates/default/assets/js/site.js"></script></body></html>';
@@ -82,14 +104,14 @@ final class Theme implements ThemeInterface
         echo '<title>' . $title . '</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="/templates/default/assets/css/stylebook.css">';
         echo '</head><body>';
         echo '<nav class="navbar border-bottom"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="index.php">&lt;/&gt; miniPORTAL</a>';
+        echo '<a class="navbar-brand fw-bold" href="/index.php">&lt;/&gt; miniPORTAL</a>';
         echo '<div class="d-flex gap-2">';
-        echo '<a class="btn btn-sm btn-outline-light" href="index.php">Strona główna</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/articles">Artykuły</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/admin">Panel</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="/index.php">Strona główna</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="/index.php?route=/articles">Artykuły</a>';
+        echo '<a class="btn btn-sm btn-outline-light" href="/index.php?route=/admin">Panel</a>';
         echo '</div>';
         echo '</div></nav><main>';
     }
@@ -625,11 +647,21 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div></section></main></body></html>';
     }
 
-    public function render_public_page(string $title, string $content, string $publishedAt): void
-    {
+    public function render_public_page(
+        string $title,
+        string $content,
+        string $publishedAt,
+        string $description = '',
+        string $pageType = 'standard',
+    ): void {
         $content = (new RichTextSanitizer())->sanitize($content);
-        $this->start_page($title . ' - miniPORTAL', $title);
-        $this->start_header($title, 'Opublikowano: ' . $publishedAt);
+        $labels = [
+            'project' => 'Projekt',
+            'legal' => 'Dokument prawny',
+            'standard' => 'Informacje',
+        ];
+        $this->start_page($title . ' - miniPORTAL', $description !== '' ? $description : $title);
+        $this->start_header($title, ($labels[$pageType] ?? $labels['standard']) . ' · Opublikowano: ' . $publishedAt);
         $this->end_header();
         $this->start_section();
         echo '<article class="showcase-card managed-home-content">';
@@ -640,7 +672,7 @@ final class Theme implements ThemeInterface
         } else {
             echo '<p>' . nl2br($this->escape($content)) . '</p>';
         }
-        echo '<a class="btn btn-outline-light" href="index.php">Wróć do strony głównej</a></article>';
+        echo '<a class="btn btn-outline-light" href="/index.php">Wróć do strony głównej</a></article>';
         $this->end_section();
         $this->end_page();
     }
@@ -700,7 +732,8 @@ final class Theme implements ThemeInterface
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
-     *         width: string
+     *         width: string,
+     *         page_slug: string
      *     }>
      * } $section
      */
@@ -750,7 +783,8 @@ final class Theme implements ThemeInterface
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
-     *         width: string
+     *         width: string,
+     *         page_slug: string
      *     }>
      * } $section
      */
@@ -794,7 +828,9 @@ final class Theme implements ThemeInterface
                     ? $item['variant']
                     : 'neutral';
                 $width = $item['width'] === 'wide' ? 'wide' : 'standard';
-                $itemHref = $this->safeHref($item['button_url']);
+                $itemHref = $item['page_slug'] !== ''
+                    ? '/p/' . rawurlencode($item['page_slug'])
+                    : $this->safeHref($item['button_url']);
                 echo '<article class="showcase-card managed-card managed-card-' . $width . ' reveal" ';
                 echo 'data-variant="' . $variant . '" data-number="';
                 echo str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) . '">';
@@ -803,9 +839,9 @@ final class Theme implements ThemeInterface
                 }
                 echo '<h3>' . $this->escape($item['title']) . '</h3>';
                 echo '<p class="text-secondary">' . nl2br($this->escape($item['content'])) . '</p>';
-                if ($item['button_label'] !== '' && $itemHref !== '') {
+                if ($itemHref !== '') {
                     echo '<a class="btn btn-outline-light" href="' . $this->escape($itemHref) . '">';
-                    echo $this->escape($item['button_label']) . '</a>';
+                    echo $this->escape($item['button_label'] !== '' ? $item['button_label'] : 'Czytaj więcej') . '</a>';
                 }
                 echo '</article>';
             }

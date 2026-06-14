@@ -8,6 +8,10 @@ Options -Indexes
     RewriteRule ^(?:bin|cache|config|core|docs|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
     RewriteRule ^(?:AGENTS\.md|README\.md|LICENSE|composer\.(?:json|lock)|\.env(?:\..*)?)$ - [F,L,NC]
     RewriteRule ^templates/[^/]+/(?:theme\.php|views)(?:/|$) - [F,L,NC]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
 </IfModule>
 
 <FilesMatch "(^\.|\.sql$|\.ini$|\.log$|\.ya?ml$|\.json$|~$|\.bak$|\.dist$)">

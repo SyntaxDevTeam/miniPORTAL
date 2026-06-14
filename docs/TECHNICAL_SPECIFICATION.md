@@ -203,6 +203,10 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 - CRUD dla stron przez `CrudApp`
 - unikalny slug i publiczna trasa opublikowanej strony
 - stany `draft` i `published` oraz granularne uprawnienia `pages.*`
+- typy dokumentów `standard`, `project` i `legal`
+- skrót do kart, opis SEO, kolejność oraz publikacja w menu głównym lub stopce
+- publiczne adresy `/p/slug` i katalog `/pages`
+- opcjonalne powiązanie karty strony głównej z konkretną podstroną
 - edytowalne sekcje strony głównej: typ, nagłówki, treść, układ, widoczność i kolejność
 - sekcje kolumnowe składają się z niezależnych elementów/kart z etykietą, opisem,
   CTA, wariantem wizualnym i szerokością

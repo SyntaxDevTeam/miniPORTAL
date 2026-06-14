@@ -2,7 +2,13 @@ CREATE TABLE core_pages (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(180) NOT NULL,
     slug VARCHAR(191) NOT NULL,
+    summary VARCHAR(320) NOT NULL DEFAULT '',
+    meta_description VARCHAR(255) NOT NULL DEFAULT '',
     content MEDIUMTEXT NOT NULL,
+    page_type ENUM('standard', 'project', 'legal') NOT NULL DEFAULT 'standard',
+    navigation_area ENUM('none', 'main', 'footer') NOT NULL DEFAULT 'none',
+    navigation_label VARCHAR(80) NOT NULL DEFAULT '',
+    sort_order INT UNSIGNED NOT NULL DEFAULT 100,
     status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
     author_id BIGINT UNSIGNED NOT NULL,
     published_at DATETIME NULL,
@@ -11,6 +17,7 @@ CREATE TABLE core_pages (
     CONSTRAINT fk_core_pages_author
         FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE RESTRICT,
     UNIQUE KEY uq_core_pages_slug (slug),
+    INDEX idx_core_pages_navigation (status, navigation_area, sort_order),
     INDEX idx_core_pages_status_published (status, published_at),
     INDEX idx_core_pages_author_updated (author_id, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -39,6 +46,7 @@ CREATE TABLE homepage_sections (
 CREATE TABLE homepage_section_items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     section_id BIGINT UNSIGNED NOT NULL,
+    page_id BIGINT UNSIGNED NULL,
     label VARCHAR(120) NULL,
     title VARCHAR(180) NOT NULL,
     content TEXT NOT NULL,
@@ -52,6 +60,9 @@ CREATE TABLE homepage_section_items (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_homepage_section_items_section
         FOREIGN KEY (section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE,
+    CONSTRAINT fk_homepage_section_items_page
+        FOREIGN KEY (page_id) REFERENCES core_pages(id) ON DELETE SET NULL,
+    INDEX idx_homepage_section_items_page (page_id),
     INDEX idx_homepage_section_items_order (section_id, is_visible, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

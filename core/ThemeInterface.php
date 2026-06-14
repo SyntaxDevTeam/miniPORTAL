@@ -23,10 +23,18 @@ interface ThemeInterface
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
-     *         width: string
+     *         width: string,
+     *         page_slug: string
      *     }>
      * }> $sections
-     * @param list<array{title: string, slug: string}> $pages
+     * @param list<array{
+     *     title: string,
+     *     slug: string,
+     *     summary: string,
+     *     type: string,
+     *     navigation_area: string,
+     *     navigation_label: string
+     * }> $pages
      */
     public function render_homepage(array $sections, array $pages, bool $authenticated): void;
 
@@ -185,7 +193,13 @@ interface ThemeInterface
         string $variant = 'info',
     ): void;
 
-    public function render_public_page(string $title, string $content, string $publishedAt): void;
+    public function render_public_page(
+        string $title,
+        string $content,
+        string $publishedAt,
+        string $description = '',
+        string $pageType = 'standard',
+    ): void;
 
     public function render_page_not_found(string $title, string $message): void;
 

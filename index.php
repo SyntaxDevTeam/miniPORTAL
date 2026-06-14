@@ -137,7 +137,14 @@ $router->get('/', static function () use (
 
     if ($pageRepository !== null) {
         $pages = array_map(
-            static fn ($page): array => ['title' => $page->title, 'slug' => $page->slug],
+            static fn ($page): array => [
+                'title' => $page->title,
+                'slug' => $page->slug,
+                'summary' => $page->summary,
+                'type' => $page->pageType,
+                'navigation_area' => $page->navigationArea,
+                'navigation_label' => $page->navigationLabel,
+            ],
             $pageRepository->published()
         );
     }

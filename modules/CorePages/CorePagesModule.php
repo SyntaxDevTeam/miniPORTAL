@@ -65,6 +65,10 @@ final class CorePagesModule implements ModuleInterface
     public function registerRoutes(Router $router): void
     {
         $router->get('/page', fn (Request $request) => $this->renderPublicPage($request));
+        $router->get('/pages', fn () => $this->renderPublicPages());
+        foreach ($this->pages->published() as $page) {
+            $router->get('/p/' . $page->slug, fn () => $this->renderPage($page));
+        }
         $router->get('/admin/pages', fn (Request $request) => $this->guard(
             $request,
             'pages.view',
@@ -236,6 +240,11 @@ final class CorePagesModule implements ModuleInterface
                             $section->isVisible ? 'Widoczna' : 'Ukryta',
                         ],
                         'actions' => array_values(array_filter([
+                            $page->status === 'published' ? [
+                                'label' => 'Otwórz',
+                                'href' => '/p/' . rawurlencode($page->slug),
+                                'variant' => 'outline-primary',
+                            ] : null,
                             $allows('pages.edit') ? [
                                 'label' => 'W górę',
                                 'action' => 'index.php?route=/admin/homepage/move',
@@ -585,7 +594,14 @@ final class CorePagesModule implements ModuleInterface
             $this->homepageSections->all()
         );
         $pages = array_map(
-            static fn (Page $page): array => ['title' => $page->title, 'slug' => $page->slug],
+            static fn (Page $page): array => [
+                'title' => $page->title,
+                'slug' => $page->slug,
+                'summary' => $page->summary,
+                'type' => $page->pageType,
+                'navigation_area' => $page->navigationArea,
+                'navigation_label' => $page->navigationLabel,
+            ],
             $this->pages->published()
         );
 
@@ -728,6 +744,7 @@ final class CorePagesModule implements ModuleInterface
                 'content' => $item?->content ?? $fallback,
                 'button_label' => $item?->buttonLabel ?? $fallback,
                 'button_url' => $item?->buttonUrl ?? $fallback,
+                'page_id' => $item?->pageId !== null ? (string) $item->pageId : $fallback,
                 'variant' => $item?->variant ?? $fallback,
                 'width' => $item?->width ?? $fallback,
                 default => $fallback,
@@ -775,6 +792,27 @@ final class CorePagesModule implements ModuleInterface
                 ['name' => 'label', 'label' => 'Etykieta', 'value' => $value('label'), 'help' => 'Np. SERWERY albo PROJECT / 001.'],
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $value('title')],
                 ['name' => 'content', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 5, 'value' => $value('content')],
+                [
+                    'name' => 'page_id',
+                    'label' => 'Powiązana podstrona',
+                    'type' => 'select',
+                    'value' => $value('page_id'),
+                    'options' => [
+                        '' => 'Brak powiązania',
+                        ...array_column(
+                            array_map(
+                                static fn (Page $page): array => [
+                                    'id' => (string) $page->id,
+                                    'label' => $page->title . ' (' . $page->slug . ')',
+                                ],
+                                $this->pages->all()
+                            ),
+                            'label',
+                            'id'
+                        ),
+                    ],
+                    'help' => 'Powiązana opublikowana strona ma pierwszeństwo przed ręcznym adresem przycisku.',
+                ],
                 ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $value('button_label')],
                 ['name' => 'button_url', 'label' => 'Adres przycisku', 'value' => $value('button_url')],
                 [
@@ -901,7 +939,9 @@ final class CorePagesModule implements ModuleInterface
         $variant = $request->postString('variant');
         $width = $request->postString('width');
         $buttonUrl = $request->postString('button_url');
+        $pageId = $request->postInt('page_id');
         $data = [
+            'page_id' => $pageId,
             'label' => substr($request->postString('label'), 0, 120),
             'title' => $title,
             'content' => substr($request->postString('content'), 0, 4000),
@@ -924,6 +964,9 @@ final class CorePagesModule implements ModuleInterface
         if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {
             return [$data, 'Adres przycisku używa niedozwolonego schematu.'];
         }
+        if ($pageId !== null && $this->pages->find($pageId) === null) {
+            return [$data, 'Wybrana podstrona nie istnieje.'];
+        }
 
         return [$data, ''];
     }
@@ -942,11 +985,55 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
+        $this->renderPage($page);
+    }
+
+    private function renderPage(Page $page): void
+    {
         $this->theme->render_public_page(
             $page->title,
             $page->content,
-            $page->publishedAt ?? $page->updatedAt
+            $page->publishedAt ?? $page->updatedAt,
+            $page->metaDescription !== '' ? $page->metaDescription : $page->summary,
+            $page->pageType
         );
+    }
+
+    private function renderPublicPages(): void
+    {
+        $pages = $this->pages->published();
+        $this->theme->start_page(
+            'Podstrony - SyntaxDevTeam',
+            'Projekty, informacje i dokumenty serwisu SyntaxDevTeam.'
+        );
+        $this->theme->start_header(
+            'Podstrony',
+            'Opisy projektów, dodatkowe informacje oraz dokumenty prawne.'
+        );
+        $this->theme->end_header();
+        $this->theme->start_section();
+
+        if ($pages === []) {
+            $this->theme->render_alert('Nie opublikowano jeszcze żadnych podstron.', 'info');
+        } else {
+            $this->theme->start_grid();
+            foreach ($pages as $page) {
+                $this->theme->start_column('md-6');
+                $this->theme->start_card($page->title, $this->pageTypeLabel($page->pageType));
+                $this->theme->render_text($page->summary !== '' ? $page->summary : 'Otwórz stronę, aby przeczytać pełną treść.');
+                $this->theme->render_button(
+                    'Otwórz',
+                    '/p/' . rawurlencode($page->slug),
+                    'outline-light'
+                );
+                $this->theme->end_card();
+                $this->theme->end_column();
+            }
+            $this->theme->end_grid();
+        }
+
+        $this->theme->end_section();
+        $this->theme->end_page();
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void
@@ -989,12 +1076,15 @@ final class CorePagesModule implements ModuleInterface
             $this->theme->render_alert('Brak stron. Utwórz pierwszy szkic, aby rozpocząć.', 'info');
         } else {
             $this->theme->render_admin_action_table(
-                ['Tytuł', 'Slug', 'Status', 'Aktualizacja'],
+                ['Tytuł', 'Typ', 'Nawigacja', 'Status', 'Aktualizacja'],
                 array_map(
-                    static fn (Page $page): array => [
+                    fn (Page $page): array => [
                         'cells' => [
                             $page->title,
-                            $page->slug,
+                            $this->pageTypeLabel($page->pageType),
+                            $page->navigationArea === 'none'
+                                ? 'Brak'
+                                : $page->navigationArea . ' / ' . ($page->navigationLabel ?: $page->title),
                             $page->status === 'published' ? 'Opublikowana' : 'Szkic',
                             $page->updatedAt,
                         ],
@@ -1103,6 +1193,54 @@ final class CorePagesModule implements ModuleInterface
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
                 [
+                    'name' => 'page_type',
+                    'label' => 'Typ podstrony',
+                    'type' => 'select',
+                    'value' => $page?->pageType ?? 'standard',
+                    'options' => [
+                        'standard' => 'Informacyjna',
+                        'project' => 'Opis projektu',
+                        'legal' => 'Dokument prawny / RODO',
+                    ],
+                ],
+                [
+                    'name' => 'summary',
+                    'label' => 'Krótki opis',
+                    'type' => 'textarea',
+                    'rows' => 3,
+                    'value' => $page?->summary ?? '',
+                    'help' => 'Widoczny na listach i kartach podstron.',
+                ],
+                [
+                    'name' => 'meta_description',
+                    'label' => 'Opis SEO',
+                    'value' => $page?->metaDescription ?? '',
+                    'help' => 'Maksymalnie 255 znaków; jeśli pusty, używany jest krótki opis.',
+                ],
+                [
+                    'name' => 'navigation_area',
+                    'label' => 'Miejsce w nawigacji',
+                    'type' => 'select',
+                    'value' => $page?->navigationArea ?? 'none',
+                    'options' => [
+                        'none' => 'Nie pokazuj automatycznie',
+                        'main' => 'Główne menu',
+                        'footer' => 'Stopka',
+                    ],
+                ],
+                [
+                    'name' => 'navigation_label',
+                    'label' => 'Etykieta w nawigacji',
+                    'value' => $page?->navigationLabel ?? '',
+                    'help' => 'Jeśli pusta, zostanie użyty tytuł strony.',
+                ],
+                [
+                    'name' => 'sort_order',
+                    'label' => 'Kolejność',
+                    'type' => 'number',
+                    'value' => (string) ($page?->sortOrder ?? 100),
+                ],
+                [
                     'name' => 'content',
                     'label' => 'Treść',
                     'type' => 'richtext',
@@ -1124,7 +1262,7 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        [$title, $slug, $content, $error] = $this->validatedInput($request);
+        [$data, $error] = $this->validatedInput($request);
 
         if ($error !== '') {
             $this->renderForm(null, $error, 'danger');
@@ -1132,7 +1270,7 @@ final class CorePagesModule implements ModuleInterface
         }
 
         $user = $this->auth->user();
-        $id = $this->pages->create($title, $slug, $content, $user?->id ?? 0);
+        $id = $this->pages->create($data, $user?->id ?? 0);
         $this->audit->record($request, 'page_create', 'success', null, $user?->id);
         header(
             'Location: index.php?route=/admin/pages/edit&id=' . $id
@@ -1157,14 +1295,14 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        [$title, $slug, $content, $error] = $this->validatedInput($request, $id);
+        [$data, $error] = $this->validatedInput($request, $id);
 
         if ($error !== '') {
             $this->renderForm($page, $error, 'danger');
             return;
         }
 
-        $this->pages->update($id, $title, $slug, $content);
+        $this->pages->update($id, $data);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'page_update', 'success', null, $userId);
         header(
@@ -1218,27 +1356,56 @@ final class CorePagesModule implements ModuleInterface
     }
 
     /**
-     * @return array{0: string, 1: string, 2: string, 3: string}
+     * @return array{0: array<string, string|int>, 1: string}
      */
     private function validatedInput(Request $request, ?int $exceptId = null): array
     {
         $title = $request->postString('title');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $title);
         $content = (new RichTextSanitizer())->sanitize($request->postString('content'));
+        $pageType = $request->postString('page_type');
+        $navigationArea = $request->postString('navigation_area');
+        $sortOrder = $request->postInt('sort_order', 100) ?? 100;
+        $data = [
+            'title' => $title,
+            'slug' => $slug,
+            'summary' => substr($request->postString('summary'), 0, 320),
+            'meta_description' => substr($request->postString('meta_description'), 0, 255),
+            'content' => $content,
+            'page_type' => $pageType,
+            'navigation_area' => $navigationArea,
+            'navigation_label' => substr($request->postString('navigation_label'), 0, 80),
+            'sort_order' => max(0, min(65535, $sortOrder)),
+        ];
 
         if ($title === '' || strlen($title) > 180) {
-            return [$title, $slug, $content, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
+            return [$data, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
         }
 
         if ($slug === '' || strlen($slug) > 191) {
-            return [$title, $slug, $content, 'Slug jest nieprawidłowy lub zbyt długi.'];
+            return [$data, 'Slug jest nieprawidłowy lub zbyt długi.'];
         }
 
         if ($this->pages->slugExists($slug, $exceptId)) {
-            return [$title, $slug, $content, 'Slug jest już używany przez inną stronę.'];
+            return [$data, 'Slug jest już używany przez inną stronę.'];
+        }
+        if (!in_array($pageType, ['standard', 'project', 'legal'], true)) {
+            return [$data, 'Wybrano nieprawidłowy typ podstrony.'];
+        }
+        if (!in_array($navigationArea, ['none', 'main', 'footer'], true)) {
+            return [$data, 'Wybrano nieprawidłowe miejsce w nawigacji.'];
         }
 
-        return [$title, $slug, $content, ''];
+        return [$data, ''];
+    }
+
+    private function pageTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'project' => 'Projekt',
+            'legal' => 'Dokument prawny',
+            default => 'Informacje',
+        };
     }
 
     private function normalizeSlug(string $value): string

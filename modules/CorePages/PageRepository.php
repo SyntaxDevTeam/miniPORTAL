@@ -10,6 +10,9 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class PageRepository
 {
+    private const COLUMNS = 'id, title, slug, summary, meta_description, content, page_type, '
+        . 'navigation_area, navigation_label, sort_order, status, author_id, published_at, created_at, updated_at';
+
     public function __construct(
         private readonly CrudApp $database,
     ) {
@@ -21,7 +24,7 @@ final class PageRepository
     public function all(): array
     {
         $statement = $this->database->query(
-            'SELECT id, title, slug, content, status, author_id, published_at, created_at, updated_at '
+            'SELECT ' . self::COLUMNS . ' '
             . 'FROM core_pages ORDER BY updated_at DESC, id DESC'
         );
 
@@ -38,8 +41,8 @@ final class PageRepository
     public function published(): array
     {
         $statement = $this->database->query(
-            'SELECT id, title, slug, content, status, author_id, published_at, created_at, updated_at '
-            . 'FROM core_pages WHERE status = :status ORDER BY published_at DESC, id DESC',
+            'SELECT ' . self::COLUMNS . ' '
+            . 'FROM core_pages WHERE status = :status ORDER BY sort_order ASC, published_at DESC, id DESC',
             [':status' => 'published']
         );
 
@@ -50,11 +53,29 @@ final class PageRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /**
+     * @return list<Page>
+     */
+    public function publishedInNavigation(string $area): array
+    {
+        if (!in_array($area, ['main', 'footer'], true)) {
+            return [];
+        }
+
+        $statement = $this->database->query(
+            'SELECT ' . self::COLUMNS . ' FROM core_pages '
+            . 'WHERE status = :status AND navigation_area = :area '
+            . 'ORDER BY sort_order ASC, title ASC',
+            [':status' => 'published', ':area' => $area]
+        );
+
+        return array_map($this->hydrate(...), $statement?->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
     public function find(int $id): ?Page
     {
         $statement = $this->database->query(
-            'SELECT id, title, slug, content, status, author_id, published_at, created_at, updated_at '
-            . 'FROM core_pages WHERE id = :id LIMIT 1',
+            'SELECT ' . self::COLUMNS . ' FROM core_pages WHERE id = :id LIMIT 1',
             [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -65,8 +86,8 @@ final class PageRepository
     public function findPublishedBySlug(string $slug): ?Page
     {
         $statement = $this->database->query(
-            'SELECT id, title, slug, content, status, author_id, published_at, created_at, updated_at '
-            . 'FROM core_pages WHERE slug = :slug AND status = :status LIMIT 1',
+            'SELECT ' . self::COLUMNS . ' FROM core_pages '
+            . 'WHERE slug = :slug AND status = :status LIMIT 1',
             [
                 ':slug' => $slug,
                 ':status' => 'published',
@@ -90,24 +111,24 @@ final class PageRepository
         return (int) $this->database->query($sql, $parameters)?->fetchColumn() > 0;
     }
 
-    public function create(string $title, string $slug, string $content, int $authorId): int
+    /**
+     * @param array<string, scalar|null> $data
+     */
+    public function create(array $data, int $authorId): int
     {
         return (int) $this->database->create('core_pages', [
-            'title' => $title,
-            'slug' => $slug,
-            'content' => $content,
+            ...$data,
             'status' => 'draft',
             'author_id' => $authorId,
         ]);
     }
 
-    public function update(int $id, string $title, string $slug, string $content): bool
+    /**
+     * @param array<string, scalar|null> $data
+     */
+    public function update(int $id, array $data): bool
     {
-        $statement = $this->database->update('core_pages', [
-            'title' => $title,
-            'slug' => $slug,
-            'content' => $content,
-        ], ['id' => $id]);
+        $statement = $this->database->update('core_pages', $data, ['id' => $id]);
 
         return $statement !== null;
     }
@@ -145,7 +166,13 @@ final class PageRepository
             (int) $row['id'],
             (string) $row['title'],
             (string) $row['slug'],
+            (string) ($row['summary'] ?? ''),
+            (string) ($row['meta_description'] ?? ''),
             (string) $row['content'],
+            (string) ($row['page_type'] ?? 'standard'),
+            (string) ($row['navigation_area'] ?? 'none'),
+            (string) ($row['navigation_label'] ?? ''),
+            (int) ($row['sort_order'] ?? 100),
             (string) $row['status'],
             (int) $row['author_id'],
             $row['published_at'] !== null ? (string) $row['published_at'] : null,
