@@ -383,3 +383,13 @@ Autozapis pełni wyłącznie rolę opcjonalnego mechanizmu odzyskiwania treści.
 
 **Zaktualizowano status:** obrazy używają składni `![opis](adres)` i nie są
 zapisywane jako rozbudowany kod base64 w treści.
+
+### Sesja: 2026-06-14 - przypisywanie podstron do elementów homepage
+
+**Wykonano:**
+- wykryto zmianę numerycznych identyfikatorów stron przez operator rozwijania tablicy,
+- zachowano rzeczywiste ID podstron w opcjach pola `page_id`,
+- sprawdzono pozostałe pola wyboru pod kątem tego samego wzorca.
+
+**Zaktualizowano status:** element strony głównej wysyła rzeczywisty identyfikator
+wybranej podstrony zamiast pozycji opcji na liście.

@@ -820,20 +820,17 @@ final class CorePagesModule implements ModuleInterface
                     'label' => 'Powiązana podstrona',
                     'type' => 'select',
                     'value' => $value('page_id'),
-                    'options' => [
-                        '' => 'Brak powiązania',
-                        ...array_column(
-                            array_map(
-                                static fn (Page $page): array => [
-                                    'id' => (string) $page->id,
-                                    'label' => $page->title . ' (' . $page->slug . ')',
-                                ],
-                                $this->pages->all()
-                            ),
-                            'label',
-                            'id'
+                    'options' => ['' => 'Brak powiązania'] + array_column(
+                        array_map(
+                            static fn (Page $page): array => [
+                                'id' => (string) $page->id,
+                                'label' => $page->title . ' (' . $page->slug . ')',
+                            ],
+                            $this->pages->all()
                         ),
-                    ],
+                        'label',
+                        'id'
+                    ),
                     'help' => 'Powiązana opublikowana strona ma pierwszeństwo przed ręcznym adresem przycisku.',
                 ],
                 ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $value('button_label')],
