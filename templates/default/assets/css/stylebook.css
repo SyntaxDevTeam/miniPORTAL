@@ -344,6 +344,61 @@ code {
   color: var(--mp-primary);
 }
 
+.rich-content {
+  line-height: 1.75;
+}
+
+.rich-content h1,
+.rich-content h2,
+.rich-content h3,
+.rich-content h4,
+.rich-content h5,
+.rich-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.65em;
+}
+
+.rich-content blockquote {
+  padding-left: 1rem;
+  color: var(--mp-muted);
+  border-left: 0.2rem solid var(--mp-primary);
+}
+
+.rich-content pre {
+  overflow-x: auto;
+  padding: 1rem;
+  color: var(--mp-text);
+  background: rgba(5, 9, 14, 0.82);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.6rem;
+}
+
+.rich-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.6rem;
+}
+
+.rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rich-content th,
+.rich-content td {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--mp-border);
+}
+
+.rich-content .task-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.rich-content .task-list-item input {
+  margin-right: 0.45rem;
+}
+
 @keyframes mp-spin {
   to {
     transform: rotate(360deg);

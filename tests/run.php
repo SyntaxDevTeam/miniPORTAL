@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
+use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
+use SyntaxDevTeam\Cms\Core\ModuleState;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -98,6 +100,37 @@ $test('Rich text keeps formatting and removes executable markup', static functio
     $assert($result === '<h2>Nagłówek</h2><p>Treść <strong>ważna</strong></p>');
 });
 
+$test('Markdown renders GitHub-style blocks without executable HTML', static function () use ($assert): void {
+    $renderer = new ContentRenderer();
+    $markdown = <<<'MD'
+# Dokument
+
+**Ważne** i [odnośnik](https://example.com).
+
+- [x] Gotowe
+- [ ] Plan
+
+| Nazwa | Stan |
+| --- | --- |
+| Core | OK |
+
+```html
+<script>alert(1)</script>
+```
+
+[atak](javascript:alert(1))
+MD;
+    $result = $renderer->render($markdown, 'markdown');
+
+    $assert(str_contains($result, '<h1>Dokument</h1>'));
+    $assert(str_contains($result, '<table>'));
+    $assert(str_contains($result, 'type="checkbox" disabled checked'));
+    $assert(str_contains($result, '&lt;script&gt;alert(1)&lt;/script&gt;'));
+    $assert(!str_contains($result, '<script>'));
+    $assert(!str_contains($result, 'href="javascript:'));
+    $assert($renderer->prepareForStorage("  # Źródło\n", 'markdown') === '# Źródło');
+});
+
 $test('Authorization rejects missing permission and blocked account', static function () use ($assert): void {
     $authorization = new AuthorizationService();
     $active = new User(1, 'Active', null, null, 'active', ['editor'], ['pages.view']);
@@ -167,6 +200,20 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($manifest->version === '1.0.0');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->requiredModules === ['core_auth']);
+
+    $system = $validator->validate(dirname(__DIR__) . '/modules/System');
+    $assert($system->id === 'system_admin');
+    $assert($system->protected);
+});
+
+$test('Module state distinguishes discovery, installation and activation', static function () use ($assert): void {
+    $discovered = new ModuleState('example', '1.0.0', 'discovered', false, null, '2026-06-14 00:00:00');
+    $disabled = new ModuleState('example', '1.0.0', 'disabled', false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
+    $active = new ModuleState('example', '1.0.0', 'active', false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
+
+    $assert(!$discovered->isInstalled() && !$discovered->isActive());
+    $assert($disabled->isInstalled() && !$disabled->isActive());
+    $assert($active->isInstalled() && $active->isActive());
 });
 
 $test('Module registry rejects a missing dependency', static function () use ($assert): void {

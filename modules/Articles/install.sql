@@ -15,6 +15,7 @@ CREATE TABLE articles (
     slug VARCHAR(191) NOT NULL,
     summary VARCHAR(500) NOT NULL,
     content MEDIUMTEXT NOT NULL,
+    content_format ENUM('html', 'markdown') NOT NULL DEFAULT 'html',
     status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
     author_id BIGINT UNSIGNED NOT NULL,
     published_at DATETIME NULL,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SyntaxDevTeam\Cms\Modules\Articles;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
+use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -172,9 +173,7 @@ final class ArticlesModule implements ModuleInterface
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->start_card('', 'Artykuł');
-        foreach (preg_split('/\R{2,}/', trim($article->content)) ?: [] as $paragraph) {
-            $this->theme->render_text($paragraph);
-        }
+        $this->theme->render_rich_content($article->content, $article->contentFormat);
         $this->theme->render_button('Wróć do artykułów', 'index.php?route=/articles', 'outline-light');
         $this->theme->end_card();
         $this->theme->end_section();
@@ -371,6 +370,12 @@ final class ArticlesModule implements ModuleInterface
                     'value' => (string) $article->id,
                 ]] : []),
                 [
+                    'name' => '_autosave_key',
+                    'label' => 'Autozapis',
+                    'type' => 'hidden',
+                    'value' => 'article-' . ($article?->id ?? 'new'),
+                ],
+                [
                     'name' => 'category_id',
                     'label' => 'Kategoria',
                     'type' => 'select',
@@ -389,9 +394,11 @@ final class ArticlesModule implements ModuleInterface
                 [
                     'name' => 'content',
                     'label' => 'Treść',
-                    'type' => 'textarea',
-                    'rows' => 14,
+                    'type' => 'richtext',
                     'value' => $article?->content ?? '',
+                    'format_name' => 'content_format',
+                    'format_value' => $article?->contentFormat ?? 'html',
+                    'help' => 'Przełączaj między edytorem wizualnym i Markdown w stylu GitHub.',
                 ],
             ],
             $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
@@ -407,14 +414,22 @@ final class ArticlesModule implements ModuleInterface
             return;
         }
 
-        [$categoryId, $title, $slug, $summary, $content, $error] = $this->validatedInput($request);
+        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $error] = $this->validatedInput($request);
         if ($error !== '') {
             $this->renderForm(null, $error, 'danger');
             return;
         }
 
         $user = $this->auth->user();
-        $id = $this->articles->create($categoryId, $title, $slug, $summary, $content, $user?->id ?? 0);
+        $id = $this->articles->create(
+            $categoryId,
+            $title,
+            $slug,
+            $summary,
+            $content,
+            $contentFormat,
+            $user?->id ?? 0
+        );
         $this->audit->record($request, 'article_create', 'success', null, $user?->id);
         header('Location: index.php?route=/admin/articles/edit&id=' . $id, true, 303);
     }
@@ -433,13 +448,13 @@ final class ArticlesModule implements ModuleInterface
             return;
         }
 
-        [$categoryId, $title, $slug, $summary, $content, $error] = $this->validatedInput($request, $id);
+        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $error] = $this->validatedInput($request, $id);
         if ($error !== '') {
             $this->renderForm($article, $error, 'danger');
             return;
         }
 
-        $this->articles->update($id, $categoryId, $title, $slug, $summary, $content);
+        $this->articles->update($id, $categoryId, $title, $slug, $summary, $content, $contentFormat);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'article_update', 'success', null, $userId);
         header('Location: index.php?route=/admin/articles/edit&id=' . $id, true, 303);
@@ -539,7 +554,7 @@ final class ArticlesModule implements ModuleInterface
     }
 
     /**
-     * @return array{0: int, 1: string, 2: string, 3: string, 4: string, 5: string}
+     * @return array{0: int, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
      */
     private function validatedInput(Request $request, ?int $exceptId = null): array
     {
@@ -547,25 +562,29 @@ final class ArticlesModule implements ModuleInterface
         $title = $request->postString('title');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $title);
         $summary = $request->postString('summary');
-        $content = $request->postString('content');
+        $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $content = (new ContentRenderer())->prepareForStorage(
+            $request->postString('content'),
+            $contentFormat
+        );
 
         if (!$this->articles->categoryExists($categoryId)) {
-            return [$categoryId, $title, $slug, $summary, $content, 'Wybierz istniejącą kategorię.'];
+            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Wybierz istniejącą kategorię.'];
         }
         if ($title === '' || strlen($title) > 180) {
-            return [$categoryId, $title, $slug, $summary, $content, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
+            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
         }
         if ($slug === '' || strlen($slug) > 191 || $this->articles->slugExists($slug, $exceptId)) {
-            return [$categoryId, $title, $slug, $summary, $content, 'Slug jest nieprawidłowy albo już używany.'];
+            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Slug jest nieprawidłowy albo już używany.'];
         }
         if ($summary === '' || strlen($summary) > 500) {
-            return [$categoryId, $title, $slug, $summary, $content, 'Zajawka jest wymagana i może mieć maksymalnie 500 znaków.'];
+            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Zajawka jest wymagana i może mieć maksymalnie 500 znaków.'];
         }
         if ($content === '') {
-            return [$categoryId, $title, $slug, $summary, $content, 'Treść artykułu jest wymagana.'];
+            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Treść artykułu jest wymagana.'];
         }
 
-        return [$categoryId, $title, $slug, $summary, $content, ''];
+        return [$categoryId, $title, $slug, $summary, $content, $contentFormat, ''];
     }
 
     private function normalizeSlug(string $value): string

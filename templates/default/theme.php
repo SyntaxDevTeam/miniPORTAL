@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SyntaxDevTeam\Cms\Templates\DefaultTheme;
 
+use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
@@ -41,7 +42,9 @@ final class Theme implements ThemeInterface
             echo '</a></li>';
         }
         if ($pages !== [] && array_filter($pages, static fn (array $page): bool => $page['navigation_area'] === 'main') === []) {
-            echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
+            if ($authenticated) {
+                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
+            }
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="index.php?route=';
         echo $authenticated ? '/admin' : '/admin/login';
@@ -267,9 +270,18 @@ final class Theme implements ThemeInterface
             }
 
             if ($type === 'richtext') {
-                $safeValue = (new RichTextSanitizer())->sanitize($rawValue);
-                echo '<div class="richtext-editor" data-richtext>';
-                echo '<div class="editor-toolbar" role="toolbar" aria-label="Formatowanie treści">';
+                $formatName = $this->escape((string) ($field['format_name'] ?? $field['name'] . '_format'));
+                $format = (new ContentRenderer())->normalizeFormat((string) ($field['format_value'] ?? 'html'));
+                $safeValue = (new RichTextSanitizer())->sanitize($format === ContentRenderer::HTML ? $rawValue : '');
+                echo '<div class="richtext-editor" data-richtext data-richtext-format="' . $format . '">';
+                echo '<div class="richtext-mode-switch" role="group" aria-label="Format źródłowy">';
+                echo '<button class="editor-mode' . ($format === ContentRenderer::HTML ? ' is-active' : '') . '" type="button" ';
+                echo 'data-richtext-mode="html">Edytor wizualny</button>';
+                echo '<button class="editor-mode' . ($format === ContentRenderer::MARKDOWN ? ' is-active' : '') . '" type="button" ';
+                echo 'data-richtext-mode="markdown">Markdown</button></div>';
+                echo '<div class="editor-toolbar" data-richtext-toolbar role="toolbar" aria-label="Formatowanie treści"';
+                echo $format === ContentRenderer::MARKDOWN ? ' hidden' : '';
+                echo '>';
                 foreach ([
                     ['bold', 'B', 'Pogrubienie'],
                     ['italic', 'I', 'Kursywa'],
@@ -285,9 +297,21 @@ final class Theme implements ThemeInterface
                     echo $caption . '</button>';
                 }
                 echo '</div><div class="richtext-surface form-control" id="' . $name . '-editor" contenteditable="true" ';
-                echo 'data-richtext-surface aria-labelledby="' . $name . '-label">' . $safeValue . '</div>';
+                echo 'data-richtext-surface aria-labelledby="' . $name . '-label"';
+                echo $format === ContentRenderer::MARKDOWN ? ' hidden' : '';
+                echo '>' . $safeValue . '</div>';
+                echo '<textarea class="richtext-markdown form-control" data-richtext-markdown rows="18" ';
+                echo 'aria-labelledby="' . $name . '-label"' . ($format === ContentRenderer::HTML ? ' hidden' : '') . '>';
+                echo $format === ContentRenderer::MARKDOWN ? $value : '';
+                echo '</textarea>';
                 echo '<textarea class="visually-hidden" id="' . $name . '" name="' . $name . '" data-richtext-input>';
-                echo $value . '</textarea></div>';
+                echo $value . '</textarea>';
+                echo '<input type="hidden" name="' . $formatName . '" value="' . $format . '" data-richtext-format-input>';
+                echo '<p class="form-text mb-0 mt-2" data-richtext-hint>';
+                echo $format === ContentRenderer::MARKDOWN
+                    ? 'Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy.'
+                    : 'Tryb wizualny zapisuje kontrolowany HTML.';
+                echo '</p></div>';
             } elseif ($type === 'textarea') {
                 $rows = max(2, min(20, (int) ($field['rows'] ?? 5)));
                 echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '">';
@@ -653,8 +677,8 @@ final class Theme implements ThemeInterface
         string $publishedAt,
         string $description = '',
         string $pageType = 'standard',
+        string $contentFormat = 'html',
     ): void {
-        $content = (new RichTextSanitizer())->sanitize($content);
         $labels = [
             'project' => 'Projekt',
             'legal' => 'Dokument prawny',
@@ -667,14 +691,26 @@ final class Theme implements ThemeInterface
         echo '<article class="showcase-card managed-home-content">';
         if ($content === '') {
             echo '<p>Ta strona nie ma jeszcze treści.</p>';
-        } elseif (str_contains($content, '<')) {
-            echo $content;
         } else {
-            echo '<p>' . nl2br($this->escape($content)) . '</p>';
+            $this->render_rich_content($content, $contentFormat);
         }
         echo '<a class="btn btn-outline-light" href="/index.php">Wróć do strony głównej</a></article>';
         $this->end_section();
         $this->end_page();
+    }
+
+    public function render_rich_content(string $content, string $format = 'html'): void
+    {
+        $rendered = (new ContentRenderer())->render($content, $format);
+        if ($rendered === '') {
+            return;
+        }
+
+        echo '<div class="rich-content">';
+        echo str_contains($rendered, '<')
+            ? $rendered
+            : '<p>' . nl2br($this->escape($rendered)) . '</p>';
+        echo '</div>';
     }
 
     public function render_page_not_found(string $title, string $message): void
@@ -722,6 +758,7 @@ final class Theme implements ThemeInterface
      *     eyebrow: string,
      *     title: string,
      *     content_html: string,
+     *     content_format: string,
      *     layout: string,
      *     button_label: string,
      *     button_url: string,
@@ -729,6 +766,7 @@ final class Theme implements ThemeInterface
      *         label: string,
      *         title: string,
      *         content: string,
+     *         content_format: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
@@ -739,7 +777,7 @@ final class Theme implements ThemeInterface
      */
     private function renderHomepageHero(array $section, bool $authenticated): void
     {
-        $content = (new RichTextSanitizer())->sanitize($section['content_html']);
+        $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
 
         echo '<header id="' . $this->escape($section['key']) . '" class="home-hero"><div class="container py-5">';
         echo '<div class="row align-items-center g-5"><div class="col-lg-7 reveal is-visible">';
@@ -773,6 +811,7 @@ final class Theme implements ThemeInterface
      *     eyebrow: string,
      *     title: string,
      *     content_html: string,
+     *     content_format: string,
      *     layout: string,
      *     button_label: string,
      *     button_url: string,
@@ -780,6 +819,7 @@ final class Theme implements ThemeInterface
      *         label: string,
      *         title: string,
      *         content: string,
+     *         content_format: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
@@ -792,7 +832,7 @@ final class Theme implements ThemeInterface
     {
         $layouts = ['full', 'split', 'columns', 'accent'];
         $layout = in_array($section['layout'], $layouts, true) ? $section['layout'] : 'full';
-        $content = (new RichTextSanitizer())->sanitize($section['content_html']);
+        $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
         $href = $this->safeHref($section['button_url']);
 
         echo '<section id="' . $this->escape($section['key']) . '" class="home-section managed-home-section">';
@@ -838,7 +878,11 @@ final class Theme implements ThemeInterface
                     echo '<p class="managed-card-label">' . $this->escape($item['label']) . '</p>';
                 }
                 echo '<h3>' . $this->escape($item['title']) . '</h3>';
-                echo '<p class="text-secondary">' . nl2br($this->escape($item['content'])) . '</p>';
+                $itemContent = (new ContentRenderer())->render($item['content'], $item['content_format']);
+                if ($itemContent !== '' && !str_contains($itemContent, '<')) {
+                    $itemContent = '<p>' . nl2br($this->escape($itemContent)) . '</p>';
+                }
+                echo '<div class="text-secondary rich-content">' . $itemContent . '</div>';
                 if ($itemHref !== '') {
                     echo '<a class="btn btn-outline-light" href="' . $this->escape($itemHref) . '">';
                     echo $this->escape($item['button_label'] !== '' ? $item['button_label'] : 'Czytaj więcej') . '</a>';

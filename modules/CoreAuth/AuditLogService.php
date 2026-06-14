@@ -29,7 +29,7 @@ final class AuditLogService
         $ip = $request->clientIp();
         $this->database->insert('auth_events', [
             'user_id' => $userId,
-            'provider' => $provider,
+            'provider' => $provider !== null ? substr($provider, 0, 32) : null,
             'event_type' => substr($eventType, 0, 64),
             'result' => substr($result, 0, 32),
             'ip_hash' => $ip !== '' && $this->hashKey !== ''

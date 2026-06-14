@@ -13,6 +13,7 @@ final readonly class Page
         public string $summary,
         public string $metaDescription,
         public string $content,
+        public string $contentFormat,
         public string $pageType,
         public string $navigationArea,
         public string $navigationLabel,

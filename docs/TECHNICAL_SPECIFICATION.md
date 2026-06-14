@@ -210,9 +210,11 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 - edytowalne sekcje strony głównej: typ, nagłówki, treść, układ, widoczność i kolejność
 - sekcje kolumnowe składają się z niezależnych elementów/kart z etykietą, opisem,
   CTA, wariantem wizualnym i szerokością
-- lokalny edytor WYSIWYG oparty na kontrolowanej allowliście formatowania
+- lokalny edytor z przełącznikiem WYSIWYG / Markdown i jawnym formatem źródłowym rekordu
+- Markdown w stylu GitHub: nagłówki, listy, zadania, tabele, cytaty, linki,
+  obrazy, kod liniowy i bloki kodu; surowy HTML jest kodowany
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
-- WYSIWYG zwykłych podstron korzystający z tej samej sanitizacji
+- wspólny renderer bezpiecznej treści dla sekcji homepage, kart, podstron i artykułów
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
 - autozapis formularzy treści do `localStorage`, czyszczony po potwierdzonym zapisie
 
@@ -230,6 +232,15 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 4. Dynamiczne ładowanie modułów:
    - router sprawdza, czy moduł jest aktywny
    - tylko aktywne moduły są uruchamiane
+
+Stan managera:
+- `modules_config` przechowuje wersję, stan `discovered/active/disabled` i ochronę,
+- `module_migrations` przechowuje wykonaną migrację wraz z sumą SHA-256,
+- aktualny `install.sql` stanowi pełny schemat nowej instalacji, więc istniejące
+  migracje są przy instalacji oznaczane jako stan bazowy,
+- wyłączenie rozszerzenia usuwa jego trasy i menu od następnego żądania,
+- zależności aktywnych modułów oraz moduły chronione nie mogą zostać wyłączone,
+- `/admin/modules` wymaga ACL, CSRF i zapisuje wynik operacji do audit logu.
 
 ---
 
@@ -322,6 +333,7 @@ Stan Kroku 5:
   pozostają wyłączną odpowiedzialnością aktywnego motywu,
 - oba rejestrują menu i trasy przez `ModuleRegistry`,
 - oba składają panel z ogólnych komponentów `ThemeInterface`,
+- oba przechowują źródłową treść wraz z formatem `html` albo `markdown`,
 - `articles` dostarcza pierwszy plik `info.json`, który wyznacza wejście do Kroku 6.
 
 ### Krok 6: uruchomienie systemu modularnego
@@ -339,7 +351,9 @@ Stan fundamentu Kroku 6:
 - `ModuleManifestValidator` sprawdza schemat, SemVer, wymagania runtime i plik SQL,
 - `ModuleRegistry` porządkuje moduły według zależności i wykrywa cykle,
 - `ModuleBootstrapper` ładuje deklaracje z `config/modules.php`,
-- Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów.
+- Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów,
+- `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
+- `SystemAdminModule` udostępnia manager instalacji, migracji i aktywacji.
 
 ---
 

@@ -257,17 +257,20 @@ rzeczywiste wymagania systemu modułów.
 
 1. Schemat i walidacja `info.json`. [ukończone]
 2. Odczyt zależności oraz zgodności wersji PHP i miniPORTAL. [ukończone]
-3. Podgląd modułu przed instalacją.
-4. Transakcyjne wykonanie `install.sql` i migracji.
-5. Rejestr `modules_config`.
-6. Aktywacja i deaktywacja tras oraz menu.
+3. Podgląd modułu przed instalacją. [ukończone]
+4. Kontrolowane wykonanie `install.sql` i migracji z historią SHA-256. [ukończone]
+5. Rejestr `modules_config`. [ukończone]
+6. Aktywacja i deaktywacja tras oraz menu. [ukończone]
 7. Aktualizacja z kontrolą wersji i możliwością przerwania operacji.
 8. Odinstalowanie z osobnym potwierdzeniem usunięcia danych.
-9. Blokada usunięcia modułów stałych `core_auth` i `core_pages`.
-10. Uprawnienia administratora i zapis wszystkich operacji w audit logu.
+9. Blokada wyłączenia i usunięcia modułów stałych `core_auth` i `core_pages`. [ukończone]
+10. Uprawnienia administratora i zapis wszystkich operacji w audit logu. [ukończone]
 
-Aktualny fundament managera obejmuje stabilny `ModuleInterface`, walidację manifestów,
-topologiczne uruchamianie zależności i deklaratywne fabryki w `config/modules.php`.
+Manager korzysta ze stabilnego `ModuleInterface`, walidacji manifestów,
+topologicznego uruchamiania zależności, deklaratywnych fabryk w `config/modules.php`,
+rejestru `modules_config` i historii `module_migrations`. DDL MySQL/MariaDB może
+zatwierdzać się automatycznie, dlatego historia jest zapisywana dopiero po pełnym
+powodzeniu pliku SQL i nie jest opisywana jako jedna transakcja.
 
 ## 7. Kryterium ukończenia
 

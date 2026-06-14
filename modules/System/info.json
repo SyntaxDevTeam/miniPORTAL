@@ -1,6 +1,6 @@
 {
-  "id": "system_demo_admin",
-  "name": "System Admin",
+  "id": "system_admin",
+  "name": "System Admin i Manager Modułów",
   "version": "1.0.0",
   "type": "system",
   "author": "SyntaxDevTeam",

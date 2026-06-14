@@ -7,7 +7,7 @@ namespace SyntaxDevTeam\Cms\Modules\CorePages;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\Request;
-use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
+use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
@@ -331,6 +331,7 @@ final class CorePagesModule implements ModuleInterface
                 'eyebrow' => $section?->eyebrow ?? $fallback,
                 'title' => $section?->title ?? $fallback,
                 'content_html' => $section?->contentHtml ?? $fallback,
+                'content_format' => $section?->contentFormat ?? 'html',
                 'layout' => $section?->layout ?? $fallback,
                 'button_label' => $section?->buttonLabel ?? $fallback,
                 'button_url' => $section?->buttonUrl ?? $fallback,
@@ -429,7 +430,9 @@ final class CorePagesModule implements ModuleInterface
                     'label' => 'Treść',
                     'type' => 'richtext',
                     'value' => $value('content_html'),
-                    'help' => 'Dozwolone są akapity, nagłówki H2/H3, pogrubienie, kursywa, cytaty i listy.',
+                    'format_name' => 'content_format',
+                    'format_value' => $value('content_format', 'html'),
+                    'help' => 'Przełączaj między edytorem wizualnym i Markdown w stylu GitHub.',
                 ],
                 ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $value('button_label')],
                 [
@@ -551,12 +554,17 @@ final class CorePagesModule implements ModuleInterface
         $sectionType = $request->postString('section_type');
         $layout = $request->postString('layout');
         $buttonUrl = $request->postString('button_url');
+        $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
         $data = [
             'section_key' => $sectionKey,
             'section_type' => $sectionType,
             'eyebrow' => substr($request->postString('eyebrow'), 0, 160),
             'title' => $title,
-            'content_html' => (new RichTextSanitizer())->sanitize($request->postString('content_html')),
+            'content_html' => (new ContentRenderer())->prepareForStorage(
+                $request->postString('content_html'),
+                $contentFormat
+            ),
+            'content_format' => $contentFormat,
             'layout' => $layout,
             'button_label' => substr($request->postString('button_label'), 0, 120),
             'button_url' => substr($buttonUrl, 0, 500),
@@ -742,6 +750,7 @@ final class CorePagesModule implements ModuleInterface
                 'label' => $item?->label ?? $fallback,
                 'title' => $item?->title ?? $fallback,
                 'content' => $item?->content ?? $fallback,
+                'content_format' => $item?->contentFormat ?? 'html',
                 'button_label' => $item?->buttonLabel ?? $fallback,
                 'button_url' => $item?->buttonUrl ?? $fallback,
                 'page_id' => $item?->pageId !== null ? (string) $item->pageId : $fallback,
@@ -789,9 +798,23 @@ final class CorePagesModule implements ModuleInterface
                     'type' => 'hidden',
                     'value' => (string) $item->id,
                 ]] : []),
+                [
+                    'name' => '_autosave_key',
+                    'label' => 'Autozapis',
+                    'type' => 'hidden',
+                    'value' => 'homepage-item-' . ($item?->id ?? 'new') . '-' . $sectionId,
+                ],
                 ['name' => 'label', 'label' => 'Etykieta', 'value' => $value('label'), 'help' => 'Np. SERWERY albo PROJECT / 001.'],
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $value('title')],
-                ['name' => 'content', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 5, 'value' => $value('content')],
+                [
+                    'name' => 'content',
+                    'label' => 'Opis',
+                    'type' => 'richtext',
+                    'value' => $value('content'),
+                    'format_name' => 'content_format',
+                    'format_value' => $value('content_format', 'html'),
+                    'help' => 'Opis karty może używać edytora wizualnego albo Markdown.',
+                ],
                 [
                     'name' => 'page_id',
                     'label' => 'Powiązana podstrona',
@@ -940,11 +963,17 @@ final class CorePagesModule implements ModuleInterface
         $width = $request->postString('width');
         $buttonUrl = $request->postString('button_url');
         $pageId = $request->postInt('page_id');
+        $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
         $data = [
             'page_id' => $pageId,
             'label' => substr($request->postString('label'), 0, 120),
             'title' => $title,
-            'content' => substr($request->postString('content'), 0, 4000),
+            'content' => substr(
+                (new ContentRenderer())->prepareForStorage($request->postString('content'), $contentFormat),
+                0,
+                4000
+            ),
+            'content_format' => $contentFormat,
             'button_label' => substr($request->postString('button_label'), 0, 120),
             'button_url' => substr($buttonUrl, 0, 500),
             'variant' => $variant,
@@ -995,7 +1024,8 @@ final class CorePagesModule implements ModuleInterface
             $page->content,
             $page->publishedAt ?? $page->updatedAt,
             $page->metaDescription !== '' ? $page->metaDescription : $page->summary,
-            $page->pageType
+            $page->pageType,
+            $page->contentFormat
         );
     }
 
@@ -1245,7 +1275,9 @@ final class CorePagesModule implements ModuleInterface
                     'label' => 'Treść',
                     'type' => 'richtext',
                     'value' => $page?->content ?? '',
-                    'help' => 'Dozwolone są akapity, nagłówki H2/H3, pogrubienie, kursywa, cytaty i listy.',
+                    'format_name' => 'content_format',
+                    'format_value' => $page?->contentFormat ?? 'html',
+                    'help' => 'Przełączaj między edytorem wizualnym i Markdown w stylu GitHub.',
                 ],
             ],
             $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
@@ -1362,7 +1394,11 @@ final class CorePagesModule implements ModuleInterface
     {
         $title = $request->postString('title');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $title);
-        $content = (new RichTextSanitizer())->sanitize($request->postString('content'));
+        $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $content = (new ContentRenderer())->prepareForStorage(
+            $request->postString('content'),
+            $contentFormat
+        );
         $pageType = $request->postString('page_type');
         $navigationArea = $request->postString('navigation_area');
         $sortOrder = $request->postInt('sort_order', 100) ?? 100;
@@ -1372,6 +1408,7 @@ final class CorePagesModule implements ModuleInterface
             'summary' => substr($request->postString('summary'), 0, 320),
             'meta_description' => substr($request->postString('meta_description'), 0, 255),
             'content' => $content,
+            'content_format' => $contentFormat,
             'page_type' => $pageType,
             'navigation_area' => $navigationArea,
             'navigation_label' => substr($request->postString('navigation_label'), 0, 80),

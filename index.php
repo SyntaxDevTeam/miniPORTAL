@@ -7,7 +7,10 @@ use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
+use SyntaxDevTeam\Cms\Core\ModuleInstaller;
+use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
+use SyntaxDevTeam\Cms\Core\ModuleStateRepository;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
@@ -92,9 +95,20 @@ $homepageSectionItemRepository = $application->database() !== null
     ? new HomepageSectionItemRepository($application->database())
     : null;
 $moduleDefinitions = require __DIR__ . '/config/modules.php';
+$manifestValidator = new ModuleManifestValidator((string) ($config['app']['version'] ?? '0.1.0'));
+$moduleStates = $application->database() !== null
+    ? new ModuleStateRepository($application->database())
+    : null;
+$moduleInstaller = $application->database() !== null && $moduleStates !== null
+    ? new ModuleInstaller($application->database(), $moduleStates)
+    : null;
+$moduleManager = $moduleStates !== null && $moduleInstaller !== null
+    ? new ModuleManagerService(__DIR__ . '/modules', $manifestValidator, $moduleStates, $moduleInstaller)
+    : null;
 $moduleBootstrapper = new ModuleBootstrapper(
     __DIR__ . '/modules',
-    new ModuleManifestValidator((string) ($config['app']['version'] ?? '0.1.0'))
+    $manifestValidator,
+    $moduleStates
 );
 $moduleBootstrapper->register($moduleDefinitions, [
     'theme' => $theme,
@@ -107,6 +121,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'database' => $application->database(),
     'auth_config' => $authConfig,
     'auth_demo_enabled' => $authDemoEnabled,
+    'module_manager' => $moduleManager,
 ], $modules);
 $modules->boot($adminMenu, $router);
 

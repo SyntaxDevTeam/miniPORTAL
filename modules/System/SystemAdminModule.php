@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\System;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
@@ -14,7 +15,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 
-final class DemoAdminModule implements ModuleInterface
+final class SystemAdminModule implements ModuleInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -23,12 +24,13 @@ final class DemoAdminModule implements ModuleInterface
         private readonly AdminAccessGate $access,
         private readonly Security $security,
         private readonly AuditLogService $audit,
+        private readonly ?ModuleManagerService $moduleManager,
     ) {
     }
 
     public function id(): string
     {
-        return 'system_demo_admin';
+        return 'system_admin';
     }
 
     public function version(): string
@@ -73,8 +75,23 @@ final class DemoAdminModule implements ModuleInterface
             'Moduły',
             '/admin/modules',
             'modules.view',
-            'Widok managera modułów jest dostępny wyłącznie użytkownikom z właściwym uprawnieniem.'
+            'Manager odczytuje manifesty, stan aktywności i historię migracji.'
         )));
+        $router->post('/admin/modules/install', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->installModule($request)
+        ));
+        $router->post('/admin/modules/migrate', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->migrateModule($request)
+        ));
+        $router->post('/admin/modules/toggle', fn (Request $request) => $this->guard(
+            $request,
+            'modules.toggle',
+            fn () => $this->toggleModule($request)
+        ));
         $router->get('/admin/design-system', fn (Request $request) => $this->guard(
             $request,
             'admin.access',
@@ -94,7 +111,7 @@ final class DemoAdminModule implements ModuleInterface
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Widoczne pozycje menu', (string) count($visibleMenu), 'ACL', 'Zależne od uprawnień');
-        $this->theme->render_admin_metric('Moduł demonstracyjny', $this->id(), 'MOD', 'Rejestruje trasę i menu');
+        $this->theme->render_admin_metric('Moduł systemowy', $this->id(), 'MOD', 'Dashboard i manager modułów');
         $this->theme->render_admin_metric('Wymagane uprawnienie', 'admin.access', 'ACL', 'Deklarowane przez moduł');
         $this->theme->render_admin_metric('Warstwa HTML', 'Theme', 'UI', 'Moduł nie zna znaczników');
         $this->theme->end_admin_metrics();
@@ -116,6 +133,11 @@ final class DemoAdminModule implements ModuleInterface
 
     private function renderSection(string $title, string $path, string $permission, string $description): void
     {
+        if ($path === '/admin/modules') {
+            $this->renderModules();
+            return;
+        }
+
         $this->startPage($title, $path, $description);
         $this->theme->start_admin_panel('Rejestracja modułu', $permission);
         $this->theme->render_admin_table(
@@ -129,6 +151,156 @@ final class DemoAdminModule implements ModuleInterface
         );
         $this->theme->end_admin_panel();
         $this->endPage();
+    }
+
+    private function renderModules(string $message = '', string $variant = 'info'): void
+    {
+        $this->startPage(
+            'Moduły',
+            '/admin/modules',
+            'Instalacja, migracje i aktywacja modułów na podstawie zweryfikowanych manifestów.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        if ($this->moduleManager === null) {
+            $this->theme->render_alert('Manager modułów wymaga aktywnego połączenia z bazą danych.', 'danger');
+            $this->endPage();
+            return;
+        }
+
+        $user = $this->auth->user();
+        $allows = static fn (string $permission): bool => $user !== null
+            && (in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true));
+        $rows = [];
+        foreach ($this->moduleManager->modules() as $entry) {
+            $manifest = $entry['manifest'];
+            $state = $entry['state'];
+            $pending = $entry['pending'];
+            $actions = [];
+
+            if (!$state->isInstalled() && $allows('modules.install') && $manifest->installFile !== null) {
+                $actions[] = [
+                    'label' => 'Zainstaluj',
+                    'action' => 'index.php?route=/admin/modules/install',
+                    'fields' => ['module_id' => $manifest->id],
+                    'variant' => 'primary',
+                ];
+            }
+            if ($state->isInstalled() && $pending !== [] && $allows('modules.install')) {
+                $actions[] = [
+                    'label' => 'Migracje (' . count($pending) . ')',
+                    'action' => 'index.php?route=/admin/modules/migrate',
+                    'fields' => ['module_id' => $manifest->id],
+                    'variant' => 'outline-primary',
+                ];
+            }
+            if ($state->isInstalled() && !$manifest->protected && $allows('modules.toggle')) {
+                $actions[] = [
+                    'label' => $state->isActive() ? 'Wyłącz' : 'Włącz',
+                    'action' => 'index.php?route=/admin/modules/toggle',
+                    'fields' => [
+                        'module_id' => $manifest->id,
+                        'active' => $state->isActive() ? '0' : '1',
+                    ],
+                    'variant' => $state->isActive() ? 'outline-danger' : 'outline-primary',
+                ];
+            }
+
+            $rows[] = [
+                'cells' => [
+                    $manifest->name . ' (' . $manifest->id . ')',
+                    $state->version . ' / ' . $manifest->version,
+                    $this->moduleStatusLabel($state->status),
+                    $manifest->protected ? 'Chroniony' : 'Rozszerzenie',
+                    $pending === [] ? 'Brak' : implode(', ', $pending),
+                ],
+                'actions' => $actions,
+            ];
+        }
+
+        $this->theme->start_admin_panel('Rejestr modułów', count($rows) . ' manifesty');
+        $this->theme->render_admin_action_table(
+            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Oczekujące migracje'],
+            $rows,
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    private function installModule(Request $request): void
+    {
+        $this->moduleOperation(
+            $request,
+            'module_install',
+            fn (string $moduleId) => $this->moduleManager?->install($moduleId),
+            'Moduł został zainstalowany i aktywowany.'
+        );
+    }
+
+    private function migrateModule(Request $request): void
+    {
+        $this->moduleOperation(
+            $request,
+            'module_migrate',
+            function (string $moduleId): void {
+                $executed = $this->moduleManager?->migrate($moduleId) ?? [];
+                if ($executed === []) {
+                    throw new \RuntimeException('Brak oczekujących migracji.');
+                }
+            },
+            'Migracje modułu zostały wykonane.'
+        );
+    }
+
+    private function toggleModule(Request $request): void
+    {
+        $active = $request->postBool('active');
+        $this->moduleOperation(
+            $request,
+            'module_toggle',
+            fn (string $moduleId) => $this->moduleManager?->toggle($moduleId, $active),
+            $active ? 'Moduł został aktywowany.' : 'Moduł został wyłączony.'
+        );
+    }
+
+    private function moduleOperation(
+        Request $request,
+        string $event,
+        callable $operation,
+        string $successMessage,
+    ): void {
+        $moduleId = $request->postString('module_id');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, $event, 'invalid_csrf', $moduleId, $this->auth->user()?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $moduleId) !== 1 || $this->moduleManager === null) {
+            $this->audit->record($request, $event, 'invalid_module', $moduleId, $this->auth->user()?->id);
+            $this->renderModules('Nieprawidłowy moduł albo niedostępny manager.', 'danger');
+            return;
+        }
+
+        try {
+            $operation($moduleId);
+            $this->audit->record($request, $event, 'success', $moduleId, $this->auth->user()?->id);
+            $this->renderModules($successMessage, 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, $event, 'failed', $moduleId, $this->auth->user()?->id);
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function moduleStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'active' => 'Aktywny',
+            'disabled' => 'Wyłączony',
+            default => 'Wykryty / niezainstalowany',
+        };
     }
 
     private function renderResources(): void

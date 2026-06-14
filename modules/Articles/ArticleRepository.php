@@ -11,7 +11,7 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 final class ArticleRepository
 {
     private const SELECT_COLUMNS = 'articles.id, articles.category_id, article_categories.name AS category_name, '
-        . 'articles.title, articles.slug, articles.summary, articles.content, articles.status, '
+        . 'articles.title, articles.slug, articles.summary, articles.content, articles.content_format, articles.status, '
         . 'articles.author_id, articles.published_at, articles.created_at, articles.updated_at';
 
     public function __construct(
@@ -162,6 +162,7 @@ final class ArticleRepository
         string $slug,
         string $summary,
         string $content,
+        string $contentFormat,
         int $authorId,
     ): int {
         return (int) $this->database->create('articles', [
@@ -170,6 +171,7 @@ final class ArticleRepository
             'slug' => $slug,
             'summary' => $summary,
             'content' => $content,
+            'content_format' => $contentFormat,
             'status' => 'draft',
             'author_id' => $authorId,
         ]);
@@ -182,6 +184,7 @@ final class ArticleRepository
         string $slug,
         string $summary,
         string $content,
+        string $contentFormat,
     ): bool {
         $statement = $this->database->update('articles', [
             'category_id' => $categoryId,
@@ -189,6 +192,7 @@ final class ArticleRepository
             'slug' => $slug,
             'summary' => $summary,
             'content' => $content,
+            'content_format' => $contentFormat,
         ], ['id' => $id]);
 
         return $statement !== null;
@@ -231,6 +235,7 @@ final class ArticleRepository
             (string) $row['slug'],
             (string) $row['summary'],
             (string) $row['content'],
+            (string) ($row['content_format'] ?? 'html'),
             (string) $row['status'],
             (int) $row['author_id'],
             $row['published_at'] !== null ? (string) $row['published_at'] : null,

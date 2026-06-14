@@ -11,6 +11,7 @@ final class ModuleBootstrapper
     public function __construct(
         private readonly string $modulesPath,
         private readonly ModuleManifestValidator $manifestValidator,
+        private readonly ?ModuleStateRepository $states = null,
     ) {
     }
 
@@ -41,6 +42,14 @@ final class ModuleBootstrapper
             $manifest = $this->manifestValidator->validate(
                 rtrim($this->modulesPath, '/') . '/' . $directory
             );
+            $this->states?->registerDiscovered($manifest);
+            $state = $this->states?->find($manifest->id);
+            if (
+                $this->states !== null
+                && ($state === null || !$state->isActive())
+            ) {
+                continue;
+            }
             $module = $factory($services);
             if (!$module instanceof ModuleInterface) {
                 throw new RuntimeException("Fabryka {$directory} nie zwróciła ModuleInterface.");

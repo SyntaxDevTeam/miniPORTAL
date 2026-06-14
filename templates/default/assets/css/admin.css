@@ -670,12 +670,56 @@ body.admin-stylebook {
   border-radius: 0.55rem;
 }
 
+.richtext-mode-switch {
+  display: inline-flex;
+  gap: 0.2rem;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.55rem;
+}
+
+.editor-mode {
+  padding: 0.45rem 0.7rem;
+  color: var(--mp-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0.4rem;
+  font-weight: 700;
+}
+
+.editor-mode:hover,
+.editor-mode:focus-visible,
+.editor-mode.is-active {
+  color: var(--mp-text);
+  background: rgba(var(--mp-primary-rgb), 0.12);
+}
+
 .richtext-surface {
   min-height: 18rem;
   overflow-y: auto;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   line-height: 1.7;
+}
+
+.richtext-markdown {
+  min-height: 24rem;
+  padding: 1rem;
+  color: var(--mp-text);
+  background: rgba(5, 9, 14, 0.72);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  font: 0.92rem/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  tab-size: 2;
+  resize: vertical;
+}
+
+.richtext-markdown[hidden],
+.richtext-surface[hidden],
+.editor-toolbar[hidden] {
+  display: none;
 }
 
 .richtext-surface:focus {

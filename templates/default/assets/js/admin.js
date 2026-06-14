@@ -75,18 +75,173 @@ document.querySelectorAll("[data-provider-demo]").forEach((button) => {
   });
 });
 
+const escapeHtml = (value) => value
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;");
+
+const inlineMarkdownToHtml = (value) => escapeHtml(value)
+  .replace(/`([^`]+)`/g, "<code>$1</code>")
+  .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+  .replace(/__(.+?)__/g, "<strong>$1</strong>")
+  .replace(/~~(.+?)~~/g, "<s>$1</s>")
+  .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+  .replace(/\[([^\]]+)]\((https?:\/\/|mailto:|\/|#|index\.php)([^ )]+)\)/g, '<a href="$2$3">$1</a>');
+
+const markdownToHtml = (markdown) => {
+  const lines = markdown.replaceAll("\r\n", "\n").split("\n");
+  const output = [];
+  let paragraph = [];
+  let list = null;
+  let code = null;
+
+  const flushParagraph = () => {
+    if (paragraph.length) output.push(`<p>${inlineMarkdownToHtml(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  };
+  const closeList = () => {
+    if (list) output.push(`</${list}>`);
+    list = null;
+  };
+
+  lines.forEach((line) => {
+    if (code !== null) {
+      if (/^ {0,3}```/.test(line)) {
+        output.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+        code = null;
+      } else {
+        code.push(line);
+      }
+      return;
+    }
+    if (/^ {0,3}```/.test(line)) {
+      flushParagraph();
+      closeList();
+      code = [];
+      return;
+    }
+    const heading = line.match(/^ {0,3}(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      closeList();
+      const level = heading[1].length;
+      output.push(`<h${level}>${inlineMarkdownToHtml(heading[2])}</h${level}>`);
+      return;
+    }
+    const item = line.match(/^ {0,3}([-+*]|\d+[.)])\s+(.+)$/);
+    if (item) {
+      flushParagraph();
+      const nextList = /^\d/.test(item[1]) ? "ol" : "ul";
+      if (list !== nextList) {
+        closeList();
+        list = nextList;
+        output.push(`<${list}>`);
+      }
+      output.push(`<li>${inlineMarkdownToHtml(item[2].replace(/^\[[ xX]]\s+/, ""))}</li>`);
+      return;
+    }
+    if (/^ {0,3}>/.test(line)) {
+      flushParagraph();
+      closeList();
+      output.push(`<blockquote><p>${inlineMarkdownToHtml(line.replace(/^ {0,3}>\s?/, ""))}</p></blockquote>`);
+      return;
+    }
+    if (line.trim() === "") {
+      flushParagraph();
+      closeList();
+      return;
+    }
+    paragraph.push(line);
+  });
+  flushParagraph();
+  closeList();
+  if (code !== null) output.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+
+  return output.join("");
+};
+
+const htmlToMarkdown = (html) => {
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  const walk = (node, depth = 0) => {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    const content = [...node.childNodes].map((child) => walk(child, depth + 1)).join("");
+    switch (node.tagName.toLowerCase()) {
+      case "h1": return `# ${content}\n\n`;
+      case "h2": return `## ${content}\n\n`;
+      case "h3": return `### ${content}\n\n`;
+      case "h4": return `#### ${content}\n\n`;
+      case "h5": return `##### ${content}\n\n`;
+      case "h6": return `###### ${content}\n\n`;
+      case "p": return `${content.trim()}\n\n`;
+      case "br": return "  \n";
+      case "strong":
+      case "b": return `**${content}**`;
+      case "em":
+      case "i": return `*${content}*`;
+      case "s":
+      case "strike": return `~~${content}~~`;
+      case "code": return node.parentElement?.tagName.toLowerCase() === "pre" ? content : `\`${content}\``;
+      case "pre": return `\`\`\`\n${node.textContent || ""}\n\`\`\`\n\n`;
+      case "blockquote": return `${content.trim().split("\n").map((line) => `> ${line}`).join("\n")}\n\n`;
+      case "a": return `[${content}](${node.getAttribute("href") || "#"})`;
+      case "img": return `![${node.getAttribute("alt") || ""}](${node.getAttribute("src") || ""})`;
+      case "li": return `${node.parentElement?.tagName === "OL" ? "1." : "-"} ${content.trim()}\n`;
+      case "ul":
+      case "ol": return `${content}\n`;
+      case "hr": return "---\n\n";
+      default: return content;
+    }
+  };
+
+  return walk(root).replace(/\n{3,}/g, "\n\n").trim();
+};
+
 document.querySelectorAll("[data-richtext]").forEach((editor) => {
   const surface = editor.querySelector("[data-richtext-surface]");
+  const markdown = editor.querySelector("[data-richtext-markdown]");
   const input = editor.querySelector("[data-richtext-input]");
+  const formatInput = editor.querySelector("[data-richtext-format-input]");
+  const toolbar = editor.querySelector("[data-richtext-toolbar]");
+  const hint = editor.querySelector("[data-richtext-hint]");
 
-  if (!surface || !input) {
+  if (!surface || !markdown || !input || !formatInput || !toolbar) {
     return;
   }
 
   const sync = () => {
-    input.value = surface.innerHTML;
+    input.value = formatInput.value === "markdown" ? markdown.value : surface.innerHTML;
+  };
+  const setMode = (mode, convert = true) => {
+    const nextMode = mode === "markdown" ? "markdown" : "html";
+    if (convert && formatInput.value !== nextMode) {
+      if (nextMode === "markdown") {
+        markdown.value = htmlToMarkdown(surface.innerHTML);
+      } else {
+        surface.innerHTML = markdownToHtml(markdown.value);
+      }
+    }
+    formatInput.value = nextMode;
+    surface.hidden = nextMode !== "html";
+    toolbar.hidden = nextMode !== "html";
+    markdown.hidden = nextMode !== "markdown";
+    editor.querySelectorAll("[data-richtext-mode]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.richtextMode === nextMode);
+      button.setAttribute("aria-pressed", button.dataset.richtextMode === nextMode ? "true" : "false");
+    });
+    if (hint) {
+      hint.textContent = nextMode === "markdown"
+        ? "Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy."
+        : "Tryb wizualny zapisuje kontrolowany HTML.";
+    }
+    sync();
   };
 
+  editor.querySelectorAll("[data-richtext-mode]").forEach((button) => {
+    button.addEventListener("click", () => setMode(button.dataset.richtextMode));
+  });
   editor.querySelectorAll("[data-richtext-command]").forEach((button) => {
     button.addEventListener("click", () => {
       surface.focus();
@@ -104,12 +259,22 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   });
 
   surface.addEventListener("input", sync);
+  markdown.addEventListener("input", sync);
   surface.addEventListener("paste", (event) => {
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") || "";
     document.execCommand("insertText", false, text);
   });
   surface.closest("form")?.addEventListener("submit", sync);
+  editor.refreshRichtext = () => {
+    if (formatInput.value === "markdown") {
+      markdown.value = input.value;
+    } else {
+      surface.innerHTML = input.value;
+    }
+    setMode(formatInput.value, false);
+  };
+  setMode(formatInput.value, false);
 });
 
 document.querySelectorAll('form').forEach((form) => {
@@ -143,11 +308,8 @@ document.querySelectorAll('form').forEach((form) => {
         } else {
           field.value = saved.values[field.name];
         }
-        const richtext = field.matches("[data-richtext-input]")
-          ? field.closest("[data-richtext]")?.querySelector("[data-richtext-surface]")
-          : null;
-        if (richtext) richtext.innerHTML = field.value;
       });
+      form.querySelectorAll("[data-richtext]").forEach((editor) => editor.refreshRichtext?.());
       status.textContent = "Przywrócono lokalną wersję roboczą.";
     }
   } catch {

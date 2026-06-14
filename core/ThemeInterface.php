@@ -13,6 +13,7 @@ interface ThemeInterface
      *     eyebrow: string,
      *     title: string,
      *     content_html: string,
+     *     content_format: string,
      *     layout: string,
      *     button_label: string,
      *     button_url: string,
@@ -20,6 +21,7 @@ interface ThemeInterface
      *         label: string,
      *         title: string,
      *         content: string,
+     *         content_format: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
@@ -83,7 +85,9 @@ interface ThemeInterface
      *     options?: array<string, string>,
      *     checked?: bool,
      *     rows?: int,
-     *     help?: string
+     *     help?: string,
+     *     format_name?: string,
+     *     format_value?: string
      * }> $fields
      */
     public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void;
@@ -199,7 +203,10 @@ interface ThemeInterface
         string $publishedAt,
         string $description = '',
         string $pageType = 'standard',
+        string $contentFormat = 'html',
     ): void;
+
+    public function render_rich_content(string $content, string $format = 'html'): void;
 
     public function render_page_not_found(string $title, string $message): void;
 

@@ -202,6 +202,7 @@ final class HomepageSectionRepository
             (string) ($row['eyebrow'] ?? ''),
             (string) $row['title'],
             (string) $row['content_html'],
+            (string) ($row['content_format'] ?? 'html'),
             (string) $row['layout'],
             (string) ($row['button_label'] ?? ''),
             (string) ($row['button_url'] ?? ''),

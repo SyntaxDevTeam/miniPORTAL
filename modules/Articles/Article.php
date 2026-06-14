@@ -14,6 +14,7 @@ final readonly class Article
         public string $slug,
         public string $summary,
         public string $content,
+        public string $contentFormat,
         public string $status,
         public int $authorId,
         public ?string $publishedAt,

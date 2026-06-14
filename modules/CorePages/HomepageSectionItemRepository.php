@@ -159,6 +159,7 @@ final class HomepageSectionItemRepository
             (string) ($row['label'] ?? ''),
             (string) $row['title'],
             (string) $row['content'],
+            (string) ($row['content_format'] ?? 'html'),
             (string) ($row['button_label'] ?? ''),
             (string) ($row['button_url'] ?? ''),
             (string) $row['variant'],

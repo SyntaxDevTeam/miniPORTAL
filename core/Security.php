@@ -70,7 +70,7 @@ final class Security
             "Content-Security-Policy: default-src 'self'; "
             . "style-src 'self' https://cdn.jsdelivr.net; "
             . "script-src 'self' https://cdn.jsdelivr.net; "
-            . "img-src 'self' data:; font-src 'self' data:; "
+            . "img-src 'self' data: https:; font-src 'self' data:; "
             . "connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
         );
     }

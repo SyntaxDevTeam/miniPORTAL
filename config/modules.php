@@ -11,7 +11,7 @@ use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
-use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
+use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 
 return [
     [
@@ -61,13 +61,14 @@ return [
     ],
     [
         'directory' => 'System',
-        'factory' => static fn (array $services): DemoAdminModule => new DemoAdminModule(
+        'factory' => static fn (array $services): SystemAdminModule => new SystemAdminModule(
             $services['theme'],
             $services['admin_menu'],
             $services['auth'],
             $services['access'],
             $services['security'],
-            $services['audit']
+            $services['audit'],
+            $services['module_manager']
         ),
     ],
 ];

@@ -115,6 +115,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Elementy sekcji kolumnowych: karty, CTA, wariant, szerokość i kolejność |
 | [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
 | [x] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
+| [x] | Przełącznik WYSIWYG / Markdown dla sekcji, kart, podstron i artykułów |
 | [x] | Podgląd roboczy i lokalny autozapis formularzy treści |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 
@@ -126,19 +127,19 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Startowy `ModuleRegistry` jako jeden punkt uruchamiania modułów |
 | [x] | Walidacja `info.json`, zależności i zgodności wersji |
 | [x] | Deklaratywne fabryki modułów poza `index.php` |
-| [ ] | Instalator SQL i migracje |
-| [ ] | Rejestr `modules_config` |
-| [ ] | Aktywacja i deaktywacja tras, menu oraz uprawnień |
+| [x] | Instalator SQL i migracje |
+| [x] | Rejestr `modules_config` |
+| [x] | Aktywacja i deaktywacja tras, menu oraz uprawnień |
 | [ ] | Aktualizacja i odinstalowanie modułu |
-| [ ] | Ochrona `core_auth` i `core_pages` przed usunięciem |
-| [ ] | Uprawnienia managera i audit log operacji |
+| [x] | Ochrona `core_auth` i `core_pages` przed wyłączeniem i usunięciem |
+| [x] | Uprawnienia managera i audit log operacji |
 
 ## Następne kroki
 
-1. Dodać rejestr `modules_config` i odczyt stanu aktywności modułów.
-2. Dodać instalator SQL oraz kontrolowaną historię migracji.
-3. Zastąpić demonstracyjny widok `/admin/modules` rzeczywistym managerem.
-4. Dodać uprawnienia managera i audit log operacji na modułach.
+1. Dodać kontrolowaną aktualizację wersji modułu.
+2. Dodać bezpieczne odinstalowanie rozszerzeń wraz z opcją zachowania danych.
+3. Rozbudować manager o podgląd historii wykonanych migracji.
+4. Zastąpić demonstracyjny widok `/admin/users` rzeczywistym modułem użytkowników.
 
 ## Uwagi / blokery
 
@@ -146,7 +147,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | `DemoAdminModule` nadal udostępnia atrapy sekcji Użytkownicy i Moduły. | Zastępować je kolejno rzeczywistymi modułami; nie traktować atrap jako ukończonych funkcji. |
+| 2026-06-14 | `SystemAdminModule` nadal udostępnia atrapę sekcji Użytkownicy. | Zastąpić ją rzeczywistym modułem zarządzania użytkownikami; nie traktować atrapy jako ukończonej funkcji. |
 | 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 | 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
 
@@ -191,309 +192,10 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-14 | Każdy aktywny moduł ma walidowany `info.json`; deklaratywne fabryki znajdują się w `config/modules.php`, a `index.php` nie tworzy konkretnych modułów. |
 | 2026-06-14 | `core_pages` przechowuje uniwersalne dokumenty typu `standard`, `project` i `legal`; opublikowane strony mogą pojawiać się w menu głównym albo stopce i mają adres `/p/slug`. |
 | 2026-06-14 | Element strony głównej może wskazywać `page_id`; motyw tworzy link wyłącznie wtedy, gdy powiązana podstrona jest opublikowana. |
+| 2026-06-14 | Sekcje homepage, karty, podstrony i artykuły przechowują format `html`/`markdown`; wspólny renderer Core koduje surowy HTML Markdown i obsługuje składnię w stylu GitHub. |
+| 2026-06-14 | `modules_config` steruje uruchamianiem modułów; wyłączony moduł nie rejestruje tras ani menu, a moduły chronione pozostają aktywne. |
+| 2026-06-14 | `module_migrations` przechowuje nazwę i SHA-256 migracji; zmiana wykonanego pliku jest odrzucana zamiast uruchamiana ponownie. |
 
 ## Historia sesji
 
-### Sesja: 2026-06-14 - domknięcie treści i kontrakt modułów
-
-**Wykonano:**
-- rozszerzono kontrolowany WYSIWYG na podstrony `core_pages`,
-- dodano podgląd roboczy strony głównej i autozapis do `localStorage`,
-- ustabilizowano `ModuleInterface` oraz kolejność zależności,
-- dodano walidację manifestów, wymagań wersji i plików instalacyjnych,
-- wydzielono deklaratywne fabryki modułów z Front Controllera.
-
-**Zaktualizowano status:** cztery pozycje z sekcji „Następne kroki” są ukończone.
-Krok 6 może przejść do trwałego rejestru i managera modułów.
-
-### Sesja: 2026-06-14 - uniwersalne podstrony
-
-**Wykonano:**
-- rozszerzono `core_pages` o typ dokumentu, skrót i opis SEO,
-- dodano pozycję w menu głównym lub stopce oraz kolejność,
-- dodano publiczną listę `/pages` i adresy dokumentów `/p/slug`,
-- zachowano kompatybilną trasę `/page?slug=...`,
-- umożliwiono wybór powiązanej podstrony w kartach homepage.
-
-**Zaktualizowano status:** `core_pages` obsługuje opisy projektów, strony
-informacyjne oraz dokumenty takie jak polityka prywatności i informacje RODO.
-
-### Sesja: 2026-06-13 - edytor strony głównej
-
-**Wykonano:**
-- dodano model i migrację sekcji strony głównej,
-- dodano panel CRUD sekcji, zmianę kolejności, układu i widoczności,
-- dodano lokalny edytor WYSIWYG z serwerową allowlistą HTML,
-- podłączono dynamiczne renderowanie sekcji przez `ThemeInterface`,
-- wykonano migrację i utworzono cztery sekcje startowe.
-
-**Zaktualizowano status:** edycja strony głównej ma pierwszeństwo przed dalszą
-rozbudową modułu artykułów i stanowi ukończony element Kroku 5C.
-
-**Następne kroki:** podgląd roboczy, autozapis i WYSIWYG zwykłych podstron.
-
-### Sesja: 2026-06-13 - karty sekcji kolumnowych
-
-**Wykonano:**
-- dodano trwały model elementów przypisanych do sekcji strony głównej,
-- dodano CRUD, widoczność i zmianę kolejności kart w panelu,
-- dodano warianty `primary`, `violet`, `neutral` oraz szerokości `standard`, `wide`,
-- przeniesiono projekty i technologie do osobnych elementów,
-- odtworzono responsywną siatkę kart znaną z prototypu Outside-In.
-
-**Zaktualizowano status:** układ kolumnowy nie dzieli już jednego pola tekstowego;
-renderuje niezależne, konfigurowalne karty przez aktywny motyw.
-
-### Sesja: 2026-06-12
-
-**Wykonano:**
-- przygotowano `index.php` jako widoczny punkt integracji,
-- dodano startowy `Bootstrap` i diagnostykę warstw,
-- podłączono `CrudApp` jako preferowaną fasadę Medoo,
-- utworzono kontrakt oraz domyślną implementację motywu,
-- przeniesiono konfigurację bazy do zmiennych środowiskowych.
-
-**Zaktualizowano status:** fundament projektu, pierwszy kontrakt motywu i startowa integracja rdzenia.
-
-**Następne kroki:** autoloader, `ThemeEngine`, `Security`.
-
-### Sesja: 2026-06-12 - konfiguracja środowiska
-
-**Wykonano:**
-- dodano obsługę `/etc/miniportal/miniportal.env`,
-- dodano `.env.example`, reguły Git i dokumentację konfiguracji Apache,
-- opisano komplet ustawień aplikacji i połączenia `CrudApp`.
-
-**Zaktualizowano status:** konfiguracja środowiskowa jest gotowa do uzupełnienia na serwerze.
-
-**Następne kroki:** utworzenie produkcyjnego pliku poza repozytorium i test połączenia z bazą.
-
-### Sesja: 2026-06-12 - ukończenie Kroku 2
-
-**Wykonano:**
-- dopracowano wspólny system kolorów, stanów interakcji i responsywności,
-- dodano animacje wejścia, orbitę demonstracyjną i obsługę `prefers-reduced-motion`,
-- uzupełniono stylebook o demonstrację ruchu i nawigację między prototypami,
-- utworzono `templates/default/homepage.html` jako wersję 1 strony SyntaxDevTeam.pl,
-- podłączono oba prototypy do integracyjnego `index.php`.
-
-**Zaktualizowano status:** wszystkie zadania Kroku 2 oznaczono jako ukończone.
-
-**Następne kroki:** audyt kontraktu `ThemeInterface`, autoloader PSR-4 i `ThemeEngine`.
-
-### Sesja: 2026-06-12 - autoloader i ThemeEngine
-
-**Wykonano:**
-- rozszerzono formularze motywu o `select`, `textarea`, checkbox i automatyczne pole CSRF,
-- dodano autoloader przestrzeni `Core`, `Modules` i `Templates`,
-- zachowano ładowanie istniejącego `CrudApp.class.php` przez mapę zgodności,
-- dodano `ThemeEngine` walidujący i ładujący motyw wskazany przez `APP_THEME`,
-- usunięto ręczne zależności Bootstrapa od konkretnego motywu,
-- zapisano `CrudApp` jako preferowaną fasadę bazy w specyfikacji.
-
-**Zaktualizowano status:** autoloader i `ThemeEngine` ukończone.
-
-**Następne kroki:** `Security`, bezpieczny obiekt żądania i Router.
-
-### Sesja: 2026-06-12 - ukończenie Kroku 4
-
-**Wykonano:**
-- dodano bezpieczną sesję z cookie `HttpOnly`, `SameSite` i trybem ścisłym,
-- dodano CSP, ochronę ramek, MIME sniffing, referrer policy, permissions policy i HSTS dla HTTPS,
-- dodano 256-bitowe tokeny CSRF i walidację `hash_equals`,
-- utworzono obiekt `Request` normalizujący GET, POST, URI, typy logiczne i liczby,
-- utworzono Router rozróżniający trasy, metody oraz odpowiedzi 404 i 405,
-- podłączono demonstracyjny formularz CSRF do Front Controllera,
-- potwierdzono kodowanie prób XSS przez warstwę motywu.
-
-**Zaktualizowano status:** wszystkie zaplanowane elementy Kroku 4 ukończone.
-
-**Następne kroki:** Krok 5, moduł `core_pages` i kontrakt rejestracji modułów.
-
-### Sesja: 2026-06-12 - aktualizacja blokerów
-
-**Wykonano:**
-- usunięto nieaktualny bloker PHP 8.4 po potwierdzeniu PHP 8.5.7,
-- rozdzielono aktywne blokery od trwałych uwag architektonicznych,
-- potwierdzono brak dostępnego pliku środowiskowego i wyłączone połączenie DB,
-- doprecyzowano zadanie migracji starego katalogu `theme/`.
-
-**Zaktualizowano status:** sekcja „Uwagi / blokery” odpowiada bieżącemu stanowi repozytorium i środowiska.
-
-**Następne kroki:** konfiguracja produkcyjnego środowiska i bazy przed implementacją trwałego modelu `core_pages`.
-
-### Sesja: 2026-06-12 - szczegółowa roadmapa panelu
-
-**Wykonano:**
-- rozpisano panel administracyjny jako osobny ciąg etapów Outside-In,
-- zdefiniowano model użytkownika, wielu tożsamości i lokalnego ACL,
-- zaplanowano adaptery GitHub, Discord i Google OIDC,
-- rozpisano dashboard, profil, użytkowników, role, audit log i ochronę tras,
-- uszczegółowiono moduły `core_pages`, `articles` oraz manager modułów.
-
-**Zaktualizowano status:** Kroki 5-6 mają szczegółowe, niezależnie weryfikowalne zadania.
-
-**Następne kroki:** statyczny prototyp panelu i ekranu logowania.
-
-### Sesja: 2026-06-12 - Krok 5A
-
-**Wykonano:**
-- utworzono `templates/default/admin-stylebook.html`,
-- przygotowano jednolity ekran logowania GitHub, Discord i Google,
-- zbudowano responsywny shell panelu z sidebar, topbar, breadcrumb i mobilnym offcanvasem,
-- dodano dashboard, metryki, aktywność i stan modułów,
-- dodano filtrowaną tabelę, paginację, formularz redakcyjny i modal potwierdzenia,
-- zdefiniowano widoki sukcesu, błędu, 403, 404, pustego stanu i ładowania,
-- podłączono prototyp do nawigacji istniejących widoków.
-
-**Zaktualizowano status:** wszystkie zadania Kroku 5A ukończone.
-
-**Następne kroki:** komponenty panelu w `ThemeInterface`, `AdminMenuRegistry` i `ModuleInterface`.
-
-### Sesja: 2026-06-12 - początek Kroku 5B
-
-**Wykonano:**
-- odwzorowano shell panelu, breadcrumb, metryki, panele i tabele w `ThemeInterface`,
-- zaimplementowano komponenty panelu w domyślnym motywie,
-- dodano `AdminMenuRegistry` z filtrowaniem według uprawnień i ochroną duplikatów,
-- zdefiniowano minimalny `ModuleInterface`,
-- utworzono `DemoAdminModule`, który rejestruje menu i trasy bez generowania HTML,
-- uruchomiono dynamiczny panel pod `/admin-demo`, `/admin-demo/pages` i `/admin-demo/articles`.
-
-**Zaktualizowano status:** dwa pierwsze zadania Kroku 5B ukończone.
-
-**Następne kroki:** konfiguracja DB, model tożsamości i lokalne ACL.
-
-### Sesja: 2026-06-13 - model i ACL `core_auth`
-
-**Wykonano:**
-- dodano migrację użytkowników, tożsamości, ról, uprawnień i zdarzeń logowania,
-- utworzono modele `User` i `ExternalIdentity` oraz repozytoria pamięciowe i `CrudApp`,
-- zaimplementowano `AuthService`, `AuthorizationService` i `AdminAccessGate`,
-- przeniesiono panel na chronione trasy `/admin/*`,
-- dodano filtrowanie menu według ACL, odpowiedzi 401/403 i bezpieczne wylogowanie,
-- zabezpieczono lokalne konta demonstracyjne flagą `AUTH_DEMO_ENABLED`.
-
-**Zaktualizowano status:** model i lokalne ACL Kroku 5B są gotowe; wykonanie migracji
-na rzeczywistej bazie pozostaje zablokowane przez brak konfiguracji DB.
-
-**Następne kroki:** uruchomienie migracji, bootstrap pierwszego administratora
-i kontrakt adapterów GitHub, Discord oraz Google.
-
-### Sesja: 2026-06-13 - migracja i adapter GitHub
-
-**Wykonano:**
-- potwierdzono odczyt `/etc/miniportal/miniportal.env` przez `www-data`,
-- potwierdzono połączenie MySQL przez `CrudApp` i sterownik `pdo_mysql`,
-- wykonano migrację `modules/CoreAuth/install.sql`,
-- zweryfikowano siedem tabel, role, uprawnienia i indeks tożsamości,
-- dodano `IdentityProviderInterface`, rejestr dostawców i magazyn OAuth,
-- zaimplementowano adapter GitHub z Authorization Code, `state` i PKCE,
-- podłączono trasy startu i callbacku do `CoreAuthModule`,
-- sprawdzono publiczny widok logowania przez HTTPS.
-
-**Zaktualizowano status:** migracja i implementacja adaptera GitHub są ukończone.
-Pełny test z GitHub wymaga zewnętrznej rejestracji aplikacji i sekretów.
-
-**Następne kroki:** bootstrap pierwszego administratora oraz adapter Discord.
-
-### Sesja: 2026-06-13 - bootstrap administratora i Discord
-
-**Wykonano:**
-- potwierdzono aktywną konfigurację i przekierowanie GitHub OAuth,
-- dodano `FirstAdminBootstrapper` z transakcją i blokadą bazodanową,
-- dodano komendę `bin/bootstrap-admin.php` oraz bezpieczny tryb `--dry-run`,
-- bootstrap rozwiązuje login GitHub do niezmiennego numerycznego `subject`,
-- dodano adapter Discord Authorization Code z walidacją `state`,
-- podłączono Discord do wspólnego rejestru providerów i widoku logowania,
-- potwierdzono, że nieskonfigurowany Discord pozostaje niewidoczny i zwraca 503.
-
- **Zaktualizowano status:** mechanizm bootstrapu i adapter Discord są ukończone.
-Operacyjne utworzenie administratora wymaga potwierdzonego loginu GitHub, a pełny
-test Discord wymaga zewnętrznych danych aplikacji.
-
-**Następne kroki:** utworzenie pierwszego konta administratora i adapter Google OIDC.
-
-### Sesja: 2026-06-13 - Google OIDC, tożsamości i audit log
-
-**Wykonano:**
-- dodano adapter Google OIDC z `state`, `nonce`, PKCE i walidacją podpisu RS256,
-- dodano kontekst OAuth rozróżniający logowanie od łączenia kont,
-- dodano widok `/admin/identities` oraz operacje łączenia i odłączania providerów,
-- zablokowano automatyczne łączenie po e-mailu i usunięcie ostatniej tożsamości,
-- dodano `AuditLogService` zapisujący operacje do `auth_events`,
-- objęto audytem logowania, callbacki, wylogowanie, ACL, bootstrap i zmiany kont,
-- potwierdzono aktywną konfigurację GitHub i Discord.
-
-**Zaktualizowano status:** trzy ostatnie implementacyjne zadania Kroku 5B są ukończone.
-Google i pseudonimizacja IP oczekują wyłącznie na zewnętrzną konfigurację sekretów.
-Pierwszy administrator istnieje już w bazie.
-
-**Następne kroki:** konfiguracja Google i klucza audit logu, następnie przejście
-do Kroku 5C `core_pages`.
-
-### Sesja: 2026-06-13 - podstawowy moduł `core_pages`
-
-**Wykonano:**
-- potwierdzono aktywną konfigurację Google i klucza HMAC audit logu,
-- dodano migrację tabeli `core_pages` z unikalnym slugiem i indeksami,
-- dodano model `Page` oraz repozytorium korzystające z `CrudApp`,
-- wdrożono listę, tworzenie, edycję, publikację, cofnięcie publikacji i usuwanie,
-- dodano granularną ochronę `pages.view/create/edit/delete/publish`,
-- podłączono menu i trasy modułu bez generowania HTML w logice modułu,
-- dodano publiczny odczyt opublikowanej strony po slugu,
-- potwierdzono CSRF, audit log i kodowanie próby XSS.
-
-**Zaktualizowano status:** podstawowy CRUD `core_pages` i uprawnienia `pages.*`
-są ukończone. Formularz podstawowy jest gotowy do rozszerzenia o WYSIWYG.
-
-**Następne kroki:** integracja WYSIWYG oraz niezależny moduł `articles`.
-
-### Sesja: 2026-06-13 - spięcie przepływu Outside-In
-
-**Wykonano:**
-- zastąpiono diagnostyczny widok `/` dynamiczną wersją gotowego prototypu homepage,
-- dodano na stronie głównej link do logowania albo panelu zależnie od sesji,
-- podłączono listę opublikowanych stron `core_pages` do homepage,
-- zachowano statyczne prototypy jako źródła wyglądu i dokumentację komponentów,
-- dodano chronioną sekcję `/admin/design-system` z linkami do stylebooków,
-- przeniesiono test `Security` i `Request` do zestawu materiałów panelu,
-- poprawiono link marki panelu tak, aby prowadził do właściwego dashboardu.
-
-**Zaktualizowano status:** publiczna strona, logowanie, panel, treści i wizualne
-źródła projektu tworzą jeden namacalny przepływ Outside-In.
-
-**Następne kroki:** WYSIWYG dla `core_pages` oraz niezależny moduł `articles`.
-
-### Sesja: 2026-06-13 - audyt zgodności i etap korekcyjny
-
-**Wykonano:**
-- zablokowano publiczny dostęp do `.git`, kodu, SQL, konfiguracji, testów i dokumentacji technicznej,
-- wyłączono zapisywanie callbacków OAuth w access logu i zredagowano historyczne `code` oraz `state`,
-- dodano konfigurowalny limiter prób OAuth i testy CSRF, `state`, replay, ACL oraz blokady konta,
-- dodano `ModuleRegistry` jako jeden punkt uruchamiania modułów,
-- usunięto metody `core_pages` z globalnego `ThemeInterface` na rzecz ogólnej tabeli akcji,
-- usunięto nieużywany katalog `theme/` po potwierdzeniu migracji do `templates/`.
-
-**Zaktualizowano status:** projekt wrócił do komponentowego kontraktu Theme i kontrolowanej
-rejestracji modułów; atrapy panelu oraz cache pozostają jawnie oznaczonymi brakami.
-
-**Następne kroki:** rzeczywisty moduł `articles`, stabilizacja metadanych modułów,
-a następnie WYSIWYG i cache z kontraktem unieważniania.
-
-### Sesja: 2026-06-13 - moduł `articles`
-
-**Wykonano:**
-- dodano encje kategorii i artykułu oraz repozytorium korzystające z `CrudApp`,
-- dodano migrację z kluczami obcymi, unikalnymi slugami i indeksami publikacji,
-- wdrożono panelowy CRUD artykułów, kategorie, publikację i granularne `articles.*`,
-- dodano publiczną listę `/articles` i widok `/article?slug=...`,
-- moduł rejestruje własne menu i trasy przez `ModuleRegistry`,
-- usunięto demonstracyjną atrapę artykułów z `DemoAdminModule`,
-- wykonano migrację oraz pełny test repozytorium i przepływu HTTP z CSRF.
-
-**Zaktualizowano status:** Krok 5C ma dwa rzeczywiste moduły treści korzystające
-z tych samych ogólnych komponentów Theme.
-
-**Następne kroki:** walidator `info.json`, deklaratywna fabryka modułów i początek
-rejestru `modules_config`.
+Pełna historia sesji jest i powinna każdorazowo być zapisywana w `/docs/logs/HISTORIA_SESJI.md`.
