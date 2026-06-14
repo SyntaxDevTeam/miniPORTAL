@@ -236,6 +236,16 @@ final class MarkdownRenderer
             $text
         ) ?? $text;
         $text = preg_replace_callback(
+            '/\[!\[([^\]]*)]\((\S+?)(?:\s+"[^"]*")?\)]\((\S+?)(?:\s+"[^"]*")?\)/',
+            fn (array $match): string => $this->linkedImageToken(
+                $token,
+                $match[1],
+                $match[2],
+                $match[3]
+            ),
+            $text
+        ) ?? $text;
+        $text = preg_replace_callback(
             '/!\[([^\]]*)]\((\S+?)(?:\s+"[^"]*")?\)/',
             fn (array $match): string => $this->safeLinkToken($token, $match[1], $match[2], true),
             $text
@@ -277,6 +287,26 @@ final class MarkdownRenderer
         }
 
         return $token($this->link($label, $url));
+    }
+
+    private function linkedImageToken(
+        callable $token,
+        string $label,
+        string $imageUrl,
+        string $linkUrl
+    ): string {
+        if (!$this->isSafeUrl($imageUrl) || !$this->isSafeUrl($linkUrl)) {
+            return $label;
+        }
+
+        $external = preg_match('~^https?://~i', $linkUrl) === 1;
+
+        return $token(
+            '<a href="' . $this->escape($linkUrl) . '"'
+            . ($external ? ' rel="nofollow noopener noreferrer"' : '')
+            . '><img src="' . $this->escape($imageUrl) . '" alt="' . $this->escape($label)
+            . '" loading="lazy"></a>'
+        );
     }
 
     private function link(string $label, string $url): string

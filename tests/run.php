@@ -131,6 +131,14 @@ MD;
         $renderer->render('![Status](https://img.shields.io/badge/status-online-green)', 'markdown'),
         '<img src="https://img.shields.io/badge/status-online-green" alt="Status" loading="lazy">'
     ));
+    $assert(str_contains(
+        $renderer->render(
+            '[![Build](https://example.com/build.svg)](https://example.com/actions)',
+            'markdown'
+        ),
+        '<a href="https://example.com/actions" rel="nofollow noopener noreferrer">'
+        . '<img src="https://example.com/build.svg" alt="Build" loading="lazy"></a>'
+    ));
     $assert(str_contains($result, '<table>'));
     $assert(str_contains($result, 'type="checkbox" disabled checked'));
     $assert(str_contains($result, '&lt;script&gt;alert(1)&lt;/script&gt;'));

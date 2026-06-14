@@ -83,6 +83,10 @@ const escapeHtml = (value) => value
 
 const inlineMarkdownToHtml = (value) => escapeHtml(value)
   .replace(
+    /\[!\[([^\]]*)]\((https?:\/\/[^ )]+|\/[^ )]+)\)]\((https?:\/\/[^ )]+|\/[^ )]+)\)/g,
+    '<a href="$3"><img src="$2" alt="$1" loading="lazy"></a>'
+  )
+  .replace(
     /!\[([^\]]*)]\((https?:\/\/[^ )]+|\/[^ )]+)\)/g,
     '<img src="$2" alt="$1" loading="lazy">'
   )

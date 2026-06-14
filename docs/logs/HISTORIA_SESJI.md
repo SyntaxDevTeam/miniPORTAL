@@ -393,3 +393,14 @@ zapisywane jako rozbudowany kod base64 w treści.
 
 **Zaktualizowano status:** element strony głównej wysyła rzeczywisty identyfikator
 wybranej podstrony zamiast pozycji opcji na liście.
+
+### Sesja: 2026-06-14 - linkowane badge na podstronach
+
+**Wykonano:**
+- odtworzono błąd zagnieżdżonych tokenów dla składni `[![badge](obraz)](link)`,
+- dodano bezpieczne renderowanie linkowanego obrazu jako `<a><img></a>`,
+- dodano analogiczny podgląd w edytorze Markdown,
+- dodano test regresji dla badge prowadzącego do zewnętrznej strony.
+
+**Zaktualizowano status:** badge z README GitHub renderują się jako klikalne
+grafiki zamiast technicznych znaczników parsera.
