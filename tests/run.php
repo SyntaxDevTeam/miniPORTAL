@@ -127,6 +127,10 @@ MD;
         $renderer->render('przykładowy `tekst`', 'markdown'),
         '<p>przykładowy <code>tekst</code></p>'
     ));
+    $assert(str_contains(
+        $renderer->render('![Status](https://img.shields.io/badge/status-online-green)', 'markdown'),
+        '<img src="https://img.shields.io/badge/status-online-green" alt="Status" loading="lazy">'
+    ));
     $assert(str_contains($result, '<table>'));
     $assert(str_contains($result, 'type="checkbox" disabled checked'));
     $assert(str_contains($result, '&lt;script&gt;alert(1)&lt;/script&gt;'));

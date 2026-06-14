@@ -813,7 +813,7 @@ final class CorePagesModule implements ModuleInterface
                     'value' => $value('content'),
                     'format_name' => 'content_format',
                     'format_value' => $value('content_format', 'html'),
-                    'help' => 'Opis karty może używać edytora wizualnego albo Markdown.',
+                    'help' => 'Opis może używać Markdown. Obraz: ![opis](https://adres-obrazka), bez osadzania data:.',
                 ],
                 [
                     'name' => 'page_id',
@@ -974,15 +974,12 @@ final class CorePagesModule implements ModuleInterface
         $buttonUrl = $request->postString('button_url');
         $pageId = $request->postInt('page_id');
         $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $rawContent = $request->postString('content');
         $data = [
             'page_id' => $pageId,
             'label' => substr($request->postString('label'), 0, 120),
             'title' => $title,
-            'content' => substr(
-                (new ContentRenderer())->prepareForStorage($request->postString('content'), $contentFormat),
-                0,
-                4000
-            ),
+            'content' => (new ContentRenderer())->prepareForStorage($rawContent, $contentFormat),
             'content_format' => $contentFormat,
             'button_label' => substr($request->postString('button_label'), 0, 120),
             'button_url' => substr($buttonUrl, 0, 500),
@@ -993,6 +990,15 @@ final class CorePagesModule implements ModuleInterface
 
         if ($title === '' || strlen($title) > 180) {
             return [$data, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
+        }
+        if (strlen($data['content']) > 4000) {
+            return [$data, 'Opis może mieć maksymalnie 4000 znaków. Obrazy dodawaj przez adres HTTPS zamiast kodu base64.'];
+        }
+        if (
+            $contentFormat === ContentRenderer::MARKDOWN
+            && preg_match('~!\[[^\]]*]\(\s*data:~i', $rawContent) === 1
+        ) {
+            return [$data, 'Obrazy data: nie są obsługiwane. Użyj składni ![opis](https://adres-obrazka).'];
         }
         if (!in_array($variant, ['primary', 'violet', 'neutral'], true)) {
             return [$data, 'Wybrano nieprawidłowy wariant wizualny.'];

@@ -370,3 +370,16 @@ jawny format źródłowy, a składnia `` `tekst` `` renderuje element `<code>`.
 
 **Zaktualizowano status:** ponowne otwarcie edytora pokazuje stan z bazy.
 Autozapis pełni wyłącznie rolę opcjonalnego mechanizmu odzyskiwania treści.
+
+### Sesja: 2026-06-14 - obrazy i badge w Markdown
+
+**Wykonano:**
+- wykryto ciche obcięcie osadzonego SVG base64 do limitu 4000 znaków,
+- zastąpiono obcinanie walidacją długości i czytelnym komunikatem,
+- zablokowano obrazy `data:` na rzecz bezpiecznych adresów HTTPS lub assetów lokalnych,
+- dodano podgląd obrazów Markdown w edytorze,
+- oczyszczono uszkodzony wpis `CleanerX` i dodano lokalny badge SVG,
+- dodano test renderowania obrazu Markdown.
+
+**Zaktualizowano status:** obrazy używają składni `![opis](adres)` i nie są
+zapisywane jako rozbudowany kod base64 w treści.

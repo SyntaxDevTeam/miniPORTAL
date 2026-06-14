@@ -383,7 +383,8 @@ code {
   font-size: 0.9em;
 }
 
-.rich-content img {
+.rich-content img,
+.managed-home-content img {
   max-width: 100%;
   height: auto;
   border-radius: 0.6rem;

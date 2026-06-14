@@ -82,6 +82,10 @@ const escapeHtml = (value) => value
   .replaceAll('"', "&quot;");
 
 const inlineMarkdownToHtml = (value) => escapeHtml(value)
+  .replace(
+    /!\[([^\]]*)]\((https?:\/\/[^ )]+|\/[^ )]+)\)/g,
+    '<img src="$2" alt="$1" loading="lazy">'
+  )
   .replace(/`([^`]+)`/g, "<code>$1</code>")
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
   .replace(/__(.+?)__/g, "<strong>$1</strong>")
