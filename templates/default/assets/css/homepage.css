@@ -7,6 +7,21 @@
   border-bottom: 1px solid var(--mp-border);
 }
 
+.home-hero::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    radial-gradient(circle at 18% 28%, rgba(var(--mp-primary-rgb), 0.08), transparent 25rem),
+    linear-gradient(115deg, transparent 55%, rgba(151, 117, 250, 0.055));
+  pointer-events: none;
+}
+
+.home-hero > .container {
+  position: relative;
+  z-index: 1;
+}
+
 .home-hero::before {
   position: absolute;
   top: 12%;
@@ -207,6 +222,16 @@
   flex-direction: column;
   overflow: hidden;
   border-top-color: var(--mp-border);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 45%),
+    var(--mp-surface);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.managed-card:hover {
+  border-color: rgba(var(--mp-primary-rgb), 0.32);
+  box-shadow: 0 1.4rem 3.6rem rgba(0, 0, 0, 0.3);
+  transform: translateY(-3px);
 }
 
 .managed-card-wide {
@@ -355,6 +380,230 @@
   gap: 0.65rem;
 }
 
+.contact-hub {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4rem);
+  background:
+    linear-gradient(145deg, rgba(16, 22, 34, 0.96), rgba(8, 13, 21, 0.94)),
+    var(--mp-surface);
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.16);
+  border-radius: clamp(1.25rem, 3vw, 2rem);
+  box-shadow:
+    0 2rem 6rem rgba(0, 0, 0, 0.36),
+    inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.contact-hub::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: linear-gradient(to bottom, #000, transparent 78%);
+}
+
+.contact-hub-glow {
+  position: absolute;
+  top: -14rem;
+  left: 50%;
+  z-index: -1;
+  width: min(54rem, 80vw);
+  height: 24rem;
+  background:
+    radial-gradient(circle, rgba(var(--mp-primary-rgb), 0.17), transparent 62%),
+    radial-gradient(circle at 25% 50%, rgba(151, 117, 250, 0.15), transparent 48%);
+  filter: blur(22px);
+  transform: translateX(-50%);
+}
+
+.contact-hub-heading {
+  max-width: 50rem;
+  margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+  text-align: center;
+}
+
+.contact-kicker {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  padding: 0.42rem 0.85rem;
+  color: var(--mp-primary);
+  background: rgba(var(--mp-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.16);
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.contact-hub-heading h2 {
+  margin-bottom: 0.85rem;
+  font-size: clamp(2.25rem, 5vw, 4.25rem);
+  letter-spacing: -0.045em;
+}
+
+.contact-intro {
+  max-width: 46rem;
+  margin-inline: auto;
+  font-size: 1rem;
+}
+
+.contact-hub-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  gap: 1.25rem;
+}
+
+.contact-group {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: rgba(10, 15, 24, 0.72);
+  border: 1px solid var(--mp-border);
+  border-radius: 1.35rem;
+  backdrop-filter: blur(16px);
+}
+
+.contact-group-channels {
+  box-shadow: inset 0 0 0 1px rgba(var(--mp-primary-rgb), 0.04);
+}
+
+.contact-group-heading {
+  margin-bottom: 1.4rem;
+}
+
+.contact-group-heading .eyebrow {
+  margin-bottom: 0.45rem;
+}
+
+.contact-group-heading h3 {
+  margin: 0;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+}
+
+.contact-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.contact-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 5.4rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 1rem;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.contact-item:hover {
+  background: rgba(var(--mp-primary-rgb), 0.055);
+  border-color: rgba(var(--mp-primary-rgb), 0.24);
+  transform: translateX(3px);
+}
+
+.contact-icon {
+  width: 2.9rem;
+  height: 2.9rem;
+  display: grid;
+  place-items: center;
+  color: var(--mp-text);
+  background:
+    linear-gradient(145deg, rgba(var(--mp-primary-rgb), 0.13), rgba(151, 117, 250, 0.08)),
+    rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.13);
+  border-radius: 50%;
+}
+
+.contact-icon svg {
+  width: 1.45rem;
+  height: 1.45rem;
+  fill: currentColor;
+}
+
+.contact-icon-discord {
+  color: #a9b5ff;
+}
+
+.contact-icon-github {
+  color: #f3f6fb;
+}
+
+.contact-icon-mail {
+  color: var(--mp-primary);
+}
+
+.contact-item-copy {
+  min-width: 0;
+}
+
+.contact-item-label {
+  margin: 0 0 0.18rem;
+  color: var(--mp-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.contact-item h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1.02rem;
+}
+
+.contact-item-description {
+  margin-top: 0.25rem;
+  color: var(--mp-muted);
+  font-size: 0.86rem;
+}
+
+.contact-item-description > :last-child {
+  margin-bottom: 0;
+}
+
+.contact-item-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.72rem;
+  color: var(--mp-text);
+  border: 1px solid var(--mp-border);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.contact-item-action:hover {
+  color: #06120c;
+  background: var(--mp-primary);
+  border-color: var(--mp-primary);
+}
+
+.contact-item-person {
+  grid-template-columns: auto minmax(0, 1fr);
+  background: transparent;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.contact-item-person .contact-item-action {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.contact-empty {
+  margin: 0;
+  color: var(--mp-muted);
+}
+
 @media (max-width: 991.98px) {
   .home-hero {
     min-height: auto;
@@ -377,6 +626,10 @@
   .managed-card,
   .managed-card-wide {
     grid-column: span 6;
+  }
+
+  .contact-hub-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -412,5 +665,19 @@
 
   .release-actions {
     justify-content: flex-start;
+  }
+
+  .contact-hub {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+  }
+
+  .contact-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .contact-item-action {
+    grid-column: 2;
+    justify-self: start;
   }
 }

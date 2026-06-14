@@ -774,6 +774,8 @@ final class Theme implements ThemeInterface
      *         title: string,
      *         content: string,
      *         content_format: string,
+     *         item_kind: string,
+     *         icon_key: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
@@ -827,6 +829,8 @@ final class Theme implements ThemeInterface
      *         title: string,
      *         content: string,
      *         content_format: string,
+     *         item_kind: string,
+     *         icon_key: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
@@ -837,13 +841,19 @@ final class Theme implements ThemeInterface
      */
     private function renderHomepageSection(array $section): void
     {
-        $layouts = ['full', 'split', 'columns', 'accent'];
+        $layouts = ['full', 'split', 'columns', 'accent', 'contact'];
         $layout = in_array($section['layout'], $layouts, true) ? $section['layout'] : 'full';
         $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
         $href = $this->safeHref($section['button_url']);
 
         echo '<section id="' . $this->escape($section['key']) . '" class="home-section managed-home-section">';
         echo '<div class="container">';
+
+        if ($layout === 'contact') {
+            $this->renderContactLayout($section, $content);
+            echo '</div></section>';
+            return;
+        }
 
         if ($section['type'] === 'cta') {
             echo '<div class="contact-panel reveal"><div>';
@@ -912,6 +922,112 @@ final class Theme implements ThemeInterface
             echo $this->escape($section['button_label']) . '</a></p>';
         }
         echo '</div></div></div></section>';
+    }
+
+    /**
+     * @param array{
+     *     eyebrow: string,
+     *     title: string,
+     *     items: list<array{
+     *         label: string,
+     *         title: string,
+     *         content: string,
+     *         content_format: string,
+     *         item_kind: string,
+     *         icon_key: string,
+     *         button_label: string,
+     *         button_url: string,
+     *         page_slug: string
+     *     }>
+     * } $section
+     */
+    private function renderContactLayout(array $section, string $content): void
+    {
+        $channels = array_values(array_filter(
+            $section['items'],
+            static fn (array $item): bool => $item['item_kind'] !== 'person'
+        ));
+        $people = array_values(array_filter(
+            $section['items'],
+            static fn (array $item): bool => $item['item_kind'] === 'person'
+        ));
+
+        echo '<div class="contact-hub reveal"><div class="contact-hub-glow" aria-hidden="true"></div>';
+        echo '<header class="contact-hub-heading">';
+        if ($section['eyebrow'] !== '') {
+            echo '<p class="contact-kicker">' . $this->escape($section['eyebrow']) . '</p>';
+        }
+        echo '<h2>' . $this->escape($section['title']) . '</h2>';
+        if ($content !== '') {
+            echo '<div class="contact-intro managed-home-content">' . $content . '</div>';
+        }
+        echo '</header><div class="contact-hub-grid">';
+        echo '<section class="contact-group contact-group-channels"><div class="contact-group-heading">';
+        echo '<p class="eyebrow">Kanały</p><h3>Wybierz najlepszą drogę</h3></div><div class="contact-list">';
+        foreach ($channels as $item) {
+            $this->renderContactItem($item, false);
+        }
+        echo '</div></section>';
+        echo '<section class="contact-group contact-group-people"><div class="contact-group-heading">';
+        echo '<p class="eyebrow">Zespół</p><h3>Bezpośredni kontakt</h3></div><div class="contact-list">';
+        foreach ($people as $item) {
+            $this->renderContactItem($item, true);
+        }
+        if ($people === []) {
+            echo '<p class="contact-empty">Dodaj element typu „Osoba”, aby zbudować listę zespołu.</p>';
+        }
+        echo '</div></section></div></div>';
+    }
+
+    /**
+     * @param array{
+     *     label: string,
+     *     title: string,
+     *     content: string,
+     *     content_format: string,
+     *     icon_key: string,
+     *     button_label: string,
+     *     button_url: string,
+     *     page_slug: string
+     * } $item
+     */
+    private function renderContactItem(array $item, bool $person): void
+    {
+        $href = $item['page_slug'] !== ''
+            ? '/p/' . rawurlencode($item['page_slug'])
+            : $this->safeHref($item['button_url']);
+        $description = (new ContentRenderer())->render($item['content'], $item['content_format']);
+        $icon = $item['icon_key'] !== '' ? $item['icon_key'] : ($person ? 'person' : 'web');
+
+        echo '<article class="contact-item' . ($person ? ' contact-item-person' : '') . '">';
+        echo '<span class="contact-icon contact-icon-' . $this->escape($icon) . '" aria-hidden="true">';
+        echo $this->contactIcon($icon) . '</span><div class="contact-item-copy">';
+        if ($item['label'] !== '') {
+            echo '<p class="contact-item-label">' . $this->escape($item['label']) . '</p>';
+        }
+        echo '<h4>' . $this->escape($item['title']) . '</h4>';
+        if ($description !== '') {
+            echo '<div class="contact-item-description">' . $description . '</div>';
+        }
+        echo '</div>';
+        if ($href !== '') {
+            echo '<a class="contact-item-action" href="' . $this->escape($href) . '">';
+            echo $this->escape($item['button_label'] !== '' ? $item['button_label'] : 'Otwórz');
+            echo '<span aria-hidden="true">↗</span></a>';
+        }
+        echo '</article>';
+    }
+
+    private function contactIcon(string $icon): string
+    {
+        return match ($icon) {
+            'discord' => '<svg viewBox="0 0 24 24"><path d="M7.2 6.3A15 15 0 0 1 12 5.5a15 15 0 0 1 4.8.8c1.5 2.1 2.2 4.5 2 7a10 10 0 0 1-3 2.3l-.8-1.1c.7-.3 1.3-.7 1.9-1.2-3.1 1.5-6.7 1.5-9.8 0 .6.5 1.2.9 1.9 1.2l-.8 1.1a10 10 0 0 1-3-2.3c-.2-2.5.5-4.9 2-7Zm2.2 6.1c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Zm5.2 0c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Z"/></svg>',
+            'github' => '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.2 19.5v-2.2c-2.7.6-3.3-1.1-3.3-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.8.8.1-.6.4-1.1.7-1.3-2.1-.2-4.4-1.1-4.4-4.9 0-1.1.4-2 1-2.7-.1-.2-.4-1.3.1-2.7 0 0 .9-.3 2.8 1a9.7 9.7 0 0 1 5.1 0c2-1.3 2.8-1 2.8-1 .6 1.4.2 2.5.1 2.7.7.7 1.1 1.6 1.1 2.7 0 3.8-2.3 4.7-4.5 4.9.4.3.7.9.7 1.8v3A10 10 0 0 0 12 2Z"/></svg>',
+            'mail' => '<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3V5Zm9 7 7-5H5l7 5Zm0 2.4L5 9.5V17h14V9.5l-7 4.9Z"/></svg>',
+            'hangar' => '<svg viewBox="0 0 24 24"><path d="M4 19V9l8-5 8 5v10h-3v-8.2L12 7.7l-5 3.1V19H4Zm5 0v-7h6v7H9Z"/></svg>',
+            'person' => '<svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0H5Z"/></svg>',
+            default => '<svg viewBox="0 0 24 24"><path d="M4 4h16v16H4V4Zm3 4v2h10V8H7Zm0 5v2h7v-2H7Z"/></svg>',
+        };
     }
 
     /**

@@ -431,3 +431,17 @@ nadtytuły podstron można zmieniać z panelu administracyjnego.
 
 **Zaktualizowano status:** strona główna renderuje wyłącznie sekcje utworzone
 w edytorze oraz elementy jawnie z nimi powiązane.
+
+### Sesja: 2026-06-14 - układ kontaktowy i futurystyczna warstwa homepage
+
+**Wykonano:**
+- dodano układ sekcji `contact`,
+- rozszerzono elementy o typ `card`, `channel` lub `person`,
+- dodano kontrolowany wybór ikon Discord, GitHub, Hangar, e-mail, osoby i WWW,
+- wdrożono responsywny panel kanałów komunikacji i kontaktów zespołu,
+- dodano poświaty, szklaną powierzchnię, siatkę tła i subtelne interakcje kart,
+- przekształcono istniejącą sekcję kontaktu i utworzono cztery elementy startowe,
+- wykonano migrację `20260614_contact_layout.sql`.
+
+**Zaktualizowano status:** administrator może budować rozbudowane sekcje
+kontaktowe bez wprowadzania HTML i klas CSS do modułu treści.

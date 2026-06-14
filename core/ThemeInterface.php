@@ -22,6 +22,8 @@ interface ThemeInterface
      *         title: string,
      *         content: string,
      *         content_format: string,
+     *         item_kind: string,
+     *         icon_key: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,

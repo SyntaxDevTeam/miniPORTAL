@@ -160,6 +160,8 @@ final class HomepageSectionItemRepository
             (string) $row['title'],
             (string) $row['content'],
             (string) ($row['content_format'] ?? 'html'),
+            (string) ($row['item_kind'] ?? 'card'),
+            (string) ($row['icon_key'] ?? ''),
             (string) ($row['button_label'] ?? ''),
             (string) ($row['button_url'] ?? ''),
             (string) $row['variant'],

@@ -240,11 +240,6 @@ final class CorePagesModule implements ModuleInterface
                             $section->isVisible ? 'Widoczna' : 'Ukryta',
                         ],
                         'actions' => array_values(array_filter([
-                            $page->status === 'published' ? [
-                                'label' => 'Otwórz',
-                                'href' => '/p/' . rawurlencode($page->slug),
-                                'variant' => 'outline-primary',
-                            ] : null,
                             $allows('pages.edit') ? [
                                 'label' => 'W górę',
                                 'action' => 'index.php?route=/admin/homepage/move',
@@ -262,7 +257,7 @@ final class CorePagesModule implements ModuleInterface
                                 'href' => 'index.php?route=/admin/homepage/edit&id=' . $section->id,
                                 'variant' => 'outline-primary',
                             ] : null,
-                            $allows('pages.view') && $section->layout === 'columns' ? [
+                            $allows('pages.view') && in_array($section->layout, ['columns', 'contact'], true) ? [
                                 'label' => 'Elementy',
                                 'href' => 'index.php?route=/admin/homepage/items&section_id=' . $section->id,
                                 'variant' => 'outline-primary',
@@ -423,6 +418,7 @@ final class CorePagesModule implements ModuleInterface
                         'split' => 'Nagłówek i treść obok siebie',
                         'columns' => 'Treść w kolumnach',
                         'accent' => 'Panel wyróżniony',
+                        'contact' => 'Kontakt / kanały i osoby',
                     ],
                 ],
                 [
@@ -583,7 +579,7 @@ final class CorePagesModule implements ModuleInterface
         if (!in_array($sectionType, ['hero', 'content', 'cta'], true)) {
             return [$data, 'Wybrano nieprawidłowy typ sekcji.'];
         }
-        if (!in_array($layout, ['full', 'split', 'columns', 'accent'], true)) {
+        if (!in_array($layout, ['full', 'split', 'columns', 'accent', 'contact'], true)) {
             return [$data, 'Wybrano nieprawidłowy układ sekcji.'];
         }
         if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {
@@ -643,7 +639,7 @@ final class CorePagesModule implements ModuleInterface
         );
         $this->theme->start_admin_content(
             'Elementy: ' . $section->title,
-            'Każdy element staje się osobną kartą w układzie kolumnowym.',
+            'Elementy są renderowane jako karty, kanały komunikacji albo osoby, zależnie od układu sekcji.',
             [
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
@@ -657,18 +653,18 @@ final class CorePagesModule implements ModuleInterface
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
-        $this->theme->start_admin_panel('Karty sekcji', count($items) . ' elementów');
+        $this->theme->start_admin_panel('Elementy sekcji', count($items) . ' elementów');
         if ($items === []) {
             $this->theme->render_alert('Brak elementów. Sekcja pokaże zwykłą treść WYSIWYG.', 'info');
         } else {
             $this->theme->render_admin_action_table(
-                ['Kolejność', 'Element', 'Wygląd', 'Status'],
+                ['Kolejność', 'Element', 'Typ i wygląd', 'Status'],
                 array_map(
                     static fn (HomepageSectionItem $item): array => [
                         'cells' => [
                             $item->sortOrder,
                             $item->title . ($item->label !== '' ? ' (' . $item->label . ')' : ''),
-                            $item->variant . ' / ' . $item->width,
+                            $item->itemKind . ' / ' . $item->iconKey . ' / ' . $item->variant,
                             $item->isVisible ? 'Widoczny' : 'Ukryty',
                         ],
                         'actions' => array_values(array_filter([
@@ -751,6 +747,8 @@ final class CorePagesModule implements ModuleInterface
                 'title' => $item?->title ?? $fallback,
                 'content' => $item?->content ?? $fallback,
                 'content_format' => $item?->contentFormat ?? 'html',
+                'item_kind' => $item?->itemKind ?? $fallback,
+                'icon_key' => $item?->iconKey ?? $fallback,
                 'button_label' => $item?->buttonLabel ?? $fallback,
                 'button_url' => $item?->buttonUrl ?? $fallback,
                 'page_id' => $item?->pageId !== null ? (string) $item->pageId : $fallback,
@@ -814,6 +812,33 @@ final class CorePagesModule implements ModuleInterface
                     'format_name' => 'content_format',
                     'format_value' => $value('content_format', 'html'),
                     'help' => 'Opis może używać Markdown. Obraz: ![opis](https://adres-obrazka), bez osadzania data:.',
+                ],
+                [
+                    'name' => 'item_kind',
+                    'label' => 'Typ elementu',
+                    'type' => 'select',
+                    'value' => $value('item_kind', 'card'),
+                    'options' => [
+                        'card' => 'Standardowa karta',
+                        'channel' => 'Kanał komunikacji',
+                        'person' => 'Osoba / członek zespołu',
+                    ],
+                ],
+                [
+                    'name' => 'icon_key',
+                    'label' => 'Ikona',
+                    'type' => 'select',
+                    'value' => $value('icon_key'),
+                    'options' => [
+                        '' => 'Automatyczna',
+                        'discord' => 'Discord',
+                        'github' => 'GitHub',
+                        'hangar' => 'Hangar',
+                        'mail' => 'E-mail',
+                        'person' => 'Osoba',
+                        'web' => 'WWW',
+                    ],
+                    'help' => 'Motyw wybiera bezpieczną ikonę z kontrolowanego zestawu.',
                 ],
                 [
                     'name' => 'page_id',
@@ -968,6 +993,8 @@ final class CorePagesModule implements ModuleInterface
         $title = $request->postString('title');
         $variant = $request->postString('variant');
         $width = $request->postString('width');
+        $itemKind = $request->postString('item_kind', 'card');
+        $iconKey = $request->postString('icon_key');
         $buttonUrl = $request->postString('button_url');
         $pageId = $request->postInt('page_id');
         $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
@@ -978,6 +1005,8 @@ final class CorePagesModule implements ModuleInterface
             'title' => $title,
             'content' => (new ContentRenderer())->prepareForStorage($rawContent, $contentFormat),
             'content_format' => $contentFormat,
+            'item_kind' => $itemKind,
+            'icon_key' => $iconKey,
             'button_label' => substr($request->postString('button_label'), 0, 120),
             'button_url' => substr($buttonUrl, 0, 500),
             'variant' => $variant,
@@ -1002,6 +1031,12 @@ final class CorePagesModule implements ModuleInterface
         }
         if (!in_array($width, ['standard', 'wide'], true)) {
             return [$data, 'Wybrano nieprawidłową szerokość elementu.'];
+        }
+        if (!in_array($itemKind, ['card', 'channel', 'person'], true)) {
+            return [$data, 'Wybrano nieprawidłowy typ elementu.'];
+        }
+        if (!in_array($iconKey, ['', 'discord', 'github', 'hangar', 'mail', 'person', 'web'], true)) {
+            return [$data, 'Wybrano nieprawidłową ikonę elementu.'];
         }
         if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {
             return [$data, 'Adres przycisku używa niedozwolonego schematu.'];
