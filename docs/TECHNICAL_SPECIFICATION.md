@@ -216,7 +216,8 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
 - wspólny renderer bezpiecznej treści dla sekcji homepage, kart, podstron i artykułów
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
-- autozapis formularzy treści do `localStorage`, czyszczony po potwierdzonym zapisie
+- autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia
+  bez nadpisywania danych z bazy i czyszczony po potwierdzonym zapisie
 
 ### Faza 5: Manager modułów (Lego System)
 

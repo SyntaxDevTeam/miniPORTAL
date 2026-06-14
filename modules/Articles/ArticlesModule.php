@@ -431,7 +431,12 @@ final class ArticlesModule implements ModuleInterface
             $user?->id ?? 0
         );
         $this->audit->record($request, 'article_create', 'success', null, $user?->id);
-        header('Location: index.php?route=/admin/articles/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/articles/edit&id=' . $id
+            . '&autosave_clear=article-new',
+            true,
+            303
+        );
     }
 
     private function update(Request $request): void
@@ -457,7 +462,12 @@ final class ArticlesModule implements ModuleInterface
         $this->articles->update($id, $categoryId, $title, $slug, $summary, $content, $contentFormat);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'article_update', 'success', null, $userId);
-        header('Location: index.php?route=/admin/articles/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/articles/edit&id=' . $id
+            . '&autosave_clear=article-' . $id,
+            true,
+            303
+        );
     }
 
     private function changePublication(Request $request): void

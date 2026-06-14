@@ -356,3 +356,17 @@ rejestru `modules_config`.
 
 **Zaktualizowano status:** sekcje i elementy strony głównej poprawnie zachowują
 jawny format źródłowy, a składnia `` `tekst` `` renderuje element `<code>`.
+
+### Sesja: 2026-06-14 - korekta lokalnego autozapisu edytorów
+
+**Wykonano:**
+- usunięto automatyczne nadpisywanie formularza treścią z `localStorage`,
+- dane z bazy pozostają domyślne, a lokalny szkic wymaga jawnego przywrócenia,
+- dodano możliwość odrzucenia znalezionej wersji roboczej,
+- zmieniono przestrzeń kluczy autozapisu i wygaszono stare wadliwe szkice,
+- uzupełniono czyszczenie szkiców po zapisie kart homepage i artykułów,
+- przeniesiono czyszczenie szkicu na poziom strony, aby działało także po
+  przekierowaniu do widoku listy.
+
+**Zaktualizowano status:** ponowne otwarcie edytora pokazuje stan z bazy.
+Autozapis pełni wyłącznie rolę opcjonalnego mechanizmu odzyskiwania treści.

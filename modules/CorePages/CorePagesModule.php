@@ -885,7 +885,12 @@ final class CorePagesModule implements ModuleInterface
         }
         $this->homepageItems->create($sectionId, $data);
         $this->audit->record($request, 'homepage_item_create', 'success', null, $this->auth->user()?->id);
-        header('Location: index.php?route=/admin/homepage/items&section_id=' . $sectionId, true, 303);
+        header(
+            'Location: index.php?route=/admin/homepage/items&section_id=' . $sectionId
+            . '&autosave_clear=homepage-item-new-' . $sectionId,
+            true,
+            303
+        );
     }
 
     private function updateHomepageItem(Request $request): void
@@ -905,7 +910,12 @@ final class CorePagesModule implements ModuleInterface
         }
         $this->homepageItems->update($item->id, $data);
         $this->audit->record($request, 'homepage_item_update', 'success', null, $this->auth->user()?->id);
-        header('Location: index.php?route=/admin/homepage/items&section_id=' . $item->sectionId, true, 303);
+        header(
+            'Location: index.php?route=/admin/homepage/items&section_id=' . $item->sectionId
+            . '&autosave_clear=homepage-item-' . $item->id . '-' . $item->sectionId,
+            true,
+            303
+        );
     }
 
     private function moveHomepageItem(Request $request): void

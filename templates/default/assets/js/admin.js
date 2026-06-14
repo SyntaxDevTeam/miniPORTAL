@@ -278,18 +278,26 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   setMode(formatInput.value, false);
 });
 
+const autosaveClearKey = new URLSearchParams(window.location.search).get("autosave_clear");
+if (autosaveClearKey) {
+  localStorage.removeItem(`miniportal:draft:v2:${autosaveClearKey}`);
+  localStorage.removeItem(`miniportal:${autosaveClearKey}`);
+  window.history.replaceState(
+    {},
+    "",
+    window.location.href.replace(/([&?])autosave_clear=[^&]*&?/, "$1").replace(/[?&]$/, "")
+  );
+}
+
 document.querySelectorAll('form').forEach((form) => {
   const keyInput = form.querySelector('input[name="_autosave_key"]');
   if (!keyInput?.value) {
     return;
   }
 
-  const storageKey = `miniportal:${keyInput.value}`;
-  const clearKey = new URLSearchParams(window.location.search).get("autosave_clear");
-  if (clearKey) {
-    localStorage.removeItem(`miniportal:${clearKey}`);
-    window.history.replaceState({}, "", window.location.href.replace(/([&?])autosave_clear=[^&]*&?/, "$1").replace(/[?&]$/, ""));
-  }
+  const storageKey = `miniportal:draft:v2:${keyInput.value}`;
+  const legacyStorageKey = `miniportal:${keyInput.value}`;
+  localStorage.removeItem(legacyStorageKey);
   const fields = [...form.elements].filter((field) =>
     field.name && !["_token", "_autosave_key", "id"].includes(field.name)
   );
@@ -299,30 +307,64 @@ document.querySelectorAll('form').forEach((form) => {
   status.setAttribute("role", "status");
   form.append(status);
 
+  const currentValues = () => {
+    const values = {};
+    fields.forEach((field) => {
+      values[field.name] = field.type === "checkbox" ? field.checked : field.value;
+    });
+    return values;
+  };
+  const applyValues = (values) => {
+    fields.forEach((field) => {
+      if (!(field.name in values)) return;
+      if (field.type === "checkbox") {
+        field.checked = Boolean(values[field.name]);
+      } else {
+        field.value = values[field.name];
+      }
+    });
+    form.querySelectorAll("[data-richtext]").forEach((editor) => editor.refreshRichtext?.());
+  };
+
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
-    if (saved?.values) {
-      fields.forEach((field) => {
-        if (!(field.name in saved.values)) return;
-        if (field.type === "checkbox") {
-          field.checked = Boolean(saved.values[field.name]);
-        } else {
-          field.value = saved.values[field.name];
-        }
+    if (saved?.values && JSON.stringify(saved.values) !== JSON.stringify(currentValues())) {
+      const recovery = document.createElement("div");
+      recovery.className = "autosave-recovery";
+      recovery.innerHTML = "<span>Znaleziono lokalną wersję roboczą. Dane z bazy pozostają w formularzu.</span>";
+
+      const actions = document.createElement("span");
+      actions.className = "autosave-recovery-actions";
+      const restore = document.createElement("button");
+      restore.className = "btn btn-sm btn-outline-light";
+      restore.type = "button";
+      restore.textContent = "Przywróć szkic";
+      restore.addEventListener("click", () => {
+        applyValues(saved.values);
+        recovery.remove();
+        status.textContent = "Przywrócono lokalną wersję roboczą.";
       });
-      form.querySelectorAll("[data-richtext]").forEach((editor) => editor.refreshRichtext?.());
-      status.textContent = "Przywrócono lokalną wersję roboczą.";
+
+      const discard = document.createElement("button");
+      discard.className = "btn btn-sm btn-outline-danger";
+      discard.type = "button";
+      discard.textContent = "Odrzuć szkic";
+      discard.addEventListener("click", () => {
+        localStorage.removeItem(storageKey);
+        recovery.remove();
+        status.textContent = "Lokalna wersja robocza została usunięta.";
+      });
+
+      actions.append(restore, discard);
+      recovery.append(actions);
+      form.prepend(recovery);
     }
   } catch {
     localStorage.removeItem(storageKey);
   }
 
   const saveDraft = () => {
-    const values = {};
-    fields.forEach((field) => {
-      values[field.name] = field.type === "checkbox" ? field.checked : field.value;
-    });
-    localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values }));
+    localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values: currentValues() }));
     status.textContent = "Wersja robocza zapisana lokalnie.";
   };
 
