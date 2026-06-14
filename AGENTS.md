@@ -109,6 +109,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `core_pages`: CRUD, slug, status i publikacja |
 | [x] | Uprawnienia granularne `pages.*` |
 | [x] | Sekcje strony głównej: typ, nagłówki, treść, układ, kolejność i widoczność |
+| [x] | Elementy sekcji kolumnowych: karty, CTA, wariant, szerokość i kolejność |
 | [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
 | [ ] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
@@ -179,6 +180,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | Migracja `modules/Articles/install.sql` została wykonana; DDL MySQL zatwierdza się automatycznie i nie może być traktowane jak jedna transakcja PDO. |
 | 2026-06-13 | `core_pages` zarządza sekcjami strony głównej przez tabelę `homepage_sections`; moduł przechowuje dane i wariant układu, a aktywny motyw odpowiada za HTML oraz CSS. |
 | 2026-06-13 | Lokalny edytor WYSIWYG dopuszcza wyłącznie kontrolowane znaczniki tekstowe; skrypty, osadzenia, obrazy i atrybuty HTML są usuwane po stronie serwera. |
+| 2026-06-13 | Układ `columns` korzysta z tabeli `homepage_section_items`; moduł przechowuje warianty `primary`, `violet`, `neutral` i szerokość logiczną, a motyw mapuje je na responsywną siatkę kart. |
 
 ## Historia sesji
 
@@ -195,6 +197,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 rozbudową modułu artykułów i stanowi ukończony element Kroku 5C.
 
 **Następne kroki:** podgląd roboczy, autozapis i WYSIWYG zwykłych podstron.
+
+### Sesja: 2026-06-13 - karty sekcji kolumnowych
+
+**Wykonano:**
+- dodano trwały model elementów przypisanych do sekcji strony głównej,
+- dodano CRUD, widoczność i zmianę kolejności kart w panelu,
+- dodano warianty `primary`, `violet`, `neutral` oraz szerokości `standard`, `wide`,
+- przeniesiono projekty i technologie do osobnych elementów,
+- odtworzono responsywną siatkę kart znaną z prototypu Outside-In.
+
+**Zaktualizowano status:** układ kolumnowy nie dzieli już jednego pola tekstowego;
+renderuje niezależne, konfigurowalne karty przez aktywny motyw.
 
 ### Sesja: 2026-06-12
 

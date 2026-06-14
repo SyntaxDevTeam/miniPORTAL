@@ -23,6 +23,7 @@ final class CorePagesModule implements ModuleInterface
         private readonly AdminMenuRegistry $menu,
         private readonly PageRepository $pages,
         private readonly HomepageSectionRepository $homepageSections,
+        private readonly HomepageSectionItemRepository $homepageItems,
         private readonly AuthService $auth,
         private readonly AdminAccessGate $access,
         private readonly Security $security,
@@ -124,6 +125,46 @@ final class CorePagesModule implements ModuleInterface
             'pages.delete',
             fn () => $this->deleteHomepageSection($request)
         ));
+        $router->get('/admin/homepage/items', fn (Request $request) => $this->guard(
+            $request,
+            'pages.view',
+            fn () => $this->renderHomepageItems($request->queryInt('section_id') ?? 0)
+        ));
+        $router->get('/admin/homepage/items/create', fn (Request $request) => $this->guard(
+            $request,
+            'pages.create',
+            fn () => $this->renderHomepageItemForm($request->queryInt('section_id') ?? 0)
+        ));
+        $router->post('/admin/homepage/items/create', fn (Request $request) => $this->guard(
+            $request,
+            'pages.create',
+            fn () => $this->createHomepageItem($request)
+        ));
+        $router->get('/admin/homepage/items/edit', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->renderHomepageItemEdit($request)
+        ));
+        $router->post('/admin/homepage/items/edit', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->updateHomepageItem($request)
+        ));
+        $router->post('/admin/homepage/items/move', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->moveHomepageItem($request)
+        ));
+        $router->post('/admin/homepage/items/visibility', fn (Request $request) => $this->guard(
+            $request,
+            'pages.publish',
+            fn () => $this->toggleHomepageItem($request)
+        ));
+        $router->post('/admin/homepage/items/delete', fn (Request $request) => $this->guard(
+            $request,
+            'pages.delete',
+            fn () => $this->deleteHomepageItem($request)
+        ));
     }
 
     private function renderHomepageList(string $message = '', string $variant = 'info'): void
@@ -190,6 +231,11 @@ final class CorePagesModule implements ModuleInterface
                             $allows('pages.edit') ? [
                                 'label' => 'Edytuj',
                                 'href' => 'index.php?route=/admin/homepage/edit&id=' . $section->id,
+                                'variant' => 'outline-primary',
+                            ] : null,
+                            $allows('pages.view') && $section->layout === 'columns' ? [
+                                'label' => 'Elementy',
+                                'href' => 'index.php?route=/admin/homepage/items&section_id=' . $section->id,
                                 'variant' => 'outline-primary',
                             ] : null,
                             $allows('pages.publish') ? [
@@ -482,6 +528,341 @@ final class CorePagesModule implements ModuleInterface
         }
         if (!in_array($layout, ['full', 'split', 'columns', 'accent'], true)) {
             return [$data, 'Wybrano nieprawidłowy układ sekcji.'];
+        }
+        if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {
+            return [$data, 'Adres przycisku używa niedozwolonego schematu.'];
+        }
+
+        return [$data, ''];
+    }
+
+    private function renderHomepageItems(
+        int $sectionId,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $section = $this->homepageSections->find($sectionId);
+        $user = $this->auth->user();
+
+        if ($section === null || $user === null) {
+            http_response_code(404);
+            $this->renderHomepageList('Nie znaleziono sekcji dla elementów.', 'danger');
+            return;
+        }
+
+        $items = $this->homepageItems->forSection($sectionId);
+        $allows = static fn (string $permission): bool => in_array('*', $user->permissions, true)
+            || in_array($permission, $user->permissions, true);
+
+        $this->theme->start_admin_page(
+            'Elementy sekcji',
+            $this->menu->visibleFor($user->permissions),
+            '/admin/homepage',
+            $this->adminUser($user)
+        );
+        $this->theme->start_admin_content(
+            'Elementy: ' . $section->title,
+            'Każdy element staje się osobną kartą w układzie kolumnowym.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
+                ['label' => 'Elementy', 'href' => ''],
+            ],
+            $allows('pages.create') ? [
+                'label' => 'Dodaj element',
+                'href' => 'index.php?route=/admin/homepage/items/create&section_id=' . $sectionId,
+            ] : null
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel('Karty sekcji', count($items) . ' elementów');
+        if ($items === []) {
+            $this->theme->render_alert('Brak elementów. Sekcja pokaże zwykłą treść WYSIWYG.', 'info');
+        } else {
+            $this->theme->render_admin_action_table(
+                ['Kolejność', 'Element', 'Wygląd', 'Status'],
+                array_map(
+                    static fn (HomepageSectionItem $item): array => [
+                        'cells' => [
+                            $item->sortOrder,
+                            $item->title . ($item->label !== '' ? ' (' . $item->label . ')' : ''),
+                            $item->variant . ' / ' . $item->width,
+                            $item->isVisible ? 'Widoczny' : 'Ukryty',
+                        ],
+                        'actions' => array_values(array_filter([
+                            $allows('pages.edit') ? [
+                                'label' => 'W górę',
+                                'action' => 'index.php?route=/admin/homepage/items/move',
+                                'fields' => ['id' => $item->id, 'direction' => 'up'],
+                                'variant' => 'outline-light',
+                            ] : null,
+                            $allows('pages.edit') ? [
+                                'label' => 'W dół',
+                                'action' => 'index.php?route=/admin/homepage/items/move',
+                                'fields' => ['id' => $item->id, 'direction' => 'down'],
+                                'variant' => 'outline-light',
+                            ] : null,
+                            $allows('pages.edit') ? [
+                                'label' => 'Edytuj',
+                                'href' => 'index.php?route=/admin/homepage/items/edit&id=' . $item->id,
+                                'variant' => 'outline-primary',
+                            ] : null,
+                            $allows('pages.publish') ? [
+                                'label' => $item->isVisible ? 'Ukryj' : 'Pokaż',
+                                'action' => 'index.php?route=/admin/homepage/items/visibility',
+                                'fields' => ['id' => $item->id],
+                                'variant' => 'outline-warning',
+                            ] : null,
+                            $allows('pages.delete') ? [
+                                'label' => 'Usuń',
+                                'action' => 'index.php?route=/admin/homepage/items/delete',
+                                'fields' => ['id' => $item->id],
+                                'variant' => 'outline-danger',
+                            ] : null,
+                        ])),
+                    ],
+                    $items
+                ),
+                $this->security->csrfToken()
+            );
+        }
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function renderHomepageItemEdit(Request $request): void
+    {
+        $item = $this->homepageItems->find($request->queryInt('id') ?? 0);
+        if ($item === null) {
+            $this->renderHomepageList('Nie znaleziono elementu.', 'danger');
+            return;
+        }
+
+        $this->renderHomepageItemForm($item->sectionId, $item);
+    }
+
+    /**
+     * @param array<string, string|bool> $values
+     */
+    private function renderHomepageItemForm(
+        int $sectionId,
+        ?HomepageSectionItem $item = null,
+        string $message = '',
+        string $variant = 'info',
+        array $values = [],
+    ): void {
+        $section = $this->homepageSections->find($sectionId);
+        $user = $this->auth->user();
+        if ($section === null || $user === null) {
+            $this->renderHomepageList('Nie znaleziono sekcji.', 'danger');
+            return;
+        }
+
+        $editing = $item !== null;
+        $value = static function (string $key, string $fallback = '') use ($values, $item): string {
+            if (array_key_exists($key, $values)) {
+                return (string) $values[$key];
+            }
+            return match ($key) {
+                'label' => $item?->label ?? $fallback,
+                'title' => $item?->title ?? $fallback,
+                'content' => $item?->content ?? $fallback,
+                'button_label' => $item?->buttonLabel ?? $fallback,
+                'button_url' => $item?->buttonUrl ?? $fallback,
+                'variant' => $item?->variant ?? $fallback,
+                'width' => $item?->width ?? $fallback,
+                default => $fallback,
+            };
+        };
+        $visible = array_key_exists('is_visible', $values)
+            ? (bool) $values['is_visible']
+            : ($item?->isVisible ?? true);
+        $title = $editing ? 'Edytuj element' : 'Dodaj element';
+
+        $this->theme->start_admin_page(
+            $title,
+            $this->menu->visibleFor($user->permissions),
+            '/admin/homepage',
+            $this->adminUser($user)
+        );
+        $this->theme->start_admin_content(
+            $title,
+            'Karta należy do sekcji „' . $section->title . '”.',
+            [
+                ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
+                [
+                    'label' => 'Elementy',
+                    'href' => 'index.php?route=/admin/homepage/items&section_id=' . $sectionId,
+                ],
+                ['label' => $editing ? 'Edycja' : 'Nowy', 'href' => ''],
+            ]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel('Treść i wygląd karty');
+        $this->theme->render_form(
+            $editing
+                ? 'index.php?route=/admin/homepage/items/edit'
+                : 'index.php?route=/admin/homepage/items/create',
+            [
+                ['name' => 'section_id', 'label' => 'Sekcja', 'type' => 'hidden', 'value' => (string) $sectionId],
+                ...($editing ? [[
+                    'name' => 'id',
+                    'label' => 'ID',
+                    'type' => 'hidden',
+                    'value' => (string) $item->id,
+                ]] : []),
+                ['name' => 'label', 'label' => 'Etykieta', 'value' => $value('label'), 'help' => 'Np. SERWERY albo PROJECT / 001.'],
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $value('title')],
+                ['name' => 'content', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 5, 'value' => $value('content')],
+                ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $value('button_label')],
+                ['name' => 'button_url', 'label' => 'Adres przycisku', 'value' => $value('button_url')],
+                [
+                    'name' => 'variant',
+                    'label' => 'Wariant wizualny',
+                    'type' => 'select',
+                    'value' => $value('variant', 'primary'),
+                    'options' => [
+                        'primary' => 'Primary / turkusowy',
+                        'violet' => 'Violet / fioletowy',
+                        'neutral' => 'Neutral / stonowany',
+                    ],
+                ],
+                [
+                    'name' => 'width',
+                    'label' => 'Szerokość',
+                    'type' => 'select',
+                    'value' => $value('width', 'standard'),
+                    'options' => [
+                        'standard' => 'Standardowa',
+                        'wide' => 'Szeroka',
+                    ],
+                ],
+                ['name' => 'is_visible', 'label' => 'Element widoczny', 'type' => 'checkbox', 'checked' => $visible],
+            ],
+            $editing ? 'Zapisz element' : 'Dodaj element',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function createHomepageItem(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_create')) {
+            return;
+        }
+        $sectionId = $request->postInt('section_id') ?? 0;
+        [$data, $error] = $this->validatedHomepageItemInput($request);
+        if ($this->homepageSections->find($sectionId) === null) {
+            $error = 'Nie znaleziono sekcji.';
+        }
+        if ($error !== '') {
+            $this->renderHomepageItemForm($sectionId, null, $error, 'danger', $data);
+            return;
+        }
+        $this->homepageItems->create($sectionId, $data);
+        $this->audit->record($request, 'homepage_item_create', 'success', null, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/items&section_id=' . $sectionId, true, 303);
+    }
+
+    private function updateHomepageItem(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_update')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        if ($item === null) {
+            $this->renderHomepageList('Nie znaleziono elementu.', 'danger');
+            return;
+        }
+        [$data, $error] = $this->validatedHomepageItemInput($request);
+        if ($error !== '') {
+            $this->renderHomepageItemForm($item->sectionId, $item, $error, 'danger', $data);
+            return;
+        }
+        $this->homepageItems->update($item->id, $data);
+        $this->audit->record($request, 'homepage_item_update', 'success', null, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/items&section_id=' . $item->sectionId, true, 303);
+    }
+
+    private function moveHomepageItem(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_move')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $moved = $item !== null && $this->homepageItems->move($item->id, $request->postString('direction'));
+        $this->audit->record($request, 'homepage_item_move', $moved ? 'success' : 'unchanged', null, $this->auth->user()?->id);
+        $this->renderHomepageItems(
+            $item?->sectionId ?? 0,
+            $moved ? 'Kolejność elementów została zmieniona.' : 'Element jest już na skraju listy.',
+            $moved ? 'success' : 'info'
+        );
+    }
+
+    private function toggleHomepageItem(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_visibility')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $changed = $item !== null && $this->homepageItems->toggleVisibility($item->id);
+        $this->audit->record($request, 'homepage_item_visibility', $changed ? 'success' : 'not_found', null, $this->auth->user()?->id);
+        $this->renderHomepageItems(
+            $item?->sectionId ?? 0,
+            $changed ? 'Widoczność elementu została zmieniona.' : 'Nie znaleziono elementu.',
+            $changed ? 'success' : 'warning'
+        );
+    }
+
+    private function deleteHomepageItem(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_delete')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $deleted = $item !== null && $this->homepageItems->delete($item->id);
+        $this->audit->record($request, 'homepage_item_delete', $deleted ? 'success' : 'not_found', null, $this->auth->user()?->id);
+        $this->renderHomepageItems(
+            $item?->sectionId ?? 0,
+            $deleted ? 'Element został usunięty.' : 'Nie znaleziono elementu.',
+            $deleted ? 'success' : 'warning'
+        );
+    }
+
+    /**
+     * @return array{0: array<string, string|int>, 1: string}
+     */
+    private function validatedHomepageItemInput(Request $request): array
+    {
+        $title = $request->postString('title');
+        $variant = $request->postString('variant');
+        $width = $request->postString('width');
+        $buttonUrl = $request->postString('button_url');
+        $data = [
+            'label' => substr($request->postString('label'), 0, 120),
+            'title' => $title,
+            'content' => substr($request->postString('content'), 0, 4000),
+            'button_label' => substr($request->postString('button_label'), 0, 120),
+            'button_url' => substr($buttonUrl, 0, 500),
+            'variant' => $variant,
+            'width' => $width,
+            'is_visible' => $request->postBool('is_visible') ? 1 : 0,
+        ];
+
+        if ($title === '' || strlen($title) > 180) {
+            return [$data, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
+        }
+        if (!in_array($variant, ['primary', 'violet', 'neutral'], true)) {
+            return [$data, 'Wybrano nieprawidłowy wariant wizualny.'];
+        }
+        if (!in_array($width, ['standard', 'wide'], true)) {
+            return [$data, 'Wybrano nieprawidłową szerokość elementu.'];
         }
         if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {
             return [$data, 'Adres przycisku używa niedozwolonego schematu.'];

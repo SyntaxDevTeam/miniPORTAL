@@ -28,6 +28,7 @@ use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
+use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
@@ -107,12 +108,18 @@ $pageRepository = $application->database() !== null
 $homepageSectionRepository = $application->database() !== null
     ? new HomepageSectionRepository($application->database())
     : null;
-$corePagesModule = $pageRepository !== null && $homepageSectionRepository !== null
+$homepageSectionItemRepository = $application->database() !== null
+    ? new HomepageSectionItemRepository($application->database())
+    : null;
+$corePagesModule = $pageRepository !== null
+    && $homepageSectionRepository !== null
+    && $homepageSectionItemRepository !== null
     ? new CorePagesModule(
         $theme,
         $adminMenu,
         $pageRepository,
         $homepageSectionRepository,
+        $homepageSectionItemRepository,
         $auth,
         $access,
         $security,
@@ -166,7 +173,13 @@ $renderEnd = static function () use ($theme): void {
     $theme->end_page();
 };
 
-$router->get('/', static function () use ($pageRepository, $homepageSectionRepository, $theme, $auth): void {
+$router->get('/', static function () use (
+    $pageRepository,
+    $homepageSectionRepository,
+    $homepageSectionItemRepository,
+    $theme,
+    $auth
+): void {
     $pages = [];
     $sections = [];
 
@@ -179,7 +192,9 @@ $router->get('/', static function () use ($pageRepository, $homepageSectionRepos
 
     if ($homepageSectionRepository !== null) {
         $sections = array_map(
-            static fn ($section): array => $section->toThemeData(),
+            static fn ($section): array => $section->toThemeData(
+                $homepageSectionItemRepository?->forSection($section->id, true) ?? []
+            ),
             $homepageSectionRepository->visible()
         );
     }

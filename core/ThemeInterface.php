@@ -15,7 +15,16 @@ interface ThemeInterface
      *     content_html: string,
      *     layout: string,
      *     button_label: string,
-     *     button_url: string
+     *     button_url: string,
+     *     items: list<array{
+     *         label: string,
+     *         title: string,
+     *         content: string,
+     *         button_label: string,
+     *         button_url: string,
+     *         variant: string,
+     *         width: string
+     *     }>
      * }> $sections
      * @param list<array{title: string, slug: string}> $pages
      */

@@ -689,7 +689,16 @@ final class Theme implements ThemeInterface
      *     content_html: string,
      *     layout: string,
      *     button_label: string,
-     *     button_url: string
+     *     button_url: string,
+     *     items: list<array{
+     *         label: string,
+     *         title: string,
+     *         content: string,
+     *         button_label: string,
+     *         button_url: string,
+     *         variant: string,
+     *         width: string
+     *     }>
      * } $section
      */
     private function renderHomepageHero(array $section, bool $authenticated): void
@@ -730,7 +739,16 @@ final class Theme implements ThemeInterface
      *     content_html: string,
      *     layout: string,
      *     button_label: string,
-     *     button_url: string
+     *     button_url: string,
+     *     items: list<array{
+     *         label: string,
+     *         title: string,
+     *         content: string,
+     *         button_label: string,
+     *         button_url: string,
+     *         variant: string,
+     *         width: string
+     *     }>
      * } $section
      */
     private function renderHomepageSection(array $section): void
@@ -753,6 +771,40 @@ final class Theme implements ThemeInterface
             if ($section['button_label'] !== '' && $href !== '') {
                 echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($href) . '">';
                 echo $this->escape($section['button_label']) . '</a>';
+            }
+            echo '</div></div></section>';
+            return;
+        }
+
+        if ($layout === 'columns' && $section['items'] !== []) {
+            echo '<div class="home-heading reveal">';
+            if ($section['eyebrow'] !== '') {
+                echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
+            }
+            echo '<h2 class="fw-bold">' . $this->escape($section['title']) . '</h2>';
+            if ($content !== '') {
+                echo '<div class="managed-home-content mt-3">' . $content . '</div>';
+            }
+            echo '</div><div class="managed-card-grid">';
+            foreach ($section['items'] as $index => $item) {
+                $variant = in_array($item['variant'], ['primary', 'violet', 'neutral'], true)
+                    ? $item['variant']
+                    : 'neutral';
+                $width = $item['width'] === 'wide' ? 'wide' : 'standard';
+                $itemHref = $this->safeHref($item['button_url']);
+                echo '<article class="showcase-card managed-card managed-card-' . $width . ' reveal" ';
+                echo 'data-variant="' . $variant . '" data-number="';
+                echo str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) . '">';
+                if ($item['label'] !== '') {
+                    echo '<p class="managed-card-label">' . $this->escape($item['label']) . '</p>';
+                }
+                echo '<h3>' . $this->escape($item['title']) . '</h3>';
+                echo '<p class="text-secondary">' . nl2br($this->escape($item['content'])) . '</p>';
+                if ($item['button_label'] !== '' && $itemHref !== '') {
+                    echo '<a class="btn btn-outline-light" href="' . $this->escape($itemHref) . '">';
+                    echo $this->escape($item['button_label']) . '</a>';
+                }
+                echo '</article>';
             }
             echo '</div></div></section>';
             return;

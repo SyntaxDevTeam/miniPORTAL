@@ -204,6 +204,8 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 - unikalny slug i publiczna trasa opublikowanej strony
 - stany `draft` i `published` oraz granularne uprawnienia `pages.*`
 - edytowalne sekcje strony głównej: typ, nagłówki, treść, układ, widoczność i kolejność
+- sekcje kolumnowe składają się z niezależnych elementów/kart z etykietą, opisem,
+  CTA, wariantem wizualnym i szerokością
 - lokalny edytor WYSIWYG oparty na kontrolowanej allowliście formatowania
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
 - późniejsze rozszerzenie WYSIWYG na zwykłe podstrony
@@ -311,6 +313,8 @@ Stan Kroku 5:
 
 - `core_pages` i `articles` są rzeczywistymi, odrębnymi modułami treści,
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
+- elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
+  pozostają wyłączną odpowiedzialnością aktywnego motywu,
 - oba rejestrują menu i trasy przez `ModuleRegistry`,
 - oba składają panel z ogólnych komponentów `ThemeInterface`,
 - `articles` dostarcza pierwszy plik `info.json`, który wyznacza wejście do Kroku 6.

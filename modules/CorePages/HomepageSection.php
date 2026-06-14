@@ -33,10 +33,19 @@ final readonly class HomepageSection
      *     content_html: string,
      *     layout: string,
      *     button_label: string,
-     *     button_url: string
+     *     button_url: string,
+     *     items: list<array{
+     *         label: string,
+     *         title: string,
+     *         content: string,
+     *         button_label: string,
+     *         button_url: string,
+     *         variant: string,
+     *         width: string
+     *     }>
      * }
      */
-    public function toThemeData(): array
+    public function toThemeData(array $items = []): array
     {
         return [
             'key' => $this->sectionKey,
@@ -47,6 +56,10 @@ final readonly class HomepageSection
             'layout' => $this->layout,
             'button_label' => $this->buttonLabel,
             'button_url' => $this->buttonUrl,
+            'items' => array_map(
+                static fn (HomepageSectionItem $item): array => $item->toThemeData(),
+                $items
+            ),
         ];
     }
 }

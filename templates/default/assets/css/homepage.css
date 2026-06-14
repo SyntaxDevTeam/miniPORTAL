@@ -162,11 +162,6 @@
   align-items: start;
 }
 
-.managed-home-layout-columns .managed-home-content {
-  columns: 2 18rem;
-  column-gap: 2rem;
-}
-
 .managed-home-layout-accent {
   padding: clamp(1.5rem, 5vw, 3.5rem);
   background:
@@ -196,6 +191,87 @@
 
 .managed-home-content > :last-child {
   margin-bottom: 0;
+}
+
+.managed-card-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.managed-card {
+  position: relative;
+  grid-column: span 4;
+  min-height: 15rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top-color: var(--mp-border);
+}
+
+.managed-card-wide {
+  grid-column: span 8;
+}
+
+.managed-card::after {
+  position: absolute;
+  right: -1rem;
+  bottom: -3.8rem;
+  z-index: 0;
+  color: rgba(var(--mp-primary-rgb), 0.055);
+  content: attr(data-number);
+  font-size: 10rem;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.managed-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.managed-card[data-variant="primary"] {
+  border-top-color: var(--mp-cyan);
+}
+
+.managed-card[data-variant="violet"] {
+  border-top-color: var(--mp-violet);
+}
+
+.managed-card[data-variant="violet"]::after {
+  color: rgba(151, 117, 250, 0.055);
+}
+
+.managed-card[data-variant="neutral"]::after {
+  color: rgba(255, 255, 255, 0.035);
+}
+
+.managed-card-label {
+  color: var(--mp-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.managed-card[data-variant="violet"] .managed-card-label {
+  color: var(--mp-violet);
+}
+
+.managed-card[data-variant="neutral"] .managed-card-label {
+  color: var(--mp-muted);
+}
+
+.managed-card h3 {
+  margin-top: 0.8rem;
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+
+.managed-card .btn {
+  align-self: flex-start;
+  margin-top: auto;
 }
 
 .project-grid {
@@ -297,6 +373,11 @@
   .managed-home-layout-split {
     grid-template-columns: 1fr;
   }
+
+  .managed-card,
+  .managed-card-wide {
+    grid-column: span 6;
+  }
 }
 
 @media (max-width: 767.98px) {
@@ -315,6 +396,11 @@
 
   .project-card,
   .project-card-wide {
+    grid-column: 1 / -1;
+  }
+
+  .managed-card,
+  .managed-card-wide {
     grid-column: 1 / -1;
   }
 
