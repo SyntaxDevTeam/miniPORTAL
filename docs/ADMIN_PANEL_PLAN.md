@@ -214,7 +214,7 @@ przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsa
 
 1. Lista, tworzenie, edycja, publikacja i usuwanie stron.
 2. Slug, status, autor, daty publikacji i wersjonowanie.
-3. WYSIWYG dopiero po działającym formularzu podstawowym.
+3. Kontrolowany WYSIWYG po działającym formularzu podstawowym.
 4. Walidacja przez `Request`, CSRF przez `Security`, dane przez `CrudApp`.
 5. Uprawnienia granularne `pages.*`.
 
@@ -225,7 +225,9 @@ Stan implementacji:
 - panel obsługuje tworzenie, edycję, publikację, cofnięcie publikacji i usuwanie,
 - każda trasa wymaga osobnego uprawnienia `pages.*` oraz poprawnego CSRF,
 - publiczna trasa `/page?slug=...` pokazuje tylko opublikowane rekordy,
-- treść tekstowa jest kodowana przed HTML; WYSIWYG pozostaje kolejnym etapem.
+- podstrony i sekcje strony głównej korzystają z kontrolowanego WYSIWYG,
+- `RichTextSanitizer` usuwa kod wykonywalny i atrybuty HTML przed zapisem,
+- formularze treści mają lokalny autozapis, a homepage udostępnia podgląd roboczy.
 
 ### 5.6 Moduł `articles`
 
@@ -247,8 +249,8 @@ Stan implementacji:
 Manager powstaje po działających modułach stałych, ponieważ ich kontrakt wyznaczy
 rzeczywiste wymagania systemu modułów.
 
-1. Schemat i walidacja `info.json`.
-2. Odczyt zależności oraz zgodności wersji PHP i miniPORTAL.
+1. Schemat i walidacja `info.json`. [ukończone]
+2. Odczyt zależności oraz zgodności wersji PHP i miniPORTAL. [ukończone]
 3. Podgląd modułu przed instalacją.
 4. Transakcyjne wykonanie `install.sql` i migracji.
 5. Rejestr `modules_config`.
@@ -257,6 +259,9 @@ rzeczywiste wymagania systemu modułów.
 8. Odinstalowanie z osobnym potwierdzeniem usunięcia danych.
 9. Blokada usunięcia modułów stałych `core_auth` i `core_pages`.
 10. Uprawnienia administratora i zapis wszystkich operacji w audit logu.
+
+Aktualny fundament managera obejmuje stabilny `ModuleInterface`, walidację manifestów,
+topologiczne uruchamianie zależności i deklaratywne fabryki w `config/modules.php`.
 
 ## 7. Kryterium ukończenia
 

@@ -111,16 +111,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Sekcje strony głównej: typ, nagłówki, treść, układ, kolejność i widoczność |
 | [x] | Elementy sekcji kolumnowych: karty, CTA, wariant, szerokość i kolejność |
 | [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
-| [ ] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
+| [x] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
+| [x] | Podgląd roboczy i lokalny autozapis formularzy treści |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 
 ### Krok 6 - system modułów
 
 | Status | Zadanie |
 |--------|---------|
-| [ ] | Stabilny `ModuleInterface` na podstawie działających modułów |
+| [x] | Stabilny `ModuleInterface` na podstawie działających modułów |
 | [x] | Startowy `ModuleRegistry` jako jeden punkt uruchamiania modułów |
-| [ ] | Walidacja `info.json`, zależności i zgodności wersji |
+| [x] | Walidacja `info.json`, zależności i zgodności wersji |
+| [x] | Deklaratywne fabryki modułów poza `index.php` |
 | [ ] | Instalator SQL i migracje |
 | [ ] | Rejestr `modules_config` |
 | [ ] | Aktywacja i deaktywacja tras, menu oraz uprawnień |
@@ -130,10 +132,10 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 ## Następne kroki
 
-1. Rozszerzyć kontrolowany WYSIWYG na zwykłe podstrony `core_pages`.
-2. Dodać podgląd roboczy i autozapis sekcji strony głównej.
-3. Na podstawie `core_pages` i `articles` ustabilizować `ModuleInterface` oraz walidację `info.json`.
-4. Wydzielić deklaratywne tworzenie modułów z `index.php` przed implementacją managera.
+1. Dodać rejestr `modules_config` i odczyt stanu aktywności modułów.
+2. Dodać instalator SQL oraz kontrolowaną historię migracji.
+3. Zastąpić demonstracyjny widok `/admin/modules` rzeczywistym managerem.
+4. Dodać uprawnienia managera i audit log operacji na modułach.
 
 ## Uwagi / blokery
 
@@ -143,6 +145,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 |------|------|--------------------|
 | 2026-06-13 | `DemoAdminModule` nadal udostępnia atrapy sekcji Użytkownicy i Moduły. | Zastępować je kolejno rzeczywistymi modułami; nie traktować atrap jako ukończonych funkcji. |
 | 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
+| 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
 
 ### Uwagi architektoniczne
 
@@ -181,8 +184,22 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-13 | `core_pages` zarządza sekcjami strony głównej przez tabelę `homepage_sections`; moduł przechowuje dane i wariant układu, a aktywny motyw odpowiada za HTML oraz CSS. |
 | 2026-06-13 | Lokalny edytor WYSIWYG dopuszcza wyłącznie kontrolowane znaczniki tekstowe; skrypty, osadzenia, obrazy i atrybuty HTML są usuwane po stronie serwera. |
 | 2026-06-13 | Układ `columns` korzysta z tabeli `homepage_section_items`; moduł przechowuje warianty `primary`, `violet`, `neutral` i szerokość logiczną, a motyw mapuje je na responsywną siatkę kart. |
+| 2026-06-14 | `ModuleInterface` deklaruje wersję, zależności i ochronę; `ModuleRegistry` uruchamia moduły w kolejności topologicznej i odrzuca brakujące lub cykliczne zależności. |
+| 2026-06-14 | Każdy aktywny moduł ma walidowany `info.json`; deklaratywne fabryki znajdują się w `config/modules.php`, a `index.php` nie tworzy konkretnych modułów. |
 
 ## Historia sesji
+
+### Sesja: 2026-06-14 - domknięcie treści i kontrakt modułów
+
+**Wykonano:**
+- rozszerzono kontrolowany WYSIWYG na podstrony `core_pages`,
+- dodano podgląd roboczy strony głównej i autozapis do `localStorage`,
+- ustabilizowano `ModuleInterface` oraz kolejność zależności,
+- dodano walidację manifestów, wymagań wersji i plików instalacyjnych,
+- wydzielono deklaratywne fabryki modułów z Front Controllera.
+
+**Zaktualizowano status:** cztery pozycje z sekcji „Następne kroki” są ukończone.
+Krok 6 może przejść do trwałego rejestru i managera modułów.
 
 ### Sesja: 2026-06-13 - edytor strony głównej
 

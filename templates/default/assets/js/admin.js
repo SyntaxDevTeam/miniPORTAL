@@ -111,3 +111,65 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   });
   surface.closest("form")?.addEventListener("submit", sync);
 });
+
+document.querySelectorAll('form').forEach((form) => {
+  const keyInput = form.querySelector('input[name="_autosave_key"]');
+  if (!keyInput?.value) {
+    return;
+  }
+
+  const storageKey = `miniportal:${keyInput.value}`;
+  const clearKey = new URLSearchParams(window.location.search).get("autosave_clear");
+  if (clearKey) {
+    localStorage.removeItem(`miniportal:${clearKey}`);
+    window.history.replaceState({}, "", window.location.href.replace(/([&?])autosave_clear=[^&]*&?/, "$1").replace(/[?&]$/, ""));
+  }
+  const fields = [...form.elements].filter((field) =>
+    field.name && !["_token", "_autosave_key", "id"].includes(field.name)
+  );
+  let timer = null;
+  const status = document.createElement("div");
+  status.className = "form-text mt-3";
+  status.setAttribute("role", "status");
+  form.append(status);
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (saved?.values) {
+      fields.forEach((field) => {
+        if (!(field.name in saved.values)) return;
+        if (field.type === "checkbox") {
+          field.checked = Boolean(saved.values[field.name]);
+        } else {
+          field.value = saved.values[field.name];
+        }
+        const richtext = field.matches("[data-richtext-input]")
+          ? field.closest("[data-richtext]")?.querySelector("[data-richtext-surface]")
+          : null;
+        if (richtext) richtext.innerHTML = field.value;
+      });
+      status.textContent = "Przywrócono lokalną wersję roboczą.";
+    }
+  } catch {
+    localStorage.removeItem(storageKey);
+  }
+
+  const saveDraft = () => {
+    const values = {};
+    fields.forEach((field) => {
+      values[field.name] = field.type === "checkbox" ? field.checked : field.value;
+    });
+    localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), values }));
+    status.textContent = "Wersja robocza zapisana lokalnie.";
+  };
+
+  form.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(saveDraft, 700);
+  });
+  form.addEventListener("change", () => {
+    clearTimeout(timer);
+    timer = setTimeout(saveDraft, 200);
+  });
+  form.addEventListener("submit", () => clearTimeout(timer));
+});

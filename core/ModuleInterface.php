@@ -8,6 +8,15 @@ interface ModuleInterface
 {
     public function id(): string;
 
+    public function version(): string;
+
+    /**
+     * @return list<string>
+     */
+    public function dependencies(): array;
+
+    public function isProtected(): bool;
+
     /**
      * @return list<string>
      */

@@ -31,6 +31,21 @@ final class CoreAuthModule implements ModuleInterface
         return 'core_auth';
     }
 
+    public function version(): string
+    {
+        return '1.0.0';
+    }
+
+    public function dependencies(): array
+    {
+        return [];
+    }
+
+    public function isProtected(): bool
+    {
+        return true;
+    }
+
     public function requiredPermissions(): array
     {
         return [];

@@ -5,6 +5,8 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
+use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
+use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -12,7 +14,6 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\DiscordIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\GitHubIdentityProvider;
@@ -20,17 +21,11 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\GoogleIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
-use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
-use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
-use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
-use SyntaxDevTeam\Cms\Modules\System\DemoAdminModule;
 
 require_once __DIR__ . '/core/Autoloader.php';
 
@@ -87,21 +82,6 @@ $providers->add(new GoogleIdentityProvider(
     (string) ($googleConfig['client_secret'] ?? ''),
     (string) ($googleConfig['callback_url'] ?? '')
 ));
-$coreAuthModule = new CoreAuthModule(
-    $theme,
-    $security,
-    $auth,
-    $providers,
-    new OAuthStateStore(),
-    new OAuthAttemptLimiter(
-        (int) ($authConfig['oauth_window_seconds'] ?? 600),
-        (int) ($authConfig['oauth_start_limit'] ?? 10),
-        (int) ($authConfig['oauth_callback_limit'] ?? 20)
-    ),
-    $audit,
-    $authDemoEnabled
-);
-$modules->add($coreAuthModule);
 $pageRepository = $application->database() !== null
     ? new PageRepository($application->database())
     : null;
@@ -111,51 +91,23 @@ $homepageSectionRepository = $application->database() !== null
 $homepageSectionItemRepository = $application->database() !== null
     ? new HomepageSectionItemRepository($application->database())
     : null;
-$corePagesModule = $pageRepository !== null
-    && $homepageSectionRepository !== null
-    && $homepageSectionItemRepository !== null
-    ? new CorePagesModule(
-        $theme,
-        $adminMenu,
-        $pageRepository,
-        $homepageSectionRepository,
-        $homepageSectionItemRepository,
-        $auth,
-        $access,
-        $security,
-        $audit
-    )
-    : null;
-
-if ($corePagesModule !== null) {
-    $modules->add($corePagesModule);
-}
-
-$articlesModule = $application->database() !== null
-    ? new ArticlesModule(
-        $theme,
-        $adminMenu,
-        new ArticleRepository($application->database()),
-        $auth,
-        $access,
-        $security,
-        $audit
-    )
-    : null;
-
-if ($articlesModule !== null) {
-    $modules->add($articlesModule);
-}
-
-$demoAdminModule = new DemoAdminModule(
-    $theme,
-    $adminMenu,
-    $auth,
-    $access,
-    $security,
-    $audit
+$moduleDefinitions = require __DIR__ . '/config/modules.php';
+$moduleBootstrapper = new ModuleBootstrapper(
+    __DIR__ . '/modules',
+    new ModuleManifestValidator((string) ($config['app']['version'] ?? '0.1.0'))
 );
-$modules->add($demoAdminModule);
+$moduleBootstrapper->register($moduleDefinitions, [
+    'theme' => $theme,
+    'security' => $security,
+    'auth' => $auth,
+    'providers' => $providers,
+    'audit' => $audit,
+    'access' => $access,
+    'admin_menu' => $adminMenu,
+    'database' => $application->database(),
+    'auth_config' => $authConfig,
+    'auth_demo_enabled' => $authDemoEnabled,
+], $modules);
 $modules->boot($adminMenu, $router);
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {

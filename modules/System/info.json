@@ -1,14 +1,14 @@
 {
-  "id": "articles",
-  "name": "Artykuły",
+  "id": "system_demo_admin",
+  "name": "System Admin",
   "version": "1.0.0",
-  "type": "extension",
+  "type": "system",
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
     "miniportal": ">=0.1.0",
     "modules": ["core_auth"]
   },
-  "protected": false,
-  "install": "install.sql"
+  "protected": true,
+  "install": null
 }

@@ -1,14 +1,14 @@
 {
-  "id": "articles",
-  "name": "Artykuły",
+  "id": "core_pages",
+  "name": "Core Pages",
   "version": "1.0.0",
-  "type": "extension",
+  "type": "core",
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
     "miniportal": ">=0.1.0",
     "modules": ["core_auth"]
   },
-  "protected": false,
+  "protected": true,
   "install": "install.sql"
 }

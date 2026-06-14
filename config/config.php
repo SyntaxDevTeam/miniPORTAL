@@ -47,6 +47,7 @@ $databaseUser = (string) $env('DB_USER', '');
 return [
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
+        'version' => '0.1.0',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'theme' => (string) $env('APP_THEME', 'default'),

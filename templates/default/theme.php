@@ -627,16 +627,19 @@ final class Theme implements ThemeInterface
 
     public function render_public_page(string $title, string $content, string $publishedAt): void
     {
+        $content = (new RichTextSanitizer())->sanitize($content);
         $this->start_page($title . ' - miniPORTAL', $title);
         $this->start_header($title, 'Opublikowano: ' . $publishedAt);
         $this->end_header();
         $this->start_section();
-        echo '<article class="showcase-card">';
-
-        foreach (preg_split('/\R{2,}/', trim($content)) ?: [] as $paragraph) {
-            echo '<p>' . nl2br($this->escape($paragraph)) . '</p>';
+        echo '<article class="showcase-card managed-home-content">';
+        if ($content === '') {
+            echo '<p>Ta strona nie ma jeszcze treści.</p>';
+        } elseif (str_contains($content, '<')) {
+            echo $content;
+        } else {
+            echo '<p>' . nl2br($this->escape($content)) . '</p>';
         }
-
         echo '<a class="btn btn-outline-light" href="index.php">Wróć do strony głównej</a></article>';
         $this->end_section();
         $this->end_page();

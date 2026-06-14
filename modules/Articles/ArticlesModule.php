@@ -33,6 +33,21 @@ final class ArticlesModule implements ModuleInterface
         return 'articles';
     }
 
+    public function version(): string
+    {
+        return '1.0.0';
+    }
+
+    public function dependencies(): array
+    {
+        return ['core_auth'];
+    }
+
+    public function isProtected(): bool
+    {
+        return false;
+    }
+
     public function requiredPermissions(): array
     {
         return ['articles.view'];

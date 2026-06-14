@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
@@ -117,6 +118,21 @@ $test('Module registry boots each module once', static function () use ($assert)
             return 'test_module';
         }
 
+        public function version(): string
+        {
+            return '1.0.0';
+        }
+
+        public function dependencies(): array
+        {
+            return [];
+        }
+
+        public function isProtected(): bool
+        {
+            return false;
+        }
+
         public function requiredPermissions(): array
         {
             return [];
@@ -143,18 +159,37 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert(count($menu->visibleFor(['test.view'])) === 1);
 });
 
-$test('Articles metadata exposes the initial module contract', static function () use ($assert): void {
-    $metadata = json_decode(
-        (string) file_get_contents(dirname(__DIR__) . '/modules/Articles/info.json'),
-        true,
-        32,
-        JSON_THROW_ON_ERROR
-    );
+$test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
+    $validator = new ModuleManifestValidator('0.1.0');
+    $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
-    $assert(($metadata['id'] ?? null) === 'articles');
-    $assert(($metadata['version'] ?? null) === '1.0.0');
-    $assert(($metadata['install'] ?? null) === 'install.sql');
-    $assert(in_array('core_auth', $metadata['requires']['modules'] ?? [], true));
+    $assert($manifest->id === 'articles');
+    $assert($manifest->version === '1.0.0');
+    $assert($manifest->installFile === 'install.sql');
+    $assert($manifest->requiredModules === ['core_auth']);
+});
+
+$test('Module registry rejects a missing dependency', static function () use ($assert): void {
+    $registry = new ModuleRegistry();
+    $menu = new AdminMenuRegistry();
+    $router = new Router();
+    $module = new class implements ModuleInterface {
+        public function id(): string { return 'dependent_module'; }
+        public function version(): string { return '1.0.0'; }
+        public function dependencies(): array { return ['missing_module']; }
+        public function isProtected(): bool { return false; }
+        public function requiredPermissions(): array { return []; }
+        public function registerAdminMenu(AdminMenuRegistry $menu): void {}
+        public function registerRoutes(Router $router): void {}
+    };
+    $registry->add($module);
+
+    try {
+        $registry->boot($menu, $router);
+        $assert(false, 'Missing module dependency was accepted');
+    } catch (RuntimeException $exception) {
+        $assert(str_contains($exception->getMessage(), 'missing_module'));
+    }
 });
 
 session_destroy();

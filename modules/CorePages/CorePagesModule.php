@@ -36,6 +36,21 @@ final class CorePagesModule implements ModuleInterface
         return 'core_pages';
     }
 
+    public function version(): string
+    {
+        return '1.0.0';
+    }
+
+    public function dependencies(): array
+    {
+        return ['core_auth'];
+    }
+
+    public function isProtected(): bool
+    {
+        return true;
+    }
+
     public function requiredPermissions(): array
     {
         return ['pages.view'];
@@ -89,6 +104,11 @@ final class CorePagesModule implements ModuleInterface
             $request,
             'pages.view',
             fn () => $this->renderHomepageList()
+        ));
+        $router->get('/admin/homepage/preview', fn (Request $request) => $this->guard(
+            $request,
+            'pages.view',
+            fn () => $this->renderHomepagePreview()
         ));
         $router->get('/admin/homepage/create', fn (Request $request) => $this->guard(
             $request,
@@ -326,7 +346,11 @@ final class CorePagesModule implements ModuleInterface
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
                 ['label' => $editing ? 'Edycja' : 'Nowa sekcja', 'href' => ''],
-            ]
+            ],
+            $editing ? [
+                'label' => 'Podgląd roboczy',
+                'href' => 'index.php?route=/admin/homepage/preview',
+            ] : null
         );
 
         if ($message !== '') {
@@ -345,6 +369,12 @@ final class CorePagesModule implements ModuleInterface
                     'type' => 'hidden',
                     'value' => (string) $section->id,
                 ]] : []),
+                [
+                    'name' => '_autosave_key',
+                    'label' => 'Autozapis',
+                    'type' => 'hidden',
+                    'value' => 'homepage-section-' . ($section?->id ?? 'new'),
+                ],
                 [
                     'name' => 'title',
                     'label' => 'Nagłówek',
@@ -429,7 +459,12 @@ final class CorePagesModule implements ModuleInterface
         $data['author_id'] = $this->auth->user()?->id ?? 0;
         $id = $this->homepageSections->create($data);
         $this->audit->record($request, 'homepage_section_create', 'success', null, $this->auth->user()?->id);
-        header('Location: index.php?route=/admin/homepage/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/homepage/edit&id=' . $id
+            . '&autosave_clear=homepage-section-new',
+            true,
+            303
+        );
     }
 
     private function updateHomepageSection(Request $request): void
@@ -453,7 +488,12 @@ final class CorePagesModule implements ModuleInterface
 
         $this->homepageSections->update($id, $data);
         $this->audit->record($request, 'homepage_section_update', 'success', null, $this->auth->user()?->id);
-        header('Location: index.php?route=/admin/homepage/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/homepage/edit&id=' . $id
+            . '&autosave_clear=homepage-section-' . $id,
+            true,
+            303
+        );
     }
 
     private function moveHomepageSection(Request $request): void
@@ -534,6 +574,23 @@ final class CorePagesModule implements ModuleInterface
         }
 
         return [$data, ''];
+    }
+
+    private function renderHomepagePreview(): void
+    {
+        $sections = array_map(
+            fn (HomepageSection $section): array => $section->toThemeData(
+                $this->homepageItems->forSection($section->id)
+            ),
+            $this->homepageSections->all()
+        );
+        $pages = array_map(
+            static fn (Page $page): array => ['title' => $page->title, 'slug' => $page->slug],
+            $this->pages->published()
+        );
+
+        header('Cache-Control: no-store, private');
+        $this->theme->render_homepage($sections, $pages, true);
     }
 
     private function renderHomepageItems(
@@ -1013,7 +1070,7 @@ final class CorePagesModule implements ModuleInterface
         );
         $this->theme->start_admin_content(
             $title,
-            'Podstawowy formularz treści bez zależności od edytora WYSIWYG.',
+            'Treść jest formatowana w kontrolowanym edytorze WYSIWYG i sanitizowana po stronie serwera.',
             [
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
@@ -1037,14 +1094,20 @@ final class CorePagesModule implements ModuleInterface
                     'type' => 'hidden',
                     'value' => (string) $page->id,
                 ]] : []),
+                [
+                    'name' => '_autosave_key',
+                    'label' => 'Autozapis',
+                    'type' => 'hidden',
+                    'value' => 'core-page-' . ($page?->id ?? 'new'),
+                ],
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
                 [
                     'name' => 'content',
                     'label' => 'Treść',
-                    'type' => 'textarea',
-                    'rows' => 12,
+                    'type' => 'richtext',
                     'value' => $page?->content ?? '',
+                    'help' => 'Dozwolone są akapity, nagłówki H2/H3, pogrubienie, kursywa, cytaty i listy.',
                 ],
             ],
             $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
@@ -1071,7 +1134,12 @@ final class CorePagesModule implements ModuleInterface
         $user = $this->auth->user();
         $id = $this->pages->create($title, $slug, $content, $user?->id ?? 0);
         $this->audit->record($request, 'page_create', 'success', null, $user?->id);
-        header('Location: index.php?route=/admin/pages/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/pages/edit&id=' . $id
+            . '&autosave_clear=core-page-new',
+            true,
+            303
+        );
     }
 
     private function update(Request $request): void
@@ -1099,7 +1167,12 @@ final class CorePagesModule implements ModuleInterface
         $this->pages->update($id, $title, $slug, $content);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'page_update', 'success', null, $userId);
-        header('Location: index.php?route=/admin/pages/edit&id=' . $id, true, 303);
+        header(
+            'Location: index.php?route=/admin/pages/edit&id=' . $id
+            . '&autosave_clear=core-page-' . $id,
+            true,
+            303
+        );
     }
 
     private function changePublication(Request $request): void
@@ -1151,7 +1224,7 @@ final class CorePagesModule implements ModuleInterface
     {
         $title = $request->postString('title');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $title);
-        $content = $request->postString('content');
+        $content = (new RichTextSanitizer())->sanitize($request->postString('content'));
 
         if ($title === '' || strlen($title) > 180) {
             return [$title, $slug, $content, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];

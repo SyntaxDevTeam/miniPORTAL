@@ -208,8 +208,9 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
   CTA, wariantem wizualnym i szerokością
 - lokalny edytor WYSIWYG oparty na kontrolowanej allowliście formatowania
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
-- późniejsze rozszerzenie WYSIWYG na zwykłe podstrony
-- opcjonalny autozapis do localStorage / bazy danych
+- WYSIWYG zwykłych podstron korzystający z tej samej sanitizacji
+- podgląd roboczy obejmujący również ukryte sekcje i elementy
+- autozapis formularzy treści do `localStorage`, czyszczony po potwierdzonym zapisie
 
 ### Faza 5: Manager modułów (Lego System)
 
@@ -328,6 +329,13 @@ Stan Kroku 5:
 6. Aktualizacja i odinstalowanie modułu.
 7. Ochrona modułów stałych przed wyłączeniem i usunięciem.
 8. Audit log wszystkich operacji managera.
+
+Stan fundamentu Kroku 6:
+- `ModuleInterface` deklaruje identyfikator, wersję, zależności, ochronę i uprawnienia,
+- `ModuleManifestValidator` sprawdza schemat, SemVer, wymagania runtime i plik SQL,
+- `ModuleRegistry` porządkuje moduły według zależności i wykrywa cykle,
+- `ModuleBootstrapper` ładuje deklaracje z `config/modules.php`,
+- Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów.
 
 ---
 
