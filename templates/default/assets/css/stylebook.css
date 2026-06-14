@@ -373,6 +373,16 @@ code {
   border-radius: 0.6rem;
 }
 
+.rich-content :not(pre) > code,
+.managed-home-content :not(pre) > code {
+  padding: 0.12em 0.38em;
+  color: var(--mp-primary);
+  background: rgba(var(--mp-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.18);
+  border-radius: 0.3rem;
+  font-size: 0.9em;
+}
+
 .rich-content img {
   max-width: 100%;
   height: auto;

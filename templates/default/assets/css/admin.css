@@ -722,6 +722,33 @@ body.admin-stylebook {
   display: none;
 }
 
+.richtext-format-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.richtext-format-row .richtext-mode-switch {
+  margin-bottom: 0;
+}
+
+.richtext-format-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  color: var(--mp-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.richtext-format-label .form-select {
+  min-width: 8rem;
+}
+
 .richtext-surface:focus {
   position: relative;
   z-index: 1;

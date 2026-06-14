@@ -343,3 +343,16 @@ z tych samych ogólnych komponentów Theme.
 
 **Następne kroki:** walidator `info.json`, deklaratywna fabryka modułów i początek
 rejestru `modules_config`.
+
+### Sesja: 2026-06-14 - korekta formatu Markdown strony głównej
+
+**Wykonano:**
+- potwierdzono działanie renderera Markdown dla kodu inline,
+- zastąpiono ukryte pole formatu jawnym wyborem HTML / Markdown w edytorze,
+- dodano wersjonowanie lokalnych assetów CSS i JavaScript przez czas modyfikacji,
+- dodano styl kodu inline dla treści publicznych i test regresji backticków,
+- poprawiono kartę `PunisherX`, która zawierała Markdown zapisany jako HTML,
+- zweryfikowano formularz administratora i wynik strony głównej przez HTTPS.
+
+**Zaktualizowano status:** sekcje i elementy strony głównej poprawnie zachowują
+jawny format źródłowy, a składnia `` `tekst` `` renderuje element `<code>`.

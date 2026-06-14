@@ -242,6 +242,7 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   editor.querySelectorAll("[data-richtext-mode]").forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.richtextMode));
   });
+  formatInput.addEventListener("change", () => setMode(formatInput.value));
   editor.querySelectorAll("[data-richtext-command]").forEach((button) => {
     button.addEventListener("click", () => {
       surface.focus();

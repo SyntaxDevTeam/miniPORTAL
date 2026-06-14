@@ -18,8 +18,8 @@ final class Theme implements ThemeInterface
         echo '<meta name="theme-color" content="#080c12"><title>SyntaxDevTeam - software dla społeczności</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/homepage.css"></head><body>';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
         echo '<nav class="navbar navbar-expand-lg border-bottom fixed-top" data-site-nav aria-label="Główna nawigacja"><div class="container">';
         echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> SyntaxDevTeam</a>';
@@ -93,7 +93,7 @@ final class Theme implements ThemeInterface
         echo '<span>Projektowane modułowo. Rozwijane świadomie.</span></span></div></footer>';
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
-        echo '<script src="templates/default/assets/js/site.js"></script></body></html>';
+        echo '<script src="' . $this->asset('js/site.js') . '"></script></body></html>';
     }
 
     public function start_page(string $title, string $description = ''): void
@@ -107,7 +107,7 @@ final class Theme implements ThemeInterface
         echo '<title>' . $title . '</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
-        echo '<link rel="stylesheet" href="/templates/default/assets/css/stylebook.css">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '</head><body>';
         echo '<nav class="navbar border-bottom"><div class="container">';
         echo '<a class="navbar-brand fw-bold" href="/index.php">&lt;/&gt; miniPORTAL</a>';
@@ -274,11 +274,16 @@ final class Theme implements ThemeInterface
                 $format = (new ContentRenderer())->normalizeFormat((string) ($field['format_value'] ?? 'html'));
                 $safeValue = (new RichTextSanitizer())->sanitize($format === ContentRenderer::HTML ? $rawValue : '');
                 echo '<div class="richtext-editor" data-richtext data-richtext-format="' . $format . '">';
-                echo '<div class="richtext-mode-switch" role="group" aria-label="Format źródłowy">';
+                echo '<div class="richtext-format-row"><div class="richtext-mode-switch" role="group" aria-label="Format źródłowy">';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::HTML ? ' is-active' : '') . '" type="button" ';
                 echo 'data-richtext-mode="html">Edytor wizualny</button>';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::MARKDOWN ? ' is-active' : '') . '" type="button" ';
                 echo 'data-richtext-mode="markdown">Markdown</button></div>';
+                echo '<label class="richtext-format-label">Format zapisu<select class="form-select form-select-sm" ';
+                echo 'name="' . $formatName . '" data-richtext-format-input>';
+                echo '<option value="html"' . ($format === ContentRenderer::HTML ? ' selected' : '') . '>HTML</option>';
+                echo '<option value="markdown"' . ($format === ContentRenderer::MARKDOWN ? ' selected' : '') . '>Markdown</option>';
+                echo '</select></label></div>';
                 echo '<div class="editor-toolbar" data-richtext-toolbar role="toolbar" aria-label="Formatowanie treści"';
                 echo $format === ContentRenderer::MARKDOWN ? ' hidden' : '';
                 echo '>';
@@ -306,7 +311,6 @@ final class Theme implements ThemeInterface
                 echo '</textarea>';
                 echo '<textarea class="visually-hidden" id="' . $name . '" name="' . $name . '" data-richtext-input>';
                 echo $value . '</textarea>';
-                echo '<input type="hidden" name="' . $formatName . '" value="' . $format . '" data-richtext-format-input>';
                 echo '<p class="form-text mb-0 mt-2" data-richtext-hint>';
                 echo $format === ContentRenderer::MARKDOWN
                     ? 'Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy.'
@@ -352,8 +356,8 @@ final class Theme implements ThemeInterface
         echo '<title>' . $this->escape($title) . ' - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
         echo '<a class="visually-hidden-focusable skip-link" href="#admin-main">Przejdź do treści panelu</a>';
         echo '<div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="adminMobileSidebar" ';
@@ -393,7 +397,7 @@ final class Theme implements ThemeInterface
         echo '</main></div></div></div>';
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
-        echo '<script src="templates/default/assets/js/admin.js"></script></body></html>';
+        echo '<script src="' . $this->asset('js/admin.js') . '"></script></body></html>';
     }
 
     public function start_admin_content(
@@ -544,8 +548,8 @@ final class Theme implements ThemeInterface
         echo '<title>Logowanie - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
         echo '<main class="min-vh-100 d-grid align-items-center py-4"><div class="container">';
         echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
@@ -605,8 +609,8 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<title>' . $this->escape((string) $status) . ' - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><main class="container min-vh-100 d-grid align-items-center py-5">';
         echo '<section class="state-card access-state-card">';
         echo '<span class="state-code">' . $this->escape((string) $status) . '</span>';
@@ -628,8 +632,8 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<title>Połączone konta - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/stylebook.css">';
-        echo '<link rel="stylesheet" href="templates/default/assets/css/admin.css">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><main class="container py-5">';
         echo '<a class="admin-brand text-decoration-none mb-4" href="index.php?route=/admin">';
         echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
@@ -955,6 +959,15 @@ final class Theme implements ThemeInterface
     private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function asset(string $relativePath): string
+    {
+        $relativePath = ltrim($relativePath, '/');
+        $file = __DIR__ . '/assets/' . $relativePath;
+        $version = is_file($file) ? (string) filemtime($file) : '1';
+
+        return '/templates/default/assets/' . $relativePath . '?v=' . rawurlencode($version);
     }
 
     private function buttonVariant(string $variant): string

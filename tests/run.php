@@ -123,6 +123,10 @@ MD;
     $result = $renderer->render($markdown, 'markdown');
 
     $assert(str_contains($result, '<h1>Dokument</h1>'));
+    $assert(str_contains(
+        $renderer->render('przykładowy `tekst`', 'markdown'),
+        '<p>przykładowy <code>tekst</code></p>'
+    ));
     $assert(str_contains($result, '<table>'));
     $assert(str_contains($result, 'type="checkbox" disabled checked'));
     $assert(str_contains($result, '&lt;script&gt;alert(1)&lt;/script&gt;'));
