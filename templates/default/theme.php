@@ -73,23 +73,6 @@ final class Theme implements ThemeInterface
             $this->renderHomepageSection($section);
         }
 
-        if ($pages !== []) {
-            echo '<section id="pages" class="home-section"><div class="container"><div class="home-heading reveal">';
-            echo '<p class="eyebrow">Opublikowane strony</p><h2 class="fw-bold">Treści zarządzane przez miniPORTAL.</h2>';
-            echo '<p class="lead text-secondary">Poniższe pozycje pochodzą dynamicznie z modułu core_pages.</p></div><div class="row g-4">';
-            foreach ($pages as $page) {
-                echo '<div class="col-md-6 col-lg-4 reveal"><article class="showcase-card h-100">';
-                echo '<p class="showcase-label">PAGE / ' . $this->escape($page['slug']) . '</p>';
-                echo '<h3 class="h4">' . $this->escape($page['title']) . '</h3>';
-                if ($page['summary'] !== '') {
-                    echo '<p class="text-secondary">' . $this->escape($page['summary']) . '</p>';
-                }
-                echo '<a class="btn btn-outline-light mt-3" href="/p/' . $this->escape(rawurlencode($page['slug'])) . '">Czytaj</a>';
-                echo '</article></div>';
-            }
-            echo '</div></div></section>';
-        }
-
         echo '</main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
         echo '<span>&copy; 2026 ' . $this->escape($this->publicName) . '</span><span class="d-flex flex-wrap gap-3">';
         foreach ($pages as $page) {

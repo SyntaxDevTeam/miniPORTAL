@@ -421,3 +421,13 @@ grafiki zamiast technicznych znaczników parsera.
 
 **Zaktualizowano status:** publiczne widoki korzystają z jednej marki, a
 nadtytuły podstron można zmieniać z panelu administracyjnego.
+
+### Sesja: 2026-06-14 - usunięcie automatycznej listy podstron z homepage
+
+**Wykonano:**
+- usunięto zaszytą w motywie sekcję „Opublikowane strony”,
+- zachowano niezależną listę `/pages`, widoki `/p/...`, linki menu i stopki,
+- zachowano możliwość przypisywania podstron do zarządzanych kart homepage.
+
+**Zaktualizowano status:** strona główna renderuje wyłącznie sekcje utworzone
+w edytorze oraz elementy jawnie z nimi powiązane.
