@@ -11,6 +11,7 @@ use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
+use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
@@ -28,6 +29,7 @@ final class CorePagesModule implements ModuleInterface
         private readonly AdminAccessGate $access,
         private readonly Security $security,
         private readonly AuditLogService $audit,
+        private readonly TemplateCacheInterface $templateCache,
     ) {
     }
 
@@ -1561,6 +1563,9 @@ final class CorePagesModule implements ModuleInterface
         }
 
         $handler();
+        if ($request->method() === 'POST') {
+            $this->templateCache->invalidateTags(['homepage', 'pages']);
+        }
     }
 
     private function adminUser(User $user): array

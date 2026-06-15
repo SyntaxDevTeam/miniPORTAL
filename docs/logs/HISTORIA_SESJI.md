@@ -583,3 +583,24 @@ konfiguracji i udostępnia audyt działań bez ujawniania sekretów.
 
 **Zaktualizowano status:** wszystkie trzy zaplanowane rozszerzenia Kroku 6 są
 wdrożone i mają kontrolę integralności oraz testy negatywne.
+
+### Sesja: 2026-06-15 - eksport audytu, cykl życia kluczy i cache szablonów
+
+**Wykonano:**
+- dodano chroniony eksport bieżącego filtra audit logu do CSV z limitem 10 000 wpisów,
+- eksport ma nagłówki `no-store`, neutralizuje formuły arkusza i sam zapisuje zdarzenie audytu,
+- podpis pakietu zawiera czas `signed_at`, a rejestr kluczy obsługuje stany
+  `active`, `retired`, `revoked`, okres ważności i identyfikator następcy,
+- wygenerowano nowy klucz wydawcy poza repozytorium, wycofano poprzedni i ponownie
+  podpisano moduł edukacyjny aktywnym kluczem,
+- ustawienia systemowe pokazują zredagowany rejestr wydawców i fingerprinty kluczy,
+- dodano `TemplateCacheInterface` i plikową implementację z atomowym zapisem,
+  TTL, statystykami, pełnym czyszczeniem i unieważnianiem tagów,
+- anonimowa strona główna korzysta z cache, a zmiany `core_pages` i motywu
+  unieważniają zależne wpisy,
+- panel systemowy udostępnia audytowane czyszczenie cache,
+- produkcyjny stan chronionego `system_admin` podniesiono do `1.3.0` bez migracji SQL,
+- dodano testy CSV injection, tagowego unieważniania oraz unieważnionego klucza.
+
+**Zaktualizowano status:** trzy kolejne punkty planu są wdrożone; bloker kontraktu
+unieważniania cache został zamknięty.

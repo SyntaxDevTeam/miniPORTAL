@@ -29,11 +29,13 @@ if (preg_match('/^[a-z0-9][a-z0-9._-]{2,80}$/i', $keyId) !== 1) {
     exit(1);
 }
 $files = ModulePackageVerifier::packageFiles($directory, $signatureFile);
+$signedAt = gmdate('Y-m-d\TH:i:s+00:00');
 $payload = ModulePackageVerifier::payload(
     (string) ($manifest['id'] ?? ''),
     (string) ($manifest['version'] ?? ''),
     (string) ($origin['type'] ?? 'unspecified'),
     (string) ($origin['url'] ?? ''),
+    $signedAt,
     $files
 );
 $privateKey = openssl_pkey_get_private((string) file_get_contents($privateKeyFile));
@@ -44,6 +46,7 @@ if ($privateKey === false || !openssl_sign($payload, $signature, $privateKey, OP
 $document = json_encode([
     'algorithm' => 'rsa-sha256',
     'key_id' => $keyId,
+    'signed_at' => $signedAt,
     'files' => $files,
     'signature' => base64_encode($signature),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;

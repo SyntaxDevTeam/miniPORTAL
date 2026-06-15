@@ -173,12 +173,28 @@ Przykładowe podpisanie wydania:
 php bin/sign-module.php \
   install/mod/LearningModule \
   /bezpieczna/sciezka/private.pem \
-  syntaxdevteam-learning-2026
+  syntaxdevteam-learning-2026-rotated
 ```
 
-Podpis obejmuje identyfikator, wersję, źródło pochodzenia i SHA-256 każdego pliku.
+Podpis obejmuje identyfikator, wersję, źródło pochodzenia, `signed_at` i SHA-256
+każdego pliku. Wpis klucza ma stan `active`, `retired` albo `revoked` oraz opcjonalne
+granice `valid_from` i `valid_until`. Rotacja polega na dodaniu nowego aktywnego
+klucza i oznaczeniu poprzedniego jako `retired` z `replacement_key_id`. Stan
+`revoked` natychmiast blokuje wszystkie podpisane nim pakiety.
+
 Po zmianie choćby dokumentacji pakiet trzeba podpisać ponownie. Nieznany klucz
 oznacza pakiet jako niezaufany, a niezgodność pliku lub podpisu blokuje cały pakiet.
+
+## Cache szablonów
+
+```dotenv
+TEMPLATE_CACHE_ENABLED=true
+TEMPLATE_CACHE_TTL=300
+```
+
+Pliki trafiają do `cache/templates`, który musi być zapisywalny dla użytkownika
+serwera WWW. Panel `/admin/settings` pokazuje statystyki i udostępnia audytowane
+czyszczenie. Zmiana treści `core_pages` albo ustawień motywu unieważnia właściwe tagi.
 
 ## Uruchomienie lokalne
 

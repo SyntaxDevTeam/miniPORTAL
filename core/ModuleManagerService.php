@@ -257,7 +257,7 @@ final class ModuleManagerService
         if (!$this->isLoadable($manifest)) {
             if (
                 !in_array(basename($manifest->directory), $this->registeredDirectories, true)
-                && $manifest->signatureStatus !== 'verified'
+                && !in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
             ) {
                 throw new RuntimeException(
                     "Zewnętrzny moduł {$manifest->id} wymaga podpisu zweryfikowanego zaufanym kluczem."
@@ -275,6 +275,7 @@ final class ModuleManagerService
             return true;
         }
 
-        return $manifest->factoryFile !== null && $manifest->signatureStatus === 'verified';
+        return $manifest->factoryFile !== null
+            && in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true);
     }
 }

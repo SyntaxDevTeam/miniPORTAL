@@ -65,6 +65,31 @@ final class SystemLogRepository
     }
 
     /**
+     * @param array{event_type?: string, result?: string, date_from?: string, date_to?: string} $filters
+     * @return list<array<string, scalar|null>>
+     */
+    public function export(array $filters = [], int $limit = 10000): array
+    {
+        $limit = max(1, min(10000, $limit));
+        [$where, $parameters] = $this->where($filters);
+        $parameters[':limit'] = $limit;
+        $statement = $this->database->query(
+            'SELECT auth_events.id, auth_events.event_type, auth_events.result, '
+            . 'auth_events.provider, auth_events.ip_hash, auth_events.user_agent, '
+            . 'auth_events.created_at, users.display_name '
+            . 'FROM auth_events LEFT JOIN users ON users.id = auth_events.user_id '
+            . $where . ' '
+            . 'ORDER BY auth_events.id DESC LIMIT :limit',
+            $parameters
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można wyeksportować dziennika zdarzeń.');
+        }
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * @return array{event_types: list<string>, results: list<string>}
      */
     public function filterOptions(): array

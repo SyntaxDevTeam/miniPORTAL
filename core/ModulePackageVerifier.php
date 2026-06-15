@@ -10,7 +10,14 @@ use RuntimeException;
 final class ModulePackageVerifier
 {
     /**
-     * @param array<string, array{name: string, public_key: string}> $trustedPublishers
+     * @param array<string, array{
+     *     name: string,
+     *     public_key: string,
+     *     status?: string,
+     *     valid_from?: string,
+     *     valid_until?: ?string,
+     *     replacement_key_id?: ?string
+     * }> $trustedPublishers
      */
     public function __construct(
         private readonly array $trustedPublishers = [],
@@ -46,6 +53,7 @@ final class ModulePackageVerifier
         }
         $algorithm = (string) ($data['algorithm'] ?? '');
         $keyId = (string) ($data['key_id'] ?? '');
+        $signedAt = (string) ($data['signed_at'] ?? '');
         $signature = (string) ($data['signature'] ?? '');
         $files = $data['files'] ?? null;
         if ($algorithm !== 'rsa-sha256' || preg_match('/^[a-z0-9][a-z0-9._-]{2,80}$/i', $keyId) !== 1) {
@@ -53,6 +61,10 @@ final class ModulePackageVerifier
         }
         if (!is_array($files) || $signature === '') {
             throw new RuntimeException('Plik podpisu nie zawiera mapy plików lub podpisu.');
+        }
+        $signedAtDate = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $signedAt);
+        if ($signedAtDate === false || $signedAtDate->format(\DateTimeInterface::ATOM) !== $signedAt) {
+            throw new RuntimeException('Plik podpisu nie zawiera prawidłowego czasu signed_at.');
         }
 
         $actualFiles = self::packageFiles($directory, $signatureFile);
@@ -68,7 +80,7 @@ final class ModulePackageVerifier
         if (!is_string($decodedSignature)) {
             throw new RuntimeException('Podpis pakietu nie jest poprawnym Base64.');
         }
-        $payload = self::payload($moduleId, $version, $originType, $originUrl, $actualFiles);
+        $payload = self::payload($moduleId, $version, $originType, $originUrl, $signedAt, $actualFiles);
         $verified = openssl_verify(
             $payload,
             $decodedSignature,
@@ -79,7 +91,24 @@ final class ModulePackageVerifier
             throw new RuntimeException('Podpis kryptograficzny pakietu jest nieprawidłowy.');
         }
 
-        return ['key_id' => $keyId, 'status' => 'verified'];
+        $status = (string) ($publisher['status'] ?? 'active');
+        if ($status === 'revoked') {
+            return ['key_id' => $keyId, 'status' => 'revoked'];
+        }
+        if (!in_array($status, ['active', 'retired'], true)) {
+            throw new RuntimeException("Klucz wydawcy {$keyId} ma nieprawidłowy stan.");
+        }
+
+        $validFrom = $this->publisherDate($publisher['valid_from'] ?? null, 'valid_from', $keyId);
+        $validUntil = $this->publisherDate($publisher['valid_until'] ?? null, 'valid_until', $keyId);
+        if ($validFrom !== null && $signedAtDate < $validFrom) {
+            return ['key_id' => $keyId, 'status' => 'outside_validity'];
+        }
+        if ($validUntil !== null && $signedAtDate > $validUntil) {
+            return ['key_id' => $keyId, 'status' => 'outside_validity'];
+        }
+
+        return ['key_id' => $keyId, 'status' => $status === 'retired' ? 'verified_retired' : 'verified'];
     }
 
     /**
@@ -127,13 +156,31 @@ final class ModulePackageVerifier
         string $version,
         string $originType,
         string $originUrl,
+        string $signedAt,
         array $files,
     ): string {
         return json_encode([
             'module_id' => $moduleId,
             'version' => $version,
             'origin' => ['type' => $originType, 'url' => $originUrl],
+            'signed_at' => $signedAt,
             'files' => $files,
         ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    private function publisherDate(mixed $value, string $field, string $keyId): ?\DateTimeImmutable
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (!is_string($value)) {
+            throw new RuntimeException("Pole {$field} klucza {$keyId} jest nieprawidłowe.");
+        }
+        $date = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $value);
+        if ($date === false || $date->format(\DateTimeInterface::ATOM) !== $value) {
+            throw new RuntimeException("Pole {$field} klucza {$keyId} musi być datą ISO 8601.");
+        }
+
+        return $date;
     }
 }

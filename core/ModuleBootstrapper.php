@@ -101,7 +101,7 @@ final class ModuleBootstrapper
             if (
                 $manifest === null
                 || $manifest->factoryFile === null
-                || $manifest->signatureStatus !== 'verified'
+                || !in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
             ) {
                 continue;
             }

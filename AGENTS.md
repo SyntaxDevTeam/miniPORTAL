@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-15 - ustawienia systemowe, audit log i ochrona sekretów.
+> **Ostatnia aktualizacja:** 2026-06-15 - eksport audytu, cykl życia kluczy i cache szablonów.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -104,6 +104,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Bootstrap pierwszego administratora |
 | [x] | Audit log logowań i operacji administracyjnych |
 | [x] | Chroniony widok audit logu z paginacją |
+| [x] | Kontrolowany eksport wyfiltrowanego audit logu do CSV |
 | [x] | Chronione ustawienia motywu i zredagowana diagnostyka konfiguracji |
 | [x] | Sesyjny limiter rozpoczęć i callbacków OAuth |
 | [x] | Testy CSRF, `state`, replay, ACL i blokady konta |
@@ -142,12 +143,15 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Podgląd historii migracji i kontrola aktualnego SHA-256 |
 | [x] | Filtry audit logu według zdarzenia, wyniku i zakresu dat |
 | [x] | Pochodzenie i podpisy RSA-SHA256 zewnętrznych pakietów |
+| [x] | Rotacja, okres ważności i unieważnianie kluczy wydawców |
+| [x] | Tagowy kontrakt unieważniania cache szablonów |
 
 ## Następne kroki
 
-1. Dodać eksport wyfiltrowanego audit logu do kontrolowanego CSV.
-2. Dodać rotację i unieważnianie kluczy zaufanych wydawców modułów.
-3. Zaprojektować kontrakt unieważniania cache szablonów.
+1. Zadeklarować cały projekt jako wersja docelowa PHP 8.4 lub wyższy bez konieczności wymogu PHP 8.5
+2. Rozszerzyć cache na publiczne podstrony i artykuły z granularnymi tagami.
+3. Dodać kontrolowany import archiwum modułu do katalogu kwarantanny.
+4. Dodać politykę retencji i archiwizacji audit logu.
 
 ## Uwagi / blokery
 
@@ -155,7 +159,6 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 | 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
 
 ### Uwagi architektoniczne
@@ -218,6 +221,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-15 | Audit log nie zapisuje rutynowych `admin_access/allowed`; zachowuje odmowy dostępu i operacje zmieniające stan, a historyczny szum jest ukryty bez usuwania rekordów. |
 | 2026-06-15 | Manager pokazuje historię migracji wraz z kontrolą aktualnego SHA-256, a audit log obsługuje filtry zdarzenia, wyniku i zakresu dat. |
 | 2026-06-15 | Zewnętrzna fabryka wymaga jawnego pochodzenia i zweryfikowanego podpisu RSA-SHA256 obejmującego wszystkie pliki pakietu; prywatne klucze pozostają poza repozytorium. |
+| 2026-06-15 | Audit log eksportuje bieżący filtr do CSV z limitem 10 000 rekordów, ACL, audytem operacji i neutralizacją formuł arkusza. |
+| 2026-06-15 | Podpis pakietu zawiera `signed_at`; klucze wydawców mają stany `active`, `retired`, `revoked`, okres ważności i opcjonalnego następcę. |
+| 2026-06-15 | `TemplateCacheInterface` definiuje zapis, tagowe unieważnianie, czyszczenie i statystyki; anonimowa strona główna korzysta z `FileTemplateCache`. |
 
 ## Historia sesji
 

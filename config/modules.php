@@ -53,7 +53,8 @@ return [
             $services['auth'],
             $services['access'],
             $services['security'],
-            $services['audit']
+            $services['audit'],
+            $services['template_cache']
         ),
     ],
     [
@@ -85,6 +86,8 @@ return [
             $services['config'],
             $services['diagnostics'],
             $services['available_themes'],
+            $services['template_cache'],
+            $services['trusted_module_publishers'],
         ),
     ],
 ];

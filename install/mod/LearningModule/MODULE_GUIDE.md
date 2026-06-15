@@ -95,7 +95,10 @@ Klucz publiczny wydawcy musi być jawnie dodany do `config/module_publishers.php
 Pakiet podpisuje się poza serwerem produkcyjnym:
 
 ```bash
-php bin/sign-module.php install/mod/LearningModule /bezpieczna/sciezka/private.pem syntaxdevteam-learning-2026
+php bin/sign-module.php install/mod/LearningModule /bezpieczna/sciezka/private.pem syntaxdevteam-learning-2026-rotated
 ```
 
 Prywatnego klucza nie wolno umieszczać w module, repozytorium ani katalogu WWW.
+Dokument podpisu zawiera `signed_at`. Klucz publiczny ma stan `active`, `retired`
+albo `revoked`; klucz unieważniony blokuje pakiet, a wycofany służy tylko do
+weryfikacji wydań podpisanych w jego okresie ważności.

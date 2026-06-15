@@ -62,6 +62,10 @@ return [
         'name' => (string) $env('SESSION_NAME', 'MINIPORTALSESSID'),
         'same_site' => (string) $env('SESSION_SAME_SITE', 'Lax'),
     ],
+    'cache' => [
+        'enabled' => $envBool('TEMPLATE_CACHE_ENABLED', true),
+        'ttl' => $envInt('TEMPLATE_CACHE_TTL', 300, 1),
+    ],
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
         'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),

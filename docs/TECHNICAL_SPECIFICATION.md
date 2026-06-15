@@ -271,6 +271,8 @@ Stan managera:
 - `/admin/modules` wymaga ACL, CSRF i zapisuje wynik operacji do audit logu.
 - zewnętrzny pakiet z własną fabryką wymaga jawnego `origin`, mapy SHA-256 wszystkich
   plików i podpisu RSA-SHA256 zweryfikowanego kluczem z lokalnego rejestru wydawców,
+- podpis zawiera `signed_at`; rejestr rozróżnia klucze aktywne, wycofane po rotacji
+  i unieważnione, a okres ważności jest sprawdzany względem czasu podpisania,
 - klucz prywatny wydawcy pozostaje poza repozytorium i serwerem WWW; zmiana dowolnego
   pliku unieważnia pakiet przed instalacją albo uruchomieniem.
 
@@ -290,14 +292,18 @@ Stan managera:
 
 ### 5.2 Wydajność i optymalizacja
 
-- cache szablonów przez output buffering (ob_start(), ob_get_contents())
-- zapis statycznych fragmentów strony do katalogu cache/
+- cache szablonów przez output buffering i `TemplateCacheInterface`,
+- zapis statycznych fragmentów do `cache/templates` z atomowym zapisem,
+- tagowe unieważnianie zależności `homepage`, `pages` i `theme`,
+- cache wyłącznie dla odpowiedzi niezależnych od sesji; panel i widok administratora
+  nie mogą korzystać ze wspólnego wpisu publicznego,
 - ograniczenie liczby zapytań do bazy danych
 - indeksowanie kolumn takich jak slug, category_id, created_at
 - FULLTEXT dla wyszukiwarki, jeśli zostanie zaimplementowana
 
-Cache pozostaje wymaganiem zaplanowanym. Nie należy wdrażać go przed ustabilizowaniem
-kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
+Pierwszym konsumentem kontraktu jest anonimowa strona główna. Operacje zapisu
+`core_pages` unieważniają treść publiczną, zmiana motywu unieważnia tag `theme`,
+a panel systemowy pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 
 ### 5.3 Propozycje autorskie do przyszłego rozwoju
 
@@ -397,7 +403,8 @@ Stan fundamentu Kroku 6:
 - Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
 - `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
-  migracji, aktualizacji, aktywacji i odinstalowania,
+  migracji, aktualizacji, aktywacji i odinstalowania, eksport audytu oraz diagnostykę
+  cache i kluczy wydawców,
 - `install/mod/LearningModule` dokumentuje pełny kontrakt modułu, fabrykę, CRUD przez
   `CrudApp`, ACL, CSRF, migrację i oba warianty odinstalowania,
 - `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;

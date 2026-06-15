@@ -13,6 +13,8 @@ final class Bootstrap
 
     private string $databaseStatus = 'Nie skonfigurowano';
 
+    private TemplateCacheInterface $templateCache;
+
     private function __construct(
         private array $config,
         private readonly ThemeInterface $theme,
@@ -53,6 +55,12 @@ final class Bootstrap
         );
         $application->database = $database;
         $application->databaseStatus = $databaseStatus;
+        $cacheConfig = is_array($config['cache'] ?? null) ? $config['cache'] : [];
+        $application->templateCache = new FileTemplateCache(
+            dirname(__DIR__) . '/cache/templates',
+            ($cacheConfig['enabled'] ?? true) === true,
+            (int) ($cacheConfig['ttl'] ?? 300),
+        );
 
         return $application;
     }
@@ -77,6 +85,11 @@ final class Bootstrap
         return $this->security;
     }
 
+    public function templateCache(): TemplateCacheInterface
+    {
+        return $this->templateCache;
+    }
+
     public function config(): array
     {
         return $this->config;
@@ -98,6 +111,7 @@ final class Bootstrap
             ['Autoloader', Autoloader::class, 'Gotowy'],
             ['Silnik startowy', self::class, 'Gotowy'],
             ['ThemeEngine', ThemeEngine::class, 'Gotowy'],
+            ['Cache szablonów', FileTemplateCache::class, $this->templateCache->stats()['enabled'] ? 'Gotowy' : 'Wyłączony'],
             ['Security', Security::class, 'Gotowy'],
             ['Request', Request::class, 'Gotowy'],
             ['Router', Router::class, 'Gotowy'],

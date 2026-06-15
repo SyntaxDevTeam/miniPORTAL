@@ -38,6 +38,7 @@ $config = require __DIR__ . '/config/config.php';
 $application = Bootstrap::boot($config);
 $theme = $application->theme();
 $security = $application->security();
+$templateCache = $application->templateCache();
 $router = new Router();
 $adminMenu = new AdminMenuRegistry();
 $modules = new ModuleRegistry();
@@ -138,6 +139,8 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'config' => $application->config(),
     'diagnostics' => $application->diagnostics(),
     'available_themes' => $application->availableThemes(),
+    'template_cache' => $templateCache,
+    'trusted_module_publishers' => $trustedModulePublishers,
 ], $modules);
 $modules->boot($adminMenu, $router);
 
@@ -161,35 +164,48 @@ $router->get('/', static function () use (
     $homepageSectionRepository,
     $homepageSectionItemRepository,
     $theme,
-    $auth
+    $auth,
+    $templateCache
 ): void {
-    $pages = [];
-    $sections = [];
+    $renderer = static function () use (
+        $pageRepository,
+        $homepageSectionRepository,
+        $homepageSectionItemRepository,
+        $theme,
+        $auth
+    ): string {
+        $pages = [];
+        $sections = [];
+        if ($pageRepository !== null) {
+            $pages = array_map(
+                static fn ($page): array => [
+                    'title' => $page->title,
+                    'slug' => $page->slug,
+                    'summary' => $page->summary,
+                    'type' => $page->pageType,
+                    'navigation_area' => $page->navigationArea,
+                    'navigation_label' => $page->navigationLabel,
+                ],
+                $pageRepository->published()
+            );
+        }
+        if ($homepageSectionRepository !== null) {
+            $sections = array_map(
+                static fn ($section): array => $section->toThemeData(
+                    $homepageSectionItemRepository?->forSection($section->id, true) ?? []
+                ),
+                $homepageSectionRepository->visible()
+            );
+        }
 
-    if ($pageRepository !== null) {
-        $pages = array_map(
-            static fn ($page): array => [
-                'title' => $page->title,
-                'slug' => $page->slug,
-                'summary' => $page->summary,
-                'type' => $page->pageType,
-                'navigation_area' => $page->navigationArea,
-                'navigation_label' => $page->navigationLabel,
-            ],
-            $pageRepository->published()
-        );
-    }
+        ob_start();
+        $theme->render_homepage($sections, $pages, $auth->user() !== null);
+        return (string) ob_get_clean();
+    };
 
-    if ($homepageSectionRepository !== null) {
-        $sections = array_map(
-            static fn ($section): array => $section->toThemeData(
-                $homepageSectionItemRepository?->forSection($section->id, true) ?? []
-            ),
-            $homepageSectionRepository->visible()
-        );
-    }
-
-    $theme->render_homepage($sections, $pages, $auth->user() !== null);
+    echo $auth->user() === null
+        ? $templateCache->remember('public', 'homepage', $renderer, ['homepage', 'pages', 'theme'])
+        : $renderer();
 });
 
 $router->get('/security-demo', static function () use ($security, $theme, $renderStart, $renderEnd): void {

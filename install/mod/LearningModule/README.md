@@ -53,3 +53,7 @@ odinstalowany.
 Po każdej zmianie zawartości pakiet trzeba ponownie podpisać prywatnym kluczem
 wydawcy. Core przechowuje wyłącznie klucz publiczny i nie może samodzielnie tworzyć
 ważnych wydań.
+
+Podpis zawiera czas `signed_at`, dzięki czemu rotacja klucza zachowuje możliwość
+weryfikacji starszych wydań. Klucz oznaczony jako `revoked` blokuje pakiet niezależnie
+od poprawności kryptograficznej podpisu.

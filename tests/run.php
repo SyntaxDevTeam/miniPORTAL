@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
+use SyntaxDevTeam\Cms\Core\FileTemplateCache;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
@@ -18,6 +19,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
+use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
 
@@ -54,6 +56,48 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $assert($request->queryInt('id') === 12);
     $assert($request->postBool('confirmed'));
     $assert($request->postStringList('roles') === ['editor', 'user']);
+});
+
+$test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
+    $stream = fopen('php://temp', 'w+b');
+    (new AuditCsvExporter())->write($stream, [[
+        'created_at' => '2026-06-15 12:00:00',
+        'display_name' => '=HYPERLINK("https://example.test")',
+        'event_type' => 'module_install',
+        'result' => 'success',
+        'provider' => "module\r\nname",
+        'ip_hash' => str_repeat('a', 64),
+        'user_agent' => '@command',
+    ]]);
+    rewind($stream);
+    $csv = (string) stream_get_contents($stream);
+    fclose($stream);
+
+    $assert(str_starts_with($csv, "\xEF\xBB\xBF"));
+    $assert(str_contains($csv, "'=HYPERLINK"));
+    $assert(str_contains($csv, "'@command"));
+    $assert(!str_contains($csv, "module\r\nname"));
+});
+
+$test('Template cache remembers output and invalidates matching tags', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-template-cache-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $cache = new FileTemplateCache($directory, true, 60);
+    $renders = 0;
+    $renderer = static function () use (&$renders): string {
+        $renders++;
+        return 'render-' . $renders;
+    };
+
+    $assert($cache->remember('public', 'homepage', $renderer, ['homepage', 'theme']) === 'render-1');
+    $assert($cache->remember('public', 'homepage', $renderer, ['homepage', 'theme']) === 'render-1');
+    $assert($renders === 1);
+    $assert($cache->invalidateTags(['articles']) === 0);
+    $assert($cache->invalidateTags(['homepage']) === 1);
+    $assert($cache->remember('public', 'homepage', $renderer, ['homepage']) === 'render-2');
+    $assert($cache->stats()['entries'] === 1);
+    $cache->clear();
+    @rmdir($directory);
 });
 
 $test('Unknown identity becomes a pending account', static function () use ($assert): void {
@@ -252,7 +296,18 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($learning->uninstallFile === 'uninstall.sql');
     $assert($learning->originType === 'repository');
     $assert($learning->signatureStatus === 'verified');
+    $assert($learning->signatureKeyId === 'syntaxdevteam-learning-2026-rotated');
     $assert(is_callable(require $learning->directory . '/' . $learning->factoryFile));
+});
+
+$test('Revoked publisher key blocks an otherwise valid module signature', static function () use ($assert): void {
+    $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
+    $keyId = 'syntaxdevteam-learning-2026-rotated';
+    $publishers[$keyId]['status'] = 'revoked';
+    $manifest = (new ModuleManifestValidator('0.1.0', $publishers))
+        ->validate(dirname(__DIR__) . '/install/mod/LearningModule');
+
+    $assert($manifest->signatureStatus === 'revoked');
 });
 
 $test('Signed module rejects modified package content', static function () use ($assert): void {

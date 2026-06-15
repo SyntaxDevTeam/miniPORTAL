@@ -11,6 +11,7 @@ use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
+use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
@@ -30,6 +31,8 @@ final class SystemAdminModule implements ModuleInterface
         private readonly array $config,
         private readonly array $diagnostics,
         private readonly array $availableThemes,
+        private readonly TemplateCacheInterface $templateCache,
+        private readonly array $trustedModulePublishers,
     ) {
     }
 
@@ -40,7 +43,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.2.0';
+        return '1.3.0';
     }
 
     public function dependencies(): array
@@ -120,10 +123,20 @@ final class SystemAdminModule implements ModuleInterface
             'settings.manage',
             fn () => $this->saveSettings($request)
         ));
+        $router->post('/admin/cache/clear', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->clearTemplateCache($request)
+        ));
         $router->get('/admin/logs', fn (Request $request) => $this->guard(
             $request,
             'logs.view',
             fn () => $this->renderLogs($request)
+        ));
+        $router->get('/admin/logs/export', fn (Request $request) => $this->guard(
+            $request,
+            'logs.view',
+            fn () => $this->exportLogs($request)
         ));
     }
 
@@ -504,7 +517,10 @@ final class SystemAdminModule implements ModuleInterface
             : $manifest->originType . ($manifest->originUrl !== '' ? ': ' . $manifest->originUrl : '');
         $signature = match ($manifest->signatureStatus) {
             'verified' => 'podpis zweryfikowany (' . $manifest->signatureKeyId . ')',
+            'verified_retired' => 'podpis poprawny, klucz wycofany po rotacji (' . $manifest->signatureKeyId . ')',
             'untrusted' => 'klucz niezaufany (' . $manifest->signatureKeyId . ')',
+            'revoked' => 'klucz unieważniony (' . $manifest->signatureKeyId . ')',
+            'outside_validity' => 'podpis poza okresem ważności klucza (' . $manifest->signatureKeyId . ')',
             default => 'brak podpisu',
         };
 
@@ -614,6 +630,44 @@ final class SystemAdminModule implements ModuleInterface
         $this->theme->start_admin_panel('Diagnostyka Core', count($this->diagnostics) . ' kontroli');
         $this->theme->render_admin_table(['Element', 'Implementacja', 'Stan'], $this->diagnostics);
         $this->theme->end_admin_panel();
+
+        $cache = $this->templateCache->stats();
+        $this->theme->start_admin_panel('Cache szablonów', $cache['enabled'] ? 'Aktywny' : 'Wyłączony');
+        $this->theme->render_admin_table(
+            ['Parametr', 'Wartość'],
+            [
+                ['Liczba wpisów', (string) $cache['entries']],
+                ['Rozmiar', (string) $cache['bytes'] . ' B'],
+                ['Katalog', $cache['directory']],
+            ]
+        );
+        $this->theme->render_form(
+            'index.php?route=/admin/cache/clear',
+            [],
+            'Wyczyść cache szablonów',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $publisherRows = [];
+        foreach ($this->trustedModulePublishers as $keyId => $publisher) {
+            $publicKey = (string) ($publisher['public_key'] ?? '');
+            $publisherRows[] = [
+                (string) $keyId,
+                (string) ($publisher['name'] ?? 'Nieznany wydawca'),
+                (string) ($publisher['status'] ?? 'active'),
+                (string) ($publisher['valid_from'] ?? 'Bez ograniczenia'),
+                (string) ($publisher['valid_until'] ?? 'Bezterminowo'),
+                (string) ($publisher['replacement_key_id'] ?? '—'),
+                $publicKey !== '' ? substr(hash('sha256', $publicKey), 0, 16) : 'Brak',
+            ];
+        }
+        $this->theme->start_admin_panel('Zaufani wydawcy modułów', count($publisherRows) . ' klucze');
+        $this->theme->render_admin_table(
+            ['Key ID', 'Wydawca', 'Stan', 'Ważny od', 'Ważny do', 'Następca', 'Fingerprint'],
+            $publisherRows
+        );
+        $this->theme->end_admin_panel();
         $this->endPage();
     }
 
@@ -640,12 +694,31 @@ final class SystemAdminModule implements ModuleInterface
                 $this->availableThemes,
                 $actor->id
             );
+            $this->templateCache->invalidateTags(['theme']);
             $this->audit->record($request, 'system_settings_update', 'success', null, $actor->id);
             header('Location: index.php?route=/admin/settings', true, 303);
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'system_settings_update', 'failed', null, $actor->id);
             $this->renderSettings($exception->getMessage(), 'danger');
         }
+    }
+
+    private function clearTemplateCache(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'template_cache_clear', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderSettings('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        $removed = $this->templateCache->clear();
+        $this->audit->record($request, 'template_cache_clear', 'success', (string) $removed, $actor->id);
+        $this->renderSettings("Usunięto {$removed} plików cache.", 'success');
     }
 
     private function renderLogs(Request $request): void
@@ -664,12 +737,7 @@ final class SystemAdminModule implements ModuleInterface
         $page = max(1, $request->queryInt('page', 1) ?? 1);
         $perPage = 50;
         $options = $this->logs->filterOptions();
-        $filters = [
-            'event_type' => $this->allowedFilter($request->queryString('event_type'), $options['event_types']),
-            'result' => $this->allowedFilter($request->queryString('result'), $options['results']),
-            'date_from' => $this->dateFilter($request->queryString('date_from')),
-            'date_to' => $this->dateFilter($request->queryString('date_to')),
-        ];
+        $filters = $this->logFilters($request, $options);
         $total = $this->logs->count($filters);
         $hiddenRoutineAccess = $this->logs->hiddenRoutineAccessCount();
         $pages = max(1, (int) ceil($total / $perPage));
@@ -726,11 +794,13 @@ final class SystemAdminModule implements ModuleInterface
 
         $query = http_build_query(array_filter($filters, static fn (string $value): bool => $value !== ''));
         $pageBase = 'index.php?route=/admin/logs' . ($query !== '' ? '&' . $query : '');
+        $exportUrl = 'index.php?route=/admin/logs/export' . ($query !== '' ? '&' . $query : '');
         $this->theme->start_admin_panel('Audit log', "{$total} zdarzeń, strona {$page}/{$pages}");
         $this->theme->render_alert(
             "Rutynowe poprawne otwarcia panelu nie są już rejestrowane. Ukryto {$hiddenRoutineAccess} historycznych wpisów admin_access/allowed.",
             'info'
         );
+        $this->theme->render_button('Eksportuj bieżący filtr do CSV', $exportUrl, 'outline-light');
         $this->theme->render_admin_table(
             ['Data', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Kontekst', 'Skrót IP'],
             $rows
@@ -743,6 +813,34 @@ final class SystemAdminModule implements ModuleInterface
         }
         $this->theme->end_admin_panel();
         $this->endPage();
+    }
+
+    private function exportLogs(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->logs === null) {
+            http_response_code(503);
+            return;
+        }
+
+        try {
+            $filters = $this->logFilters($request, $this->logs->filterOptions());
+            $events = $this->logs->export($filters);
+            $this->audit->record($request, 'audit_export', 'success', 'csv', $actor->id);
+
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="miniportal-audit-' . gmdate('Ymd-His') . '.csv"');
+            header('Cache-Control: no-store, private');
+            header('X-Content-Type-Options: nosniff');
+
+            $stream = fopen('php://output', 'wb');
+            (new AuditCsvExporter())->write($stream, $events);
+            fclose($stream);
+        } catch (\Throwable) {
+            $this->audit->record($request, 'audit_export', 'failed', 'csv', $actor->id);
+            http_response_code(500);
+            echo 'Nie można przygotować eksportu dziennika.';
+        }
     }
 
     /**
@@ -803,6 +901,20 @@ final class SystemAdminModule implements ModuleInterface
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
 
         return $date !== false && $date->format('Y-m-d') === $value ? $value : '';
+    }
+
+    /**
+     * @param array{event_types: list<string>, results: list<string>} $options
+     * @return array{event_type: string, result: string, date_from: string, date_to: string}
+     */
+    private function logFilters(Request $request, array $options): array
+    {
+        return [
+            'event_type' => $this->allowedFilter($request->queryString('event_type'), $options['event_types']),
+            'result' => $this->allowedFilter($request->queryString('result'), $options['results']),
+            'date_from' => $this->dateFilter($request->queryString('date_from')),
+            'date_to' => $this->dateFilter($request->queryString('date_to')),
+        ];
     }
 
     private function mask(string $value): string

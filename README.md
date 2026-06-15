@@ -17,7 +17,11 @@ php bin/migrate-core.php
 ```
 
 Zewnętrzne moduły z własną fabryką wymagają jawnego pochodzenia oraz podpisu
-RSA-SHA256 zweryfikowanego kluczem publicznym z `config/module_publishers.php`.
+RSA-SHA256 zweryfikowanego aktywnym albo poprawnie wycofanym kluczem publicznym
+z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
+
+Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
+Zmiany stron, sekcji i motywu automatycznie unieważniają zależne wpisy.
 
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez
