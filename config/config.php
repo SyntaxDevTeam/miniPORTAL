@@ -45,6 +45,10 @@ $databaseName = (string) $env('DB_NAME', '');
 $databaseUser = (string) $env('DB_USER', '');
 
 return [
+    'meta' => [
+        'environment_file' => $environmentFile,
+        'environment_readable' => is_readable($environmentFile),
+    ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
         'version' => '0.1.0',

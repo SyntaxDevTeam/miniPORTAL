@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.1.0';
+        return '1.2.0';
     }
 
     public function dependencies(): array
@@ -51,7 +51,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function requiredPermissions(): array
     {
-        return ['users.view', 'users.manage', 'roles.view', 'roles.manage'];
+        return ['users.view', 'users.manage', 'roles.view', 'roles.manage', 'logs.view'];
     }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void

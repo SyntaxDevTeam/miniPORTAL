@@ -145,6 +145,23 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `DB_CHARSET`, `DB_COLLATION` | Kodowanie i porównywanie tekstu |
 | `DB_LOGGING` | Rejestrowanie zapytań przez Medoo |
 
+## Ustawienia w panelu
+
+Chroniona trasa `/admin/settings` przechowuje w tabeli `system_settings` wyłącznie
+bezpieczne nadpisania:
+
+- aktywny motyw,
+- publiczną nazwę marki,
+- domyślny nadtytuł.
+
+Wartości z bazy mają pierwszeństwo przed `APP_THEME`, `SITE_NAME` i `SITE_EYEBROW`.
+Jeżeli zapisany motyw przestanie istnieć, system wraca do motywu z pliku
+środowiskowego albo do `default`.
+
+Hasła bazy, sekrety OAuth, klucz `AUTH_AUDIT_HASH_KEY` i parametry sesji nie są
+edytowalne w przeglądarce. Panel pokazuje jedynie ich zredagowany stan. Zmiany tych
+wartości nadal wykonuje się w `/etc/miniportal/miniportal.env`.
+
 ## Uruchomienie lokalne
 
 Możesz wskazać dowolny plik tylko dla danego procesu:

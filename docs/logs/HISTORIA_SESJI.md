@@ -538,3 +538,20 @@ kont oraz zarządzanie rolami i uprawnieniami niezależnie od OAuth.
 
 **Zaktualizowano status:** edytor ról nie wymaga klawisza Ctrl i pozostaje czytelny
 przy zwiększaniu liczby modułów oraz uprawnień.
+
+### Sesja: 2026-06-15 - ustawienia systemowe i dziennik zdarzeń
+
+**Wykonano:**
+- rozszerzono chroniony `SystemAdminModule` do wersji `1.1.0`,
+- dodano `/admin/settings` z wyborem motywu, nazwą marki i domyślnym nadtytułem,
+- bezpieczne nadpisania zapisuje `SystemSettingsRepository` przez `CrudApp`,
+- `Bootstrap` stosuje ustawienia przed załadowaniem Theme i ma fallback brakującego motywu,
+- dodano zredagowaną diagnostykę pliku środowiskowego, bazy, sesji, OAuth i HMAC,
+- sekrety są prezentowane wyłącznie jako „Ustawiono” albo „Brak”,
+- dodano `/admin/logs` z paginowanym odczytem `auth_events`,
+- dodano uprawnienie `logs.view` i zaktualizowano CoreAuth do `1.2.0`,
+- wykonano migracje produkcyjne `system_settings` i `logs.view`,
+- zweryfikowano repozytoria, ACL tras oraz start strony publicznej.
+
+**Zaktualizowano status:** chroniony moduł systemowy zarządza bezpieczną częścią
+konfiguracji i udostępnia audyt działań bez ujawniania sekretów.

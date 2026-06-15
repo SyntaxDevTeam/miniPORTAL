@@ -200,7 +200,7 @@ Stan implementacji:
 - profil pozwala łączyć i odłączać providerów bez automatycznego scalania po e-mailu,
 - `AuditLogService` zapisuje logowania, wylogowania, callbacki, ACL i zmiany tożsamości,
 - `/admin/users` pokazuje lokalne konta, role, statusy i podłączonych providerów,
-- `users.manage` pozwala atomowo zmienić status i jedną rolę startową; operacja
+- `users.manage` pozwala atomowo zmienić status i wiele ról; operacja
   chroni własne konto oraz ostatniego aktywnego administratora,
 - sesyjny limiter ogranicza rozpoczęcia i callbacki osobno dla każdego providera,
 - repozytorium pamięciowe służy wyłącznie do testów po ustawieniu `AUTH_DEMO_ENABLED=1`.
@@ -227,7 +227,10 @@ Stan implementacji:
   zaznaczać pojedyncze prawa lub całą grupę bez używania klawisza Ctrl,
 - role systemowe zachowują stałe identyfikatory, rola administratora zawsze otrzymuje
   pełny aktualny zestaw uprawnień, a używane role nie mogą zostać usunięte,
-- osobny widok przeglądania audit logu pozostaje do wdrożenia.
+- `/admin/settings` pozwala zmieniać wyłącznie bezpieczne ustawienia motywu i brandingu,
+  a konfigurację bazy, sesji i OAuth pokazuje w formie zredagowanej,
+- `/admin/logs` udostępnia paginowany audit log na podstawie `auth_events`; sekrety,
+  tokeny i pełne adresy IP nie są zapisywane ani wyświetlane.
 
 ### 5.5 Moduł `core_pages`
 

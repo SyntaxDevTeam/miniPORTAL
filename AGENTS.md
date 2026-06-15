@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-13 - audyt zgodności, ochrona wdrożenia i korekta kontraktów modułów.
+> **Ostatnia aktualizacja:** 2026-06-15 - ustawienia systemowe, audit log i ochrona sekretów.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -100,8 +100,11 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Lista użytkowników oraz zmiana lokalnego statusu i roli |
 | [x] | Tworzenie i akceptacja kont oczekujących |
 | [x] | Wiele ról użytkownika oraz edytor uprawnień ról |
+| [x] | Grupowany wybór uprawnień bez klawisza Ctrl |
 | [x] | Bootstrap pierwszego administratora |
 | [x] | Audit log logowań i operacji administracyjnych |
+| [x] | Chroniony widok audit logu z paginacją |
+| [x] | Chronione ustawienia motywu i zredagowana diagnostyka konfiguracji |
 | [x] | Sesyjny limiter rozpoczęć i callbacków OAuth |
 | [x] | Testy CSRF, `state`, replay, ACL i blokady konta |
 
@@ -134,13 +137,13 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Rejestr `modules_config` |
 | [x] | Aktywacja i deaktywacja tras, menu oraz uprawnień |
 | [x] | Aktualizacja i odinstalowanie modułu |
-| [x] | Ochrona `core_auth` i `core_pages` przed wyłączeniem i usunięciem |
+| [x] | Ochrona `core_auth`, `core_pages` i `system_admin` przed wyłączeniem i usunięciem |
 | [x] | Uprawnienia managera i audit log operacji |
 
 ## Następne kroki
 
 1. Rozbudować manager o podgląd historii wykonanych migracji.
-2. Dodać widok audit logu z filtrowaniem zdarzeń.
+2. Rozbudować audit log o filtrowanie zdarzeń i zakres dat.
 3. Dodać podpisy kryptograficzne i źródła pochodzenia dla zewnętrznych pakietów modułów.
 
 ## Uwagi / blokery
@@ -196,7 +199,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-14 | Sekcje homepage, karty, podstrony i artykuły przechowują format `html`/`markdown`; wspólny renderer Core koduje surowy HTML Markdown i obsługuje składnię w stylu GitHub. |
 | 2026-06-14 | `modules_config` steruje uruchamianiem modułów; wyłączony moduł nie rejestruje tras ani menu, a moduły chronione pozostają aktywne. |
 | 2026-06-14 | `module_migrations` przechowuje nazwę i SHA-256 migracji; zmiana wykonanego pliku jest odrzucana zamiast uruchamiana ponownie. |
-| 2026-06-14 | `CoreAuth` jest właścicielem tras i menu użytkowników oraz tożsamości; `SystemAdminModule` odpowiada wyłącznie za dashboard, manager modułów i zasoby systemowe. |
+| 2026-06-14 | `CoreAuth` jest właścicielem tras i menu użytkowników oraz tożsamości; `SystemAdminModule` odpowiada za dashboard, manager modułów, ustawienia, diagnostykę i logi systemowe. |
 | 2026-06-14 | Zmiana statusu i roli użytkownika jest atomowa oraz chroni własne konto i ostatniego aktywnego administratora. |
 | 2026-06-14 | Manager nie wykonuje SQL modułu bez zarejestrowanej fabryki wykonawczej; stan „Brak fabryki” jest widoczny w panelu. |
 | 2026-06-15 | Aktualizacja modułu wymaga wyższej wersji manifestu i weryfikuje SHA-256 wszystkich historycznych migracji przed pierwszym DDL. |
@@ -208,6 +211,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-15 | Rozszerzenie może deklarować własny `factory.php`; manager udostępnia instalację jednym kliknięciem, lecz nie wykonuje kodu pakietu przed zatwierdzeniem instalacji i aktywacją. |
 | 2026-06-15 | Pierwsza poprawna próba logowania nieznanej tożsamości tworzy konto `pending` z rolą `user`; administrator akceptuje je lokalnie, bez łączenia po e-mailu. |
 | 2026-06-15 | Użytkownik może mieć wiele ról, a `/admin/roles` zarządza rolami niestandardowymi i mapowaniem uprawnień; administrator zachowuje komplet praw. |
+| 2026-06-15 | `SystemAdminModule` udostępnia `/admin/settings` i `/admin/logs`; sekrety nie trafiają do HTML, a ustawienia bazy obejmują wyłącznie motyw i publiczny branding. |
 
 ## Historia sesji
 

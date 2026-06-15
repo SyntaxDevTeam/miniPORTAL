@@ -42,6 +42,23 @@ final class ThemeEngine
         return $theme;
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function available(): array
+    {
+        $themes = [];
+        foreach (glob(rtrim($this->templatesPath, '/') . '/*/theme.php') ?: [] as $file) {
+            $name = basename(dirname($file));
+            if (preg_match('/^[a-z][a-z0-9_-]*$/', $name) === 1) {
+                $themes[$name] = ucfirst(str_replace(['-', '_'], ' ', $name));
+            }
+        }
+        ksort($themes);
+
+        return $themes;
+    }
+
     private function className(string $themeName): string
     {
         $namespacePart = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $themeName)));

@@ -131,6 +131,9 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'auth_config' => $authConfig,
     'auth_demo_enabled' => $authDemoEnabled,
     'module_manager' => $moduleManager,
+    'config' => $application->config(),
+    'diagnostics' => $application->diagnostics(),
+    'available_themes' => $application->availableThemes(),
 ], $modules);
 $modules->boot($adminMenu, $router);
 

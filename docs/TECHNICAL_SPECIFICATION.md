@@ -302,9 +302,16 @@ kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
    - zamiast index.php?module=articles&id=5
    - system ma mapować adresy typu /artykuly/nazwa-artykulu
 
-3. Wbudowany moduł logów (Audit Log)
-   - zapis nieudanych logowań, instalacji modułów, zmian konfiguracyjnych
-   - logi do pliku lub osobnej tabeli SQL
+3. Wbudowany moduł logów (Audit Log) [wdrożony]
+   - zapis nieudanych logowań, instalacji modułów i zmian konfiguracyjnych w `auth_events`
+   - paginowany, chroniony widok `/admin/logs` bez tokenów i pełnych adresów IP
+
+4. Chronione ustawienia systemowe [wdrożone]
+   - `SystemAdminModule` zarządza bezpiecznymi ustawieniami motywu i brandingu,
+   - sekrety pozostają wyłącznie w pliku środowiskowym poza katalogiem publicznym,
+   - panel pokazuje jedynie zredagowany stan konfiguracji bazy, sesji i OAuth,
+   - usunięcie motywu wskazanego w bazie uruchamia kontrolowany fallback do konfiguracji
+     środowiskowej albo motywu `default`.
 
 ---
 

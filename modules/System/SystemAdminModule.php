@@ -25,6 +25,11 @@ final class SystemAdminModule implements ModuleInterface
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly ?ModuleManagerService $moduleManager,
+        private readonly ?SystemSettingsRepository $settings,
+        private readonly ?SystemLogRepository $logs,
+        private readonly array $config,
+        private readonly array $diagnostics,
+        private readonly array $availableThemes,
     ) {
     }
 
@@ -35,7 +40,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -50,13 +55,15 @@ final class SystemAdminModule implements ModuleInterface
 
     public function requiredPermissions(): array
     {
-        return ['admin.access'];
+        return ['admin.access', 'settings.manage', 'logs.view'];
     }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
+        $menu->add('System', 'Ustawienia', '/admin/settings', 'ST', 'settings.manage', 55);
+        $menu->add('System', 'Dziennik zdarzeń', '/admin/logs', 'LG', 'logs.view', 60);
         $menu->add('System', 'Wzorce UI', '/admin/design-system', 'UI', 'admin.access', 70);
     }
 
@@ -97,6 +104,21 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'admin.access',
             fn () => $this->renderResources()
+        ));
+        $router->get('/admin/settings', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->renderSettings()
+        ));
+        $router->post('/admin/settings', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->saveSettings($request)
+        ));
+        $router->get('/admin/logs', fn (Request $request) => $this->guard(
+            $request,
+            'logs.view',
+            fn () => $this->renderLogs($request)
         ));
     }
 
@@ -436,6 +458,197 @@ final class SystemAdminModule implements ModuleInterface
                 'logout_token' => $this->security->csrfToken(),
             ]
         );
+    }
+
+    private function renderSettings(string $message = '', string $variant = 'info'): void
+    {
+        $this->startPage(
+            'Ustawienia systemowe',
+            '/admin/settings',
+            'Bezpieczne ustawienia prezentacji i zredagowana diagnostyka konfiguracji.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        if ($this->settings === null) {
+            $this->theme->render_alert('Ustawienia systemowe wymagają aktywnego połączenia z bazą danych.', 'danger');
+            $this->endPage();
+            return;
+        }
+
+        $app = is_array($this->config['app'] ?? null) ? $this->config['app'] : [];
+        $values = $this->settings->themeSettings([
+            'theme' => (string) ($app['theme'] ?? 'default'),
+            'public_name' => (string) ($app['public_name'] ?? 'SyntaxDevTeam'),
+            'public_eyebrow' => (string) ($app['public_eyebrow'] ?? 'Software dla społeczności'),
+        ]);
+        $this->theme->start_admin_panel('Szablon i branding', 'Bezpieczne do edycji');
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                [
+                    'name' => 'theme',
+                    'label' => 'Aktywny motyw',
+                    'type' => 'select',
+                    'value' => $values['theme'],
+                    'options' => $this->availableThemes,
+                    'help' => 'Zmiana zacznie obowiązywać od następnego żądania.',
+                ],
+                [
+                    'name' => 'public_name',
+                    'label' => 'Publiczna nazwa marki',
+                    'value' => $values['public_name'],
+                ],
+                [
+                    'name' => 'public_eyebrow',
+                    'label' => 'Domyślny nadtytuł',
+                    'value' => $values['public_eyebrow'],
+                ],
+            ],
+            'Zapisz ustawienia',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
+        $this->theme->render_alert(
+            'Sekrety pozostają w pliku środowiskowym poza katalogiem publicznym. Panel pokazuje wyłącznie stan ich konfiguracji.',
+            'warning'
+        );
+        $this->theme->render_admin_table(['Obszar', 'Parametr', 'Stan / wartość'], $this->configurationRows());
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Diagnostyka Core', count($this->diagnostics) . ' kontroli');
+        $this->theme->render_admin_table(['Element', 'Implementacja', 'Stan'], $this->diagnostics);
+        $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    private function saveSettings(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->settings === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'system_settings_update', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderSettings('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        try {
+            $this->settings->saveThemeSettings(
+                [
+                    'theme' => $request->postString('theme'),
+                    'public_name' => $request->postString('public_name'),
+                    'public_eyebrow' => $request->postString('public_eyebrow'),
+                ],
+                $this->availableThemes,
+                $actor->id
+            );
+            $this->audit->record($request, 'system_settings_update', 'success', null, $actor->id);
+            header('Location: index.php?route=/admin/settings', true, 303);
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'system_settings_update', 'failed', null, $actor->id);
+            $this->renderSettings($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function renderLogs(Request $request): void
+    {
+        $this->startPage(
+            'Dziennik zdarzeń',
+            '/admin/logs',
+            'Zdarzenia logowania, ACL, operacje administracyjne i działania modułów.'
+        );
+        if ($this->logs === null) {
+            $this->theme->render_alert('Dziennik wymaga aktywnego połączenia z bazą danych.', 'danger');
+            $this->endPage();
+            return;
+        }
+
+        $page = max(1, $request->queryInt('page', 1) ?? 1);
+        $perPage = 50;
+        $total = $this->logs->count();
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $events = $this->logs->page($page, $perPage);
+        $rows = array_map(
+            static fn (array $event): array => [
+                (string) $event['created_at'],
+                (string) ($event['display_name'] ?? 'System / gość'),
+                (string) $event['event_type'],
+                (string) $event['result'],
+                (string) ($event['provider'] ?? '—'),
+                $event['ip_hash'] !== null ? substr((string) $event['ip_hash'], 0, 12) . '…' : 'Brak',
+            ],
+            $events
+        );
+
+        $this->theme->start_admin_panel('Audit log', "{$total} zdarzeń, strona {$page}/{$pages}");
+        $this->theme->render_admin_table(
+            ['Data', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Kontekst', 'Skrót IP'],
+            $rows
+        );
+        if ($page > 1) {
+            $this->theme->render_button('Nowsze zdarzenia', 'index.php?route=/admin/logs&page=' . ($page - 1), 'outline-light');
+        }
+        if ($page < $pages) {
+            $this->theme->render_button('Starsze zdarzenia', 'index.php?route=/admin/logs&page=' . ($page + 1), 'outline-light');
+        }
+        $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    /**
+     * @return list<list<string>>
+     */
+    private function configurationRows(): array
+    {
+        $meta = is_array($this->config['meta'] ?? null) ? $this->config['meta'] : [];
+        $app = is_array($this->config['app'] ?? null) ? $this->config['app'] : [];
+        $database = is_array($this->config['database'] ?? null) ? $this->config['database'] : [];
+        $session = is_array($this->config['session'] ?? null) ? $this->config['session'] : [];
+        $auth = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
+        $providers = is_array($auth['providers'] ?? null) ? $auth['providers'] : [];
+        $rows = [
+            ['Środowisko', 'Plik konfiguracji', (string) ($meta['environment_file'] ?? 'Nieznany')],
+            ['Środowisko', 'Plik czytelny', ($meta['environment_readable'] ?? false) ? 'Tak' : 'Nie'],
+            ['Aplikacja', 'Wersja', (string) ($app['version'] ?? 'Nieznana')],
+            ['Aplikacja', 'PHP', PHP_VERSION],
+            ['Aplikacja', 'Tryb debug', ($app['debug'] ?? false) ? 'Włączony' : 'Wyłączony'],
+            ['Aplikacja', 'Strefa czasowa', (string) ($app['timezone'] ?? 'Nieznana')],
+            ['Sesja', 'Nazwa', (string) ($session['name'] ?? 'Nieznana')],
+            ['Sesja', 'SameSite', (string) ($session['same_site'] ?? 'Nieznane')],
+            ['Baza danych', 'Połączenie', ($database['enabled'] ?? false) ? 'Włączone' : 'Wyłączone'],
+            ['Baza danych', 'Sterownik', (string) ($database['database_type'] ?? 'Nieznany')],
+            ['Baza danych', 'Serwer', (string) ($database['server'] ?? 'Nieznany')],
+            ['Baza danych', 'Nazwa bazy', (string) ($database['database_name'] ?? 'Nieustawiona')],
+            ['Baza danych', 'Użytkownik', $this->mask((string) ($database['username'] ?? ''))],
+            ['Baza danych', 'Hasło', $this->configured($database['password'] ?? '')],
+            ['Baza danych', 'Kodowanie', (string) ($database['charset'] ?? 'Nieznane')],
+            ['Uwierzytelnianie', 'Magazyn', (string) ($auth['storage'] ?? 'Nieznany')],
+            ['Uwierzytelnianie', 'Klucz HMAC audytu', $this->configured($auth['audit_hash_key'] ?? '')],
+        ];
+        foreach (['github' => 'GitHub', 'discord' => 'Discord', 'google' => 'Google'] as $key => $label) {
+            $provider = is_array($providers[$key] ?? null) ? $providers[$key] : [];
+            $rows[] = ['OAuth', "{$label} Client ID", $this->configured($provider['client_id'] ?? '')];
+            $rows[] = ['OAuth', "{$label} Client Secret", $this->configured($provider['client_secret'] ?? '')];
+            $rows[] = ['OAuth', "{$label} callback", (string) ($provider['callback_url'] ?? 'Nieustawiony')];
+        }
+
+        return $rows;
+    }
+
+    private function configured(mixed $value): string
+    {
+        return is_string($value) && trim($value) !== '' ? 'Ustawiono' : 'Brak';
+    }
+
+    private function mask(string $value): string
+    {
+        return $value === '' ? 'Brak' : substr($value, 0, 1) . str_repeat('•', min(8, max(3, strlen($value) - 1)));
     }
 
     private function startPage(string $title, string $activePath, string $lead): void
