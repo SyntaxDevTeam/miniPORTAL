@@ -17,6 +17,7 @@ use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 return [
     [
         'directory' => 'CoreAuth',
+        'required' => true,
         'factory' => static fn (array $services): CoreAuthModule => new CoreAuthModule(
             $services['theme'],
             $services['security'],
@@ -39,6 +40,7 @@ return [
     ],
     [
         'directory' => 'CorePages',
+        'required' => true,
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
         'factory' => static fn (array $services): CorePagesModule => new CorePagesModule(
             $services['theme'],
@@ -67,6 +69,7 @@ return [
     ],
     [
         'directory' => 'System',
+        'required' => true,
         'factory' => static fn (array $services): SystemAdminModule => new SystemAdminModule(
             $services['theme'],
             $services['admin_menu'],

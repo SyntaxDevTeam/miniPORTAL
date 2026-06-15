@@ -85,6 +85,25 @@ final class Request
         return $filtered === false ? $default : $filtered;
     }
 
+    /**
+     * @return list<string>
+     */
+    public function postStringList(string $key): array
+    {
+        $value = $this->post[$key] ?? [];
+        if (!is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(
+                static fn (mixed $item): string => is_scalar($item) ? (string) $item : '',
+                $value
+            ),
+            static fn (string $item): bool => $item !== ''
+        )));
+    }
+
     public function isSecure(): bool
     {
         $https = strtolower($this->stringValue($this->server, 'HTTPS'));

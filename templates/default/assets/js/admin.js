@@ -298,6 +298,14 @@ if (autosaveClearKey) {
 }
 
 document.querySelectorAll('form').forEach((form) => {
+  if (form.dataset.confirm) {
+    form.addEventListener("submit", (event) => {
+      if (!window.confirm(form.dataset.confirm)) {
+        event.preventDefault();
+      }
+    });
+  }
+
   const keyInput = form.querySelector('input[name="_autosave_key"]');
   if (!keyInput?.value) {
     return;

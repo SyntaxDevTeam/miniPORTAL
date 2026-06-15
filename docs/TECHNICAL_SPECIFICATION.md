@@ -182,6 +182,9 @@ Szczegółowy plan znajduje się w `docs/ADMIN_PANEL_PLAN.md`.
 - wspólny model użytkownika i wielu zewnętrznych tożsamości
 - logowanie GitHub, Discord i Google przez adaptery dostawców
 - lokalne role i uprawnienia niezależne od dostawcy logowania
+- konta oczekujące tworzone po pierwszej zweryfikowanej tożsamości i akceptowane
+  przez administratora
+- wiele ról na użytkownika oraz edytor mapowania ról do uprawnień
 - sesje administratora, ochrona tras i audit log
 - opcjonalne konto lokalne Argon2id wyłącznie jako mechanizm awaryjny
 
@@ -198,6 +201,9 @@ Google używa OpenID Connect z lokalną walidacją podpisu ID tokenu, `nonce`,
 issuer, audience i czasu ważności. Łączenie providerów wymaga aktywnej sesji,
 a operacje uwierzytelniania i ACL trafiają do `auth_events`. Próby rozpoczęcia
 i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
+Nieznana tożsamość tworzy nieaktywne konto `pending` z domyślną rolą `user`.
+Aktywacja jest decyzją lokalnego administratora; system nadal nie łączy kont
+automatycznie po zgodnym adresie e-mail.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron przez `CrudApp`
@@ -237,14 +243,29 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
    - tylko aktywne moduły są uruchamiane
 
 Stan managera:
-- `modules_config` przechowuje wersję, stan `discovered/active/disabled` i ochronę,
+- `modules_config` przechowuje wersję, stan
+  `discovered/active/disabled/uninstalled`, ochronę i informację o zachowanych danych,
 - `module_migrations` przechowuje wykonaną migrację wraz z sumą SHA-256,
 - aktualny `install.sql` stanowi pełny schemat nowej instalacji, więc istniejące
-  migracje są przy instalacji oznaczane jako stan bazowy,
+  migracje są przy instalacji oznaczane jako stan bazowy; każda zmiana schematu
+  z `migrations/*.sql` musi być równolegle scalona do `install.sql`,
+- aktualizacja wymaga wersji manifestu wyższej od zapisanej, sprawdza sumy wszystkich
+  historycznych migracji przed pierwszym DDL i dopiero po powodzeniu zapisuje wersję,
+- odinstalowanie wymaga wcześniejszego wyłączenia modułu i pozwala zachować dane albo
+  wykonać jawny `uninstall.sql`; zachowane dane można następnie przywrócić,
 - wyłączenie rozszerzenia usuwa jego trasy i menu od następnego żądania,
-- zależności aktywnych modułów oraz moduły chronione nie mogą zostać wyłączone,
+- zależności aktywnych modułów oraz moduły chronione nie mogą zostać wyłączone ani
+  odinstalowane,
 - manifest bez deklaratywnej fabryki w `config/modules.php` jest widoczny, ale jego
-  instalacja, migracja i aktywacja są blokowane,
+  operacje wykonawcze są blokowane; rozszerzenie może zamiast tego jawnie zadeklarować
+  własny plik `factory.php`,
+- fabryka pakietu nie jest wykonywana podczas skanowania; przycisk instalacji wymaga
+  świadomego potwierdzenia administratora, a kod fabryki jest ładowany dopiero dla
+  modułu zainstalowanego i aktywnego,
+- błąd pojedynczego pakietu jest izolowany w managerze i prezentowany jako
+  „Błąd pakietu”; nie przerywa dashboardu ani obsługi pozostałych modułów,
+- opcjonalny moduł z `config/modules.php` o niezgodnym manifeście jest pomijany bez
+  uruchamiania fabryki; wyłącznie definicje Core z `required: true` zatrzymują start,
 - `/admin/modules` wymaga ACL, CSRF i zapisuje wynik operacji do audit logu.
 
 ---
@@ -356,10 +377,14 @@ Stan fundamentu Kroku 6:
 - `ModuleManifestValidator` sprawdza schemat, SemVer, wymagania runtime i plik SQL,
 - `ModuleRegistry` porządkuje moduły według zależności i wykrywa cykle,
 - `ModuleBootstrapper` ładuje deklaracje z `config/modules.php`,
+- rozszerzenia mogą być uruchamiane bez modyfikacji konfiguracji Core przez
+  zwracający `callable` plik fabryki wskazany w zweryfikowanym `info.json`,
 - Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
 - `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
-  migracji i aktywacji,
+  migracji, aktualizacji, aktywacji i odinstalowania,
+- `install/mod/LearningModule` dokumentuje pełny kontrakt modułu, fabrykę, CRUD przez
+  `CrudApp`, ACL, CSRF, migrację i oba warianty odinstalowania,
 - `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;
   zmiana statusu i roli jest wykonywana atomowo przez repozytorium `CrudApp`.
 

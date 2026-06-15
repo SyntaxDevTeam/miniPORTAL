@@ -19,7 +19,9 @@ final readonly class ModuleManifest
         public string $miniportalConstraint,
         public array $requiredModules,
         public bool $protected,
+        public ?string $factoryFile,
         public ?string $installFile,
+        public ?string $uninstallFile,
         public string $directory,
     ) {
     }

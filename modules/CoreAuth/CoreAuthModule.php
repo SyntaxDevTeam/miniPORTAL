@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -51,12 +51,13 @@ final class CoreAuthModule implements ModuleInterface
 
     public function requiredPermissions(): array
     {
-        return [];
+        return ['users.view', 'users.manage', 'roles.view', 'roles.manage'];
     }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
+        $menu->add('System', 'Role i uprawnienia', '/admin/roles', 'RL', 'roles.view', 45);
         $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
     }
 
@@ -79,6 +80,36 @@ final class CoreAuthModule implements ModuleInterface
             $request,
             'users.manage',
             fn () => $this->updateUser($request)
+        ));
+        $router->post('/admin/users/create', fn (Request $request) => $this->guard(
+            $request,
+            'users.manage',
+            fn () => $this->createUser($request)
+        ));
+        $router->post('/admin/users/accept', fn (Request $request) => $this->guard(
+            $request,
+            'users.manage',
+            fn () => $this->acceptUser($request)
+        ));
+        $router->get('/admin/roles', fn (Request $request) => $this->guard(
+            $request,
+            'roles.view',
+            fn () => $this->renderRoles()
+        ));
+        $router->get('/admin/roles/edit', fn (Request $request) => $this->guard(
+            $request,
+            'roles.manage',
+            fn () => $this->renderRoleEdit($request)
+        ));
+        $router->post('/admin/roles/edit', fn (Request $request) => $this->guard(
+            $request,
+            'roles.manage',
+            fn () => $this->saveRole($request)
+        ));
+        $router->post('/admin/roles/delete', fn (Request $request) => $this->guard(
+            $request,
+            'roles.manage',
+            fn () => $this->deleteRole($request)
         ));
         $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
@@ -160,6 +191,51 @@ final class CoreAuthModule implements ModuleInterface
 
         $canManage = in_array('*', $user->permissions, true)
             || in_array('users.manage', $user->permissions, true);
+        if ($canManage) {
+            $this->theme->start_admin_panel('Dodaj użytkownika', 'Konto lokalne do późniejszego połączenia z OAuth');
+            $this->theme->render_form(
+                'index.php?route=/admin/users/create',
+                [
+                    ['name' => 'display_name', 'label' => 'Nazwa wyświetlana'],
+                    ['name' => 'email', 'label' => 'E-mail kontaktowy', 'type' => 'email'],
+                    [
+                        'name' => 'provider',
+                        'label' => 'Dostawca tożsamości',
+                        'type' => 'select',
+                        'value' => '',
+                        'options' => [
+                            '' => 'Bez tożsamości - konto administracyjne',
+                            'github' => 'GitHub',
+                            'discord' => 'Discord',
+                            'google' => 'Google',
+                        ],
+                    ],
+                    [
+                        'name' => 'provider_subject',
+                        'label' => 'Niezmienny ID użytkownika u dostawcy',
+                        'help' => 'Nie używaj e-maila ani loginu. Pole wymagane tylko przy wyborze dostawcy.',
+                    ],
+                    [
+                        'name' => 'status',
+                        'label' => 'Status początkowy',
+                        'type' => 'select',
+                        'value' => 'pending',
+                        'options' => ['pending' => 'Oczekujący', 'active' => 'Aktywny'],
+                    ],
+                    [
+                        'name' => 'roles',
+                        'label' => 'Role',
+                        'type' => 'multiselect',
+                        'values' => ['user'],
+                        'options' => $this->userAdministration->roles(),
+                        'help' => 'Możesz zaznaczyć kilka pozycji klawiszem Ctrl lub Cmd.',
+                    ],
+                ],
+                'Dodaj użytkownika',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
         $records = $this->userAdministration->all();
         $this->theme->start_admin_panel('Konta użytkowników', count($records) . ' rekordów');
         $this->theme->render_admin_action_table(
@@ -177,11 +253,20 @@ final class CoreAuthModule implements ModuleInterface
                         $record->providers !== [] ? implode(', ', $record->providers) : 'Brak',
                         $record->lastLoginAt ?? 'Nigdy',
                     ],
-                    'actions' => $canManage ? [[
-                        'label' => 'Edytuj',
-                        'href' => 'index.php?route=/admin/users/edit&id=' . $record->id,
-                        'variant' => 'outline-light',
-                    ]] : [],
+                    'actions' => $canManage ? array_values(array_filter([
+                        [
+                            'label' => 'Edytuj',
+                            'href' => 'index.php?route=/admin/users/edit&id=' . $record->id,
+                            'variant' => 'outline-light',
+                        ],
+                        $record->status === 'pending' ? [
+                            'label' => 'Zaakceptuj',
+                            'action' => 'index.php?route=/admin/users/accept',
+                            'fields' => ['id' => $record->id],
+                            'variant' => 'primary',
+                            'confirm' => 'Aktywować konto oczekującego użytkownika?',
+                        ] : null,
+                    ])) : [],
                 ],
                 $records
             ),
@@ -241,11 +326,12 @@ final class CoreAuthModule implements ModuleInterface
                     ],
                 ],
                 [
-                    'name' => 'role',
-                    'label' => 'Rola',
-                    'type' => 'select',
-                    'value' => $record->roles[0] ?? 'user',
+                    'name' => 'roles',
+                    'label' => 'Role',
+                    'type' => 'multiselect',
+                    'values' => $record->roles,
                     'options' => $this->userAdministration->roles(),
+                    'help' => 'Użytkownik może mieć wiele ról; uprawnienia są ich sumą.',
                 ],
             ],
             'Zapisz użytkownika',
@@ -273,7 +359,7 @@ final class CoreAuthModule implements ModuleInterface
             $this->userAdministration->updateAccount(
                 $userId,
                 $request->postString('status'),
-                $request->postString('role'),
+                $request->postStringList('roles'),
                 $actor->id
             );
         } catch (\Throwable $exception) {
@@ -284,6 +370,238 @@ final class CoreAuthModule implements ModuleInterface
 
         $this->audit->record($request, 'user_update', 'success', null, $actor->id);
         header('Location: index.php?route=/admin/users', true, 303);
+    }
+
+    private function createUser(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'user_create', 'invalid_csrf', null, $actor->id);
+            $this->renderUsers('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        try {
+            $userId = $this->userAdministration->createAccount(
+                $request->postString('display_name'),
+                $request->postString('email') ?: null,
+                $request->postString('status'),
+                $request->postStringList('roles'),
+                $request->postString('provider'),
+                $request->postString('provider_subject')
+            );
+            $this->audit->record($request, 'user_create', 'success', null, $actor->id);
+            $this->renderUsers("Użytkownik ID {$userId} został dodany.", 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'user_create', 'failed', null, $actor->id);
+            $this->renderUsers($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function acceptUser(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'user_accept', 'invalid_csrf', null, $actor->id);
+            $this->renderUsers('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        $userId = $request->postInt('id') ?? 0;
+        $record = $this->findUserRecord($userId);
+        if ($record === null || $record->status !== 'pending') {
+            $this->renderUsers('Konto nie istnieje albo nie oczekuje na akceptację.', 'warning');
+            return;
+        }
+        try {
+            $this->userAdministration->updateAccount($userId, 'active', $record->roles, $actor->id);
+            $this->audit->record($request, 'user_accept', 'success', null, $actor->id);
+            $this->renderUsers('Konto zostało zaakceptowane i aktywowane.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'user_accept', 'failed', null, $actor->id);
+            $this->renderUsers($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function renderRoles(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if ($user === null || $this->userAdministration === null) {
+            return;
+        }
+        $this->startAdminPage(
+            'Role i uprawnienia',
+            '/admin/roles',
+            'Lokalne role łączą uprawnienia niezależnie od dostawcy logowania.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $canManage = in_array('*', $user->permissions, true)
+            || in_array('roles.manage', $user->permissions, true);
+        $roles = $this->userAdministration->roleRecords();
+        $this->theme->start_admin_panel('Definicje ról', count($roles) . ' ról');
+        $this->theme->render_admin_action_table(
+            ['Rola', 'Typ', 'Użytkownicy', 'Uprawnienia'],
+            array_map(
+                static fn (RoleAdminRecord $role): array => [
+                    'cells' => [
+                        $role->label . ' (' . $role->name . ')',
+                        $role->system ? 'Systemowa' : 'Niestandardowa',
+                        $role->usersCount,
+                        $role->permissions !== [] ? implode(', ', $role->permissions) : 'Brak',
+                    ],
+                    'actions' => $canManage ? array_values(array_filter([
+                        [
+                            'label' => 'Edytuj',
+                            'href' => 'index.php?route=/admin/roles/edit&name=' . rawurlencode($role->name),
+                            'variant' => 'outline-light',
+                        ],
+                        !$role->system && $role->usersCount === 0 ? [
+                            'label' => 'Usuń',
+                            'action' => 'index.php?route=/admin/roles/delete',
+                            'fields' => ['name' => $role->name],
+                            'variant' => 'outline-danger',
+                            'confirm' => 'Usunąć tę rolę?',
+                        ] : null,
+                    ])) : [],
+                ],
+                $roles
+            ),
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        if ($canManage) {
+            $this->theme->render_button(
+                'Dodaj rolę',
+                'index.php?route=/admin/roles/edit',
+                'primary'
+            );
+        }
+        $this->endAdminPage();
+    }
+
+    private function renderRoleEdit(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        if ($this->userAdministration === null) {
+            return;
+        }
+        $name = $request->queryString('name') ?: $request->postString('original_name');
+        $role = $name !== '' ? $this->userAdministration->findRole($name) : null;
+        if ($name !== '' && $role === null) {
+            http_response_code(404);
+            $this->theme->render_admin_access_state(
+                404,
+                'Nie znaleziono roli',
+                'Wybrana rola nie istnieje.',
+                'index.php?route=/admin/roles',
+                'Wróć do ról'
+            );
+            return;
+        }
+        $this->startAdminPage(
+            $role === null ? 'Dodaj rolę' : 'Edytuj rolę',
+            '/admin/roles',
+            'Uprawnienia zaznaczone dla roli są sumowane z pozostałymi rolami użytkownika.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel($role?->label ?? 'Nowa rola', $role?->system ? 'Rola systemowa' : 'Rola niestandardowa');
+        $this->theme->render_form(
+            'index.php?route=/admin/roles/edit',
+            [
+                ['name' => 'original_name', 'label' => 'Poprzednia nazwa', 'type' => 'hidden', 'value' => $role?->name ?? ''],
+                [
+                    'name' => 'name',
+                    'label' => 'Identyfikator',
+                    'value' => $role?->name ?? '',
+                    'help' => $role?->system ? 'Identyfikator roli systemowej jest niezmienny.' : 'Małe litery, cyfry i podkreślenia.',
+                ],
+                ['name' => 'label', 'label' => 'Etykieta', 'value' => $role?->label ?? ''],
+                [
+                    'name' => 'permissions',
+                    'label' => 'Uprawnienia',
+                    'type' => 'multiselect',
+                    'values' => $role?->permissions ?? [],
+                    'options' => $this->userAdministration->permissions(),
+                    'help' => $role?->name === 'administrator'
+                        ? 'Administrator zawsze zachowuje komplet dostępnych uprawnień.'
+                        : 'Możesz zaznaczyć kilka pozycji klawiszem Ctrl lub Cmd.',
+                ],
+            ],
+            $role === null ? 'Utwórz rolę' : 'Zapisz rolę',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function saveRole(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'role_save', 'invalid_csrf', null, $actor->id);
+            $this->renderRoleEdit($request, 'Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $name = $this->userAdministration->saveRole(
+                $request->postString('original_name'),
+                $request->postString('name'),
+                $request->postString('label'),
+                $request->postStringList('permissions')
+            );
+            $this->audit->record($request, 'role_save', 'success', null, $actor->id);
+            header('Location: index.php?route=/admin/roles/edit&name=' . rawurlencode($name), true, 303);
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'role_save', 'failed', null, $actor->id);
+            $this->renderRoleEdit($request, $exception->getMessage(), 'danger');
+        }
+    }
+
+    private function deleteRole(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'role_delete', 'invalid_csrf', null, $actor->id);
+            $this->renderRoles('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $this->userAdministration->deleteRole($request->postString('name'));
+            $this->audit->record($request, 'role_delete', 'success', null, $actor->id);
+            $this->renderRoles('Rola została usunięta.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'role_delete', 'failed', null, $actor->id);
+            $this->renderRoles($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function findUserRecord(int $id): ?UserAdminRecord
+    {
+        foreach ($this->userAdministration?->all() ?? [] as $record) {
+            if ($record->id === $id) {
+                return $record;
+            }
+        }
+
+        return null;
     }
 
     private function startProviderLogin(Request $request, string $name, string $purpose = 'login'): void
@@ -381,10 +699,10 @@ final class CoreAuthModule implements ModuleInterface
         }
 
         if ($user === null) {
-            $this->audit->record($request, 'login', 'identity_unlinked', $name);
+            $this->audit->record($request, 'login', 'pending_or_inactive', $name);
             http_response_code(403);
             $this->renderLogin(
-                'Tożsamość została potwierdzona, ale nie jest jeszcze połączona z aktywnym kontem miniPORTAL.',
+                'Tożsamość została potwierdzona. Konto oczekuje na akceptację administratora albo jest zablokowane.',
                 'warning'
             );
             return;

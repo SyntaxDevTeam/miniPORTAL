@@ -5,7 +5,7 @@ Options -Indexes
 
     # Public requests may enter through index.php and template assets only.
     RewriteRule ^(?:\.git|\.svn|\.hg)(?:/|$) - [F,L,NC]
-    RewriteRule ^(?:bin|cache|config|core|docs|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:bin|cache|config|core|docs|install|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
     RewriteRule ^(?:AGENTS\.md|README\.md|LICENSE|composer\.(?:json|lock)|\.env(?:\..*)?)$ - [F,L,NC]
     RewriteRule ^templates/[^/]+/(?:theme\.php|views)(?:/|$) - [F,L,NC]
 

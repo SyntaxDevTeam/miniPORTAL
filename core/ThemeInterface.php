@@ -84,6 +84,7 @@ interface ThemeInterface
      *     label: string,
      *     type?: string,
      *     value?: string,
+     *     values?: list<string>,
      *     options?: array<string, string>,
      *     checked?: bool,
      *     rows?: int,
@@ -155,7 +156,8 @@ interface ThemeInterface
      *         variant?: string,
      *         href?: string,
      *         action?: string,
-     *         fields?: array<string, scalar>
+     *         fields?: array<string, scalar>,
+     *         confirm?: string
      *     }>
      * }> $rows
      */

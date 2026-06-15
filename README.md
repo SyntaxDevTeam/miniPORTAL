@@ -6,12 +6,13 @@ Autorski mini-CMS w systemie modularnym
 - [Specyfikacja techniczna i plan rozwoju](docs/TECHNICAL_SPECIFICATION.md)
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
+- [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
 
 ## Weryfikacja
 
 ```bash
 php tests/run.php
-find core modules templates config tests bin -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 php bin/migrate-core.php
 ```
 

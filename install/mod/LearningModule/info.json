@@ -1,7 +1,7 @@
 {
-  "id": "articles",
-  "name": "Artykuły",
-  "version": "1.0.1",
+  "id": "learning_module",
+  "name": "Moduł edukacyjny",
+  "version": "1.1.0",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {
@@ -10,6 +10,7 @@
     "modules": ["core_auth"]
   },
   "protected": false,
+  "factory": "factory.php",
   "install": "install.sql",
   "uninstall": "uninstall.sql"
 }

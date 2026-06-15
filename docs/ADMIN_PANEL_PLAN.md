@@ -186,6 +186,10 @@ Stan implementacji:
 - `install.sql` definiuje użytkowników, tożsamości, role, uprawnienia i `auth_events`,
 - modele domenowe oddzielają konto od zewnętrznej tożsamości,
 - `CrudAppUserRepository` odczytuje konto, role i uprawnienia przez fasadę `CrudApp`,
+- pierwsze poprawne logowanie nieznanej tożsamości tworzy konto `pending` po kluczu
+  `(provider, provider_subject)`; e-mail nie służy do automatycznego łączenia,
+- administrator może utworzyć konto ręcznie, opcjonalnie podając niezmienny subject
+  dostawcy, oraz zaakceptować konto oczekujące,
 - `AuthService`, `AuthorizationService` i `AdminAccessGate` chronią trasy `/admin/*`,
 - logowanie i wylogowanie wymagają CSRF, a identyfikator sesji jest rotowany,
 - `IdentityProviderRegistry` udostępnia wspólny kontrakt adapterów,
@@ -217,8 +221,10 @@ przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsa
 Stan implementacji:
 
 - dashboard pokazuje rzeczywistą liczbę aktywnych modułów i oczekujących migracji,
-- lista użytkowników oraz edycja statusu i roli działają przez `CoreAuth`,
-- definicje ról i ich zestawy uprawnień są nadal danymi systemowymi bez osobnego edytora,
+- lista użytkowników obsługuje tworzenie, akceptację, status i wiele lokalnych ról,
+- `/admin/roles` obsługuje role niestandardowe i przypisane uprawnienia,
+- role systemowe zachowują stałe identyfikatory, rola administratora zawsze otrzymuje
+  pełny aktualny zestaw uprawnień, a używane role nie mogą zostać usunięte,
 - osobny widok przeglądania audit logu pozostaje do wdrożenia.
 
 ### 5.5 Moduł `core_pages`
@@ -272,8 +278,8 @@ rzeczywiste wymagania systemu modułów.
 4. Kontrolowane wykonanie `install.sql` i migracji z historią SHA-256. [ukończone]
 5. Rejestr `modules_config`. [ukończone]
 6. Aktywacja i deaktywacja tras oraz menu. [ukończone]
-7. Aktualizacja z kontrolą wersji i możliwością przerwania operacji.
-8. Odinstalowanie z osobnym potwierdzeniem usunięcia danych.
+7. Aktualizacja z kontrolą wersji i preflightem sum migracji przed pierwszym DDL. [ukończone]
+8. Odinstalowanie z osobnym potwierdzeniem zachowania albo usunięcia danych. [ukończone]
 9. Blokada wyłączenia i usunięcia modułów stałych `core_auth` i `core_pages`. [ukończone]
 10. Uprawnienia administratora i zapis wszystkich operacji w audit logu. [ukończone]
 
@@ -283,9 +289,18 @@ rejestru `modules_config` i historii `module_migrations`. DDL MySQL/MariaDB moż
 zatwierdzać się automatycznie, dlatego historia jest zapisywana dopiero po pełnym
 powodzeniu pliku SQL i nie jest opisywana jako jedna transakcja.
 
+Aktualizacja jest dostępna tylko dla wyższej wersji manifestu. Odinstalowanie wymaga
+wyłączonego modułu; wariant zachowujący dane pozostawia historię migracji i pozwala
+na przywrócenie, a wariant trwały wykonuje zadeklarowany `uninstall.sql`. Moduł
+chroniony albo wymagany przez inne zainstalowane rozszerzenie nie może zostać
+odinstalowany.
+
 Samo znalezienie `info.json` nie uprawnia do wykonania kodu ani SQL. Dopóki moduł
 nie ma znanej fabryki w `config/modules.php`, manager pokazuje stan „Brak fabryki”
-i blokuje operacje. Automatyczne pakiety wymagają osobnego, bezpiecznego kontraktu.
+i blokuje operacje. Rozszerzenie może zadeklarować lokalny `factory.php`; manager
+pokazuje wtedy akcję instalacji, ale kod pakietu jest wykonywany dopiero po jawnym
+potwierdzeniu instalacji oraz zapisaniu stanu aktywnego. Wadliwa fabryka rozszerzenia
+jest izolowana i nie zatrzymuje Core.
 
 ## 7. Kryterium ukończenia
 

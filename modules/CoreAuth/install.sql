@@ -96,6 +96,8 @@ INSERT INTO permissions (name, label) VALUES
     ('articles.publish', 'Publikowanie artykułów'),
     ('users.view', 'Podgląd użytkowników'),
     ('users.manage', 'Zarządzanie użytkownikami'),
+    ('roles.view', 'Podgląd ról i uprawnień'),
+    ('roles.manage', 'Zarządzanie rolami i uprawnieniami'),
     ('modules.view', 'Podgląd modułów'),
     ('modules.install', 'Instalacja modułów'),
     ('modules.toggle', 'Aktywacja modułów'),

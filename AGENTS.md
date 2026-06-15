@@ -98,6 +98,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Adapter Google OpenID Connect |
 | [x] | Łączenie wielu tożsamości z jednym kontem |
 | [x] | Lista użytkowników oraz zmiana lokalnego statusu i roli |
+| [x] | Tworzenie i akceptacja kont oczekujących |
+| [x] | Wiele ról użytkownika oraz edytor uprawnień ról |
 | [x] | Bootstrap pierwszego administratora |
 | [x] | Audit log logowań i operacji administracyjnych |
 | [x] | Sesyjny limiter rozpoczęć i callbacków OAuth |
@@ -131,16 +133,15 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Instalator SQL i migracje |
 | [x] | Rejestr `modules_config` |
 | [x] | Aktywacja i deaktywacja tras, menu oraz uprawnień |
-| [ ] | Aktualizacja i odinstalowanie modułu |
+| [x] | Aktualizacja i odinstalowanie modułu |
 | [x] | Ochrona `core_auth` i `core_pages` przed wyłączeniem i usunięciem |
 | [x] | Uprawnienia managera i audit log operacji |
 
 ## Następne kroki
 
-1. Dodać kontrolowaną aktualizację wersji modułu.
-2. Dodać bezpieczne odinstalowanie rozszerzeń wraz z opcją zachowania danych.
-3. Rozbudować manager o podgląd historii wykonanych migracji.
-4. Dodać edytor definicji ról i przypisanych uprawnień.
+1. Rozbudować manager o podgląd historii wykonanych migracji.
+2. Dodać widok audit logu z filtrowaniem zdarzeń.
+3. Dodać podpisy kryptograficzne i źródła pochodzenia dla zewnętrznych pakietów modułów.
 
 ## Uwagi / blokery
 
@@ -148,7 +149,6 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 
 | Data | Opis | Wymagane działanie |
 |------|------|--------------------|
-| 2026-06-14 | Manifest wykryty w `modules/` bez fabryki w `config/modules.php` jest widoczny, ale nie może być instalowany ani aktywowany. | Zaprojektować bezpieczny kontrakt pakietu modułu i deklaratywnej fabryki przed automatycznym ładowaniem obcego kodu. |
 | 2026-06-13 | Cache szablonów nie ma jeszcze kontraktu unieważniania. | Zaprojektować po stabilizacji modułów i przed oznaczeniem wymagania wydajności jako ukończonego. |
 | 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
 
@@ -199,6 +199,15 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-14 | `CoreAuth` jest właścicielem tras i menu użytkowników oraz tożsamości; `SystemAdminModule` odpowiada wyłącznie za dashboard, manager modułów i zasoby systemowe. |
 | 2026-06-14 | Zmiana statusu i roli użytkownika jest atomowa oraz chroni własne konto i ostatniego aktywnego administratora. |
 | 2026-06-14 | Manager nie wykonuje SQL modułu bez zarejestrowanej fabryki wykonawczej; stan „Brak fabryki” jest widoczny w panelu. |
+| 2026-06-15 | Aktualizacja modułu wymaga wyższej wersji manifestu i weryfikuje SHA-256 wszystkich historycznych migracji przed pierwszym DDL. |
+| 2026-06-15 | Odinstalowanie wymaga wyłączenia modułu; administrator może zachować dane do późniejszego przywrócenia albo wykonać jawny `uninstall.sql`. |
+| 2026-06-15 | `install.sql` każdego modułu opisuje najnowszy stan świeżej instalacji i zawiera efekt wszystkich plików `migrations/*.sql`; wykonanych migracji nie wolno przepisywać. |
+| 2026-06-15 | `install/mod/LearningModule` jest nieaktywnym pakietem edukacyjnym z pełnymi DocBlockami, instrukcją, migracją i bezpiecznym odinstalowaniem. |
+| 2026-06-15 | Manager izoluje błędny manifest, wymagania runtime i błąd migracji pojedynczego pakietu; wadliwy moduł jest widoczny bez akcji i nie powoduje HTTP 500 całego panelu. |
+| 2026-06-15 | Opcjonalna fabryka z `config/modules.php` nie jest uruchamiana przy błędnym manifeście; tylko jawne moduły Core z `required: true` pozostają krytyczne dla startu. |
+| 2026-06-15 | Rozszerzenie może deklarować własny `factory.php`; manager udostępnia instalację jednym kliknięciem, lecz nie wykonuje kodu pakietu przed zatwierdzeniem instalacji i aktywacją. |
+| 2026-06-15 | Pierwsza poprawna próba logowania nieznanej tożsamości tworzy konto `pending` z rolą `user`; administrator akceptuje je lokalnie, bez łączenia po e-mailu. |
+| 2026-06-15 | Użytkownik może mieć wiele ról, a `/admin/roles` zarządza rolami niestandardowymi i mapowaniem uprawnień; administrator zachowuje komplet praw. |
 
 ## Historia sesji
 

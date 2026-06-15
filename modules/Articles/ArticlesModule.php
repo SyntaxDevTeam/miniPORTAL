@@ -36,7 +36,7 @@ final class ArticlesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.0.1';
     }
 
     public function dependencies(): array

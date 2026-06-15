@@ -11,6 +11,7 @@ final readonly class ModuleState
         public string $version,
         public string $status,
         public bool $protected,
+        public bool $dataPreserved,
         public ?string $installedAt,
         public string $updatedAt,
     ) {
@@ -24,5 +25,10 @@ final readonly class ModuleState
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function canRestorePreservedData(): bool
+    {
+        return $this->status === 'uninstalled' && $this->dataPreserved;
     }
 }

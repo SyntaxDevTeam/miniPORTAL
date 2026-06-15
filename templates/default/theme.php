@@ -326,6 +326,16 @@ final class Theme implements ThemeInterface
                     echo $this->escape($optionLabel) . '</option>';
                 }
                 echo '</select>';
+            } elseif ($type === 'multiselect') {
+                $selectedValues = array_map('strval', $field['values'] ?? []);
+                $size = max(3, min(12, count($field['options'] ?? [])));
+                echo '<select class="form-select" id="' . $name . '" name="' . $name . '[]" multiple size="' . $size . '">';
+                foreach ($field['options'] ?? [] as $optionValue => $optionLabel) {
+                    $selected = in_array((string) $optionValue, $selectedValues, true) ? ' selected' : '';
+                    echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
+                    echo $this->escape($optionLabel) . '</option>';
+                }
+                echo '</select>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';
@@ -518,7 +528,11 @@ final class Theme implements ThemeInterface
                     continue;
                 }
 
-                echo '<form class="d-inline" action="' . $this->escape($action['action']) . '" method="post">';
+                echo '<form class="d-inline" action="' . $this->escape($action['action']) . '" method="post"';
+                if (($action['confirm'] ?? '') !== '') {
+                    echo ' data-confirm="' . $this->escape((string) $action['confirm']) . '"';
+                }
+                echo '>';
                 $this->csrf_field($csrfToken);
                 foreach ($action['fields'] ?? [] as $name => $value) {
                     echo '<input type="hidden" name="' . $this->escape((string) $name) . '" value="';

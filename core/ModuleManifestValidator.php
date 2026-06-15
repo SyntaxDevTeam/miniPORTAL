@@ -42,7 +42,9 @@ final class ModuleManifestValidator
         $type = (string) $data['type'];
         $requires = is_array($data['requires']) ? $data['requires'] : [];
         $modules = $requires['modules'] ?? [];
+        $factory = $data['factory'] ?? null;
         $install = $data['install'] ?? null;
+        $uninstall = $data['uninstall'] ?? null;
 
         if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $id) !== 1) {
             throw new RuntimeException("Manifest {$file} zawiera nieprawidłowy identyfikator.");
@@ -76,13 +78,14 @@ final class ModuleManifestValidator
         $this->assertConstraint($phpConstraint, PHP_VERSION, 'PHP', $file);
         $this->assertConstraint($miniportalConstraint, $this->miniportalVersion, 'miniPORTAL', $file);
 
+        if ($factory !== null) {
+            $this->assertPhpFile($directory, $factory, $id, $file);
+        }
         if ($install !== null) {
-            if (!is_string($install) || basename($install) !== $install || !str_ends_with($install, '.sql')) {
-                throw new RuntimeException("Plik instalacyjny w {$file} jest nieprawidłowy.");
-            }
-            if (!is_file(rtrim($directory, '/') . '/' . $install)) {
-                throw new RuntimeException("Nie znaleziono pliku instalacyjnego {$install} dla {$id}.");
-            }
+            $this->assertSqlFile($directory, $install, 'instalacyjny', $id, $file);
+        }
+        if ($uninstall !== null) {
+            $this->assertSqlFile($directory, $uninstall, 'deinstalacyjny', $id, $file);
         }
 
         return new ModuleManifest(
@@ -95,9 +98,54 @@ final class ModuleManifestValidator
             $miniportalConstraint,
             array_values(array_unique($requiredModules)),
             $data['protected'],
+            $factory,
             $install,
+            $uninstall,
             rtrim($directory, '/'),
         );
+    }
+
+    private function assertPhpFile(
+        string $directory,
+        mixed $name,
+        string $moduleId,
+        string $manifestFile,
+    ): void {
+        if (!is_string($name) || basename($name) !== $name || !str_ends_with($name, '.php')) {
+            throw new RuntimeException("Plik fabryki w {$manifestFile} jest nieprawidłowy.");
+        }
+        if (!is_file(rtrim($directory, '/') . '/' . $name)) {
+            throw new RuntimeException("Nie znaleziono pliku fabryki {$name} dla {$moduleId}.");
+        }
+    }
+
+    /**
+     * Waliduje pojedynczy pakiet bez przenoszenia jego błędu na skan pozostałych modułów.
+     *
+     * @return array{manifest: ?ModuleManifest, error: ?string}
+     */
+    public function inspect(string $directory): array
+    {
+        try {
+            return ['manifest' => $this->validate($directory), 'error' => null];
+        } catch (\Throwable $exception) {
+            return ['manifest' => null, 'error' => $exception->getMessage()];
+        }
+    }
+
+    private function assertSqlFile(
+        string $directory,
+        mixed $name,
+        string $purpose,
+        string $moduleId,
+        string $manifestFile,
+    ): void {
+        if (!is_string($name) || basename($name) !== $name || !str_ends_with($name, '.sql')) {
+            throw new RuntimeException("Plik {$purpose} w {$manifestFile} jest nieprawidłowy.");
+        }
+        if (!is_file(rtrim($directory, '/') . '/' . $name)) {
+            throw new RuntimeException("Nie znaleziono pliku {$purpose} {$name} dla {$moduleId}.");
+        }
     }
 
     private function assertConstraint(string $constraint, string $current, string $component, string $file): void

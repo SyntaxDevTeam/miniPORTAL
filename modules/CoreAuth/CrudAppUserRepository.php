@@ -47,6 +47,61 @@ final class CrudAppUserRepository implements UserRepositoryInterface
             : $this->findById((int) $userId);
     }
 
+    public function createPendingFromIdentity(ExternalIdentity $identity): User
+    {
+        $existing = $this->findByIdentity($identity->provider, $identity->subject);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            $user = $pdo->prepare(
+                'INSERT INTO users (display_name, email, avatar_url, status) '
+                . 'VALUES (:display_name, :email, :avatar_url, :status)'
+            );
+            $user->execute([
+                ':display_name' => $identity->login !== '' ? $identity->login : $identity->provider,
+                ':email' => $identity->emailVerified ? $identity->email : null,
+                ':avatar_url' => $identity->avatarUrl,
+                ':status' => 'pending',
+            ]);
+            $userId = (int) $pdo->lastInsertId();
+            $identityInsert = $pdo->prepare(
+                'INSERT INTO user_identities '
+                . '(user_id, provider, provider_subject, provider_login, provider_email, email_verified) '
+                . 'VALUES (:user_id, :provider, :subject, :login, :email, :verified)'
+            );
+            $identityInsert->execute([
+                ':user_id' => $userId,
+                ':provider' => $identity->provider,
+                ':subject' => $identity->subject,
+                ':login' => $identity->login,
+                ':email' => $identity->email,
+                ':verified' => $identity->emailVerified ? 1 : 0,
+            ]);
+            $role = $pdo->prepare(
+                'INSERT INTO user_roles (user_id, role_id) '
+                . 'SELECT :user_id, id FROM roles WHERE name = :role'
+            );
+            $role->execute([':user_id' => $userId, ':role' => 'user']);
+            $pdo->commit();
+
+            $created = $this->findById($userId);
+            if ($created === null) {
+                throw new RuntimeException('Nie można odczytać utworzonego konta oczekującego.');
+            }
+
+            return $created;
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
         if ($this->findByIdentity($identity->provider, $identity->subject) !== null) {

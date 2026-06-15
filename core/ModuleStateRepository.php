@@ -21,7 +21,7 @@ final class ModuleStateRepository
     public function all(): array
     {
         $statement = $this->database->query(
-            'SELECT module_id, version, status, is_protected, installed_at, updated_at '
+            'SELECT module_id, version, status, is_protected, data_preserved, installed_at, updated_at '
             . 'FROM modules_config ORDER BY module_id'
         );
         if ($statement === null) {
@@ -40,7 +40,7 @@ final class ModuleStateRepository
     public function find(string $moduleId): ?ModuleState
     {
         $statement = $this->database->query(
-            'SELECT module_id, version, status, is_protected, installed_at, updated_at '
+            'SELECT module_id, version, status, is_protected, data_preserved, installed_at, updated_at '
             . 'FROM modules_config WHERE module_id = :module_id LIMIT 1',
             [':module_id' => $moduleId]
         );
@@ -58,6 +58,7 @@ final class ModuleStateRepository
                 'version' => $manifest->version,
                 'status' => 'discovered',
                 'is_protected' => $manifest->protected ? 1 : 0,
+                'data_preserved' => 0,
                 'installed_at' => null,
             ]);
             return;
@@ -75,6 +76,7 @@ final class ModuleStateRepository
             'version' => $manifest->version,
             'status' => 'active',
             'is_protected' => $manifest->protected ? 1 : 0,
+            'data_preserved' => 0,
             'installed_at' => date('Y-m-d H:i:s'),
         ], ['module_id' => $manifest->id]);
     }
@@ -82,6 +84,19 @@ final class ModuleStateRepository
     public function markVersion(string $moduleId, string $version): void
     {
         $this->database->update('modules_config', ['version' => $version], ['module_id' => $moduleId]);
+    }
+
+    public function markUninstalled(string $moduleId, bool $preserveData): void
+    {
+        if (!$preserveData) {
+            $this->database->delete('module_migrations', ['module_id' => $moduleId]);
+        }
+
+        $this->database->update('modules_config', [
+            'status' => $preserveData ? 'uninstalled' : 'discovered',
+            'data_preserved' => $preserveData ? 1 : 0,
+            'installed_at' => null,
+        ], ['module_id' => $moduleId]);
     }
 
     public function setActive(string $moduleId, bool $active): bool
@@ -151,6 +166,7 @@ final class ModuleStateRepository
             (string) $row['version'],
             (string) $row['status'],
             (bool) $row['is_protected'],
+            (bool) ($row['data_preserved'] ?? false),
             $row['installed_at'] !== null ? (string) $row['installed_at'] : null,
             (string) $row['updated_at'],
         );

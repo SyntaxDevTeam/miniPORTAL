@@ -16,6 +16,11 @@ final class UnavailableUserRepository implements UserRepositoryInterface
         return null;
     }
 
+    public function createPendingFromIdentity(ExternalIdentity $identity): User
+    {
+        throw new \RuntimeException('Repozytorium użytkowników jest niedostępne.');
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
     }

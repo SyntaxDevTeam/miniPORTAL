@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
+use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
@@ -44,7 +45,7 @@ session_start();
 $test('Request normalizes route and input', static function () use ($assert): void {
     $request = Request::fromArrays(
         ['route' => '//admin///pages/', 'id' => '12'],
-        ['confirmed' => '1'],
+        ['confirmed' => '1', 'roles' => ['editor', 'user', 'editor']],
         ['REQUEST_METHOD' => 'post']
     );
 
@@ -52,6 +53,23 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $assert($request->method() === 'POST');
     $assert($request->queryInt('id') === 12);
     $assert($request->postBool('confirmed'));
+    $assert($request->postStringList('roles') === ['editor', 'user']);
+});
+
+$test('Unknown identity becomes a pending account', static function () use ($assert): void {
+    $_SESSION = [];
+    $repository = new SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository();
+    $auth = new SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService($repository, new Security());
+    $identity = new SyntaxDevTeam\Cms\Modules\CoreAuth\ExternalIdentity(
+        'test',
+        'new-subject',
+        'Nowy użytkownik'
+    );
+
+    $assert($auth->loginIdentity($identity) === null);
+    $pending = $repository->findByIdentity('test', 'new-subject');
+    $assert($pending !== null && $pending->status === 'pending');
+    $assert($pending->roles === ['user']);
 });
 
 $test('OAuth state is one-time and provider-bound', static function () use ($assert): void {
@@ -217,23 +235,88 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.0.0');
+    $assert($manifest->version === '1.0.1');
     $assert($manifest->installFile === 'install.sql');
+    $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
     $assert($system->protected);
+
+    $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
+    $assert($learning->id === 'learning_module');
+    $assert($learning->version === '1.1.0');
+    $assert($learning->factoryFile === 'factory.php');
+    $assert($learning->uninstallFile === 'uninstall.sql');
+    $assert(is_callable(require $learning->directory . '/' . $learning->factoryFile));
+});
+
+$test('Invalid module inspection isolates a package error', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-invalid-module-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    file_put_contents($directory . '/info.json', '{"id":');
+
+    try {
+        $inspection = (new ModuleManifestValidator('0.1.0'))->inspect($directory);
+        $assert($inspection['manifest'] === null);
+        $assert(is_string($inspection['error']) && str_contains($inspection['error'], 'Nieprawidłowy JSON'));
+    } finally {
+        unlink($directory . '/info.json');
+        rmdir($directory);
+    }
+});
+
+$test('Optional module with invalid manifest is skipped during bootstrap', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-bootstrap-' . bin2hex(random_bytes(6));
+    $directory = $root . '/BrokenModule';
+    mkdir($directory, 0700, true);
+    file_put_contents($directory . '/info.json', '{"id":');
+    $factoryCalled = false;
+
+    try {
+        $registry = new ModuleRegistry();
+        $bootstrapper = new ModuleBootstrapper($root, new ModuleManifestValidator('0.1.0'));
+        $bootstrapper->register([[
+            'directory' => 'BrokenModule',
+            'factory' => static function () use (&$factoryCalled): ModuleInterface {
+                $factoryCalled = true;
+                throw new RuntimeException('Fabryka wadliwego modułu nie może zostać uruchomiona.');
+            },
+        ]], [], $registry);
+
+        $assert(!$factoryCalled);
+        $assert($registry->ids() === []);
+
+        try {
+            $bootstrapper->register([[
+                'directory' => 'BrokenModule',
+                'required' => true,
+                'factory' => static fn (): ModuleInterface => throw new RuntimeException(
+                    'Fabryka wymaganego wadliwego modułu nie może zostać uruchomiona.'
+                ),
+            ]], [], new ModuleRegistry());
+            $assert(false, 'Wadliwy wymagany moduł został pominięty bez błędu.');
+        } catch (RuntimeException $exception) {
+            $assert(str_contains($exception->getMessage(), 'Wymagany moduł BrokenModule'));
+        }
+    } finally {
+        unlink($directory . '/info.json');
+        rmdir($directory);
+        rmdir($root);
+    }
 });
 
 $test('Module state distinguishes discovery, installation and activation', static function () use ($assert): void {
-    $discovered = new ModuleState('example', '1.0.0', 'discovered', false, null, '2026-06-14 00:00:00');
-    $disabled = new ModuleState('example', '1.0.0', 'disabled', false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
-    $active = new ModuleState('example', '1.0.0', 'active', false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
+    $discovered = new ModuleState('example', '1.0.0', 'discovered', false, false, null, '2026-06-14 00:00:00');
+    $disabled = new ModuleState('example', '1.0.0', 'disabled', false, false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
+    $active = new ModuleState('example', '1.0.0', 'active', false, false, '2026-06-14 00:00:00', '2026-06-14 00:00:00');
+    $preserved = new ModuleState('example', '1.0.0', 'uninstalled', false, true, null, '2026-06-14 00:00:00');
 
     $assert(!$discovered->isInstalled() && !$discovered->isActive());
     $assert($disabled->isInstalled() && !$disabled->isActive());
     $assert($active->isInstalled() && $active->isActive());
+    $assert(!$preserved->isInstalled() && $preserved->canRestorePreservedData());
 });
 
 $test('Module registry rejects a missing dependency', static function () use ($assert): void {

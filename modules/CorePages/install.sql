@@ -122,12 +122,12 @@ FROM (
     SELECT
         'contact',
         'cta',
-        '03 / Kontakt',
-        'Zbudujmy coś użytecznego.',
-        '<p>Plugin, bot, aplikacja czy system WWW - zacznijmy od konkretnego problemu.</p>',
-        'accent',
-        'contact@syntaxdevteam.pl',
-        'mailto:contact@syntaxdevteam.pl',
+        'Kontakt i wsparcie',
+        'Pozostańmy w kontakcie.',
+        '<p>Wybierz kanał najlepiej dopasowany do sprawy: Discord do szybkiego kontaktu, GitHub do kodu i zgłoszeń albo e-mail do bezpośredniej rozmowy.</p>',
+        'contact',
+        '',
+        '',
         40
 ) AS seed
 CROSS JOIN (
@@ -135,41 +135,56 @@ CROSS JOIN (
 ) AS users;
 
 INSERT INTO homepage_section_items
-    (section_id, label, title, content, button_label, button_url, variant, width, sort_order)
+    (section_id, label, title, content, item_kind, icon_key, button_label, button_url, variant, width, sort_order)
 SELECT id, 'PROJECT / 001', 'PunisherX',
     'System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.',
-    'Zapytaj o projekt', '#contact', 'primary', 'wide', 10
+    'card', '', 'Zapytaj o projekt', '#contact', 'primary', 'wide', 10
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 002', 'SyntaxCore',
     'Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.',
-    'Zobacz fundamenty', '#contact', 'violet', 'standard', 20
+    'card', '', 'Zobacz fundamenty', '#contact', 'violet', 'standard', 20
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 003', 'Econify',
     'Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.',
-    'Sprawdź możliwości', '#contact', 'violet', 'standard', 30
+    'card', '', 'Sprawdź możliwości', '#contact', 'violet', 'standard', 30
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 004', 'miniPORTAL',
     'Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.',
-    'Poznaj system', '#contact', 'primary', 'wide', 40
+    'card', '', 'Poznaj system', '#contact', 'primary', 'wide', 40
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'SERWERY', 'Paper & Folia',
     'Kotlin, Adventure i nowoczesne środowiska serwerowe.',
-    '', '', 'primary', 'standard', 10
+    'card', '', '', '', 'primary', 'standard', 10
 FROM homepage_sections WHERE section_key = 'stack'
 UNION ALL
 SELECT id, 'AUTOMATYZACJA', 'Discord & OAuth',
     'Boty, logowanie federacyjne, ACL i integracje API.',
-    '', '', 'primary', 'standard', 20
+    'card', '', '', '', 'primary', 'standard', 20
 FROM homepage_sections WHERE section_key = 'stack'
 UNION ALL
 SELECT id, 'WEB', 'PHP & CrudApp',
     'PHP 8.5, Medoo, MySQL i wymienna warstwa Theme.',
-    '', '', 'primary', 'standard', 30
-FROM homepage_sections WHERE section_key = 'stack';
+    'card', '', '', '', 'primary', 'standard', 30
+FROM homepage_sections WHERE section_key = 'stack'
+UNION ALL
+SELECT id, 'DISCORD', 'SyntaxDevTeam.pl/Discord',
+    'Szybki kontakt, dyskusje i informacje o społeczności.',
+    'channel', 'discord', 'Dołącz', 'https://syntaxdevteam.pl/discord', 'violet', 'standard', 10
+FROM homepage_sections WHERE section_key = 'contact'
+UNION ALL
+SELECT id, 'GITHUB', 'SyntaxDevTeam',
+    'Repozytoria, zgłoszenia, pull requesty i historia rozwoju.',
+    'channel', 'github', 'Repozytoria', 'https://github.com/SyntaxDevTeam', 'neutral', 'standard', 20
+FROM homepage_sections WHERE section_key = 'contact'
+UNION ALL
+SELECT id, 'E-MAIL', 'Zespół SyntaxDevTeam',
+    'Bezpośredni kontakt w sprawie projektu lub współpracy.',
+    'person', 'mail', 'Napisz', 'mailto:contact@syntaxdevteam.pl', 'primary', 'standard', 30
+FROM homepage_sections WHERE section_key = 'contact';
 
 UPDATE homepage_sections
 SET content_html = '<p>Każdy produkt jest osobnym modułem, ale korzysta ze sprawdzonych fundamentów.</p>'

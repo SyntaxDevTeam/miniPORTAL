@@ -63,6 +63,28 @@ final class InMemoryUserRepository implements UserRepositoryInterface
         return null;
     }
 
+    public function createPendingFromIdentity(ExternalIdentity $identity): User
+    {
+        $existing = $this->findByIdentity($identity->provider, $identity->subject);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $user = new User(
+            count($this->users) + 1,
+            $identity->login !== '' ? $identity->login : $identity->provider,
+            $identity->emailVerified ? $identity->email : null,
+            $identity->avatarUrl,
+            'pending',
+            ['user'],
+            [],
+            [$identity]
+        );
+        $this->users[] = $user;
+
+        return $user;
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
         $user = $this->users[$userId] ?? null;

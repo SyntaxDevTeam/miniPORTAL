@@ -38,7 +38,11 @@ final class AuthService
     {
         $user = $this->users->findByIdentity($identity->provider, $identity->subject);
 
-        if ($user === null || !$user->isActive()) {
+        if ($user === null) {
+            $this->users->createPendingFromIdentity($identity);
+            return null;
+        }
+        if (!$user->isActive()) {
             return null;
         }
 

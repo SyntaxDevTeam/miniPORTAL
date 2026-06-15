@@ -24,7 +24,11 @@ final class ModuleManagerService
     {
         $manifests = [];
         foreach (glob(rtrim($this->modulesPath, '/') . '/*/info.json') ?: [] as $file) {
-            $manifest = $this->validator->validate(dirname($file));
+            $inspection = $this->validator->inspect(dirname($file));
+            $manifest = $inspection['manifest'];
+            if ($manifest === null) {
+                continue;
+            }
             $this->states->registerDiscovered($manifest);
             $manifests[$manifest->id] = $manifest;
         }
@@ -35,27 +39,70 @@ final class ModuleManagerService
 
     /**
      * @return list<array{
-     *     manifest: ModuleManifest,
-     *     state: ModuleState,
+     *     manifest: ?ModuleManifest,
+     *     state: ?ModuleState,
+     *     directory: string,
+     *     error: ?string,
      *     pending: list<string>,
-     *     loadable: bool
+     *     loadable: bool,
+     *     update_available: bool
      * }>
      */
     public function modules(): array
     {
         $result = [];
-        foreach ($this->manifests() as $manifest) {
-            $state = $this->states->find($manifest->id);
-            if ($state === null) {
+        foreach (glob(rtrim($this->modulesPath, '/') . '/*/info.json') ?: [] as $file) {
+            $directory = dirname($file);
+            $inspection = $this->validator->inspect($directory);
+            $manifest = $inspection['manifest'];
+            if ($manifest === null) {
+                $result[] = [
+                    'manifest' => null,
+                    'state' => null,
+                    'directory' => basename($directory),
+                    'error' => $inspection['error'] ?? 'Nieznany błąd manifestu.',
+                    'pending' => [],
+                    'loadable' => false,
+                    'update_available' => false,
+                ];
                 continue;
             }
-            $result[] = [
-                'manifest' => $manifest,
-                'state' => $state,
-                'pending' => $state->isInstalled() ? $this->installer->pendingMigrations($manifest) : [],
-                'loadable' => $this->isLoadable($manifest),
-            ];
+
+            $state = null;
+            try {
+                $this->states->registerDiscovered($manifest);
+                $state = $this->states->find($manifest->id);
+                if ($state === null) {
+                    throw new RuntimeException("Nie można odczytać stanu modułu {$manifest->id}.");
+                }
+                $result[] = [
+                    'manifest' => $manifest,
+                    'state' => $state,
+                    'directory' => basename($directory),
+                    'error' => null,
+                    'pending' => $state->isInstalled()
+                        ? $this->installer->pendingMigrations($manifest)
+                        : [],
+                    'loadable' => $this->isLoadable($manifest),
+                    'update_available' => $state->isInstalled()
+                        && version_compare($manifest->version, $state->version, '>'),
+                ];
+            } catch (\Throwable $exception) {
+                $result[] = [
+                    'manifest' => $manifest,
+                    'state' => $state,
+                    'directory' => basename($directory),
+                    'error' => $exception->getMessage(),
+                    'pending' => [],
+                    'loadable' => false,
+                    'update_available' => false,
+                ];
+            }
         }
+        usort(
+            $result,
+            static fn (array $left, array $right): int => strcmp($left['directory'], $right['directory'])
+        );
 
         return $result;
     }
@@ -81,6 +128,48 @@ final class ModuleManagerService
         $this->assertLoadable($manifest);
 
         return $this->installer->migrate($manifest);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function update(string $moduleId): array
+    {
+        $manifest = $this->manifest($moduleId);
+        $this->assertLoadable($manifest);
+        foreach ($manifest->requiredModules as $dependency) {
+            if (!$this->states->find($dependency)?->isActive()) {
+                throw new RuntimeException("Najpierw aktywuj wymagany moduł {$dependency}.");
+            }
+        }
+
+        return $this->installer->update($manifest);
+    }
+
+    public function uninstall(string $moduleId, bool $preserveData): void
+    {
+        $manifest = $this->manifest($moduleId);
+        $this->assertLoadable($manifest);
+        $state = $this->states->find($moduleId);
+        if ($state === null || !$state->isInstalled()) {
+            throw new RuntimeException("Moduł {$moduleId} nie jest zainstalowany.");
+        }
+        if ($manifest->protected) {
+            throw new RuntimeException("Moduł {$moduleId} jest chroniony i nie może zostać usunięty.");
+        }
+        if ($state->isActive()) {
+            throw new RuntimeException("Przed odinstalowaniem wyłącz moduł {$moduleId}.");
+        }
+        foreach ($this->manifests() as $candidate) {
+            if (
+                in_array($moduleId, $candidate->requiredModules, true)
+                && $this->states->find($candidate->id)?->isInstalled()
+            ) {
+                throw new RuntimeException("Zainstalowany moduł {$candidate->id} wymaga {$moduleId}.");
+            }
+        }
+
+        $this->installer->uninstall($manifest, $preserveData);
     }
 
     public function toggle(string $moduleId, bool $active): void
@@ -138,6 +227,7 @@ final class ModuleManagerService
 
     private function isLoadable(ModuleManifest $manifest): bool
     {
-        return in_array(basename($manifest->directory), $this->registeredDirectories, true);
+        return $manifest->factoryFile !== null
+            || in_array(basename($manifest->directory), $this->registeredDirectories, true);
     }
 }

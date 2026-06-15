@@ -78,10 +78,20 @@ final class SystemAdminModule implements ModuleInterface
             'modules.install',
             fn () => $this->migrateModule($request)
         ));
+        $router->post('/admin/modules/update', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->updateModule($request)
+        ));
         $router->post('/admin/modules/toggle', fn (Request $request) => $this->guard(
             $request,
             'modules.toggle',
             fn () => $this->toggleModule($request)
+        ));
+        $router->post('/admin/modules/uninstall', fn (Request $request) => $this->guard(
+            $request,
+            'modules.remove',
+            fn () => $this->uninstallModule($request)
         ));
         $router->get('/admin/design-system', fn (Request $request) => $this->guard(
             $request,
@@ -96,7 +106,11 @@ final class SystemAdminModule implements ModuleInterface
         $moduleEntries = $this->moduleManager?->modules() ?? [];
         $activeModules = count(array_filter(
             $moduleEntries,
-            static fn (array $entry): bool => $entry['state']->isActive()
+            static fn (array $entry): bool => $entry['state']?->isActive() === true
+        ));
+        $invalidModules = count(array_filter(
+            $moduleEntries,
+            static fn (array $entry): bool => $entry['error'] !== null
         ));
         $pendingMigrations = array_sum(array_map(
             static fn (array $entry): int => count($entry['pending']),
@@ -111,7 +125,12 @@ final class SystemAdminModule implements ModuleInterface
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Widoczne pozycje menu', (string) count($visibleMenu), 'ACL', 'Zależne od uprawnień');
-        $this->theme->render_admin_metric('Aktywne moduły', (string) $activeModules, 'MOD', count($moduleEntries) . ' wykrytych');
+        $this->theme->render_admin_metric(
+            'Aktywne moduły',
+            (string) $activeModules,
+            'MOD',
+            count($moduleEntries) . ' wykrytych, ' . $invalidModules . ' z błędem'
+        );
         $this->theme->render_admin_metric('Oczekujące migracje', (string) $pendingMigrations, 'SQL', 'Kontrola SHA-256');
         $this->theme->render_admin_metric('Warstwa HTML', 'Theme', 'UI', 'Moduł nie zna znaczników');
         $this->theme->end_admin_metrics();
@@ -158,27 +177,64 @@ final class SystemAdminModule implements ModuleInterface
             $state = $entry['state'];
             $pending = $entry['pending'];
             $loadable = $entry['loadable'];
+            $updateAvailable = $entry['update_available'];
             $actions = [];
+
+            if ($manifest === null || $state === null || $entry['error'] !== null) {
+                $rows[] = [
+                    'cells' => [
+                        $manifest !== null
+                            ? $manifest->name . ' (' . $manifest->id . ')'
+                            : $entry['directory'],
+                        $manifest?->version ?? 'Nieznana',
+                        'Błąd pakietu',
+                        $manifest?->protected === true ? 'Chroniony' : 'Niedostępne',
+                        'Operacje zablokowane',
+                        $entry['error'] ?? 'Nie można odczytać stanu modułu.',
+                    ],
+                    'actions' => [],
+                ];
+                continue;
+            }
 
             if (
                 $loadable
                 && !$state->isInstalled()
                 && $allows('modules.install')
-                && $manifest->installFile !== null
+                && ($manifest->installFile !== null || $state->canRestorePreservedData())
             ) {
                 $actions[] = [
-                    'label' => 'Zainstaluj',
+                    'label' => $state->canRestorePreservedData() ? 'Przywróć z danymi' : 'Zainstaluj',
                     'action' => 'index.php?route=/admin/modules/install',
                     'fields' => ['module_id' => $manifest->id],
                     'variant' => 'primary',
+                    'confirm' => $state->canRestorePreservedData()
+                        ? 'Przywrócić moduł z zachowanymi wcześniej danymi?'
+                        : 'Zainstalować i aktywować ten moduł? Po instalacji aplikacja będzie mogła wykonywać kod jego fabryki.',
                 ];
             }
-            if ($loadable && $state->isInstalled() && $pending !== [] && $allows('modules.install')) {
+            if ($loadable && $state->isInstalled() && $updateAvailable && $allows('modules.install')) {
+                $actions[] = [
+                    'label' => 'Aktualizuj do ' . $manifest->version,
+                    'action' => 'index.php?route=/admin/modules/update',
+                    'fields' => ['module_id' => $manifest->id],
+                    'variant' => 'primary',
+                    'confirm' => 'Uruchomić kontrolowaną aktualizację modułu? Przed wykonaniem SQL zostaną sprawdzone wszystkie migracje.',
+                ];
+            }
+            if (
+                $loadable
+                && $state->isInstalled()
+                && !$updateAvailable
+                && $pending !== []
+                && $allows('modules.install')
+            ) {
                 $actions[] = [
                     'label' => 'Migracje (' . count($pending) . ')',
                     'action' => 'index.php?route=/admin/modules/migrate',
                     'fields' => ['module_id' => $manifest->id],
                     'variant' => 'outline-primary',
+                    'confirm' => 'Wykonać oczekujące migracje bez zmiany wersji modułu?',
                 ];
             }
             if ($loadable && $state->isInstalled() && !$manifest->protected && $allows('modules.toggle')) {
@@ -192,6 +248,30 @@ final class SystemAdminModule implements ModuleInterface
                     'variant' => $state->isActive() ? 'outline-danger' : 'outline-primary',
                 ];
             }
+            if (
+                $loadable
+                && $state->isInstalled()
+                && !$state->isActive()
+                && !$manifest->protected
+                && $allows('modules.remove')
+            ) {
+                $actions[] = [
+                    'label' => 'Odinstaluj, zachowaj dane',
+                    'action' => 'index.php?route=/admin/modules/uninstall',
+                    'fields' => ['module_id' => $manifest->id, 'preserve_data' => '1'],
+                    'variant' => 'outline-warning',
+                    'confirm' => 'Odinstalować moduł, zachowując jego tabele i historię migracji?',
+                ];
+                if ($manifest->uninstallFile !== null) {
+                    $actions[] = [
+                        'label' => 'Odinstaluj i usuń dane',
+                        'action' => 'index.php?route=/admin/modules/uninstall',
+                        'fields' => ['module_id' => $manifest->id, 'preserve_data' => '0'],
+                        'variant' => 'outline-danger',
+                        'confirm' => 'Trwale usunąć moduł i wszystkie jego dane? Tej operacji nie można cofnąć.',
+                    ];
+                }
+            }
 
             $rows[] = [
                 'cells' => [
@@ -200,7 +280,9 @@ final class SystemAdminModule implements ModuleInterface
                     $this->moduleStatusLabel($state->status),
                     $manifest->protected ? 'Chroniony' : 'Rozszerzenie',
                     $loadable ? 'Fabryka gotowa' : 'Brak fabryki',
-                    $pending === [] ? 'Brak' : implode(', ', $pending),
+                    $state->dataPreserved
+                        ? 'Dane zachowane'
+                        : ($pending === [] ? 'Brak' : implode(', ', $pending)),
                 ],
                 'actions' => $actions,
             ];
@@ -241,6 +323,16 @@ final class SystemAdminModule implements ModuleInterface
         );
     }
 
+    private function updateModule(Request $request): void
+    {
+        $this->moduleOperation(
+            $request,
+            'module_update',
+            fn (string $moduleId) => $this->moduleManager?->update($moduleId),
+            'Moduł został zaktualizowany do wersji zadeklarowanej w manifeście.'
+        );
+    }
+
     private function toggleModule(Request $request): void
     {
         $active = $request->postBool('active');
@@ -249,6 +341,19 @@ final class SystemAdminModule implements ModuleInterface
             'module_toggle',
             fn (string $moduleId) => $this->moduleManager?->toggle($moduleId, $active),
             $active ? 'Moduł został aktywowany.' : 'Moduł został wyłączony.'
+        );
+    }
+
+    private function uninstallModule(Request $request): void
+    {
+        $preserveData = $request->postBool('preserve_data');
+        $this->moduleOperation(
+            $request,
+            'module_uninstall',
+            fn (string $moduleId) => $this->moduleManager?->uninstall($moduleId, $preserveData),
+            $preserveData
+                ? 'Moduł został odinstalowany, a jego dane zachowano.'
+                : 'Moduł został odinstalowany, a jego dane usunięto.'
         );
     }
 
@@ -286,6 +391,7 @@ final class SystemAdminModule implements ModuleInterface
         return match ($status) {
             'active' => 'Aktywny',
             'disabled' => 'Wyłączony',
+            'uninstalled' => 'Odinstalowany / dane zachowane',
             default => 'Wykryty / niezainstalowany',
         };
     }

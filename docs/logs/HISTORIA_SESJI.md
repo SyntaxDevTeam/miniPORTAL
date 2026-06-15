@@ -445,3 +445,84 @@ w edytorze oraz elementy jawnie z nimi powiązane.
 
 **Zaktualizowano status:** administrator może budować rozbudowane sekcje
 kontaktowe bez wprowadzania HTML i klas CSS do modułu treści.
+
+### Sesja: 2026-06-15 - aktualizacja, odinstalowanie i moduł edukacyjny
+
+**Wykonano:**
+- dodano kontrolowaną aktualizację wyłącznie do wyższej wersji manifestu,
+- dodano preflight sum SHA-256 wszystkich migracji przed wykonaniem pierwszego DDL,
+- rozszerzono stan modułu o odinstalowanie z zachowanymi danymi,
+- dodano odinstalowanie z zachowaniem danych albo wykonaniem jawnego `uninstall.sql`,
+- zablokowano usuwanie modułów aktywnych, chronionych i wymaganych przez zależności,
+- dodano potwierdzenia i audit log dla aktualizacji oraz obu wariantów usuwania,
+- scalono wynik migracji modułów do ich aktualnych `install.sql`, bez zmiany plików
+  historycznych i zapisanych sum kontrolnych,
+- utworzono `install/mod/LearningModule` z przykładowym CRUD przez `CrudApp`,
+  pełnymi DocBlockami, ACL, CSRF, migracją, fabryką i instrukcją,
+- objęto katalog `install/` ochroną głównego `.htaccess`.
+
+**Zaktualizowano status:** Krok 6 obejmuje pełny, kontrolowany cykl życia modułu.
+Do dalszej rozbudowy pozostają historia migracji w panelu, edytor ról oraz kontrakt
+bezpiecznego importu zewnętrznych pakietów.
+
+### Sesja: 2026-06-15 - przywrócenie panelu po skopiowaniu modułu szkoleniowego
+
+**Wykonano:**
+- zidentyfikowano błąd 500 jako walidację kopii `modules/LearningModule` wymagającej
+  PHP 8.5 przy handlerze Apache działającym na PHP 8.4.15,
+- usunięto wyłącznie nieaktywny duplikat z `modules/`, zachowując pakiet źródłowy
+  w `install/mod/LearningModule`,
+- ustawiono rzeczywiste minimum pakietu edukacyjnego na PHP 8.4, aby jego ponowne
+  skopiowanie nie blokowało panelu przed rejestracją fabryki,
+- zweryfikowano manager pod PHP 8.4, stronę logowania i komplet testów.
+
+**Zaktualizowano status:** panel administracyjny działa ponownie, a żadne dane
+modułów ani konfiguracja istniejących rozszerzeń nie zostały usunięte.
+
+### Sesja: 2026-06-15 - izolacja błędnych pakietów modułów
+
+**Wykonano:**
+- dodano bezpieczną inspekcję manifestu zwracającą błąd zamiast przerywać skan,
+- manager pokazuje wadliwy katalog jako „Błąd pakietu” wraz z przyczyną i bez akcji,
+- dashboard uwzględnia liczbę błędnych pakietów bez wywoływania HTTP 500,
+- odizolowano także błędy historii migracji i stanu pojedynczego modułu,
+- opcjonalne moduły z `config/modules.php` są pomijane przed wykonaniem fabryki,
+- oznaczono `CoreAuth`, `CorePages` i `System` jako wymagane elementy rdzenia,
+- dodano testy uszkodzonego JSON i pomijania wadliwej opcjonalnej fabryki.
+
+**Zaktualizowano status:** skopiowanie niezgodnego lub uszkodzonego rozszerzenia
+do `modules/` nie blokuje panelu ani pozostałych funkcji aplikacji.
+
+### Sesja: 2026-06-15 - instalacja pakietu z własną fabryką
+
+**Wykonano:**
+- rozszerzono manifest o opcjonalne pole `factory`,
+- walidator dopuszcza wyłącznie lokalną nazwę pliku PHP istniejącą w katalogu modułu,
+- manager uznaje poprawny pakiet z własną fabryką za gotowy do instalacji,
+- dodano przycisk instalacji bez konieczności modyfikowania `config/modules.php`,
+- kod fabryki jest ładowany dopiero dla zainstalowanego i aktywnego rozszerzenia,
+- błędna fabryka rozszerzenia jest izolowana i nie przerywa startu Core,
+- moduł szkoleniowy otrzymał rzeczywisty `factory.php` zwracający kontrolowany callable,
+- zaktualizowano instrukcję modułu oraz ostrzeżenie przed wykonaniem zaufanego kodu.
+
+**Zaktualizowano status:** poprawnie zbudowany moduł z lokalną fabryką można
+zainstalować jednym kliknięciem bez ręcznej edycji konfiguracji rdzenia.
+
+### Sesja: 2026-06-15 - akceptacja użytkowników, role i uprawnienia
+
+**Wykonano:**
+- nieznana zweryfikowana tożsamość OAuth tworzy lokalne konto `pending` z rolą `user`,
+- dodano przycisk szybkiej akceptacji konta oczekującego,
+- dodano formularz ręcznego tworzenia konta z opcjonalnym `(provider, subject)`,
+- rozszerzono konto użytkownika z jednej roli do wielu ról,
+- dodano ogólny komponent `multiselect` Theme i filtrowany `Request::postStringList`,
+- utworzono ekran `/admin/roles` z rolami systemowymi i niestandardowymi,
+- dodano tworzenie, edycję i bezpieczne usuwanie nieużywanych ról niestandardowych,
+- dodano przypisywanie wielu uprawnień do roli,
+- zabezpieczono identyfikatory ról systemowych i pełny zestaw praw administratora,
+- dodano uprawnienia `roles.view` i `roles.manage` oraz migrację CoreAuth `1.1.0`,
+- wykonano aktualizację produkcyjnego stanu CoreAuth z `1.0.0` do `1.1.0`,
+- przetestowano cykl pending → active, wiele ról i sumowanie uprawnień.
+
+**Zaktualizowano status:** moduł użytkowników obsługuje pełną lokalną akceptację
+kont oraz zarządzanie rolami i uprawnieniami niezależnie od OAuth.
