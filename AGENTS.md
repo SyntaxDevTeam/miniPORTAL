@@ -139,12 +139,15 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Aktualizacja i odinstalowanie modułu |
 | [x] | Ochrona `core_auth`, `core_pages` i `system_admin` przed wyłączeniem i usunięciem |
 | [x] | Uprawnienia managera i audit log operacji |
+| [x] | Podgląd historii migracji i kontrola aktualnego SHA-256 |
+| [x] | Filtry audit logu według zdarzenia, wyniku i zakresu dat |
+| [x] | Pochodzenie i podpisy RSA-SHA256 zewnętrznych pakietów |
 
 ## Następne kroki
 
-1. Rozbudować manager o podgląd historii wykonanych migracji.
-2. Rozbudować audit log o filtrowanie zdarzeń i zakres dat.
-3. Dodać podpisy kryptograficzne i źródła pochodzenia dla zewnętrznych pakietów modułów.
+1. Dodać eksport wyfiltrowanego audit logu do kontrolowanego CSV.
+2. Dodać rotację i unieważnianie kluczy zaufanych wydawców modułów.
+3. Zaprojektować kontrakt unieważniania cache szablonów.
 
 ## Uwagi / blokery
 
@@ -212,6 +215,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-15 | Pierwsza poprawna próba logowania nieznanej tożsamości tworzy konto `pending` z rolą `user`; administrator akceptuje je lokalnie, bez łączenia po e-mailu. |
 | 2026-06-15 | Użytkownik może mieć wiele ról, a `/admin/roles` zarządza rolami niestandardowymi i mapowaniem uprawnień; administrator zachowuje komplet praw. |
 | 2026-06-15 | `SystemAdminModule` udostępnia `/admin/settings` i `/admin/logs`; sekrety nie trafiają do HTML, a ustawienia bazy obejmują wyłącznie motyw i publiczny branding. |
+| 2026-06-15 | Audit log nie zapisuje rutynowych `admin_access/allowed`; zachowuje odmowy dostępu i operacje zmieniające stan, a historyczny szum jest ukryty bez usuwania rekordów. |
+| 2026-06-15 | Manager pokazuje historię migracji wraz z kontrolą aktualnego SHA-256, a audit log obsługuje filtry zdarzenia, wyniku i zakresu dat. |
+| 2026-06-15 | Zewnętrzna fabryka wymaga jawnego pochodzenia i zweryfikowanego podpisu RSA-SHA256 obejmującego wszystkie pliki pakietu; prywatne klucze pozostają poza repozytorium. |
 
 ## Historia sesji
 

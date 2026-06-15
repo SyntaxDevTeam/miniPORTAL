@@ -16,6 +16,9 @@ find core modules templates config tests bin install/mod -type f -name '*.php' -
 php bin/migrate-core.php
 ```
 
+Zewnętrzne moduły z własną fabryką wymagają jawnego pochodzenia oraz podpisu
+RSA-SHA256 zweryfikowanego kluczem publicznym z `config/module_publishers.php`.
+
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez
 główny `.htaccess`.

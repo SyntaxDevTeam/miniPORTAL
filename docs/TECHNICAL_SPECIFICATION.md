@@ -246,6 +246,8 @@ Stan managera:
 - `modules_config` przechowuje wersję, stan
   `discovered/active/disabled/uninstalled`, ochronę i informację o zachowanych danych,
 - `module_migrations` przechowuje wykonaną migrację wraz z sumą SHA-256,
+- manager pokazuje historię wykonania, zapisany i aktualny SHA-256 oraz stan
+  `Zgodna`, `Zmieniona` albo `Brak pliku`,
 - aktualny `install.sql` stanowi pełny schemat nowej instalacji, więc istniejące
   migracje są przy instalacji oznaczane jako stan bazowy; każda zmiana schematu
   z `migrations/*.sql` musi być równolegle scalona do `install.sql`,
@@ -267,6 +269,10 @@ Stan managera:
 - opcjonalny moduł z `config/modules.php` o niezgodnym manifeście jest pomijany bez
   uruchamiania fabryki; wyłącznie definicje Core z `required: true` zatrzymują start,
 - `/admin/modules` wymaga ACL, CSRF i zapisuje wynik operacji do audit logu.
+- zewnętrzny pakiet z własną fabryką wymaga jawnego `origin`, mapy SHA-256 wszystkich
+  plików i podpisu RSA-SHA256 zweryfikowanego kluczem z lokalnego rejestru wydawców,
+- klucz prywatny wydawcy pozostaje poza repozytorium i serwerem WWW; zmiana dowolnego
+  pliku unieważnia pakiet przed instalacją albo uruchomieniem.
 
 ---
 
@@ -305,6 +311,8 @@ kontraktu modułów i zasad unieważniania po zmianie treści lub motywu.
 3. Wbudowany moduł logów (Audit Log) [wdrożony]
    - zapis nieudanych logowań, instalacji modułów i zmian konfiguracyjnych w `auth_events`
    - paginowany, chroniony widok `/admin/logs` bez tokenów i pełnych adresów IP
+   - rutynowe poprawne odczyty panelu nie są zdarzeniami audytowymi; zapisywane są
+     odmowy dostępu i operacje zmieniające stan
 
 4. Chronione ustawienia systemowe [wdrożone]
    - `SystemAdminModule` zarządza bezpiecznymi ustawieniami motywu i brandingu,

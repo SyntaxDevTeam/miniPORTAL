@@ -86,3 +86,16 @@ php tests/run.php
 
 Sprawdź dodatkowo instalację, wyłączenie, przywrócenie z danymi i trwałe
 odinstalowanie na bazie testowej.
+## Pochodzenie i podpis pakietu
+
+Zewnętrzny moduł z własną fabryką deklaruje w `info.json` pola `origin` oraz
+`signature`. Plik podpisu zawiera mapę SHA-256 całej zawartości i podpis RSA-SHA256.
+Klucz publiczny wydawcy musi być jawnie dodany do `config/module_publishers.php`.
+
+Pakiet podpisuje się poza serwerem produkcyjnym:
+
+```bash
+php bin/sign-module.php install/mod/LearningModule /bezpieczna/sciezka/private.pem syntaxdevteam-learning-2026
+```
+
+Prywatnego klucza nie wolno umieszczać w module, repozytorium ani katalogu WWW.

@@ -11,6 +11,7 @@ final class ModuleManifestValidator
 {
     public function __construct(
         private readonly string $miniportalVersion,
+        private readonly array $trustedPublishers = [],
     ) {
     }
 
@@ -45,6 +46,8 @@ final class ModuleManifestValidator
         $factory = $data['factory'] ?? null;
         $install = $data['install'] ?? null;
         $uninstall = $data['uninstall'] ?? null;
+        $origin = is_array($data['origin'] ?? null) ? $data['origin'] : [];
+        $signatureFile = $data['signature'] ?? null;
 
         if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $id) !== 1) {
             throw new RuntimeException("Manifest {$file} zawiera nieprawidłowy identyfikator.");
@@ -87,6 +90,37 @@ final class ModuleManifestValidator
         if ($uninstall !== null) {
             $this->assertSqlFile($directory, $uninstall, 'deinstalacyjny', $id, $file);
         }
+        $originType = trim((string) ($origin['type'] ?? 'unspecified'));
+        $originUrl = trim((string) ($origin['url'] ?? ''));
+        if (!in_array($originType, ['bundled', 'repository', 'archive', 'unspecified'], true)) {
+            throw new RuntimeException("Manifest {$file} zawiera nieobsługiwany typ pochodzenia.");
+        }
+        if ($originUrl !== '' && filter_var($originUrl, FILTER_VALIDATE_URL) === false) {
+            throw new RuntimeException("Manifest {$file} zawiera nieprawidłowy adres pochodzenia.");
+        }
+        if (strlen($originUrl) > 2048) {
+            throw new RuntimeException("Adres pochodzenia w {$file} jest zbyt długi.");
+        }
+        $signatureKeyId = null;
+        $signatureStatus = 'unsigned';
+        if ($signatureFile !== null) {
+            if (!is_string($signatureFile)) {
+                throw new RuntimeException("Pole signature w {$file} musi wskazywać plik JSON.");
+            }
+            if ($originType === 'unspecified' || $originUrl === '') {
+                throw new RuntimeException("Podpisany pakiet {$id} wymaga jawnego typu i URL pochodzenia.");
+            }
+            $verification = (new ModulePackageVerifier($this->trustedPublishers))->verify(
+                $directory,
+                $signatureFile,
+                $id,
+                $version,
+                $originType,
+                $originUrl
+            );
+            $signatureKeyId = $verification['key_id'];
+            $signatureStatus = $verification['status'];
+        }
 
         return new ModuleManifest(
             $id,
@@ -101,6 +135,10 @@ final class ModuleManifestValidator
             $factory,
             $install,
             $uninstall,
+            $originType,
+            $originUrl,
+            $signatureKeyId,
+            $signatureStatus,
             rtrim($directory, '/'),
         );
     }

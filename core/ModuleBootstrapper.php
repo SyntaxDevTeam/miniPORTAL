@@ -98,7 +98,11 @@ final class ModuleBootstrapper
 
             $inspection = $this->manifestValidator->inspect($directory);
             $manifest = $inspection['manifest'];
-            if ($manifest === null || $manifest->factoryFile === null) {
+            if (
+                $manifest === null
+                || $manifest->factoryFile === null
+                || $manifest->signatureStatus !== 'verified'
+            ) {
                 continue;
             }
 

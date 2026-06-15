@@ -95,7 +95,11 @@ $homepageSectionItemRepository = $application->database() !== null
     ? new HomepageSectionItemRepository($application->database())
     : null;
 $moduleDefinitions = require __DIR__ . '/config/modules.php';
-$manifestValidator = new ModuleManifestValidator((string) ($config['app']['version'] ?? '0.1.0'));
+$trustedModulePublishers = require __DIR__ . '/config/module_publishers.php';
+$manifestValidator = new ModuleManifestValidator(
+    (string) ($config['app']['version'] ?? '0.1.0'),
+    $trustedModulePublishers
+);
 $moduleStates = $application->database() !== null
     ? new ModuleStateRepository($application->database())
     : null;

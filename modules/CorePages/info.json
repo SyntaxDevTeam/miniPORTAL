@@ -10,5 +10,9 @@
     "modules": ["core_auth"]
   },
   "protected": true,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
   "install": "install.sql"
 }

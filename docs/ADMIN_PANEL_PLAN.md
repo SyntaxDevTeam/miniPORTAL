@@ -221,6 +221,8 @@ przepływie. Pierwszy aktywny administrator ma połączone wszystkie trzy tożsa
 Stan implementacji:
 
 - dashboard pokazuje rzeczywistą liczbę aktywnych modułów i oczekujących migracji,
+- manager udostępnia historię migracji z datą wykonania, zapisanym SHA-256 i
+  porównaniem z aktualnym plikiem,
 - lista użytkowników obsługuje tworzenie, akceptację, status i wiele lokalnych ról,
 - `/admin/roles` obsługuje role niestandardowe i przypisane uprawnienia,
 - edytor roli grupuje uprawnienia według przestrzeni nazw modułów i pozwala
@@ -230,7 +232,10 @@ Stan implementacji:
 - `/admin/settings` pozwala zmieniać wyłącznie bezpieczne ustawienia motywu i brandingu,
   a konfigurację bazy, sesji i OAuth pokazuje w formie zredagowanej,
 - `/admin/logs` udostępnia paginowany audit log na podstawie `auth_events`; sekrety,
-  tokeny i pełne adresy IP nie są zapisywane ani wyświetlane.
+  tokeny i pełne adresy IP nie są zapisywane ani wyświetlane,
+- audit log filtruje po typie zdarzenia, wyniku i domkniętym zakresie dat,
+- poprawne odczyty stron panelu nie tworzą wpisów `admin_access/allowed`; audyt zachowuje
+  odmowy dostępu oraz działania zmieniające stan systemu.
 
 ### 5.5 Moduł `core_pages`
 

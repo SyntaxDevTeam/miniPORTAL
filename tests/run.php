@@ -231,7 +231,8 @@ $test('Module registry boots each module once', static function () use ($assert)
 });
 
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
-    $validator = new ModuleManifestValidator('0.1.0');
+    $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
+    $validator = new ModuleManifestValidator('0.1.0', $publishers);
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
@@ -249,7 +250,44 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($learning->version === '1.1.0');
     $assert($learning->factoryFile === 'factory.php');
     $assert($learning->uninstallFile === 'uninstall.sql');
+    $assert($learning->originType === 'repository');
+    $assert($learning->signatureStatus === 'verified');
     $assert(is_callable(require $learning->directory . '/' . $learning->factoryFile));
+});
+
+$test('Signed module rejects modified package content', static function () use ($assert): void {
+    $source = dirname(__DIR__) . '/install/mod/LearningModule';
+    $directory = sys_get_temp_dir() . '/miniportal-signed-module-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach ($iterator as $item) {
+        $target = $directory . '/' . $iterator->getSubPathName();
+        if ($item->isDir()) {
+            mkdir($target, 0700, true);
+        } else {
+            copy($item->getPathname(), $target);
+        }
+    }
+    file_put_contents($directory . '/README.md', "\nZmodyfikowano", FILE_APPEND);
+
+    try {
+        $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
+        $inspection = (new ModuleManifestValidator('0.1.0', $publishers))->inspect($directory);
+        $assert($inspection['manifest'] === null);
+        $assert(str_contains((string) $inspection['error'], 'Mapa SHA-256'));
+    } finally {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($directory);
+    }
 });
 
 $test('Invalid module inspection isolates a package error', static function () use ($assert): void {

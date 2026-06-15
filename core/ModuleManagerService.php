@@ -206,6 +206,42 @@ final class ModuleManagerService
         }
     }
 
+    /**
+     * @return array{
+     *     manifest: ModuleManifest,
+     *     state: ModuleState,
+     *     migrations: list<array{
+     *         migration: string,
+     *         checksum: string,
+     *         executed_at: string,
+     *         current_checksum: ?string,
+     *         status: string
+     *     }>
+     * }
+     */
+    public function migrationHistory(string $moduleId): array
+    {
+        $manifest = $this->manifest($moduleId);
+        $state = $this->states->find($moduleId);
+        if ($state === null) {
+            throw new RuntimeException("Nie znaleziono stanu modułu {$moduleId}.");
+        }
+
+        $migrations = [];
+        foreach ($this->states->migrationHistory($moduleId) as $record) {
+            $file = $manifest->directory . '/migrations/' . $record['migration'];
+            $currentChecksum = is_file($file) ? hash_file('sha256', $file) : null;
+            $migrations[] = $record + [
+                'current_checksum' => is_string($currentChecksum) ? $currentChecksum : null,
+                'status' => $currentChecksum === null
+                    ? 'Brak pliku'
+                    : (hash_equals($record['checksum'], $currentChecksum) ? 'Zgodna' : 'Zmieniona'),
+            ];
+        }
+
+        return ['manifest' => $manifest, 'state' => $state, 'migrations' => $migrations];
+    }
+
     private function manifest(string $moduleId): ModuleManifest
     {
         $manifest = $this->manifests()[$moduleId] ?? null;
@@ -219,6 +255,14 @@ final class ModuleManagerService
     private function assertLoadable(ModuleManifest $manifest): void
     {
         if (!$this->isLoadable($manifest)) {
+            if (
+                !in_array(basename($manifest->directory), $this->registeredDirectories, true)
+                && $manifest->signatureStatus !== 'verified'
+            ) {
+                throw new RuntimeException(
+                    "Zewnętrzny moduł {$manifest->id} wymaga podpisu zweryfikowanego zaufanym kluczem."
+                );
+            }
             throw new RuntimeException(
                 "Moduł {$manifest->id} nie ma zarejestrowanej fabryki wykonawczej."
             );
@@ -227,7 +271,10 @@ final class ModuleManagerService
 
     private function isLoadable(ModuleManifest $manifest): bool
     {
-        return $manifest->factoryFile !== null
-            || in_array(basename($manifest->directory), $this->registeredDirectories, true);
+        if (in_array(basename($manifest->directory), $this->registeredDirectories, true)) {
+            return true;
+        }
+
+        return $manifest->factoryFile !== null && $manifest->signatureStatus === 'verified';
     }
 }

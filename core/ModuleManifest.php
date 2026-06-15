@@ -22,6 +22,10 @@ final readonly class ModuleManifest
         public ?string $factoryFile,
         public ?string $installFile,
         public ?string $uninstallFile,
+        public string $originType,
+        public string $originUrl,
+        public ?string $signatureKeyId,
+        public string $signatureStatus,
         public string $directory,
     ) {
     }

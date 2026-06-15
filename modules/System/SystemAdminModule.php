@@ -40,7 +40,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.1.0';
+        return '1.2.0';
     }
 
     public function dependencies(): array
@@ -74,6 +74,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'modules.view',
             fn () => $this->renderModules()
+        ));
+        $router->get('/admin/modules/history', fn (Request $request) => $this->guard(
+            $request,
+            'modules.view',
+            fn () => $this->renderModuleHistory($request)
         ));
         $router->post('/admin/modules/install', fn (Request $request) => $this->guard(
             $request,
@@ -211,6 +216,7 @@ final class SystemAdminModule implements ModuleInterface
                         $manifest?->version ?? 'Nieznana',
                         'Błąd pakietu',
                         $manifest?->protected === true ? 'Chroniony' : 'Niedostępne',
+                        $manifest !== null ? $this->packageTrustLabel($manifest) : 'Nieznane',
                         'Operacje zablokowane',
                         $entry['error'] ?? 'Nie można odczytać stanu modułu.',
                     ],
@@ -270,6 +276,13 @@ final class SystemAdminModule implements ModuleInterface
                     'variant' => $state->isActive() ? 'outline-danger' : 'outline-primary',
                 ];
             }
+            if ($state->isInstalled() || $state->canRestorePreservedData()) {
+                $actions[] = [
+                    'label' => 'Historia migracji',
+                    'href' => 'index.php?route=/admin/modules/history&module_id=' . rawurlencode($manifest->id),
+                    'variant' => 'outline-light',
+                ];
+            }
             if (
                 $loadable
                 && $state->isInstalled()
@@ -301,7 +314,8 @@ final class SystemAdminModule implements ModuleInterface
                     $state->version . ' / ' . $manifest->version,
                     $this->moduleStatusLabel($state->status),
                     $manifest->protected ? 'Chroniony' : 'Rozszerzenie',
-                    $loadable ? 'Fabryka gotowa' : 'Brak fabryki',
+                    $this->packageTrustLabel($manifest),
+                    $loadable ? 'Fabryka gotowa' : 'Brak zaufanej fabryki',
                     $state->dataPreserved
                         ? 'Dane zachowane'
                         : ($pending === [] ? 'Brak' : implode(', ', $pending)),
@@ -312,11 +326,76 @@ final class SystemAdminModule implements ModuleInterface
 
         $this->theme->start_admin_panel('Rejestr modułów', count($rows) . ' manifesty');
         $this->theme->render_admin_action_table(
-            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Uruchamianie', 'Oczekujące migracje'],
+            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Pochodzenie / podpis', 'Uruchamianie', 'Oczekujące migracje'],
             $rows,
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    private function renderModuleHistory(Request $request): void
+    {
+        $moduleId = $request->queryString('module_id');
+        if (
+            $this->moduleManager === null
+            || preg_match('/^[a-z][a-z0-9_]{1,63}$/', $moduleId) !== 1
+        ) {
+            http_response_code(404);
+            $this->theme->render_admin_access_state(
+                404,
+                'Nie znaleziono modułu',
+                'Nie można odczytać historii migracji wskazanego modułu.',
+                'index.php?route=/admin/modules',
+                'Wróć do modułów'
+            );
+            return;
+        }
+
+        try {
+            $history = $this->moduleManager->migrationHistory($moduleId);
+        } catch (\Throwable $exception) {
+            http_response_code(404);
+            $this->theme->render_admin_access_state(
+                404,
+                'Historia niedostępna',
+                $exception->getMessage(),
+                'index.php?route=/admin/modules',
+                'Wróć do modułów'
+            );
+            return;
+        }
+
+        $manifest = $history['manifest'];
+        $migrations = $history['migrations'];
+        $this->startPage(
+            'Historia migracji',
+            '/admin/modules',
+            "{$manifest->name} ({$manifest->id}) - zapisane wykonania i kontrola integralności plików."
+        );
+        $this->theme->start_admin_panel('Wykonane migracje', count($migrations) . ' wpisów');
+        if ($migrations === []) {
+            $this->theme->render_alert(
+                'Moduł nie ma zapisanych migracji. Pełny schemat mógł zostać wykonany bezpośrednio z install.sql.',
+                'info'
+            );
+        } else {
+            $this->theme->render_admin_table(
+                ['Migracja', 'Wykonano', 'Zapisany SHA-256', 'Aktualny SHA-256', 'Stan'],
+                array_map(
+                    static fn (array $migration): array => [
+                        $migration['migration'],
+                        $migration['executed_at'],
+                        $migration['checksum'],
+                        $migration['current_checksum'] ?? 'Brak pliku',
+                        $migration['status'],
+                    ],
+                    $migrations
+                )
+            );
+        }
+        $this->theme->end_admin_panel();
+        $this->theme->render_button('Wróć do managera', 'index.php?route=/admin/modules', 'outline-light');
         $this->endPage();
     }
 
@@ -416,6 +495,20 @@ final class SystemAdminModule implements ModuleInterface
             'uninstalled' => 'Odinstalowany / dane zachowane',
             default => 'Wykryty / niezainstalowany',
         };
+    }
+
+    private function packageTrustLabel(\SyntaxDevTeam\Cms\Core\ModuleManifest $manifest): string
+    {
+        $origin = $manifest->originType === 'unspecified'
+            ? 'Pochodzenie nieokreślone'
+            : $manifest->originType . ($manifest->originUrl !== '' ? ': ' . $manifest->originUrl : '');
+        $signature = match ($manifest->signatureStatus) {
+            'verified' => 'podpis zweryfikowany (' . $manifest->signatureKeyId . ')',
+            'untrusted' => 'klucz niezaufany (' . $manifest->signatureKeyId . ')',
+            default => 'brak podpisu',
+        };
+
+        return $origin . ' / ' . $signature;
     }
 
     private function renderResources(): void
@@ -570,10 +663,18 @@ final class SystemAdminModule implements ModuleInterface
 
         $page = max(1, $request->queryInt('page', 1) ?? 1);
         $perPage = 50;
-        $total = $this->logs->count();
+        $options = $this->logs->filterOptions();
+        $filters = [
+            'event_type' => $this->allowedFilter($request->queryString('event_type'), $options['event_types']),
+            'result' => $this->allowedFilter($request->queryString('result'), $options['results']),
+            'date_from' => $this->dateFilter($request->queryString('date_from')),
+            'date_to' => $this->dateFilter($request->queryString('date_to')),
+        ];
+        $total = $this->logs->count($filters);
+        $hiddenRoutineAccess = $this->logs->hiddenRoutineAccessCount();
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $pages);
-        $events = $this->logs->page($page, $perPage);
+        $events = $this->logs->page($page, $perPage, $filters);
         $rows = array_map(
             static fn (array $event): array => [
                 (string) $event['created_at'],
@@ -586,16 +687,59 @@ final class SystemAdminModule implements ModuleInterface
             $events
         );
 
+        $eventOptions = ['' => 'Wszystkie zdarzenia'];
+        foreach ($options['event_types'] as $eventType) {
+            $eventOptions[$eventType] = $eventType;
+        }
+        $resultOptions = ['' => 'Wszystkie wyniki'];
+        foreach ($options['results'] as $result) {
+            $resultOptions[$result] = $result;
+        }
+        $this->theme->start_admin_panel('Filtry', 'GET - bez zmiany danych');
+        $this->theme->render_form(
+            'index.php',
+            [
+                ['name' => 'route', 'label' => 'Trasa', 'type' => 'hidden', 'value' => '/admin/logs'],
+                [
+                    'name' => 'event_type',
+                    'label' => 'Typ zdarzenia',
+                    'type' => 'select',
+                    'value' => $filters['event_type'],
+                    'options' => $eventOptions,
+                ],
+                [
+                    'name' => 'result',
+                    'label' => 'Wynik',
+                    'type' => 'select',
+                    'value' => $filters['result'],
+                    'options' => $resultOptions,
+                ],
+                ['name' => 'date_from', 'label' => 'Data od', 'type' => 'date', 'value' => $filters['date_from']],
+                ['name' => 'date_to', 'label' => 'Data do', 'type' => 'date', 'value' => $filters['date_to']],
+            ],
+            'Filtruj',
+            '',
+            'get'
+        );
+        $this->theme->render_button('Wyczyść filtry', 'index.php?route=/admin/logs', 'outline-light');
+        $this->theme->end_admin_panel();
+
+        $query = http_build_query(array_filter($filters, static fn (string $value): bool => $value !== ''));
+        $pageBase = 'index.php?route=/admin/logs' . ($query !== '' ? '&' . $query : '');
         $this->theme->start_admin_panel('Audit log', "{$total} zdarzeń, strona {$page}/{$pages}");
+        $this->theme->render_alert(
+            "Rutynowe poprawne otwarcia panelu nie są już rejestrowane. Ukryto {$hiddenRoutineAccess} historycznych wpisów admin_access/allowed.",
+            'info'
+        );
         $this->theme->render_admin_table(
             ['Data', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Kontekst', 'Skrót IP'],
             $rows
         );
         if ($page > 1) {
-            $this->theme->render_button('Nowsze zdarzenia', 'index.php?route=/admin/logs&page=' . ($page - 1), 'outline-light');
+            $this->theme->render_button('Nowsze zdarzenia', $pageBase . '&page=' . ($page - 1), 'outline-light');
         }
         if ($page < $pages) {
-            $this->theme->render_button('Starsze zdarzenia', 'index.php?route=/admin/logs&page=' . ($page + 1), 'outline-light');
+            $this->theme->render_button('Starsze zdarzenia', $pageBase . '&page=' . ($page + 1), 'outline-light');
         }
         $this->theme->end_admin_panel();
         $this->endPage();
@@ -644,6 +788,21 @@ final class SystemAdminModule implements ModuleInterface
     private function configured(mixed $value): string
     {
         return is_string($value) && trim($value) !== '' ? 'Ustawiono' : 'Brak';
+    }
+
+    /**
+     * @param list<string> $allowed
+     */
+    private function allowedFilter(string $value, array $allowed): string
+    {
+        return in_array($value, $allowed, true) ? $value : '';
+    }
+
+    private function dateFilter(string $value): string
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value ? $value : '';
     }
 
     private function mask(string $value): string
@@ -719,7 +878,6 @@ final class SystemAdminModule implements ModuleInterface
             return;
         }
 
-        $this->audit->record($request, 'admin_access', 'allowed', null, $userId);
         $handler();
     }
 }

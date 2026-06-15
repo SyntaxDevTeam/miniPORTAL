@@ -555,3 +555,31 @@ przy zwiększaniu liczby modułów oraz uprawnień.
 
 **Zaktualizowano status:** chroniony moduł systemowy zarządza bezpieczną częścią
 konfiguracji i udostępnia audyt działań bez ujawniania sekretów.
+
+### Sesja: 2026-06-15 - redukcja szumu w audit logu
+
+**Wykonano:**
+- zatrzymano zapisywanie `admin_access/allowed` przy zwykłym otwieraniu stron panelu,
+- zachowano audyt prób niezalogowanych, odmów ACL i operacji zmieniających stan,
+- historyczne rutynowe wpisy pozostają w bazie, lecz są ukryte w domyślnym widoku,
+- licznik i paginacja dziennika pomijają ukryte wpisy,
+- panel informuje o liczbie historycznych rekordów wyłączonych z widoku.
+
+**Zaktualizowano status:** odświeżanie panelu nie zasypuje dziennika zdarzeń.
+
+### Sesja: 2026-06-15 - historia migracji, filtry audytu i podpisy pakietów
+
+**Wykonano:**
+- dodano trasę historii migracji modułu z datą, zapisanym i aktualnym SHA-256,
+- stany integralności rozróżniają zgodny, zmieniony i brakujący plik migracji,
+- audit log otrzymał filtry typu zdarzenia, wyniku oraz dat `od/do`,
+- filtry używają przygotowanych zapytań i są zachowywane w paginacji,
+- manifest obsługuje jawne pochodzenie pakietu i plik podpisu,
+- zewnętrzne fabryki są uruchamiane wyłącznie po weryfikacji RSA-SHA256,
+- podpis obejmuje wersję, pochodzenie i SHA-256 wszystkich plików pakietu,
+- dodano lokalny rejestr kluczy publicznych oraz narzędzie `bin/sign-module.php`,
+- prywatny klucz wydawcy zapisano poza repozytorium z prawami `600`,
+- podpisano moduł edukacyjny i dodano test wykrywający manipulację jednym plikiem.
+
+**Zaktualizowano status:** wszystkie trzy zaplanowane rozszerzenia Kroku 6 są
+wdrożone i mają kontrolę integralności oraz testy negatywne.

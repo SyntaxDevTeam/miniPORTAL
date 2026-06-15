@@ -1,0 +1,17 @@
+{
+    "algorithm": "rsa-sha256",
+    "key_id": "syntaxdevteam-learning-2026",
+    "files": {
+        "LearningEntry.php": "564ea0414addc4d440ba001bda9181a3ee9f01f860c3b5d95a61178e6e9fa759",
+        "LearningModule.php": "4e6c3087e4a8cc1b083a29e9e42d998ecc37687c2fc79506ad8c72bd32c453c5",
+        "LearningRepository.php": "204e8043044baf5c12ab86f6394216fe91eecd5211044aa8a7e1aa5da843144f",
+        "MODULE_GUIDE.md": "46c8a17cc4c14673ae13678e6ff4cc25e5604686991feaec0187f812a107a787",
+        "README.md": "dad5ccbffcbccdd493e863f4b62b198d37318577d60ae4030fa155c7d36b6ede",
+        "factory.php": "43c00e304c153f38204cacafab487024c9da2079e3bcecdad622f143bd188c05",
+        "info.json": "b2909df65d7677a47981e4751f63016883363d094d9aca45ff704124306c8eb5",
+        "install.sql": "f69083617b27e2cdeb53bbf9200197c10ea2fd596760219c6828cefb2f2fa73e",
+        "migrations/20260615_entry_status.sql": "cf4edf2f8acc622eabd502756215c9c8bccc9327082d8eb6d1478a7df15e45f9",
+        "uninstall.sql": "7c963e755a319ec3a4fce54581ac33797e90478622a2d7d98b55270a83b987fa"
+    },
+    "signature": "V0jSbUDurQnL2E8LYqpuCznGRjhyk1ndKOWeKXaWZ2dSMuCQvlT42vgF+I03Edk/gsVOwdLfaYUe1S94NuotfBxVXfvmcYgmeyHThn3o8U02rxyatFThSYfJs5uuw8OCAuhZxJbv4m7sqBIWz7mjV5WwurIkFMVqFEdylT9N+x7RO0/m92ZcPaUQu7Td+YNdUcphGnCuC93cc0MSEo7nc0IZkwevX/yZu5otTjI8tIgN0kkweiGxGF1KoOBr14pmder4fc2WQXqDou+zawbtQlppdHgfuRoGJsm6e9zbpDjTZ+ztwxbTHJMHGJNbHgwqdwpvs3o93omKZHyu51/XqBLpp77ptcjJaMNOpVx+7wxouHg8uagrMc3+a2LVEp6DUMBWDi/LHQZ9t9nbhNiKqlNm4tRAEXj+mpuQ0x7CLvPxpfRBG4np4Qobbtk0GPerSI1c8/IXnkjUZCcN2NDvnf3x/XeYJeDAK4XoQtNNgzrKD7luZp2OqE/f1FToo/9j"
+}

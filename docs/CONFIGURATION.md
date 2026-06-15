@@ -162,6 +162,24 @@ Hasła bazy, sekrety OAuth, klucz `AUTH_AUDIT_HASH_KEY` i parametry sesji nie s�
 edytowalne w przeglądarce. Panel pokazuje jedynie ich zredagowany stan. Zmiany tych
 wartości nadal wykonuje się w `/etc/miniportal/miniportal.env`.
 
+## Zaufani wydawcy modułów
+
+Publiczne klucze wydawców są rejestrowane przez `config/module_publishers.php`.
+Klucz prywatny nie może trafić do repozytorium, katalogu WWW ani panelu.
+
+Przykładowe podpisanie wydania:
+
+```bash
+php bin/sign-module.php \
+  install/mod/LearningModule \
+  /bezpieczna/sciezka/private.pem \
+  syntaxdevteam-learning-2026
+```
+
+Podpis obejmuje identyfikator, wersję, źródło pochodzenia i SHA-256 każdego pliku.
+Po zmianie choćby dokumentacji pakiet trzeba podpisać ponownie. Nieznany klucz
+oznacza pakiet jako niezaufany, a niezgodność pliku lub podpisu blokuje cały pakiet.
+
 ## Uruchomienie lokalne
 
 Możesz wskazać dowolny plik tylko dla danego procesu:

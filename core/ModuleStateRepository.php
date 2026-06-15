@@ -159,6 +159,27 @@ final class ModuleStateRepository
         return array_map(static fn (array $row): string => (string) $row['migration'], $rows);
     }
 
+    /**
+     * @return list<array{migration: string, checksum: string, executed_at: string}>
+     */
+    public function migrationHistory(string $moduleId): array
+    {
+        $rows = $this->database->read(
+            'module_migrations',
+            ['migration', 'checksum', 'executed_at'],
+            ['module_id' => $moduleId, 'ORDER' => ['executed_at' => 'DESC', 'id' => 'DESC']]
+        ) ?? [];
+
+        return array_map(
+            static fn (array $row): array => [
+                'migration' => (string) $row['migration'],
+                'checksum' => (string) $row['checksum'],
+                'executed_at' => (string) $row['executed_at'],
+            ],
+            $rows
+        );
+    }
+
     private function hydrate(array $row): ModuleState
     {
         return new ModuleState(

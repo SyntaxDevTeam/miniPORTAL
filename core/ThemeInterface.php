@@ -94,7 +94,13 @@ interface ThemeInterface
      *     format_value?: string
      * }> $fields
      */
-    public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void;
+    public function render_form(
+        string $action,
+        array $fields,
+        string $submitLabel,
+        string $csrfToken = '',
+        string $method = 'post',
+    ): void;
 
     public function csrf_field(string $token): void;
 

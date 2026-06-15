@@ -10,15 +10,17 @@ Nie jest ładowany automatycznie, ponieważ znajduje się poza `modules/`.
 - zainstalowany i aktywny `core_auth`,
 - administrator z uprawnieniami `modules.install`, `modules.toggle`,
   `modules.remove`, `learning.view` i `learning.manage`,
-- jawny plik `factory.php` zadeklarowany w manifeście.
+- jawny plik `factory.php` zadeklarowany w manifeście,
+- pochodzenie pakietu i podpis RSA-SHA256 zaufanego wydawcy.
 
 ## Instalacja ćwiczeniowa
 
 1. Skopiuj katalog `LearningModule` do `modules/LearningModule`.
 2. Otwórz `/admin/modules`.
 3. Sprawdź manifest, zależności i stan „Wykryty”.
-4. Kliknij „Zainstaluj”.
-5. Otwórz `/admin/learning` i utwórz przykładowy wpis.
+4. Sprawdź status „podpis zweryfikowany”.
+5. Kliknij „Zainstaluj”.
+6. Otwórz `/admin/learning` i utwórz przykładowy wpis.
 
 Manager wykona `install.sql`, zapisze moduł w `modules_config`, a istniejące pliki
 z `migrations/` oznaczy jako stan bazowy. Dzięki temu pełny `install.sql` zawsze
@@ -27,6 +29,7 @@ opisuje najnowszy schemat świeżej instalacji.
 ## Struktura
 
 - `info.json` – identyfikator, wersja, wymagania i pliki cyklu życia,
+- `signature.json` – podpis oraz SHA-256 wszystkich plików pakietu,
 - `LearningModule.php` – trasy, ACL, CSRF, menu i składanie widoku,
 - `LearningRepository.php` – operacje bazodanowe przez `CrudApp`,
 - `LearningEntry.php` – niezmienny model danych,
@@ -46,3 +49,7 @@ opisuje najnowszy schemat świeżej instalacji.
 
 Moduł chroniony albo wymagany przez inny zainstalowany moduł nie może zostać
 odinstalowany.
+
+Po każdej zmianie zawartości pakiet trzeba ponownie podpisać prywatnym kluczem
+wydawcy. Core przechowuje wyłącznie klucz publiczny i nie może samodzielnie tworzyć
+ważnych wydań.

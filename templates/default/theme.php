@@ -232,9 +232,15 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div>';
     }
 
-    public function render_form(string $action, array $fields, string $submitLabel, string $csrfToken = ''): void
-    {
-        echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="post">';
+    public function render_form(
+        string $action,
+        array $fields,
+        string $submitLabel,
+        string $csrfToken = '',
+        string $method = 'post',
+    ): void {
+        $method = strtolower($method) === 'get' ? 'get' : 'post';
+        echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="' . $method . '">';
 
         if ($csrfToken !== '') {
             $this->csrf_field($csrfToken);
