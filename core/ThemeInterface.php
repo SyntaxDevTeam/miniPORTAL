@@ -86,6 +86,7 @@ interface ThemeInterface
      *     value?: string,
      *     values?: list<string>,
      *     options?: array<string, string>,
+     *     groups?: array<string, array<string, string>>,
      *     checked?: bool,
      *     rows?: int,
      *     help?: string,

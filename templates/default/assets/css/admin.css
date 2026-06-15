@@ -504,6 +504,100 @@ body.admin-stylebook {
   padding: 1.15rem;
 }
 
+.permission-groups {
+  display: grid;
+  gap: 1rem;
+}
+
+.permission-group {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(8, 13, 21, 0.45);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.75rem;
+}
+
+.permission-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: rgba(var(--mp-primary-rgb), 0.035);
+  border-bottom: 1px solid var(--mp-border);
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.permission-group-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.permission-group-count {
+  min-width: 2.7rem;
+  color: var(--mp-primary);
+  font-family: var(--bs-font-monospace);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.permission-group-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 0.85rem;
+}
+
+.permission-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.permission-option:hover,
+.permission-option:focus-within {
+  background: rgba(var(--mp-primary-rgb), 0.045);
+  border-color: rgba(var(--mp-primary-rgb), 0.24);
+}
+
+.permission-option .form-check-input {
+  flex: 0 0 auto;
+  margin: 0.15rem 0 0;
+}
+
+.permission-option span,
+.permission-option strong,
+.permission-option small {
+  display: block;
+  min-width: 0;
+}
+
+.permission-option strong {
+  font-size: 0.88rem;
+}
+
+.permission-option small {
+  margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+  color: var(--mp-muted);
+  font-family: var(--bs-font-monospace);
+  font-size: 0.7rem;
+}
+
 .activity-list {
   display: grid;
   gap: 1rem;
@@ -937,8 +1031,23 @@ body.admin-stylebook {
   }
 
   .metric-grid,
-  .state-grid {
+  .state-grid,
+  .permission-group-options {
     grid-template-columns: 1fr;
+  }
+
+  .permission-group-header,
+  .permission-group-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .permission-group-tools {
+    justify-content: flex-start;
+  }
+
+  .permission-group-count {
+    text-align: left;
   }
 
   .admin-page-heading .btn {

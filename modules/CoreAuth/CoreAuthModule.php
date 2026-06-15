@@ -531,12 +531,12 @@ final class CoreAuthModule implements ModuleInterface
                 [
                     'name' => 'permissions',
                     'label' => 'Uprawnienia',
-                    'type' => 'multiselect',
+                    'type' => 'checkbox_groups',
                     'values' => $role?->permissions ?? [],
-                    'options' => $this->userAdministration->permissions(),
+                    'groups' => $this->permissionGroups(),
                     'help' => $role?->name === 'administrator'
                         ? 'Administrator zawsze zachowuje komplet dostępnych uprawnień.'
-                        : 'Możesz zaznaczyć kilka pozycji klawiszem Ctrl lub Cmd.',
+                        : 'Uprawnienia są pogrupowane według obszaru systemu. Możesz zaznaczać je pojedynczo albo całymi grupami.',
                 ],
             ],
             $role === null ? 'Utwórz rolę' : 'Zapisz rolę',
@@ -570,6 +570,34 @@ final class CoreAuthModule implements ModuleInterface
             $this->audit->record($request, 'role_save', 'failed', null, $actor->id);
             $this->renderRoleEdit($request, $exception->getMessage(), 'danger');
         }
+    }
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    private function permissionGroups(): array
+    {
+        if ($this->userAdministration === null) {
+            return [];
+        }
+
+        $labels = [
+            'admin' => 'Panel administracyjny',
+            'pages' => 'Strony i strona główna',
+            'articles' => 'Artykuły',
+            'users' => 'Użytkownicy',
+            'roles' => 'Role i uprawnienia',
+            'modules' => 'Moduły',
+            'settings' => 'Ustawienia',
+        ];
+        $groups = [];
+        foreach ($this->userAdministration->permissions() as $name => $label) {
+            $namespace = explode('.', $name, 2)[0];
+            $groupLabel = $labels[$namespace] ?? ucfirst(str_replace('_', ' ', $namespace));
+            $groups[$groupLabel][$name] = $label;
+        }
+
+        return $groups;
     }
 
     private function deleteRole(Request $request): void

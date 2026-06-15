@@ -261,7 +261,7 @@ final class Theme implements ThemeInterface
             }
 
             echo '<div class="mb-3">';
-            if ($type === 'richtext') {
+            if (in_array($type, ['richtext', 'checkbox_groups'], true)) {
                 echo '<span class="form-label" id="' . $name . '-label">' . $label . '</span>';
             } else {
                 echo '<label class="form-label" for="' . $name . '">' . $label . '</label>';
@@ -336,6 +336,31 @@ final class Theme implements ThemeInterface
                     echo $this->escape($optionLabel) . '</option>';
                 }
                 echo '</select>';
+            } elseif ($type === 'checkbox_groups') {
+                $selectedValues = array_map('strval', $field['values'] ?? []);
+                echo '<div class="permission-groups" aria-labelledby="' . $name . '-label">';
+                foreach ($field['groups'] ?? [] as $groupLabel => $options) {
+                    $groupId = $name . '-' . substr(hash('sha256', (string) $groupLabel), 0, 10);
+                    echo '<fieldset class="permission-group" data-checkbox-group>';
+                    echo '<legend class="permission-group-header">';
+                    echo '<span>' . $this->escape((string) $groupLabel) . '</span>';
+                    echo '<span class="permission-group-tools">';
+                    echo '<span class="permission-group-count" data-checkbox-group-count></span>';
+                    echo '<button class="btn btn-sm btn-outline-light" type="button" data-checkbox-group-set="all">Zaznacz wszystkie</button>';
+                    echo '<button class="btn btn-sm btn-outline-secondary" type="button" data-checkbox-group-set="none">Wyczyść</button>';
+                    echo '</span></legend><div class="permission-group-options">';
+                    foreach ($options as $optionValue => $optionLabel) {
+                        $optionId = $groupId . '-' . substr(hash('sha256', (string) $optionValue), 0, 10);
+                        $checked = in_array((string) $optionValue, $selectedValues, true) ? ' checked' : '';
+                        echo '<label class="permission-option" for="' . $optionId . '">';
+                        echo '<input class="form-check-input" id="' . $optionId . '" name="' . $name;
+                        echo '[]" type="checkbox" value="' . $this->escape((string) $optionValue) . '"' . $checked . '>';
+                        echo '<span><strong>' . $this->escape((string) $optionLabel) . '</strong>';
+                        echo '<small>' . $this->escape((string) $optionValue) . '</small></span></label>';
+                    }
+                    echo '</div></fieldset>';
+                }
+                echo '</div>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';

@@ -75,6 +75,30 @@ document.querySelectorAll("[data-provider-demo]").forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-checkbox-group]").forEach((group) => {
+  const checkboxes = [...group.querySelectorAll('input[type="checkbox"]')];
+  const count = group.querySelector("[data-checkbox-group-count]");
+
+  const refresh = () => {
+    const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+    if (count) {
+      count.textContent = `${selected}/${checkboxes.length}`;
+    }
+  };
+
+  group.querySelectorAll("[data-checkbox-group-set]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const checked = button.dataset.checkboxGroupSet === "all";
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = checked;
+      });
+      refresh();
+    });
+  });
+  checkboxes.forEach((checkbox) => checkbox.addEventListener("change", refresh));
+  refresh();
+});
+
 const escapeHtml = (value) => value
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")

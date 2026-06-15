@@ -526,3 +526,15 @@ zainstalować jednym kliknięciem bez ręcznej edycji konfiguracji rdzenia.
 
 **Zaktualizowano status:** moduł użytkowników obsługuje pełną lokalną akceptację
 kont oraz zarządzanie rolami i uprawnieniami niezależnie od OAuth.
+
+### Sesja: 2026-06-15 - grupowany wybór uprawnień
+
+**Wykonano:**
+- zastąpiono niewygodny wielokrotny select edytora roli listą checkboxów,
+- pogrupowano uprawnienia według przestrzeni nazw modułów i obszarów Core,
+- dodano liczniki oraz akcje zaznaczania i czyszczenia całej grupy,
+- zachowano filtrowanie danych przez `Request::postStringList` i istniejący zapis ról,
+- dodano responsywny wygląd komponentu do aktywnego motywu.
+
+**Zaktualizowano status:** edytor ról nie wymaga klawisza Ctrl i pozostaje czytelny
+przy zwiększaniu liczby modułów oraz uprawnień.

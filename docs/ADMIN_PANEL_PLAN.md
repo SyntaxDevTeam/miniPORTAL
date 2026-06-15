@@ -223,6 +223,8 @@ Stan implementacji:
 - dashboard pokazuje rzeczywistą liczbę aktywnych modułów i oczekujących migracji,
 - lista użytkowników obsługuje tworzenie, akceptację, status i wiele lokalnych ról,
 - `/admin/roles` obsługuje role niestandardowe i przypisane uprawnienia,
+- edytor roli grupuje uprawnienia według przestrzeni nazw modułów i pozwala
+  zaznaczać pojedyncze prawa lub całą grupę bez używania klawisza Ctrl,
 - role systemowe zachowują stałe identyfikatory, rola administratora zawsze otrzymuje
   pełny aktualny zestaw uprawnień, a używane role nie mogą zostać usunięte,
 - osobny widok przeglądania audit logu pozostaje do wdrożenia.
