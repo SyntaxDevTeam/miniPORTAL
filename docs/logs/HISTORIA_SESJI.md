@@ -637,3 +637,25 @@ unieważniania cache został zamknięty.
 **Korekta po przeglądzie:** zaktualizowano `AGENTS.md`, aby instrukcje agentów
 odzwierciedlały PHP 8.4+, wykonane punkty Kroku 6, brak aktywnego blokera PHP 8.5
 oraz nowe uwagi o cache, kwarantannie modułów i retencji audytu.
+
+### Sesja: 2026-06-16 - moduł wikipedia dokumentacji projektowej
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - opcjonalny moduł treści
+instalowany przez manager modułów.
+
+**Wykonano:**
+- dodano opcjonalny moduł `wikipedia` z manifestem, `install.sql`, `uninstall.sql`,
+  modelami `WikiProject` i `WikiPage`, repozytorium przez `CrudApp` oraz klasą modułu,
+- moduł obsługuje projekty dokumentacji oraz strony dokumentacji z formatem
+  `html`/`markdown`, statusem publikacji, slugiem, opisem i kolejnością,
+- dodano publiczne trasy `/wiki`, `/wiki/project` i `/wiki/page` pokazujące wyłącznie
+  opublikowane treści,
+- dodano panel `/admin/wikipedia` z CRUD, publikacją, usuwaniem, CSRF, ACL
+  `wikipedia.*`, audit logiem i cache publicznych widoków,
+- dodano deklaratywną fabrykę w `config/modules.php` i test walidacji manifestu,
+- zainstalowano moduł przez `ModuleManagerService`; stan produkcyjny to
+  `wikipedia` 1.0.0 `active`,
+- zaktualizowano README, specyfikację techniczną i `AGENTS.md`.
+
+**Weryfikacja:** `php tests/run.php`, pełny `php -l`, walidacja manifestów,
+test Front Controller dla `route=/wiki`.

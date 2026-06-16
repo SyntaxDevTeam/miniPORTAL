@@ -23,6 +23,7 @@ z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.
 Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne wpisy.
+Moduł `wikipedia` dodaje projektową bazę wiedzy z projektami i stronami dokumentacji.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

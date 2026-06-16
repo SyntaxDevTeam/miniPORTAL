@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-16 - PHP 8.4, cache treści, kwarantanna modułów i retencja audytu.
+> **Ostatnia aktualizacja:** 2026-06-16 - moduł wikipedia dokumentacji projektowej.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -125,6 +125,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Przełącznik WYSIWYG / Markdown dla sekcji, kart, podstron i artykułów |
 | [x] | Podgląd roboczy i lokalny autozapis formularzy treści |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
+| [x] | `wikipedia` jako niezależny moduł dokumentacji projektowej |
 
 ### Krok 6 - system modułów
 
@@ -232,6 +233,8 @@ Brak aktywnych blokerów.
 | 2026-06-16 | `Request::file()` jest jedyną warstwą odczytu uploadów dla modułów; motywy obsługują pole formularza `file` z `multipart/form-data`. |
 | 2026-06-16 | Audit log ma politykę retencji: panelowa operacja przenosi starsze wpisy do `auth_events_archive`, usuwa je z aktywnego `auth_events`, wymaga CSRF/ACL i zapisuje własny audit event. |
 | 2026-06-16 | Stan produkcyjny modułów po zmianach: `articles` 1.0.2 oraz `system_admin` 1.4.0. |
+| 2026-06-16 | `wikipedia` jest opcjonalnym modułem treści do dokumentacji projektów; używa tabel `wiki_projects` i `wiki_pages`, tras `/wiki`, `/wiki/project`, `/wiki/page`, ACL `wikipedia.*`, CSRF, audit logu i komponentów `ThemeInterface`. |
+| 2026-06-16 | Stan produkcyjny modułu `wikipedia` po instalacji: wersja 1.0.0, status `active`. |
 
 ## Historia sesji
 

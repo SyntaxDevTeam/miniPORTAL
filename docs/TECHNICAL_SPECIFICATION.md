@@ -227,6 +227,18 @@ automatycznie po zgodnym adresie e-mail.
 - autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia
   bez nadpisywania danych z bazy i czyszczony po potwierdzonym zapisie
 
+#### 4.3 Moduł dokumentacji projektowej `wikipedia`
+- niezależne rozszerzenie do tworzenia bazy wiedzy dla projektów,
+- projekty dokumentacji mają własny slug, opis, kolejność i status publikacji,
+- strony dokumentacji są przypisane do projektu, mają osobny slug w obrębie projektu,
+  opis, treść `html`/`markdown`, kolejność i status publikacji,
+- publiczne trasy `/wiki`, `/wiki/project?slug=...` i `/wiki/page?project=...&slug=...`
+  pokazują wyłącznie opublikowane projekty i strony,
+- panel `/admin/wikipedia` udostępnia CRUD projektów oraz stron przez `CrudApp`,
+  CSRF, ACL `wikipedia.*`, audit log i komponenty `ThemeInterface`,
+- moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
+  kontraktu motywu metodami specyficznymi dla dokumentacji.
+
 ### Faza 5: Manager modułów (Lego System)
 
 1. Manager skanuje katalog /modules/.
@@ -378,6 +390,7 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 7. Szkielet panelu: dashboard, profil, użytkownicy, role i audit log.
 8. `core_pages`: CRUD stron przez `CrudApp`.
 9. `core_pages`: edytor sekcji strony głównej i kontrolowany WYSIWYG.
+10. `wikipedia`: projektowa baza wiedzy z projektami i stronami dokumentacji.
 10. `articles`: przykład niezależnego modułu.
 
 Stan Kroku 5:

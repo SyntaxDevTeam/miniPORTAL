@@ -15,6 +15,8 @@ use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
+use SyntaxDevTeam\Cms\Modules\Wikipedia\WikipediaModule;
+use SyntaxDevTeam\Cms\Modules\Wikipedia\WikiRepository;
 
 return [
     [
@@ -64,6 +66,20 @@ return [
             $services['theme'],
             $services['admin_menu'],
             new ArticleRepository($services['database']),
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit'],
+            $services['template_cache']
+        ),
+    ],
+    [
+        'directory' => 'Wikipedia',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): WikipediaModule => new WikipediaModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new WikiRepository($services['database']),
             $services['auth'],
             $services['access'],
             $services['security'],

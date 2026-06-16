@@ -296,6 +296,13 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
 
+    $wiki = $validator->validate(dirname(__DIR__) . '/modules/Wikipedia');
+    $assert($wiki->id === 'wikipedia');
+    $assert($wiki->version === '1.0.0');
+    $assert($wiki->installFile === 'install.sql');
+    $assert($wiki->uninstallFile === 'uninstall.sql');
+    $assert($wiki->requiredModules === ['core_auth']);
+
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
     $assert($system->protected);
