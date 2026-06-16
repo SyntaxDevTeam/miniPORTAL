@@ -24,6 +24,10 @@ Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/template
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.
 Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne wpisy.
 Moduł `wikipedia` dodaje projektową bazę wiedzy z projektami i stronami dokumentacji.
+Aktywne moduły mogą deklarować publiczne linki, które administrator przypina do
+głównego menu albo stopki w `/admin/settings`.
+Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wiki`
+i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

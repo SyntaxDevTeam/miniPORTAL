@@ -12,6 +12,8 @@ use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleState;
+use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
+use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -238,7 +240,8 @@ $test('Module registry boots each module once', static function () use ($assert)
     $registry = new ModuleRegistry();
     $menu = new AdminMenuRegistry();
     $router = new Router();
-    $module = new class implements ModuleInterface {
+    $publicNavigation = new PublicNavigationRegistry();
+    $module = new class implements ModuleInterface, PublicNavigationProviderInterface {
         public function id(): string
         {
             return 'test_module';
@@ -274,15 +277,23 @@ $test('Module registry boots each module once', static function () use ($assert)
             $router->get('/test-module', static function (): void {
             });
         }
+
+        public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
+        {
+            $navigation->add('test_module.index', 'Test publiczny', '/test-module', 'footer', 20);
+        }
     };
 
     $registry->add($module);
-    $registry->boot($menu, $router);
+    $registry->boot($menu, $router, $publicNavigation);
     $request = Request::fromArrays(['route' => '/test-module'], [], ['REQUEST_METHOD' => 'GET']);
+    $publicItems = $publicNavigation->items();
 
     $assert($registry->ids() === ['test_module']);
     $assert($router->dispatch($request) === 200);
     $assert(count($menu->visibleFor(['test.view'])) === 1);
+    $assert($publicItems[0]['id'] === 'test_module.index');
+    $assert($publicItems[0]['area'] === 'footer');
 });
 
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
@@ -291,14 +302,14 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.0.2');
+    $assert($manifest->version === '1.0.3');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
 
     $wiki = $validator->validate(dirname(__DIR__) . '/modules/Wikipedia');
     $assert($wiki->id === 'wikipedia');
-    $assert($wiki->version === '1.0.2');
+    $assert($wiki->version === '1.0.4');
     $assert($wiki->installFile === 'install.sql');
     $assert($wiki->uninstallFile === 'uninstall.sql');
     $assert($wiki->requiredModules === ['core_auth']);

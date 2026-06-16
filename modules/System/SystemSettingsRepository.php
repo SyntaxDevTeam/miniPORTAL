@@ -70,4 +70,72 @@ final class SystemSettingsRepository
             ]);
         }
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function publicNavigationAreas(): array
+    {
+        $row = $this->database->read(
+            'system_settings',
+            ['setting_value'],
+            ['setting_key' => 'public_navigation']
+        )[0] ?? null;
+        $decoded = is_array($row)
+            ? json_decode((string) ($row['setting_value'] ?? '{}'), true)
+            : [];
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $areas = [];
+        foreach ($decoded as $id => $area) {
+            if (is_string($id) && is_string($area) && in_array($area, ['none', 'main', 'footer'], true)) {
+                $areas[$id] = $area;
+            }
+        }
+
+        return $areas;
+    }
+
+    /**
+     * @param array<string, string> $areas
+     * @param list<string> $allowedIds
+     */
+    public function savePublicNavigationAreas(array $areas, array $allowedIds, int $actorId): void
+    {
+        $allowed = array_fill_keys($allowedIds, true);
+        $clean = [];
+        foreach ($areas as $id => $area) {
+            if (!isset($allowed[$id]) || !in_array($area, ['none', 'main', 'footer'], true)) {
+                continue;
+            }
+            $clean[$id] = $area;
+        }
+
+        $this->upsertSettings([
+            'public_navigation' => json_encode($clean, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+        ], $actorId);
+    }
+
+    /**
+     * @param array<string, string> $values
+     */
+    private function upsertSettings(array $values, int $actorId): void
+    {
+        $pdo = $this->database->connection()->pdo;
+        $statement = $pdo->prepare(
+            'INSERT INTO system_settings (setting_key, setting_value, updated_by) '
+            . 'VALUES (:setting_key, :setting_value, :updated_by) '
+            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), '
+            . 'updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP'
+        );
+        foreach ($values as $key => $value) {
+            $statement->execute([
+                ':setting_key' => $key,
+                ':setting_value' => $value,
+                ':updated_by' => $actorId,
+            ]);
+        }
+    }
 }

@@ -12,6 +12,7 @@ use SyntaxDevTeam\Cms\Core\ModuleInstaller;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleStateRepository;
+use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
@@ -30,6 +31,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
+use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
 
 require_once __DIR__ . '/core/Autoloader.php';
 
@@ -42,6 +44,7 @@ $security = $application->security();
 $templateCache = $application->templateCache();
 $router = new Router();
 $adminMenu = new AdminMenuRegistry();
+$publicNavigation = new PublicNavigationRegistry();
 $modules = new ModuleRegistry();
 $authConfig = $config['auth'] ?? [];
 $authStorage = (string) ($authConfig['storage'] ?? 'database');
@@ -148,8 +151,54 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'available_themes' => $application->availableThemes(),
     'template_cache' => $templateCache,
     'trusted_module_publishers' => $trustedModulePublishers,
+    'public_navigation' => $publicNavigation,
 ], $modules);
-$modules->boot($adminMenu, $router);
+$modules->boot($adminMenu, $router, $publicNavigation);
+
+$publicNavigationItems = static function () use ($pageRepository, $publicNavigation, $application): array {
+    $navigation = [];
+    if ($pageRepository !== null) {
+        $navigation = array_map(
+            static fn ($page): array => [
+                'title' => $page->title,
+                'slug' => $page->slug,
+                'href' => '/p/' . rawurlencode($page->slug),
+                'summary' => $page->summary,
+                'type' => $page->pageType,
+                'navigation_area' => $page->navigationArea,
+                'navigation_label' => $page->navigationLabel,
+                'sort_order' => $page->sortOrder,
+            ],
+            $pageRepository->published()
+        );
+    }
+    $settings = $application->database() !== null
+        ? (new SystemSettingsRepository($application->database()))->publicNavigationAreas()
+        : [];
+    foreach ($publicNavigation->items($settings) as $item) {
+        if ($item['area'] === 'none') {
+            continue;
+        }
+        $navigation[] = [
+            'title' => $item['label'],
+            'slug' => '',
+            'href' => $item['href'],
+            'summary' => '',
+            'type' => 'module',
+            'navigation_area' => $item['area'],
+            'navigation_label' => $item['label'],
+            'sort_order' => $item['order'],
+        ];
+    }
+    usort(
+        $navigation,
+        static fn (array $left, array $right): int => [$left['sort_order'], $left['title']]
+            <=> [$right['sort_order'], $right['title']]
+    );
+
+    return $navigation;
+};
+$theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null);
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(
@@ -172,30 +221,18 @@ $router->get('/', static function () use (
     $homepageSectionItemRepository,
     $theme,
     $auth,
-    $templateCache
+    $templateCache,
+    $publicNavigationItems
 ): void {
     $renderer = static function () use (
-        $pageRepository,
         $homepageSectionRepository,
         $homepageSectionItemRepository,
         $theme,
-        $auth
+        $auth,
+        $publicNavigationItems
     ): string {
-        $pages = [];
+        $navigation = $publicNavigationItems();
         $sections = [];
-        if ($pageRepository !== null) {
-            $pages = array_map(
-                static fn ($page): array => [
-                    'title' => $page->title,
-                    'slug' => $page->slug,
-                    'summary' => $page->summary,
-                    'type' => $page->pageType,
-                    'navigation_area' => $page->navigationArea,
-                    'navigation_label' => $page->navigationLabel,
-                ],
-                $pageRepository->published()
-            );
-        }
         if ($homepageSectionRepository !== null) {
             $sections = array_map(
                 static fn ($section): array => $section->toThemeData(
@@ -206,7 +243,7 @@ $router->get('/', static function () use (
         }
 
         ob_start();
-        $theme->render_homepage($sections, $pages, $auth->user() !== null);
+        $theme->render_homepage($sections, $navigation, $auth->user() !== null);
         return (string) ob_get_clean();
     };
 

@@ -106,6 +106,7 @@ return [
             $services['available_themes'],
             $services['template_cache'],
             $services['trusted_module_publishers'],
+            $services['public_navigation'],
         ),
     ],
 ];

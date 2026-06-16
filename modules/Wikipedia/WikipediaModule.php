@@ -7,6 +7,8 @@ namespace SyntaxDevTeam\Cms\Modules\Wikipedia;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
+use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
@@ -17,7 +19,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
-final class WikipediaModule implements ModuleInterface
+final class WikipediaModule implements ModuleInterface, PublicNavigationProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -38,7 +40,7 @@ final class WikipediaModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.2';
+        return '1.0.4';
     }
 
     public function dependencies(): array
@@ -61,11 +63,25 @@ final class WikipediaModule implements ModuleInterface
         $menu->add('Treść', 'Dokumentacja', '/admin/wikipedia', 'WK', 'wikipedia.view', 35);
     }
 
+    public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
+    {
+        $navigation->add('wikipedia.index', 'Dokumentacja', '/wiki', 'none', 60);
+    }
+
     public function registerRoutes(Router $router): void
     {
         $router->get('/wiki', fn () => $this->renderPublicIndex());
         $router->get('/wiki/project', fn (Request $request) => $this->renderPublicProject($request));
         $router->get('/wiki/page', fn (Request $request) => $this->renderPublicPage($request));
+        foreach ($this->wiki->publishedProjects() as $project) {
+            $router->get('/wiki/project/' . $project->slug, fn () => $this->renderPublicProjectSlug($project->slug));
+            foreach ($this->wiki->publishedPages($project->id) as $page) {
+                $router->get(
+                    '/wiki/page/' . $page->projectSlug . '/' . $page->slug,
+                    fn () => $this->renderPublicPageSlug($page->projectSlug, $page->slug)
+                );
+            }
+        }
         $router->get('/admin/wikipedia', fn (Request $request) => $this->guard(
             $request,
             'wikipedia.view',
@@ -153,7 +169,7 @@ final class WikipediaModule implements ModuleInterface
                         $this->theme->render_text($project->summary);
                         $this->theme->render_button(
                             'Otwórz dokumentację',
-                            'index.php?route=/wiki/project&slug=' . rawurlencode($project->slug),
+                            $this->wikiProjectHref($project->slug),
                             'outline-light'
                         );
                         $this->theme->end_card();
@@ -169,7 +185,11 @@ final class WikipediaModule implements ModuleInterface
 
     private function renderPublicProject(Request $request): void
     {
-        $slug = $this->normalizeSlug($request->queryString('slug'));
+        $this->renderPublicProjectSlug($this->normalizeSlug($request->queryString('slug')));
+    }
+
+    private function renderPublicProjectSlug(string $slug): void
+    {
         $project = $slug !== '' ? $this->wiki->findPublishedProjectBySlug($slug) : null;
         if ($project === null) {
             http_response_code(404);
@@ -195,8 +215,7 @@ final class WikipediaModule implements ModuleInterface
                         $this->theme->render_text($page->summary);
                         $this->theme->render_button(
                             'Czytaj',
-                            'index.php?route=/wiki/page&project=' . rawurlencode($page->projectSlug)
-                                . '&slug=' . rawurlencode($page->slug),
+                            $this->wikiPageHref($page),
                             'outline-light'
                         );
                         $this->theme->end_card();
@@ -204,7 +223,7 @@ final class WikipediaModule implements ModuleInterface
                     }
                     $this->theme->end_grid();
                 }
-                $this->theme->render_button('Wróć do dokumentacji', 'index.php?route=/wiki', 'outline-light');
+                $this->theme->render_button('Wróć do dokumentacji', '/wiki', 'outline-light');
                 $this->theme->end_section();
                 $this->theme->end_page();
             });
@@ -213,8 +232,14 @@ final class WikipediaModule implements ModuleInterface
 
     private function renderPublicPage(Request $request): void
     {
-        $projectSlug = $this->normalizeSlug($request->queryString('project'));
-        $pageSlug = $this->normalizeSlug($request->queryString('slug'));
+        $this->renderPublicPageSlug(
+            $this->normalizeSlug($request->queryString('project')),
+            $this->normalizeSlug($request->queryString('slug'))
+        );
+    }
+
+    private function renderPublicPageSlug(string $projectSlug, string $pageSlug): void
+    {
         $page = $projectSlug !== '' && $pageSlug !== ''
             ? $this->wiki->findPublishedPage($projectSlug, $pageSlug)
             : null;
@@ -681,7 +706,7 @@ final class WikipediaModule implements ModuleInterface
             [
                 'label' => 'Spis projektu',
                 'title' => $current->projectName,
-                'href' => 'index.php?route=/wiki/project&slug=' . rawurlencode($current->projectSlug),
+                'href' => $this->wikiProjectHref($current->projectSlug),
                 'direction' => 'index',
                 'description' => 'Wróć do listy stron dokumentacji projektu.',
             ],
@@ -698,8 +723,12 @@ final class WikipediaModule implements ModuleInterface
 
     private function wikiPageHref(WikiPage $page): string
     {
-        return 'index.php?route=/wiki/page&project=' . rawurlencode($page->projectSlug)
-            . '&slug=' . rawurlencode($page->slug);
+        return '/wiki/page/' . rawurlencode($page->projectSlug) . '/' . rawurlencode($page->slug);
+    }
+
+    private function wikiProjectHref(string $projectSlug): string
+    {
+        return '/wiki/project/' . rawurlencode($projectSlug);
     }
 
     private function validCsrf(Request $request, string $event): bool

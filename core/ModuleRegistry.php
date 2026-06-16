@@ -41,11 +41,14 @@ final class ModuleRegistry
         $this->modules[$id] = $module;
     }
 
-    public function boot(AdminMenuRegistry $menu, Router $router): void
+    public function boot(AdminMenuRegistry $menu, Router $router, ?PublicNavigationRegistry $publicNavigation = null): void
     {
         foreach ($this->orderedModules() as $module) {
             $module->registerAdminMenu($menu);
             $module->registerRoutes($router);
+            if ($publicNavigation !== null && $module instanceof PublicNavigationProviderInterface) {
+                $module->registerPublicNavigation($publicNavigation);
+            }
         }
     }
 

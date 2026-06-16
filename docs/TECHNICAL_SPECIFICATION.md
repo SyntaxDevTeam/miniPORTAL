@@ -232,14 +232,19 @@ automatycznie po zgodnym adresie e-mail.
 - projekty dokumentacji mają własny slug, opis, kolejność i status publikacji,
 - strony dokumentacji są przypisane do projektu, mają osobny slug w obrębie projektu,
   opis, treść `html`/`markdown`, kolejność i status publikacji,
-- publiczne trasy `/wiki`, `/wiki/project?slug=...` i `/wiki/page?project=...&slug=...`
-  pokazują wyłącznie opublikowane projekty i strony,
+- publiczne trasy `/wiki`, `/wiki/project/{slug}` i `/wiki/page/{project}/{slug}`
+  pokazują wyłącznie opublikowane projekty i strony; starsze wejścia z query string
+  pozostają kompatybilne, ale linki generowane przez CMS używają przyjaznych adresów,
 - publiczna strona dokumentacji pokazuje na dole ogólny komponent nawigacji treści
   z poprzednią stroną, spisem projektu i następną stroną wraz z rzeczywistymi tytułami,
 - panel `/admin/wikipedia` udostępnia CRUD projektów oraz stron przez `CrudApp`,
   CSRF, ACL `wikipedia.*`, audit log i komponenty `ThemeInterface`,
 - breadcrumb formularzy Wiki pokazuje kontekst: panel, dokumentację, projekt,
   edytowaną stronę i bieżącą akcję,
+- aktywne moduły mogą deklarować publiczne linki przez `PublicNavigationRegistry`,
+  a `/admin/settings` przypisuje je do głównego menu, stopki albo ukrywa,
+- `ThemeInterface::set_public_navigation()` przekazuje wspólne menu i stopkę do
+  wszystkich publicznych widoków modułów, nie tylko do strony głównej,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   kontraktu motywu metodami specyficznymi dla dokumentacji.
 

@@ -8,6 +8,7 @@ use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
+use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
@@ -35,6 +36,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly array $availableThemes,
         private readonly TemplateCacheInterface $templateCache,
         private readonly array $trustedModulePublishers,
+        private readonly PublicNavigationRegistry $publicNavigation,
     ) {
     }
 
@@ -671,6 +673,12 @@ final class SystemAdminModule implements ModuleInterface
             'index.php?route=/admin/settings',
             [
                 [
+                    'name' => 'settings_scope',
+                    'label' => 'Zakres ustawień',
+                    'type' => 'hidden',
+                    'value' => 'theme',
+                ],
+                [
                     'name' => 'theme',
                     'label' => 'Aktywny motyw',
                     'type' => 'select',
@@ -693,6 +701,38 @@ final class SystemAdminModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+
+        $publicNavigationItems = $this->publicNavigation->items($this->settings->publicNavigationAreas());
+        if ($publicNavigationItems !== []) {
+            $fields = [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'navigation'],
+                ['name' => 'theme', 'label' => 'Aktywny motyw', 'type' => 'hidden', 'value' => $values['theme']],
+                ['name' => 'public_name', 'label' => 'Publiczna nazwa marki', 'type' => 'hidden', 'value' => $values['public_name']],
+                ['name' => 'public_eyebrow', 'label' => 'Domyślny nadtytuł', 'type' => 'hidden', 'value' => $values['public_eyebrow']],
+            ];
+            foreach ($publicNavigationItems as $item) {
+                $fields[] = [
+                    'name' => 'public_nav_' . $this->publicNavigationFieldKey($item['id']),
+                    'label' => $item['label'],
+                    'type' => 'select',
+                    'value' => $item['area'],
+                    'options' => [
+                        'none' => 'Nie pokazuj automatycznie',
+                        'main' => 'Główne menu',
+                        'footer' => 'Stopka',
+                    ],
+                    'help' => $item['href'],
+                ];
+            }
+            $this->theme->start_admin_panel('Publiczna nawigacja modułów', count($publicNavigationItems) . ' linków');
+            $this->theme->render_form(
+                'index.php?route=/admin/settings',
+                $fields,
+                'Zapisz nawigację',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
 
         $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
         $this->theme->render_alert(
@@ -769,13 +809,30 @@ final class SystemAdminModule implements ModuleInterface
                 $this->availableThemes,
                 $actor->id
             );
-            $this->templateCache->invalidateTags(['theme']);
+            if ($request->postString('settings_scope') === 'navigation') {
+                $publicNavigationAreas = [];
+                $publicNavigationIds = [];
+                foreach ($this->publicNavigation->items() as $item) {
+                    $publicNavigationIds[] = $item['id'];
+                    $publicNavigationAreas[$item['id']] = $request->postString(
+                        'public_nav_' . $this->publicNavigationFieldKey($item['id']),
+                        $item['area']
+                    );
+                }
+                $this->settings->savePublicNavigationAreas($publicNavigationAreas, $publicNavigationIds, $actor->id);
+            }
+            $this->templateCache->invalidateTags(['theme', 'homepage']);
             $this->audit->record($request, 'system_settings_update', 'success', null, $actor->id);
             header('Location: index.php?route=/admin/settings', true, 303);
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'system_settings_update', 'failed', null, $actor->id);
             $this->renderSettings($exception->getMessage(), 'danger');
         }
+    }
+
+    private function publicNavigationFieldKey(string $id): string
+    {
+        return preg_replace('/[^a-zA-Z0-9_]/', '_', $id) ?? $id;
     }
 
     private function clearTemplateCache(Request $request): void

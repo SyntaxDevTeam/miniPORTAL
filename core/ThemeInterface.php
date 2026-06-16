@@ -34,13 +34,29 @@ interface ThemeInterface
      * @param list<array{
      *     title: string,
      *     slug: string,
+     *     href?: string,
      *     summary: string,
      *     type: string,
      *     navigation_area: string,
-     *     navigation_label: string
+     *     navigation_label: string,
+     *     sort_order?: int
      * }> $pages
      */
     public function render_homepage(array $sections, array $pages, bool $authenticated): void;
+
+    /**
+     * @param list<array{
+     *     title: string,
+     *     slug: string,
+     *     href?: string,
+     *     summary: string,
+     *     type: string,
+     *     navigation_area: string,
+     *     navigation_label: string,
+     *     sort_order?: int
+     * }> $items
+     */
+    public function set_public_navigation(array $items, bool $authenticated): void;
 
     public function start_page(string $title, string $description = ''): void;
 

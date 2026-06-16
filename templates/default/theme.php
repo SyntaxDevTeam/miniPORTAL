@@ -14,10 +14,20 @@ final class Theme implements ThemeInterface
 
     private readonly string $publicEyebrow;
 
+    private array $publicNavigation = [];
+
+    private bool $publicAuthenticated = false;
+
     public function __construct(array $config = [])
     {
         $this->publicName = trim((string) ($config['public_name'] ?? 'SyntaxDevTeam')) ?: 'SyntaxDevTeam';
         $this->publicEyebrow = trim((string) ($config['public_eyebrow'] ?? 'Software dla społeczności'));
+    }
+
+    public function set_public_navigation(array $items, bool $authenticated): void
+    {
+        $this->publicNavigation = $items;
+        $this->publicAuthenticated = $authenticated;
     }
 
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
@@ -31,8 +41,30 @@ final class Theme implements ThemeInterface
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
-        echo '<nav class="navbar navbar-expand-lg border-bottom fixed-top" data-site-nav aria-label="Główna nawigacja"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="#top"><span aria-hidden="true">&lt;/&gt;</span> ';
+        $this->renderPublicNavbar($pages, $authenticated, $sections, true);
+        echo '<main id="content">';
+        $heroRendered = false;
+        foreach ($sections as $section) {
+            if ($section['type'] === 'hero' && !$heroRendered) {
+                $this->renderHomepageHero($section, $authenticated);
+                $heroRendered = true;
+                continue;
+            }
+
+            $this->renderHomepageSection($section);
+        }
+
+        echo '</main>';
+        $this->renderPublicFooter($pages);
+        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
+        echo '<script src="' . $this->asset('js/site.js') . '"></script></body></html>';
+    }
+
+    private function renderPublicNavbar(array $pages, bool $authenticated, array $sections = [], bool $fixed = false): void
+    {
+        echo '<nav class="navbar navbar-expand-lg border-bottom' . ($fixed ? ' fixed-top' : '') . '" data-site-nav aria-label="Główna nawigacja"><div class="container">';
+        echo '<a class="navbar-brand fw-bold" href="/"><span aria-hidden="true">&lt;/&gt;</span> ';
         echo $this->escape($this->publicName) . '</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
@@ -47,8 +79,8 @@ final class Theme implements ThemeInterface
             if ($page['navigation_area'] !== 'main') {
                 continue;
             }
-            echo '<li class="nav-item"><a class="nav-link" href="/p/';
-            echo $this->escape(rawurlencode($page['slug'])) . '">';
+            echo '<li class="nav-item"><a class="nav-link" href="';
+            echo $this->escape($this->navigationHref($page)) . '">';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a></li>';
         }
@@ -57,37 +89,24 @@ final class Theme implements ThemeInterface
                 echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
             }
         }
-        echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="index.php?route=';
+        echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';
         echo $authenticated ? '/admin' : '/admin/login';
         echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
+    }
 
-        $heroRendered = false;
-        echo '<main id="content">';
-        foreach ($sections as $section) {
-            if ($section['type'] === 'hero' && !$heroRendered) {
-                $this->renderHomepageHero($section, $authenticated);
-                $heroRendered = true;
-                continue;
-            }
-
-            $this->renderHomepageSection($section);
-        }
-
-        echo '</main><footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
+    private function renderPublicFooter(array $pages): void
+    {
+        echo '<footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
         echo '<span>&copy; 2026 ' . $this->escape($this->publicName) . '</span><span class="d-flex flex-wrap gap-3">';
         foreach ($pages as $page) {
             if ($page['navigation_area'] !== 'footer') {
                 continue;
             }
-            echo '<a class="text-secondary" href="/p/';
-            echo $this->escape(rawurlencode($page['slug'])) . '">';
+            echo '<a class="text-secondary" href="' . $this->escape($this->navigationHref($page)) . '">';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a>';
         }
         echo '<span>Projektowane modułowo. Rozwijane świadomie.</span></span></div></footer>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
-        echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
-        echo '<script src="' . $this->asset('js/site.js') . '"></script></body></html>';
     }
 
     public function start_page(string $title, string $description = ''): void
@@ -103,22 +122,15 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '</head><body>';
-        echo '<nav class="navbar border-bottom"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="/index.php"><span aria-hidden="true">&lt;/&gt;</span> ';
-        echo $this->escape($this->publicName) . '</a>';
-        echo '<div class="d-flex gap-2">';
-        echo '<a class="btn btn-sm btn-outline-light" href="/index.php">Strona główna</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="/index.php?route=/articles">Artykuły</a>';
-        echo '<a class="btn btn-sm btn-outline-light" href="/index.php?route=/admin">Panel</a>';
-        echo '</div>';
-        echo '</div></nav><main>';
+        $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
+        echo '<main>';
     }
 
     public function end_page(): void
     {
-        echo '</main><footer class="border-top py-4"><div class="container text-secondary small">';
-        echo '&copy; 2026 ' . $this->escape($this->publicName);
-        echo '</div></footer></body></html>';
+        echo '</main>';
+        $this->renderPublicFooter($this->publicNavigation);
+        echo '</body></html>';
     }
 
     public function start_header(string $title, string $lead = '', string $eyebrow = ''): void
@@ -1120,6 +1132,16 @@ final class Theme implements ThemeInterface
         $label = preg_replace('/^\s*\d+\s*\/\s*/', '', $section['eyebrow']) ?? '';
 
         return $label !== '' ? $label : $section['title'];
+    }
+
+    private function navigationHref(array $item): string
+    {
+        $href = trim((string) ($item['href'] ?? ''));
+        if ($href !== '' && preg_match('~^(?:/|index\.php(?:\?|$)|https?://|#)~i', $href) === 1) {
+            return $href;
+        }
+
+        return '/p/' . rawurlencode((string) ($item['slug'] ?? ''));
     }
 
     private function safeHref(string $href): string

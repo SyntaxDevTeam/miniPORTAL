@@ -38,7 +38,7 @@ final class ArticlesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.2';
+        return '1.0.3';
     }
 
     public function dependencies(): array
@@ -65,6 +65,9 @@ final class ArticlesModule implements ModuleInterface
     {
         $router->get('/articles', fn (Request $request) => $this->renderPublicList($request));
         $router->get('/article', fn (Request $request) => $this->renderPublicArticle($request));
+        foreach ($this->articles->published() as $article) {
+            $router->get('/article/' . $article->slug, fn () => $this->renderPublicArticleSlug($article->slug));
+        }
         $router->get('/admin/articles', fn (Request $request) => $this->guard(
             $request,
             'articles.view',
@@ -145,7 +148,7 @@ final class ArticlesModule implements ModuleInterface
                 $this->theme->render_text($article->summary);
                 $this->theme->render_button(
                     'Czytaj artykuł',
-                    'index.php?route=/article&slug=' . rawurlencode($article->slug),
+                    $this->articleHref($article->slug),
                     'outline-light'
                 );
                 $this->theme->end_card();
@@ -164,7 +167,11 @@ final class ArticlesModule implements ModuleInterface
 
     private function renderPublicArticle(Request $request): void
     {
-        $slug = $this->normalizeSlug($request->queryString('slug'));
+        $this->renderPublicArticleSlug($this->normalizeSlug($request->queryString('slug')));
+    }
+
+    private function renderPublicArticleSlug(string $slug): void
+    {
         $article = $slug !== '' ? $this->articles->findPublishedBySlug($slug) : null;
 
         if ($article === null) {
@@ -189,13 +196,18 @@ final class ArticlesModule implements ModuleInterface
         $this->theme->start_section();
         $this->theme->start_card('', 'Artykuł');
         $this->theme->render_rich_content($article->content, $article->contentFormat);
-        $this->theme->render_button('Wróć do artykułów', 'index.php?route=/articles', 'outline-light');
+        $this->theme->render_button('Wróć do artykułów', '/articles', 'outline-light');
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();
             }),
             ['articles', 'article:' . $article->slug, 'article-category:' . $article->categoryName, 'theme']
         );
+    }
+
+    private function articleHref(string $slug): string
+    {
+        return '/article/' . rawurlencode($slug);
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void

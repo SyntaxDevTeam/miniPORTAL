@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-16 - nawigacja stron modułu wikipedia.
+> **Ostatnia aktualizacja:** 2026-06-16 - przyjazne publiczne adresy modułów.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -238,6 +238,8 @@ Brak aktywnych blokerów.
 | 2026-06-16 | `ThemeInterface::render_content_navigation()` renderuje ogólną nawigację treści; moduł `wikipedia` używa jej na publicznej stronie dokumentacji do poprzedniej strony, spisu projektu i następnej strony z faktycznymi tytułami. Stan produkcyjny modułu `wikipedia`: wersja 1.0.1, status `active`. |
 | 2026-06-16 | Kafle `previous` i `next` w `render_content_navigation()` mają dekoracyjne znaki `<` i `>` w tle, sterowane klasami motywu zamiast HTML w module. |
 | 2026-06-16 | Breadcrumb panelu Wiki pokazuje kontekst projektu i edytowanej strony, np. `Panel / Dokumentacja / PunisherX / Konfiguracja / Edytuj stronę dokumentacji`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.2, status `active`. |
+| 2026-06-16 | `PublicNavigationRegistry` pozwala aktywnym modułom deklarować linki publiczne; `/admin/settings` przypisuje je do głównego menu, stopki albo ukrywa. `wikipedia` udostępnia link `Dokumentacja` do `/wiki`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.3, status `active`. |
+| 2026-06-16 | Publiczne widoki modułów używają wspólnej nawigacji i stopki przez `ThemeInterface::set_public_navigation()`. Wiki generuje `/wiki/project/{slug}` i `/wiki/page/{project}/{slug}` zamiast `index.php?route=...`; starsze wejścia pozostają kompatybilne. Stan modułów po zmianie: `wikipedia` 1.0.4 active, `articles` 1.0.3 disabled. |
 
 ## Historia sesji
 

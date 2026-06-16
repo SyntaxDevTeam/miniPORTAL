@@ -697,3 +697,47 @@ czytelna wizualnie.
 
 **Weryfikacja:** `php tests/run.php`, pełny `php -l`, `php bin/migrate-core.php`
 oraz test renderu Front Controller dla formularza edycji strony Wiki.
+
+### Sesja: 2026-06-16 - publiczna nawigacja modułów
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - połączenie strony głównej
+z aktywnymi modułami bez wiązania modułów z HTML motywu.
+
+**Wykonano:**
+- dodano `PublicNavigationRegistry` oraz opcjonalny
+  `PublicNavigationProviderInterface` dla modułów wystawiających publiczne wejścia,
+- `ModuleRegistry` rejestruje publiczne linki aktywnych modułów razem z trasami
+  i menu administracyjnym,
+- `/admin/settings` pokazuje panel „Publiczna nawigacja modułów” i pozwala przypisać
+  link do głównego menu, stopki albo ukryć go,
+- strona główna łączy opublikowane podstrony `core_pages` z wybranymi linkami
+  modułów i przekazuje je do motywu jako jedną listę nawigacji,
+- moduł `wikipedia` deklaruje link `Dokumentacja` do `index.php?route=/wiki`,
+- podniesiono moduł `wikipedia` do wersji 1.0.3 i zaktualizowano stan w bazie.
+
+**Weryfikacja:** `php tests/run.php`, pełny `php -l`, `php bin/migrate-core.php`,
+test renderu `/admin/settings` oraz test renderu homepage z linkiem Wiki ustawionym
+chwilowo w głównym menu.
+
+### Sesja: 2026-06-16 - przyjazne URL i wspólna publiczna nawigacja
+
+**Faza i krok specyfikacji:** Krok 3, Krok 5C oraz Krok 6 - ujednolicenie
+publicznej prezentacji modułów z nawigacją strony głównej.
+
+**Wykonano:**
+- dodano `ThemeInterface::set_public_navigation()` i wdrożono wspólne publiczne menu
+  oraz stopkę w motywach `default` i `glassnight`,
+- `index.php` buduje jedną listę publicznej nawigacji z opublikowanych podstron
+  `core_pages` oraz linków modułów z `PublicNavigationRegistry`,
+- publiczne widoki modułów renderowane przez `start_page()` mają teraz tę samą stopkę,
+  w tym linki typu polityka prywatności publikowane w stopce strony głównej,
+- moduł Wiki generuje przyjazne linki `/wiki`, `/wiki/project/{slug}` i
+  `/wiki/page/{project}/{slug}` oraz zachowuje stare trasy query string jako wejścia
+  kompatybilne,
+- moduł Articles generuje przyjazne linki pojedynczych artykułów `/article/{slug}`,
+- podniesiono `wikipedia` do wersji 1.0.4 i `articles` do wersji 1.0.3.
+
+**Weryfikacja:** testy renderu `/wiki`, `/wiki/project/punisherx` i
+`/wiki/page/punisherx/home` potwierdziły przyjazne linki oraz obecność stopki
+z `/p/polityka-prywatnosci`; wykonano pełny `php tests/run.php`, pełny `php -l`
+i `php bin/migrate-core.php`.
