@@ -1064,7 +1064,11 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        $this->renderPage($page);
+        echo $this->cachedPublic(
+            'page:' . $page->slug,
+            fn (): string => $this->capture(fn () => $this->renderPage($page)),
+            ['pages', 'page:' . $page->slug, 'theme']
+        );
     }
 
     private function renderPage(Page $page): void
@@ -1082,7 +1086,11 @@ final class CorePagesModule implements ModuleInterface
 
     private function renderPublicPages(): void
     {
-        $pages = $this->pages->published();
+        echo $this->cachedPublic(
+            'pages:index',
+            function (): string {
+                $pages = $this->pages->published();
+                return $this->capture(function () use ($pages): void {
         $this->theme->start_page(
             'Podstrony - SyntaxDevTeam',
             'Projekty, informacje i dokumenty serwisu SyntaxDevTeam.'
@@ -1116,6 +1124,10 @@ final class CorePagesModule implements ModuleInterface
 
         $this->theme->end_section();
         $this->theme->end_page();
+                });
+            },
+            ['pages', 'pages:index', 'theme']
+        );
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void
@@ -1361,6 +1373,7 @@ final class CorePagesModule implements ModuleInterface
 
         $user = $this->auth->user();
         $id = $this->pages->create($data, $user?->id ?? 0);
+        $this->invalidatePageCache($data['slug']);
         $this->audit->record($request, 'page_create', 'success', null, $user?->id);
         header(
             'Location: index.php?route=/admin/pages/edit&id=' . $id
@@ -1393,6 +1406,7 @@ final class CorePagesModule implements ModuleInterface
         }
 
         $this->pages->update($id, $data);
+        $this->invalidatePageCache($page->slug, (string) $data['slug']);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'page_update', 'success', null, $userId);
         header(
@@ -1412,6 +1426,8 @@ final class CorePagesModule implements ModuleInterface
         $id = $request->postInt('id') ?? 0;
         $publish = $request->postString('action') === 'publish';
         $changed = $publish ? $this->pages->publish($id) : $this->pages->unpublish($id);
+        $page = $this->pages->find($id);
+        $this->invalidatePageCache($page?->slug);
         $this->audit->record(
             $request,
             'page_publish',
@@ -1431,7 +1447,10 @@ final class CorePagesModule implements ModuleInterface
             return;
         }
 
-        $deleted = $this->pages->delete($request->postInt('id') ?? 0);
+        $id = $request->postInt('id') ?? 0;
+        $page = $this->pages->find($id);
+        $deleted = $this->pages->delete($id);
+        $this->invalidatePageCache($page?->slug);
         $this->audit->record(
             $request,
             'page_delete',
@@ -1534,6 +1553,36 @@ final class CorePagesModule implements ModuleInterface
             'Wróć do listy'
         );
         return false;
+    }
+
+    /**
+     * @param callable(): string $renderer
+     * @param list<string> $tags
+     */
+    private function cachedPublic(string $key, callable $renderer, array $tags): string
+    {
+        return $this->auth->user() === null
+            ? $this->templateCache->remember('public', $key, $renderer, $tags)
+            : $renderer();
+    }
+
+    private function capture(callable $renderer): string
+    {
+        ob_start();
+        $renderer();
+
+        return (string) ob_get_clean();
+    }
+
+    private function invalidatePageCache(?string ...$slugs): void
+    {
+        $tags = ['homepage', 'pages', 'pages:index'];
+        foreach ($slugs as $slug) {
+            if ($slug !== null && $slug !== '') {
+                $tags[] = 'page:' . $slug;
+            }
+        }
+        $this->templateCache->invalidateTags($tags);
     }
 
     private function guard(Request $request, string $permission, callable $handler): void

@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-15 - eksport audytu, cykl życia kluczy i cache szablonów.
+> **Ostatnia aktualizacja:** 2026-06-16 - PHP 8.4, cache treści, kwarantanna modułów i retencja audytu.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -22,7 +22,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 - Nie omijaj warstw Theme, Database/CrudApp i Security bez udokumentowanego powodu.
 - Nie odczytuj bezpośrednio `$_GET` ani `$_POST` w modułach; dane wejściowe waliduj i normalizuj.
 - Koduj dane HTML przez `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, używaj przygotowanych zapytań i tokenów CSRF.
-- Zachowuj zgodność z PHP 8.5 i nie wprowadzaj frameworka aplikacyjnego bez zmiany dokumentacji.
+- Zachowuj zgodność z PHP 8.4 lub nowszym i nie wprowadzaj frameworka aplikacyjnego bez zmiany dokumentacji.
 - Minimalizuj diff i nie rozbudowuj starego katalogu `theme/`; nowa prezentacja trafia do `templates/`.
 
 ## Weryfikacja
@@ -145,27 +145,29 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Pochodzenie i podpisy RSA-SHA256 zewnętrznych pakietów |
 | [x] | Rotacja, okres ważności i unieważnianie kluczy wydawców |
 | [x] | Tagowy kontrakt unieważniania cache szablonów |
+| [x] | Projekt zadeklarowany jako PHP 8.4 lub wyższy bez wymogu PHP 8.5 |
+| [x] | Cache publicznych podstron i artykułów z granularnymi tagami |
+| [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
+| [x] | Polityka retencji i archiwizacji audit logu |
 
 ## Następne kroki
 
-1. Zadeklarować cały projekt jako wersja docelowa PHP 8.4 lub wyższy bez konieczności wymogu PHP 8.5
-2. Rozszerzyć cache na publiczne podstrony i artykuły z granularnymi tagami.
-3. Dodać kontrolowany import archiwum modułu do katalogu kwarantanny.
-4. Dodać politykę retencji i archiwizacji audit logu.
+1. Dodać kontrolowane zatwierdzanie pakietu z kwarantanny do aktywnego katalogu `modules/`.
+2. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
+3. Rozważyć osobny widok przeglądania `auth_events_archive`.
+4. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
 
 ## Uwagi / blokery
 
 ### Aktywne blokery
 
-| Data | Opis | Wymagane działanie |
-|------|------|--------------------|
-| 2026-06-14 | CLI działa na PHP 8.5.7, ale Apache dla `new.syntaxdevteam.pl` używa PHP 8.4.15. | Przełączyć handler Apache na PHP 8.5; manifesty deklarują rzeczywiste minimum kodu `>=8.4`, a wersją docelową projektu pozostaje PHP 8.5. |
+Brak aktywnych blokerów.
 
 ### Uwagi architektoniczne
 
 | Data | Opis |
 |------|------|
-| 2026-06-12 | Środowisko CLI działa na PHP 8.5.7 i spełnia wymaganie wersji PHP 8.5. |
+| 2026-06-12 | Środowisko CLI działa na PHP 8.5.7 i spełnia wymaganie wersji PHP 8.4 lub nowszej. |
 | 2026-06-12 | `CrudApp.class.php` zachowuje historyczną nazwę pliku; autoloader obsługuje ją przez jawną mapę zgodności. |
 | 2026-06-12 | Statyczne prototypy HTML omijają Front Controller; nagłówki `Security` obejmują dynamiczne odpowiedzi aplikacji. |
 | 2026-06-12 | Sekrety pozostają poza repozytorium; `.env.example` zawiera wyłącznie wartości przykładowe. |
@@ -224,6 +226,12 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | 2026-06-15 | Audit log eksportuje bieżący filtr do CSV z limitem 10 000 rekordów, ACL, audytem operacji i neutralizacją formuł arkusza. |
 | 2026-06-15 | Podpis pakietu zawiera `signed_at`; klucze wydawców mają stany `active`, `retired`, `revoked`, okres ważności i opcjonalnego następcę. |
 | 2026-06-15 | `TemplateCacheInterface` definiuje zapis, tagowe unieważnianie, czyszczenie i statystyki; anonimowa strona główna korzysta z `FileTemplateCache`. |
+| 2026-06-16 | Wymaganie runtime projektu to PHP 8.4 lub nowszy; PHP 8.5 nie jest konieczne dla handlera produkcyjnego. |
+| 2026-06-16 | Publiczne podstrony, lista podstron, lista artykułów i pojedyncze artykuły korzystają z cache szablonów z tagami `page:{slug}`, `article:{slug}`, `pages:index`, `articles:index`, `pages`, `articles` i `theme`. |
+| 2026-06-16 | `ModuleArchiveImporter` importuje `.tar`, `.tar.gz`, `.tgz` i `.zip` wyłącznie do `cache/module-quarantine`; manifest i podpis są sprawdzane bez wykonywania fabryki i bez kopiowania do `modules/`. |
+| 2026-06-16 | `Request::file()` jest jedyną warstwą odczytu uploadów dla modułów; motywy obsługują pole formularza `file` z `multipart/form-data`. |
+| 2026-06-16 | Audit log ma politykę retencji: panelowa operacja przenosi starsze wpisy do `auth_events_archive`, usuwa je z aktywnego `auth_events`, wymaga CSRF/ACL i zapisuje własny audit event. |
+| 2026-06-16 | Stan produkcyjny modułów po zmianach: `articles` 1.0.2 oraz `system_admin` 1.4.0. |
 
 ## Historia sesji
 

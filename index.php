@@ -6,6 +6,7 @@ use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
+use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleInstaller;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
@@ -119,6 +120,11 @@ $moduleManager = $moduleStates !== null && $moduleInstaller !== null
         ))
     )
     : null;
+$moduleArchiveImporter = new ModuleArchiveImporter(
+    __DIR__ . '/cache/module-quarantine',
+    $manifestValidator,
+    (int) ($config['modules']['archive_max_bytes'] ?? 10485760)
+);
 $moduleBootstrapper = new ModuleBootstrapper(
     __DIR__ . '/modules',
     $manifestValidator,
@@ -136,6 +142,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'auth_config' => $authConfig,
     'auth_demo_enabled' => $authDemoEnabled,
     'module_manager' => $moduleManager,
+    'module_archive_importer' => $moduleArchiveImporter,
     'config' => $application->config(),
     'diagnostics' => $application->diagnostics(),
     'available_themes' => $application->availableThemes(),

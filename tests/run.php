@@ -6,6 +6,7 @@ use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
+use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
@@ -48,7 +49,14 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $request = Request::fromArrays(
         ['route' => '//admin///pages/', 'id' => '12'],
         ['confirmed' => '1', 'roles' => ['editor', 'user', 'editor']],
-        ['REQUEST_METHOD' => 'post']
+        ['REQUEST_METHOD' => 'post'],
+        ['archive' => [
+            'name' => '../Module.tar.gz',
+            'type' => 'application/gzip',
+            'tmp_name' => '/tmp/uploaded-module',
+            'error' => UPLOAD_ERR_OK,
+            'size' => 123,
+        ]]
     );
 
     $assert($request->path() === '/admin/pages');
@@ -56,6 +64,9 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $assert($request->queryInt('id') === 12);
     $assert($request->postBool('confirmed'));
     $assert($request->postStringList('roles') === ['editor', 'user']);
+    $file = $request->file('archive');
+    $assert($file !== null && $file['name'] === 'Module.tar.gz');
+    $assert($file['error'] === UPLOAD_ERR_OK && $file['size'] === 123);
 });
 
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
@@ -280,7 +291,7 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.0.1');
+    $assert($manifest->version === '1.0.2');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
@@ -298,6 +309,53 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($learning->signatureStatus === 'verified');
     $assert($learning->signatureKeyId === 'syntaxdevteam-learning-2026-rotated');
     $assert(is_callable(require $learning->directory . '/' . $learning->factoryFile));
+});
+
+$test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-import-root-' . bin2hex(random_bytes(6));
+    $source = $root . '/ExampleModule';
+    $quarantine = $root . '/quarantine';
+    mkdir($source, 0700, true);
+    mkdir($quarantine, 0700, true);
+    file_put_contents($source . '/info.json', json_encode([
+        'id' => 'example_module',
+        'name' => 'Example Module',
+        'version' => '1.0.0',
+        'type' => 'extension',
+        'author' => 'Tests',
+        'requires' => ['php' => '>=8.4', 'miniportal' => '>=0.1.0', 'modules' => []],
+        'protected' => false,
+        'origin' => ['type' => 'archive', 'url' => 'https://example.test/module'],
+        'install' => null,
+    ], JSON_THROW_ON_ERROR));
+    $archive = $root . '/example.tar';
+    $phar = new PharData($archive);
+    $phar->buildFromDirectory($root, '~^' . preg_quote($source, '~') . '~');
+
+    try {
+        $importer = new ModuleArchiveImporter($quarantine, new ModuleManifestValidator('0.1.0'));
+        $result = $importer->importFile($archive, 'example.tar');
+        $assert($result['manifest'] !== null && $result['manifest']->id === 'example_module');
+        $assert(str_contains($result['directory'], $quarantine));
+        $assert(is_file($result['directory'] . '/source/ExampleModule/info.json'));
+        exec('cd ' . escapeshellarg($root) . ' && zip -qr example.zip ExampleModule', $output, $code);
+        if ($code === 0) {
+            $zipResult = $importer->importFile($root . '/example.zip', 'example.zip');
+            $assert($zipResult['manifest'] !== null && $zipResult['manifest']->id === 'example_module');
+            $assert(count($importer->imports()) === 2);
+        } else {
+            $assert(count($importer->imports()) === 1);
+        }
+    } finally {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($root);
+    }
 });
 
 $test('Revoked publisher key blocks an otherwise valid module signature', static function () use ($assert): void {

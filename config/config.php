@@ -66,6 +66,9 @@ return [
         'enabled' => $envBool('TEMPLATE_CACHE_ENABLED', true),
         'ttl' => $envInt('TEMPLATE_CACHE_TTL', 300, 1),
     ],
+    'modules' => [
+        'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
+    ],
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
         'demo_enabled' => $envBool('AUTH_DEMO_ENABLED', false),
@@ -73,6 +76,8 @@ return [
         'oauth_window_seconds' => $envInt('AUTH_OAUTH_WINDOW_SECONDS', 600, 60),
         'oauth_start_limit' => $envInt('AUTH_OAUTH_START_LIMIT', 10),
         'oauth_callback_limit' => $envInt('AUTH_OAUTH_CALLBACK_LIMIT', 20),
+        'audit_retention_days' => $envInt('AUTH_AUDIT_RETENTION_DAYS', 180, 1),
+        'audit_archive_limit' => $envInt('AUTH_AUDIT_ARCHIVE_LIMIT', 5000, 1),
         'providers' => [
             'github' => [
                 'client_id' => (string) $env('GITHUB_CLIENT_ID', ''),

@@ -11,6 +11,7 @@ use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
+use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
@@ -26,6 +27,7 @@ final class ArticlesModule implements ModuleInterface
         private readonly AdminAccessGate $access,
         private readonly Security $security,
         private readonly AuditLogService $audit,
+        private readonly TemplateCacheInterface $templateCache,
     ) {
     }
 
@@ -36,7 +38,7 @@ final class ArticlesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.1';
+        return '1.0.2';
     }
 
     public function dependencies(): array
@@ -118,8 +120,12 @@ final class ArticlesModule implements ModuleInterface
     private function renderPublicList(Request $request): void
     {
         $category = $this->normalizeSlug($request->queryString('category'));
-        $articles = $this->articles->published($category !== '' ? $category : null);
+        echo $this->cachedPublic(
+            'articles:index:' . ($category !== '' ? $category : 'all'),
+            function () use ($category): string {
+                $articles = $this->articles->published($category !== '' ? $category : null);
 
+                return $this->capture(function () use ($articles, $category): void {
         $this->theme->start_page('Artykuły - SyntaxDevTeam', 'Opublikowane artykuły SyntaxDevTeam.');
         $this->theme->start_header(
             'Artykuły',
@@ -150,6 +156,10 @@ final class ArticlesModule implements ModuleInterface
 
         $this->theme->end_section();
         $this->theme->end_page();
+                });
+            },
+            ['articles', 'articles:index', $category !== '' ? 'article-category:' . $category : 'article-category:all', 'theme']
+        );
     }
 
     private function renderPublicArticle(Request $request): void
@@ -166,6 +176,9 @@ final class ArticlesModule implements ModuleInterface
             return;
         }
 
+        echo $this->cachedPublic(
+            'article:' . $article->slug,
+            fn (): string => $this->capture(function () use ($article): void {
         $this->theme->start_page($article->title . ' - SyntaxDevTeam', $article->summary);
         $this->theme->start_header(
             $article->title,
@@ -180,6 +193,9 @@ final class ArticlesModule implements ModuleInterface
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();
+            }),
+            ['articles', 'article:' . $article->slug, 'article-category:' . $article->categoryName, 'theme']
+        );
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void
@@ -432,6 +448,7 @@ final class ArticlesModule implements ModuleInterface
             $contentFormat,
             $user?->id ?? 0
         );
+        $this->invalidateArticleCache($slug);
         $this->audit->record($request, 'article_create', 'success', null, $user?->id);
         header(
             'Location: index.php?route=/admin/articles/edit&id=' . $id
@@ -462,6 +479,7 @@ final class ArticlesModule implements ModuleInterface
         }
 
         $this->articles->update($id, $categoryId, $title, $slug, $summary, $content, $contentFormat);
+        $this->invalidateArticleCache($article->slug, $slug);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'article_update', 'success', null, $userId);
         header(
@@ -481,6 +499,8 @@ final class ArticlesModule implements ModuleInterface
         $id = $request->postInt('id') ?? 0;
         $publish = $request->postString('action') === 'publish';
         $changed = $publish ? $this->articles->publish($id) : $this->articles->unpublish($id);
+        $article = $this->articles->find($id);
+        $this->invalidateArticleCache($article?->slug);
         $this->audit->record(
             $request,
             'article_publish',
@@ -500,7 +520,10 @@ final class ArticlesModule implements ModuleInterface
             return;
         }
 
-        $deleted = $this->articles->delete($request->postInt('id') ?? 0);
+        $id = $request->postInt('id') ?? 0;
+        $article = $this->articles->find($id);
+        $deleted = $this->articles->delete($id);
+        $this->invalidateArticleCache($article?->slug);
         $this->audit->record(
             $request,
             'article_delete',
@@ -533,6 +556,7 @@ final class ArticlesModule implements ModuleInterface
         }
 
         $this->articles->createCategory($name, $slug);
+        $this->invalidateArticleCache();
         $this->audit->record(
             $request,
             'article_category_create',
@@ -550,6 +574,7 @@ final class ArticlesModule implements ModuleInterface
         }
 
         $deleted = $this->articles->deleteCategory($request->postInt('id') ?? 0);
+        $this->invalidateArticleCache();
         $this->audit->record(
             $request,
             'article_category_delete',
@@ -624,6 +649,36 @@ final class ArticlesModule implements ModuleInterface
             'Wróć do listy'
         );
         return false;
+    }
+
+    /**
+     * @param callable(): string $renderer
+     * @param list<string> $tags
+     */
+    private function cachedPublic(string $key, callable $renderer, array $tags): string
+    {
+        return $this->auth->user() === null
+            ? $this->templateCache->remember('public', $key, $renderer, $tags)
+            : $renderer();
+    }
+
+    private function capture(callable $renderer): string
+    {
+        ob_start();
+        $renderer();
+
+        return (string) ob_get_clean();
+    }
+
+    private function invalidateArticleCache(?string ...$slugs): void
+    {
+        $tags = ['articles', 'articles:index'];
+        foreach ($slugs as $slug) {
+            if ($slug !== null && $slug !== '') {
+                $tags[] = 'article:' . $slug;
+            }
+        }
+        $this->templateCache->invalidateTags($tags);
     }
 
     private function guard(Request $request, string $permission, callable $handler): void

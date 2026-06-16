@@ -108,6 +108,55 @@ final class SystemLogRepository
     }
 
     /**
+     * @return array{cutoff: string, archived: int, deleted: int}
+     */
+    public function archiveOlderThan(int $retentionDays, int $limit): array
+    {
+        $retentionDays = max(1, min(3650, $retentionDays));
+        $limit = max(1, min(10000, $limit));
+        $cutoff = gmdate('Y-m-d H:i:s', time() - ($retentionDays * 86400));
+        $pdo = $this->database->connection()->pdo;
+        $ids = [];
+        $select = $pdo->prepare(
+            'SELECT id FROM auth_events WHERE created_at < :cutoff ORDER BY id ASC LIMIT :limit'
+        );
+        $select->bindValue(':cutoff', $cutoff);
+        $select->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $select->execute();
+        foreach ($select->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $ids[] = (int) $id;
+        }
+        if ($ids === []) {
+            return ['cutoff' => $cutoff, 'archived' => 0, 'deleted' => 0];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $archived = 0;
+            $insert = $pdo->prepare(
+                'INSERT IGNORE INTO auth_events_archive '
+                . '(source_id, user_id, provider, event_type, result, ip_hash, user_agent, created_at) '
+                . 'SELECT id, user_id, provider, event_type, result, ip_hash, user_agent, created_at '
+                . 'FROM auth_events WHERE id = :id'
+            );
+            foreach ($ids as $id) {
+                $insert->execute([':id' => $id]);
+                $archived += $insert->rowCount();
+            }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $delete = $pdo->prepare('DELETE FROM auth_events WHERE id IN (' . $placeholders . ')');
+            $delete->execute($ids);
+            $deleted = $delete->rowCount();
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            $pdo->rollBack();
+            throw $exception;
+        }
+
+        return ['cutoff' => $cutoff, 'archived' => $archived, 'deleted' => $deleted];
+    }
+
+    /**
      * @param array{event_type?: string, result?: string, date_from?: string, date_to?: string} $filters
      * @return array{0: string, 1: array<string, scalar>}
      */

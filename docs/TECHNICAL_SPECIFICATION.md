@@ -2,7 +2,7 @@
 
 ## 1. Cel projektu
 
-miniPORTAL to modułowy system typu mini-CMS, zbudowany w czystym PHP 8.5 bez frameworków, zgodny z zasadą Outside-In: najpierw tworzymy i testujemy wizualne abstrakcje frontendowe, a dopiero potem implementujemy logikę backendową i mechanizmy systemowe.
+miniPORTAL to modułowy system typu mini-CMS, zbudowany w czystym PHP 8.4 lub nowszym bez frameworków, zgodny z zasadą Outside-In: najpierw tworzymy i testujemy wizualne abstrakcje frontendowe, a dopiero potem implementujemy logikę backendową i mechanizmy systemowe.
 
 Główne założenia projektu:
 - modularna architektura „Lego”
@@ -275,6 +275,9 @@ Stan managera:
   i unieważnione, a okres ważności jest sprawdzany względem czasu podpisania,
 - klucz prywatny wydawcy pozostaje poza repozytorium i serwerem WWW; zmiana dowolnego
   pliku unieważnia pakiet przed instalacją albo uruchomieniem.
+- import archiwum modułu przyjmuje `.tar`, `.tar.gz`, `.tgz` oraz `.zip`, rozpakowuje
+  pakiet wyłącznie do `cache/module-quarantine`, waliduje manifest i podpis bez
+  wykonywania fabryki oraz bez kopiowania plików do aktywnego katalogu `modules/`.
 
 ---
 
@@ -294,7 +297,8 @@ Stan managera:
 
 - cache szablonów przez output buffering i `TemplateCacheInterface`,
 - zapis statycznych fragmentów do `cache/templates` z atomowym zapisem,
-- tagowe unieważnianie zależności `homepage`, `pages` i `theme`,
+- tagowe unieważnianie zależności `homepage`, `pages`, `page:{slug}`,
+  `articles`, `article:{slug}` i `theme`,
 - cache wyłącznie dla odpowiedzi niezależnych od sesji; panel i widok administratora
   nie mogą korzystać ze wspólnego wpisu publicznego,
 - ograniczenie liczby zapytań do bazy danych
@@ -302,8 +306,9 @@ Stan managera:
 - FULLTEXT dla wyszukiwarki, jeśli zostanie zaimplementowana
 
 Pierwszym konsumentem kontraktu jest anonimowa strona główna. Operacje zapisu
-`core_pages` unieważniają treść publiczną, zmiana motywu unieważnia tag `theme`,
-a panel systemowy pozwala wykonać kontrolowane pełne czyszczenie z audytem.
+`core_pages` unieważniają treść publiczną, publiczne podstrony i artykuły korzystają
+z osobnych wpisów cache, zmiana motywu unieważnia tag `theme`, a panel systemowy
+pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 
 ### 5.3 Propozycje autorskie do przyszłego rozwoju
 
@@ -319,6 +324,9 @@ a panel systemowy pozwala wykonać kontrolowane pełne czyszczenie z audytem.
    - paginowany, chroniony widok `/admin/logs` bez tokenów i pełnych adresów IP
    - rutynowe poprawne odczyty panelu nie są zdarzeniami audytowymi; zapisywane są
      odmowy dostępu i operacje zmieniające stan
+   - polityka retencji archiwizuje starsze wpisy do `auth_events_archive` przed
+     usunięciem ich z aktywnego dziennika; operacja wymaga ACL, CSRF i sama trafia
+     do audytu
 
 4. Chronione ustawienia systemowe [wdrożone]
    - `SystemAdminModule` zarządza bezpiecznymi ustawieniami motywu i brandingu,

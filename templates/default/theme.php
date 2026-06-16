@@ -240,7 +240,10 @@ final class Theme implements ThemeInterface
         string $method = 'post',
     ): void {
         $method = strtolower($method) === 'get' ? 'get' : 'post';
-        echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="' . $method . '">';
+        $hasFile = array_any($fields, static fn (array $field): bool => ($field['type'] ?? '') === 'file');
+        echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="' . $method . '"';
+        echo $hasFile ? ' enctype="multipart/form-data"' : '';
+        echo '>';
 
         if ($csrfToken !== '') {
             $this->csrf_field($csrfToken);
@@ -367,6 +370,9 @@ final class Theme implements ThemeInterface
                     echo '</div></fieldset>';
                 }
                 echo '</div>';
+            } elseif ($type === 'file') {
+                $accept = isset($field['accept']) ? ' accept="' . $this->escape((string) $field['accept']) . '"' : '';
+                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . '>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';

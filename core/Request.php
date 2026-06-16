@@ -12,15 +12,16 @@ final class Request
         private readonly array $query,
         private readonly array $post,
         private readonly array $server,
+        private readonly array $files,
     ) {
     }
 
     public static function fromGlobals(): self
     {
-        return self::fromArrays($_GET, $_POST, $_SERVER);
+        return self::fromArrays($_GET, $_POST, $_SERVER, $_FILES);
     }
 
-    public static function fromArrays(array $query, array $post, array $server): self
+    public static function fromArrays(array $query, array $post, array $server, array $files = []): self
     {
         $method = strtoupper((string) ($server['REQUEST_METHOD'] ?? 'GET'));
         $path = self::resolvePath($query, $server);
@@ -31,6 +32,7 @@ final class Request
             self::normalizeArray($query),
             self::normalizeArray($post),
             self::normalizeArray($server),
+            self::normalizeArray($files),
         );
     }
 
@@ -119,6 +121,34 @@ final class Request
     public function userAgent(): string
     {
         return substr($this->stringValue($this->server, 'HTTP_USER_AGENT'), 0, 512);
+    }
+
+    /**
+     * @return array{name: string, type: string, tmp_name: string, error: int, size: int}|null
+     */
+    public function file(string $key): ?array
+    {
+        $file = $this->files[$key] ?? null;
+        if (!is_array($file)) {
+            return null;
+        }
+
+        $name = $file['name'] ?? '';
+        $tmpName = $file['tmp_name'] ?? '';
+        $type = $file['type'] ?? '';
+        $error = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+        $size = $file['size'] ?? 0;
+        if (!is_scalar($name) || !is_scalar($tmpName) || !is_scalar($type) || !is_scalar($error) || !is_scalar($size)) {
+            return null;
+        }
+
+        return [
+            'name' => basename(self::normalizeString((string) $name)),
+            'type' => substr(self::normalizeString((string) $type), 0, 120),
+            'tmp_name' => self::normalizeString((string) $tmpName),
+            'error' => (int) $error,
+            'size' => (int) $size,
+        ];
     }
 
     private static function resolvePath(array $query, array $server): string

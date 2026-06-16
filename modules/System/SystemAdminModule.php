@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\System;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -26,6 +27,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly ?ModuleManagerService $moduleManager,
+        private readonly ModuleArchiveImporter $moduleArchiveImporter,
         private readonly ?SystemSettingsRepository $settings,
         private readonly ?SystemLogRepository $logs,
         private readonly array $config,
@@ -43,7 +45,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.4.0';
     }
 
     public function dependencies(): array
@@ -108,6 +110,11 @@ final class SystemAdminModule implements ModuleInterface
             'modules.remove',
             fn () => $this->uninstallModule($request)
         ));
+        $router->post('/admin/modules/import', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->importModuleArchive($request)
+        ));
         $router->get('/admin/design-system', fn (Request $request) => $this->guard(
             $request,
             'admin.access',
@@ -137,6 +144,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'logs.view',
             fn () => $this->exportLogs($request)
+        ));
+        $router->post('/admin/logs/archive', fn (Request $request) => $this->guard(
+            $request,
+            'logs.view',
+            fn () => $this->archiveLogs($request)
         ));
     }
 
@@ -344,6 +356,38 @@ final class SystemAdminModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Import archiwum do kwarantanny', 'Bez instalacji i bez wykonania kodu');
+        $this->theme->render_form(
+            'index.php?route=/admin/modules/import',
+            [[
+                'name' => 'archive',
+                'label' => 'Archiwum modułu',
+                'type' => 'file',
+                'accept' => '.tar,.tar.gz,.tgz,.zip',
+                'help' => 'Pakiet zostanie rozpakowany wyłącznie do cache/module-quarantine i sprawdzony manifestem.',
+            ]],
+            'Importuj do kwarantanny',
+            $this->security->csrfToken()
+        );
+        $imports = array_slice($this->moduleArchiveImporter->imports(), 0, 10);
+        if ($imports !== []) {
+            $this->theme->render_admin_table(
+                ['Katalog', 'Pakiet', 'Manifest', 'Import'],
+                array_map(
+                    fn (array $import): array => [
+                        $import['directory'],
+                        $import['package'],
+                        $import['manifest'] !== null
+                            ? $import['manifest']->name . ' (' . $import['manifest']->id . ', ' . $this->packageTrustLabel($import['manifest']) . ')'
+                            : 'Błąd: ' . (string) $import['error'],
+                        $import['imported_at'],
+                    ],
+                    $imports
+                )
+            );
+        }
+        $this->theme->end_admin_panel();
         $this->endPage();
     }
 
@@ -469,6 +513,37 @@ final class SystemAdminModule implements ModuleInterface
                 ? 'Moduł został odinstalowany, a jego dane zachowano.'
                 : 'Moduł został odinstalowany, a jego dane usunięto.'
         );
+    }
+
+    private function importModuleArchive(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_archive_import', 'invalid_csrf', null, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        try {
+            $file = $request->file('archive');
+            if ($file === null) {
+                throw new \RuntimeException('Wybierz archiwum modułu do importu.');
+            }
+            $result = $this->moduleArchiveImporter->importUploaded($file);
+            $manifest = $result['manifest'];
+            $detail = $manifest !== null
+                ? $manifest->id . ' / ' . $manifest->signatureStatus
+                : 'invalid_package';
+            $this->audit->record($request, 'module_archive_import', $manifest !== null ? 'quarantined' : 'invalid_manifest', $detail, $actor?->id);
+            $message = $manifest !== null
+                ? 'Pakiet zaimportowano do kwarantanny: ' . $manifest->name . ' (' . $manifest->id . ').'
+                : 'Pakiet trafił do kwarantanny, ale manifest wymaga poprawy: ' . (string) $result['error'];
+            $this->renderModules($message, $manifest !== null ? 'success' : 'warning');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'module_archive_import', 'failed', null, $actor?->id);
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
     }
 
     private function moduleOperation(
@@ -801,6 +876,18 @@ final class SystemAdminModule implements ModuleInterface
             'info'
         );
         $this->theme->render_button('Eksportuj bieżący filtr do CSV', $exportUrl, 'outline-light');
+        $authConfig = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
+        $retentionDays = (int) ($authConfig['audit_retention_days'] ?? 180);
+        $archiveLimit = (int) ($authConfig['audit_archive_limit'] ?? 5000);
+        $this->theme->render_form(
+            'index.php?route=/admin/logs/archive',
+            [
+                ['name' => 'retention_days', 'label' => 'Retencja dni', 'type' => 'number', 'value' => (string) $retentionDays],
+                ['name' => 'limit', 'label' => 'Limit archiwizacji', 'type' => 'number', 'value' => (string) $archiveLimit],
+            ],
+            'Archiwizuj starsze wpisy',
+            $this->security->csrfToken()
+        );
         $this->theme->render_admin_table(
             ['Data', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Kontekst', 'Skrót IP'],
             $rows
@@ -840,6 +927,41 @@ final class SystemAdminModule implements ModuleInterface
             $this->audit->record($request, 'audit_export', 'failed', 'csv', $actor->id);
             http_response_code(500);
             echo 'Nie można przygotować eksportu dziennika.';
+        }
+    }
+
+    private function archiveLogs(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->logs === null) {
+            http_response_code(503);
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'audit_archive', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderLogs($request);
+            return;
+        }
+
+        try {
+            $days = $request->postInt('retention_days', (int) ($this->config['auth']['audit_retention_days'] ?? 180)) ?? 180;
+            $limit = $request->postInt('limit', (int) ($this->config['auth']['audit_archive_limit'] ?? 5000)) ?? 5000;
+            $result = $this->logs->archiveOlderThan($days, $limit);
+            $this->audit->record($request, 'audit_archive', 'success', (string) $result['archived'], $actor->id);
+            $this->startPage('Dziennik zdarzeń', '/admin/logs', 'Retencja i archiwizacja dziennika.');
+            $this->theme->render_alert(
+                'Zarchiwizowano ' . $result['archived'] . ' wpisów starszych niż ' . $result['cutoff'] . '.',
+                'success'
+            );
+            $this->theme->render_button('Wróć do dziennika', 'index.php?route=/admin/logs', 'outline-light');
+            $this->endPage();
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'audit_archive', 'failed', null, $actor->id);
+            $this->startPage('Dziennik zdarzeń', '/admin/logs', 'Retencja i archiwizacja dziennika.');
+            $this->theme->render_alert($exception->getMessage(), 'danger');
+            $this->theme->render_button('Wróć do dziennika', 'index.php?route=/admin/logs', 'outline-light');
+            $this->endPage();
         }
     }
 

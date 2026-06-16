@@ -67,7 +67,8 @@ return [
             $services['auth'],
             $services['access'],
             $services['security'],
-            $services['audit']
+            $services['audit'],
+            $services['template_cache']
         ),
     ],
     [
@@ -81,6 +82,7 @@ return [
             $services['security'],
             $services['audit'],
             $services['module_manager'],
+            $services['module_archive_importer'],
             $services['database'] !== null ? new SystemSettingsRepository($services['database']) : null,
             $services['database'] !== null ? new SystemLogRepository($services['database']) : null,
             $services['config'],

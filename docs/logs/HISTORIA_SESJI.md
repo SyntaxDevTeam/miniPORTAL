@@ -617,3 +617,23 @@ unieważniania cache został zamknięty.
 - dodano nadpisania CSS dla publicznej strony, komponentów i panelu administracyjnego.
 
 **Weryfikacja:** `php -l templates/glassnight/theme.php`, kontrola listy motywów przez `ThemeEngine`, lokalny podgląd statycznego stylebooka.
+
+### Sesja: 2026-06-16 - PHP 8.4, cache treści, kwarantanna modułów i retencja audytu
+
+**Faza i krok specyfikacji:** Krok 6 oraz wydajność/bezpieczeństwo z sekcji 5.2.
+
+**Wykonano:**
+- zadeklarowano PHP 8.4 lub nowszy jako wymaganie runtime projektu, bez wymogu PHP 8.5,
+- rozszerzono tagowy cache szablonów na publiczne podstrony, listę podstron, listę artykułów i pojedyncze artykuły,
+- dodano granularne tagi `page:{slug}`, `article:{slug}`, `pages:index` i `articles:index` oraz unieważnianie po zmianach treści,
+- dodano `Request::file()` i obsługę pól uploadu w aktywnych motywach,
+- dodano `ModuleArchiveImporter`, który rozpakowuje `.tar`, `.tar.gz`, `.tgz` i `.zip` wyłącznie do `cache/module-quarantine`,
+- panel modułów otrzymał formularz importu archiwum do kwarantanny, listę ostatnich importów i audyt operacji,
+- dodano tabelę `auth_events_archive`, migrację Core oraz panelową operację archiwizacji wpisów starszych niż skonfigurowana retencja,
+- podniesiono stan `articles` do `1.0.2` i `system_admin` do `1.4.0` przez manager modułów.
+
+**Weryfikacja:** `php tests/run.php`, pełny `php -l` dla PHP w `core`, `modules`, `templates`, `config`, `tests`, `bin` i `install/mod`, `php bin/migrate-core.php`.
+
+**Korekta po przeglądzie:** zaktualizowano `AGENTS.md`, aby instrukcje agentów
+odzwierciedlały PHP 8.4+, wykonane punkty Kroku 6, brak aktywnego blokera PHP 8.5
+oraz nowe uwagi o cache, kwarantannie modułów i retencji audytu.

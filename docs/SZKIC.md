@@ -1,4 +1,4 @@
-miniPORTAL to CMS pisany na czystym klasycznym stylu PHP 8.5 + MySQL + HTML5/CSS3 + Boostram 5
+miniPORTAL to CMS pisany na czystym klasycznym stylu PHP 8.4 lub nowszym + MySQL + HTML5/CSS3 + Boostram 5
 W założeniu ma nie być opierany na frameworkach czy instalacjach automatycznych a kod silnika i cały portal to warstwy klas CRUD itp. 
 
 Plan napisania go chce oprzeć o namacalne widoczne elementy więc zamiast pisać backend podejdę do tego zupełnie inaczej zaczynając od frontendu + ewentualna logika wykonawcza. 
