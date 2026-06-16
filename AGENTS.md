@@ -237,6 +237,7 @@ Brak aktywnych blokerów.
 | 2026-06-16 | Stan produkcyjny modułu `wikipedia` po instalacji: wersja 1.0.0, status `active`. |
 | 2026-06-16 | `ThemeInterface::render_content_navigation()` renderuje ogólną nawigację treści; moduł `wikipedia` używa jej na publicznej stronie dokumentacji do poprzedniej strony, spisu projektu i następnej strony z faktycznymi tytułami. Stan produkcyjny modułu `wikipedia`: wersja 1.0.1, status `active`. |
 | 2026-06-16 | Kafle `previous` i `next` w `render_content_navigation()` mają dekoracyjne znaki `<` i `>` w tle, sterowane klasami motywu zamiast HTML w module. |
+| 2026-06-16 | Breadcrumb panelu Wiki pokazuje kontekst projektu i edytowanej strony, np. `Panel / Dokumentacja / PunisherX / Konfiguracja / Edytuj stronę dokumentacji`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.2, status `active`. |
 
 ## Historia sesji
 

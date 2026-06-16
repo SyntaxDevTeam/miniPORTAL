@@ -238,6 +238,8 @@ automatycznie po zgodnym adresie e-mail.
   z poprzednią stroną, spisem projektu i następną stroną wraz z rzeczywistymi tytułami,
 - panel `/admin/wikipedia` udostępnia CRUD projektów oraz stron przez `CrudApp`,
   CSRF, ACL `wikipedia.*`, audit log i komponenty `ThemeInterface`,
+- breadcrumb formularzy Wiki pokazuje kontekst: panel, dokumentację, projekt,
+  edytowaną stronę i bieżącą akcję,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   kontraktu motywu metodami specyficznymi dla dokumentacji.
 

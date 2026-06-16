@@ -298,7 +298,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $wiki = $validator->validate(dirname(__DIR__) . '/modules/Wikipedia');
     $assert($wiki->id === 'wikipedia');
-    $assert($wiki->version === '1.0.1');
+    $assert($wiki->version === '1.0.2');
     $assert($wiki->installFile === 'install.sql');
     $assert($wiki->uninstallFile === 'uninstall.sql');
     $assert($wiki->requiredModules === ['core_auth']);

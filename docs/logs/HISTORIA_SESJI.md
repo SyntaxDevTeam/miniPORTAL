@@ -683,3 +683,17 @@ przez moduł treści.
 **Doprecyzowanie UI:** kafle poprzedniej i następnej strony otrzymały kierunek
 `previous`/`next` oraz duże znaki `<` i `>` w tle, aby nawigacja była bardziej
 czytelna wizualnie.
+
+### Sesja: 2026-06-16 - breadcrumb edycji Wiki
+
+**Faza i krok specyfikacji:** Krok 5C - panel modułu dokumentacji projektowej.
+
+**Wykonano:**
+- rozszerzono breadcrumb formularzy Wiki o kontekst projektu oraz edytowanej strony,
+- ekran edycji strony pokazuje ścieżkę w stylu
+  `Panel / Dokumentacja / PunisherX / Konfiguracja / Edytuj stronę dokumentacji`,
+- ekran dodawania strony z wybranego projektu pokazuje nazwę projektu przed akcją,
+- podniesiono moduł `wikipedia` do wersji 1.0.2.
+
+**Weryfikacja:** `php tests/run.php`, pełny `php -l`, `php bin/migrate-core.php`
+oraz test renderu Front Controller dla formularza edycji strony Wiki.

@@ -38,7 +38,7 @@ final class WikipediaModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.1';
+        return '1.0.2';
     }
 
     public function dependencies(): array
@@ -361,7 +361,15 @@ final class WikipediaModule implements ModuleInterface
             return;
         }
         $editing = $project !== null;
-        $this->startAdminPage($user, $editing ? 'Edytuj projekt dokumentacji' : 'Dodaj projekt dokumentacji', 'Projekt grupuje strony wiki dla jednego produktu lub usługi.');
+        $this->startAdminPage(
+            $user,
+            $editing ? 'Edytuj projekt dokumentacji' : 'Dodaj projekt dokumentacji',
+            'Projekt grupuje strony wiki dla jednego produktu lub usługi.',
+            null,
+            $editing ? [
+                ['label' => $project->name, 'href' => ''],
+            ] : []
+        );
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
@@ -401,11 +409,20 @@ final class WikipediaModule implements ModuleInterface
         }
         $editing = $page !== null;
         $projects = [];
+        $projectRecords = [];
         foreach ($this->wiki->projects() as $project) {
             $projects[(string) $project->id] = $project->name;
+            $projectRecords[$project->id] = $project;
         }
         $selectedProject = $page?->projectId ?? $defaultProjectId ?? (int) (array_key_first($projects) ?? 0);
-        $this->startAdminPage($user, $editing ? 'Edytuj stronę dokumentacji' : 'Dodaj stronę dokumentacji', 'Strony mogą używać kontrolowanego HTML albo Markdown.');
+        $selectedProjectRecord = $projectRecords[$selectedProject] ?? null;
+        $this->startAdminPage(
+            $user,
+            $editing ? 'Edytuj stronę dokumentacji' : 'Dodaj stronę dokumentacji',
+            'Strony mogą używać kontrolowanego HTML albo Markdown.',
+            null,
+            $this->adminPageBreadcrumbContext($selectedProjectRecord, $page)
+        );
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
@@ -755,8 +772,17 @@ final class WikipediaModule implements ModuleInterface
             || in_array($permission, $user->permissions, true);
     }
 
-    private function startAdminPage(User $user, string $title, string $lead, ?array $action = null): void
-    {
+    /**
+     * @param array{label: string, href: string}|null $action
+     * @param list<array{label: string, href: string}> $contextBreadcrumbs
+     */
+    private function startAdminPage(
+        User $user,
+        string $title,
+        string $lead,
+        ?array $action = null,
+        array $contextBreadcrumbs = [],
+    ): void {
         $this->theme->start_admin_page(
             $title,
             $this->menu->visibleFor($user->permissions),
@@ -769,10 +795,38 @@ final class WikipediaModule implements ModuleInterface
             [
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => 'Dokumentacja', 'href' => $title === 'Dokumentacja' ? '' : 'index.php?route=/admin/wikipedia'],
+                ...$contextBreadcrumbs,
                 ...($title !== 'Dokumentacja' ? [['label' => $title, 'href' => '']] : []),
             ],
             $action
         );
+    }
+
+    /**
+     * @return list<array{label: string, href: string}>
+     */
+    private function adminPageBreadcrumbContext(?WikiProject $project, ?WikiPage $page): array
+    {
+        $breadcrumbs = [];
+        if ($project !== null) {
+            $breadcrumbs[] = [
+                'label' => $project->name,
+                'href' => 'index.php?route=/admin/wikipedia/projects/edit&id=' . $project->id,
+            ];
+        } elseif ($page !== null) {
+            $breadcrumbs[] = [
+                'label' => $page->projectName,
+                'href' => 'index.php?route=/admin/wikipedia',
+            ];
+        }
+        if ($page !== null) {
+            $breadcrumbs[] = [
+                'label' => $page->title,
+                'href' => 'index.php?route=/admin/wikipedia/pages/edit&id=' . $page->id,
+            ];
+        }
+
+        return $breadcrumbs;
     }
 
     private function endAdminPage(): void
