@@ -659,3 +659,27 @@ instalowany przez manager modułów.
 
 **Weryfikacja:** `php tests/run.php`, pełny `php -l`, walidacja manifestów,
 test Front Controller dla `route=/wiki`.
+
+### Sesja: 2026-06-16 - nawigacja stron dokumentacji Wiki
+
+**Faza i krok specyfikacji:** Krok 3 oraz Krok 5C - ogólny komponent motywu użyty
+przez moduł treści.
+
+**Wykonano:**
+- dodano `ThemeInterface::render_content_navigation()` jako ogólny komponent
+  nawigacji między treściami,
+- wdrożono komponent w motywach `default` i `glassnight` wraz ze stylami publicznymi,
+- moduł `wikipedia` wylicza poprzednią i następną opublikowaną stronę projektu według
+  kolejności i tytułu,
+- pojedynczy przycisk „Wróć do projektu” na publicznej stronie Wiki zastąpiono
+  trzema kaflami: poprzednia strona, spis projektu i następna strona,
+- kafel następnej strony pokazuje rzeczywisty tytuł, np. `"Admin Guide"`,
+- podniesiono moduł `wikipedia` do wersji 1.0.1 i zaktualizowano stan w bazie.
+
+**Weryfikacja:** `php tests/run.php`, pełny `php -l`, test Front Controller dla
+`/wiki/page?project=punisherx&slug=home` potwierdzający `content-navigation` i etykietę
+`Następna strona...`.
+
+**Doprecyzowanie UI:** kafle poprzedniej i następnej strony otrzymały kierunek
+`previous`/`next` oraz duże znaki `<` i `>` w tle, aby nawigacja była bardziej
+czytelna wizualnie.

@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-16 - moduł wikipedia dokumentacji projektowej.
+> **Ostatnia aktualizacja:** 2026-06-16 - nawigacja stron modułu wikipedia.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -235,6 +235,8 @@ Brak aktywnych blokerów.
 | 2026-06-16 | Stan produkcyjny modułów po zmianach: `articles` 1.0.2 oraz `system_admin` 1.4.0. |
 | 2026-06-16 | `wikipedia` jest opcjonalnym modułem treści do dokumentacji projektów; używa tabel `wiki_projects` i `wiki_pages`, tras `/wiki`, `/wiki/project`, `/wiki/page`, ACL `wikipedia.*`, CSRF, audit logu i komponentów `ThemeInterface`. |
 | 2026-06-16 | Stan produkcyjny modułu `wikipedia` po instalacji: wersja 1.0.0, status `active`. |
+| 2026-06-16 | `ThemeInterface::render_content_navigation()` renderuje ogólną nawigację treści; moduł `wikipedia` używa jej na publicznej stronie dokumentacji do poprzedniej strony, spisu projektu i następnej strony z faktycznymi tytułami. Stan produkcyjny modułu `wikipedia`: wersja 1.0.1, status `active`. |
+| 2026-06-16 | Kafle `previous` i `next` w `render_content_navigation()` mają dekoracyjne znaki `<` i `>` w tle, sterowane klasami motywu zamiast HTML w module. |
 
 ## Historia sesji
 

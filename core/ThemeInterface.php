@@ -70,6 +70,18 @@ interface ThemeInterface
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void;
 
+    /**
+     * @param list<array{
+     *     label: string,
+     *     title: string,
+     *     href: string,
+     *     direction?: string,
+     *     description?: string,
+     *     disabled?: bool
+     * }> $items
+     */
+    public function render_content_navigation(array $items): void;
+
     public function render_alert(string $message, string $variant = 'info'): void;
 
     /**

@@ -203,6 +203,37 @@ final class Theme implements ThemeInterface
         echo $this->escape($label) . '</a>';
     }
 
+    public function render_content_navigation(array $items): void
+    {
+        if ($items === []) {
+            return;
+        }
+
+        echo '<nav class="content-navigation" aria-label="Nawigacja treści">';
+        foreach ($items as $item) {
+            $label = (string) ($item['label'] ?? '');
+            $title = (string) ($item['title'] ?? '');
+            $description = (string) ($item['description'] ?? '');
+            $href = (string) ($item['href'] ?? '');
+            $direction = (string) ($item['direction'] ?? '');
+            $directionClass = in_array($direction, ['previous', 'next'], true)
+                ? ' content-nav-' . $direction
+                : '';
+            $disabled = ($item['disabled'] ?? false) === true || $href === '';
+            $class = 'content-nav-item' . $directionClass . ($disabled ? ' is-disabled' : '');
+            $tag = $disabled ? 'span' : 'a';
+            echo '<' . $tag . ' class="' . $class . '"';
+            echo $disabled ? ' aria-disabled="true"' : ' href="' . $this->escape($href) . '"';
+            echo '><span class="content-nav-label">' . $this->escape($label) . '</span>';
+            echo '<strong class="content-nav-title">' . $this->escape($title) . '</strong>';
+            if ($description !== '') {
+                echo '<small class="content-nav-description">' . $this->escape($description) . '</small>';
+            }
+            echo '</' . $tag . '>';
+        }
+        echo '</nav>';
+    }
+
     public function render_alert(string $message, string $variant = 'info'): void
     {
         $allowedVariants = ['success', 'danger', 'warning', 'info'];

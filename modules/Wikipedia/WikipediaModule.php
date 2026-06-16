@@ -38,7 +38,7 @@ final class WikipediaModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.0.1';
     }
 
     public function dependencies(): array
@@ -224,7 +224,10 @@ final class WikipediaModule implements ModuleInterface
             return;
         }
 
-        echo $this->cachedPublic('wiki:page:' . $page->projectSlug . ':' . $page->slug, fn (): string => $this->capture(function () use ($page): void {
+        echo $this->cachedPublic('wiki:page:' . $page->projectSlug . ':' . $page->slug, function () use ($page): string {
+            $navigation = $this->wikiPageNavigation($page);
+
+            return $this->capture(function () use ($page, $navigation): void {
             $this->theme->start_page($page->title . ' - ' . $page->projectName, $page->summary);
             $this->theme->start_header(
                 $page->title,
@@ -235,15 +238,12 @@ final class WikipediaModule implements ModuleInterface
             $this->theme->start_section();
             $this->theme->start_card('', 'Dokumentacja');
             $this->theme->render_rich_content($page->content, $page->contentFormat);
-            $this->theme->render_button(
-                'Wróć do projektu',
-                'index.php?route=/wiki/project&slug=' . rawurlencode($page->projectSlug),
-                'outline-light'
-            );
+            $this->theme->render_content_navigation($navigation);
             $this->theme->end_card();
             $this->theme->end_section();
             $this->theme->end_page();
-        }), ['wikipedia', 'wiki:project:' . $page->projectSlug, 'wiki:page:' . $page->projectSlug . ':' . $page->slug, 'theme']);
+            });
+        }, ['wikipedia', 'wiki:project:' . $page->projectSlug, 'wiki:page:' . $page->projectSlug . ':' . $page->slug, 'theme']);
     }
 
     private function renderDashboard(string $message = '', string $variant = 'info'): void
@@ -633,6 +633,56 @@ final class WikipediaModule implements ModuleInterface
         $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
 
         return trim($value, '-');
+    }
+
+    /**
+     * @return list<array{label: string, title: string, href: string, description: string, disabled?: bool}>
+     */
+    private function wikiPageNavigation(WikiPage $current): array
+    {
+        $pages = $this->wiki->publishedPages($current->projectId);
+        $previous = null;
+        $next = null;
+        foreach ($pages as $index => $page) {
+            if ($page->id !== $current->id) {
+                continue;
+            }
+            $previous = $pages[$index - 1] ?? null;
+            $next = $pages[$index + 1] ?? null;
+            break;
+        }
+
+        return [
+            [
+                'label' => 'Poprzednia strona...',
+                'title' => $previous !== null ? '"' . $previous->title . '"' : 'Początek dokumentacji',
+                'href' => $previous !== null ? $this->wikiPageHref($previous) : '',
+                'direction' => 'previous',
+                'description' => $previous?->summary ?? 'To pierwsza opublikowana strona projektu.',
+                'disabled' => $previous === null,
+            ],
+            [
+                'label' => 'Spis projektu',
+                'title' => $current->projectName,
+                'href' => 'index.php?route=/wiki/project&slug=' . rawurlencode($current->projectSlug),
+                'direction' => 'index',
+                'description' => 'Wróć do listy stron dokumentacji projektu.',
+            ],
+            [
+                'label' => 'Następna strona...',
+                'title' => $next !== null ? '"' . $next->title . '"' : 'Koniec dokumentacji',
+                'href' => $next !== null ? $this->wikiPageHref($next) : '',
+                'direction' => 'next',
+                'description' => $next?->summary ?? 'To ostatnia opublikowana strona projektu.',
+                'disabled' => $next === null,
+            ],
+        ];
+    }
+
+    private function wikiPageHref(WikiPage $page): string
+    {
+        return 'index.php?route=/wiki/page&project=' . rawurlencode($page->projectSlug)
+            . '&slug=' . rawurlencode($page->slug);
     }
 
     private function validCsrf(Request $request, string $event): bool

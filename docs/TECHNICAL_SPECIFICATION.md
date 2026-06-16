@@ -234,6 +234,8 @@ automatycznie po zgodnym adresie e-mail.
   opis, treść `html`/`markdown`, kolejność i status publikacji,
 - publiczne trasy `/wiki`, `/wiki/project?slug=...` i `/wiki/page?project=...&slug=...`
   pokazują wyłącznie opublikowane projekty i strony,
+- publiczna strona dokumentacji pokazuje na dole ogólny komponent nawigacji treści
+  z poprzednią stroną, spisem projektu i następną stroną wraz z rzeczywistymi tytułami,
 - panel `/admin/wikipedia` udostępnia CRUD projektów oraz stron przez `CrudApp`,
   CSRF, ACL `wikipedia.*`, audit log i komponenty `ThemeInterface`,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
@@ -391,7 +393,7 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 8. `core_pages`: CRUD stron przez `CrudApp`.
 9. `core_pages`: edytor sekcji strony głównej i kontrolowany WYSIWYG.
 10. `wikipedia`: projektowa baza wiedzy z projektami i stronami dokumentacji.
-10. `articles`: przykład niezależnego modułu.
+11. `articles`: przykład niezależnego modułu.
 
 Stan Kroku 5:
 
