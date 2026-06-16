@@ -604,3 +604,16 @@ wdrożone i mają kontrolę integralności oraz testy negatywne.
 
 **Zaktualizowano status:** trzy kolejne punkty planu są wdrożone; bloker kontraktu
 unieważniania cache został zamknięty.
+
+### Sesja: 2026-06-16 - alternatywny motyw Glassnight
+
+**Faza i krok specyfikacji:** Krok 3 oraz kontynuacja Kroku 6 w obszarze `ThemeEngine` i kontraktu szablonów.
+
+**Wykonano:**
+- przeanalizowano kontrakt `ThemeInterface`, ładowanie klas przez `ThemeEngine` oraz sposób wyboru motywu w ustawieniach systemowych,
+- dodano alternatywny szablon `glassnight` jako osobny katalog w `templates/`, bez zmian w modułach,
+- zachowano pełną implementację metod motywu i statyczne prototypy stylebook/homepage/admin-stylebook,
+- zmieniono warstwę wizualną na szklane panele, paletę czerni, granatu, ciemnego niebieskiego i błękitu oraz subtelne akcenty ciemnej czerwieni,
+- dodano nadpisania CSS dla publicznej strony, komponentów i panelu administracyjnego.
+
+**Weryfikacja:** `php -l templates/glassnight/theme.php`, kontrola listy motywów przez `ThemeEngine`, lokalny podgląd statycznego stylebooka.
