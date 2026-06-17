@@ -450,6 +450,41 @@ body.admin-stylebook {
   padding: 1rem 1.25rem 1.25rem;
 }
 
+.profile-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.profile-fact {
+  min-width: 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.85rem;
+}
+
+.profile-fact span,
+.profile-fact small {
+  display: block;
+  color: var(--mp-muted);
+  font-size: 0.78rem;
+}
+
+.profile-fact span {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.profile-fact strong {
+  display: block;
+  margin: 0.5rem 0 0.35rem;
+  overflow-wrap: anywhere;
+  color: var(--mp-text);
+  font-size: 1.1rem;
+}
+
 .notification-dot {
   position: absolute;
   top: 0.48rem;
@@ -1062,6 +1097,10 @@ body.admin-stylebook {
 
   .state-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-fact-grid {
+    grid-template-columns: 1fr;
   }
 }
 

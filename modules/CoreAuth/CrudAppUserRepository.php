@@ -149,6 +149,25 @@ final class CrudAppUserRepository implements UserRepositoryInterface
         ], ['id' => $userId]);
     }
 
+    public function updateProfile(int $userId, string $displayName, ?string $email): bool
+    {
+        $statement = $this->database->update('users', [
+            'display_name' => $displayName,
+            'email' => $email,
+        ], ['id' => $userId]);
+
+        return $statement !== null;
+    }
+
+    public function updateAvatar(int $userId, ?string $avatarUrl): bool
+    {
+        $statement = $this->database->update('users', [
+            'avatar_url' => $avatarUrl,
+        ], ['id' => $userId]);
+
+        return $statement !== null;
+    }
+
     private function hydrate(array $row): User
     {
         $userId = (int) $row['id'];

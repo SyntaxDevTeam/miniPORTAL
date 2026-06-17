@@ -880,3 +880,24 @@ uwierzytelnionego użytkownika.
 
 **Weryfikacja:** dodano test renderowania dropdownu profilu w topbarze; wykonano
 `php tests/run.php`, pełny lint PHP oraz `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - rozbudowa profilu użytkownika
+
+**Faza i krok specyfikacji:** Krok 5B - `CoreAuth`, profil użytkownika i spójność
+panelu administracyjnego.
+
+**Wykonano:**
+- usunięto drugi znacznik użytkownika z dolnej części sidebaru; topbar pozostaje
+  jedynym miejscem menu profilu,
+- dropdown profilu prowadzi teraz do konkretnych tras: podglądu, edycji danych,
+  połączonych kont, ustawień avatara i bezpieczeństwa,
+- dodano zapis nazwy wyświetlanej oraz e-maila kontaktowego bieżącego użytkownika
+  przez `AuthService` i `UserRepositoryInterface`,
+- dodano zapis adresu avatara z walidacją URL oraz możliwością wyczyszczenia pola,
+- widok bezpieczeństwa i panel bezpieczeństwa w profilu używają responsywnych kafli
+  faktów zamiast tabeli z poziomym przewijaniem,
+- operacje edycji profilu i avatara wymagają CSRF oraz zapisują audit eventy,
+- podniesiono `core_auth` do wersji `1.4.0` bez migracji SQL.
+
+**Weryfikacja:** dodano test zapisu profilu i avatara przez `AuthService` oraz
+rozszerzono test dropdownu o nowe trasy i brak footera użytkownika w sidebarze.

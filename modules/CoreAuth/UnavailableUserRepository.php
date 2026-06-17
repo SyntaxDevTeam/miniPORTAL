@@ -33,4 +33,14 @@ final class UnavailableUserRepository implements UserRepositoryInterface
     public function touchIdentity(int $userId, string $provider, string $subject): void
     {
     }
+
+    public function updateProfile(int $userId, string $displayName, ?string $email): bool
+    {
+        return false;
+    }
+
+    public function updateAvatar(int $userId, ?string $avatarUrl): bool
+    {
+        return false;
+    }
 }

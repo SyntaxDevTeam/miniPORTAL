@@ -182,6 +182,16 @@ interface ThemeInterface
     public function end_admin_panel(): void;
 
     /**
+     * @param list<array{label: string, value: string, detail?: string}> $facts
+     */
+    public function render_admin_fact_grid(array $facts): void;
+
+    /**
+     * @param list<array{label: string, href: string, variant?: string}> $actions
+     */
+    public function render_admin_panel_actions(array $actions): void;
+
+    /**
      * @param list<string> $headers
      * @param list<list<scalar|null>> $rows
      */

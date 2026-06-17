@@ -72,6 +72,20 @@ final class AuthService
         return $user !== null && $this->users->unlinkIdentity($user->id, $provider, $subject);
     }
 
+    public function updateProfile(string $displayName, ?string $email): bool
+    {
+        $user = $this->user();
+
+        return $user !== null && $this->users->updateProfile($user->id, $displayName, $email);
+    }
+
+    public function updateAvatar(?string $avatarUrl): bool
+    {
+        $user = $this->user();
+
+        return $user !== null && $this->users->updateAvatar($user->id, $avatarUrl);
+    }
+
     public function logout(): void
     {
         unset($_SESSION[self::SESSION_USER_ID]);

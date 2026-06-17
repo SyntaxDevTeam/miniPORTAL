@@ -17,4 +17,8 @@ interface UserRepositoryInterface
     public function unlinkIdentity(int $userId, string $provider, string $subject): bool;
 
     public function touchIdentity(int $userId, string $provider, string $subject): void;
+
+    public function updateProfile(int $userId, string $displayName, ?string $email): bool;
+
+    public function updateAvatar(int $userId, ?string $avatarUrl): bool;
 }

@@ -419,8 +419,9 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 Stan Kroku 5:
 
 - `core_pages` i `articles` są rzeczywistymi, odrębnymi modułami treści,
-- `core_auth` udostępnia profil użytkownika przez dropdown w topbarze panelu,
-  a połączone konta pozostają trasą profilu zamiast osobną sekcją sidebaru,
+- `core_auth` udostępnia profil użytkownika przez dropdown w topbarze panelu;
+  profil obejmuje podgląd, edycję danych, ustawienia avatara, bezpieczeństwo
+  i połączone konta bez osobnej sekcji sidebaru,
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
 - elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
   pozostają wyłączną odpowiedzialnością aktywnego motywu,

@@ -134,6 +134,21 @@ $test('Unknown identity becomes a pending account', static function () use ($ass
     $assert($pending->roles === ['user']);
 });
 
+$test('Authenticated user can update profile and avatar through auth service', static function () use ($assert): void {
+    $_SESSION = [];
+    $repository = new SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository();
+    $auth = new SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService($repository, new Security());
+    $_SESSION['_miniportal_user_id'] = 1;
+
+    $assert($auth->updateProfile('Nowa nazwa', 'nowy@example.test'));
+    $assert($auth->updateAvatar('https://example.test/avatar.png'));
+    $user = $auth->user();
+    $assert($user !== null);
+    $assert($user->displayName === 'Nowa nazwa');
+    $assert($user->email === 'nowy@example.test');
+    $assert($user->avatarUrl === 'https://example.test/avatar.png');
+});
+
 $test('OAuth state is one-time and provider-bound', static function () use ($assert): void {
     $_SESSION = [];
     $store = new OAuthStateStore();
@@ -400,8 +415,12 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, 'admin-user-menu-toggle'));
     $assert(str_contains($html, 'dropdown-menu dropdown-menu-end admin-user-dropdown'));
     $assert(str_contains($html, 'index.php?route=/admin/profile'));
+    $assert(str_contains($html, 'index.php?route=/admin/profile/edit'));
+    $assert(str_contains($html, 'index.php?route=/admin/profile/avatar'));
+    $assert(str_contains($html, 'index.php?route=/admin/profile/security'));
     $assert(str_contains($html, 'index.php?route=/admin/identities'));
     $assert(str_contains($html, '>Wyloguj</button>'));
+    $assert(!str_contains($html, 'admin-sidebar-footer'));
 });
 
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {

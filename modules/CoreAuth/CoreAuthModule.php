@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.4.0';
     }
 
     public function dependencies(): array
@@ -114,6 +114,31 @@ final class CoreAuthModule implements ModuleInterface
             $request,
             'admin.access',
             fn () => $this->renderProfile()
+        ));
+        $router->get('/admin/profile/edit', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderProfileEdit()
+        ));
+        $router->post('/admin/profile/edit', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->updateProfile($request)
+        ));
+        $router->get('/admin/profile/avatar', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderAvatarSettings()
+        ));
+        $router->post('/admin/profile/avatar', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->updateAvatar($request)
+        ));
+        $router->get('/admin/profile/security', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderProfileSecurity()
         ));
         $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
@@ -939,24 +964,200 @@ final class CoreAuthModule implements ModuleInterface
                 ['Role', $roles],
             ]
         );
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Edytuj dane', 'href' => 'index.php?route=/admin/profile/edit', 'variant' => 'primary'],
+            ['label' => 'Ustawienia avatara', 'href' => 'index.php?route=/admin/profile/avatar'],
+        ]);
         $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel('Bezpieczeństwo', 'Sesja, uprawnienia i tożsamości');
-        $this->theme->render_admin_table(
-            ['Obszar', 'Stan'],
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Połączone konta', 'value' => (string) count($user->identities), 'detail' => 'Dostawcy OAuth'],
+            ['label' => 'Dostawcy', 'value' => $providers !== [] ? implode(', ', $providers) : 'Brak', 'detail' => 'Aktywne tożsamości'],
             [
-                ['Połączone konta', (string) count($user->identities)],
-                ['Dostawcy', $providers !== [] ? implode(', ', $providers) : 'Brak'],
-                ['Uprawnienia', in_array('*', $user->permissions, true) ? 'Pełny dostęp' : (string) count($user->permissions)],
-            ]
-        );
-        echo '<div class="admin-panel-actions">';
-        echo '<a class="btn btn-primary" href="index.php?route=/admin/identities">Połączone konta</a>';
-        echo '<a class="btn btn-outline-light" href="index.php?route=/admin/profile">Bezpieczeństwo</a>';
-        echo '</div>';
+                'label' => 'Uprawnienia',
+                'value' => in_array('*', $user->permissions, true) ? 'Pełny dostęp' : (string) count($user->permissions),
+                'detail' => 'Wynik lokalnych ról',
+            ],
+        ]);
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/identities', 'variant' => 'primary'],
+            ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile/security'],
+        ]);
         $this->theme->end_admin_panel();
         $this->theme->end_admin_panel_grid();
 
+        $this->endAdminPage();
+    }
+
+    private function renderProfileEdit(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $this->startAdminPage(
+            'Edytuj dane',
+            '/admin/profile',
+            'Aktualizacja podstawowych danych widocznych w panelu.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel('Dane profilu', 'Nazwa i kontakt administracyjny');
+        $this->theme->render_form(
+            'index.php?route=/admin/profile/edit',
+            [
+                ['name' => 'display_name', 'label' => 'Nazwa wyświetlana', 'value' => $user->displayName],
+                ['name' => 'email', 'label' => 'E-mail kontaktowy', 'type' => 'email', 'value' => $user->email ?? ''],
+            ],
+            'Zapisz dane',
+            $this->security->csrfToken()
+        );
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Wróć do profilu', 'href' => 'index.php?route=/admin/profile'],
+        ]);
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function updateProfile(Request $request): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'profile_update', 'invalid_csrf', null, $user->id);
+            $this->renderProfileEdit('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $displayName = trim($request->postString('display_name'));
+        $email = trim($request->postString('email'));
+        if ($displayName === '' || strlen($displayName) > 120) {
+            $this->renderProfileEdit('Nazwa wyświetlana jest wymagana i może mieć maksymalnie 120 znaków.', 'warning');
+            return;
+        }
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $this->renderProfileEdit('Podaj poprawny adres e-mail albo zostaw pole puste.', 'warning');
+            return;
+        }
+
+        if (!$this->auth->updateProfile($displayName, $email !== '' ? $email : null)) {
+            $this->audit->record($request, 'profile_update', 'failed', null, $user->id);
+            $this->renderProfileEdit('Nie udało się zapisać danych profilu.', 'danger');
+            return;
+        }
+
+        $this->audit->record($request, 'profile_update', 'success', null, $user->id);
+        $this->renderProfileEdit('Dane profilu zostały zapisane.', 'success');
+    }
+
+    private function renderAvatarSettings(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $this->startAdminPage(
+            'Ustawienia avatara',
+            '/admin/profile',
+            'Avatar jest przechowywany jako bezpieczny adres HTTPS do obrazu.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel('Avatar', 'Adres obrazu profilu');
+        $this->theme->render_form(
+            'index.php?route=/admin/profile/avatar',
+            [
+                [
+                    'name' => 'avatar_url',
+                    'label' => 'Adres avatara',
+                    'type' => 'url',
+                    'value' => $user->avatarUrl ?? '',
+                    'help' => 'Dozwolony jest wyłącznie adres http:// albo https://. Puste pole usuwa avatar.',
+                ],
+            ],
+            'Zapisz avatar',
+            $this->security->csrfToken()
+        );
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Wróć do profilu', 'href' => 'index.php?route=/admin/profile'],
+        ]);
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function updateAvatar(Request $request): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'avatar_update', 'invalid_csrf', null, $user->id);
+            $this->renderAvatarSettings('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $avatarUrl = trim($request->postString('avatar_url'));
+        if ($avatarUrl !== '' && filter_var($avatarUrl, FILTER_VALIDATE_URL) === false) {
+            $this->renderAvatarSettings('Podaj poprawny adres URL albo zostaw pole puste.', 'warning');
+            return;
+        }
+        if ($avatarUrl !== '' && preg_match('~^https?://~i', $avatarUrl) !== 1) {
+            $this->renderAvatarSettings('Avatar musi używać adresu http:// albo https://.', 'warning');
+            return;
+        }
+
+        if (!$this->auth->updateAvatar($avatarUrl !== '' ? $avatarUrl : null)) {
+            $this->audit->record($request, 'avatar_update', 'failed', null, $user->id);
+            $this->renderAvatarSettings('Nie udało się zapisać avatara.', 'danger');
+            return;
+        }
+
+        $this->audit->record($request, 'avatar_update', 'success', null, $user->id);
+        $this->renderAvatarSettings('Avatar został zapisany.', 'success');
+    }
+
+    private function renderProfileSecurity(): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $providers = array_map(
+            static fn (ExternalIdentity $identity): string => ucfirst($identity->provider),
+            $user->identities
+        );
+        $this->startAdminPage(
+            'Bezpieczeństwo',
+            '/admin/profile',
+            'Przegląd dostępu, połączonych kont i lokalnych uprawnień.'
+        );
+        $this->theme->start_admin_panel('Stan bezpieczeństwa', 'Sesja, uprawnienia i tożsamości');
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Status konta', 'value' => ucfirst($user->status), 'detail' => 'Lokalny stan użytkownika'],
+            ['label' => 'Role', 'value' => $user->roles !== [] ? implode(', ', $user->roles) : 'Brak', 'detail' => 'Role lokalne'],
+            ['label' => 'Tożsamości', 'value' => $providers !== [] ? implode(', ', $providers) : 'Brak', 'detail' => 'Zewnętrzne logowanie'],
+            [
+                'label' => 'Uprawnienia',
+                'value' => in_array('*', $user->permissions, true) ? 'Pełny dostęp' : (string) count($user->permissions),
+                'detail' => 'Nadane przez role',
+            ],
+        ]);
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Zarządzaj połączonymi kontami', 'href' => 'index.php?route=/admin/identities', 'variant' => 'primary'],
+            ['label' => 'Wróć do profilu', 'href' => 'index.php?route=/admin/profile'],
+        ]);
+        $this->theme->end_admin_panel();
         $this->endAdminPage();
     }
 

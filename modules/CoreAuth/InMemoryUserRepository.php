@@ -141,4 +141,46 @@ final class InMemoryUserRepository implements UserRepositoryInterface
     public function touchIdentity(int $userId, string $provider, string $subject): void
     {
     }
+
+    public function updateProfile(int $userId, string $displayName, ?string $email): bool
+    {
+        $user = $this->users[$userId] ?? null;
+        if ($user === null) {
+            return false;
+        }
+
+        $this->users[$userId] = new User(
+            $user->id,
+            $displayName,
+            $email,
+            $user->avatarUrl,
+            $user->status,
+            $user->roles,
+            $user->permissions,
+            $user->identities
+        );
+
+        return true;
+    }
+
+    public function updateAvatar(int $userId, ?string $avatarUrl): bool
+    {
+        $user = $this->users[$userId] ?? null;
+        if ($user === null) {
+            return false;
+        }
+
+        $this->users[$userId] = new User(
+            $user->id,
+            $user->displayName,
+            $user->email,
+            $avatarUrl,
+            $user->status,
+            $user->roles,
+            $user->permissions,
+            $user->identities
+        );
+
+        return true;
+    }
 }

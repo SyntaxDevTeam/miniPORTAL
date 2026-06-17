@@ -492,10 +492,7 @@ final class Theme implements ThemeInterface
         echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin">';
         echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL</span></a></div>';
         $this->renderAdminMenu($menuItems, $activePath);
-        echo '<div class="admin-sidebar-footer"><div class="admin-user">';
-        echo '<span class="admin-avatar" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
-        echo '<span class="admin-user-copy"><strong>' . $this->escape($user['name']) . '</strong>';
-        echo '<span>' . $this->escape($user['role']) . '</span></span></div></div></aside>';
+        echo '</aside>';
         echo '<div class="admin-workspace"><header class="admin-topbar">';
         echo '<button class="admin-icon-button d-lg-none" type="button" data-admin-sidebar-toggle aria-label="Otwórz nawigację panelu">MN</button>';
         echo '<div class="admin-search"><span class="admin-search-mark" aria-hidden="true">SZ</span>';
@@ -611,6 +608,32 @@ final class Theme implements ThemeInterface
     public function end_admin_panel(): void
     {
         echo '</div></section>';
+    }
+
+    public function render_admin_fact_grid(array $facts): void
+    {
+        echo '<div class="profile-fact-grid">';
+        foreach ($facts as $fact) {
+            echo '<article class="profile-fact">';
+            echo '<span>' . $this->escape($fact['label']) . '</span>';
+            echo '<strong>' . $this->escape($fact['value']) . '</strong>';
+            if (($fact['detail'] ?? '') !== '') {
+                echo '<small>' . $this->escape($fact['detail']) . '</small>';
+            }
+            echo '</article>';
+        }
+        echo '</div>';
+    }
+
+    public function render_admin_panel_actions(array $actions): void
+    {
+        echo '<div class="admin-panel-actions">';
+        foreach ($actions as $action) {
+            $variant = $this->buttonVariant((string) ($action['variant'] ?? 'outline-light'));
+            echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($this->safeHref($action['href'])) . '">';
+            echo $this->escape($action['label']) . '</a>';
+        }
+        echo '</div>';
     }
 
     public function render_admin_table(array $headers, array $rows): void
@@ -1277,10 +1300,10 @@ final class Theme implements ThemeInterface
     {
         $links = $user['profile_links'] ?? [
             ['label' => 'Pokaż profil', 'href' => 'index.php?route=/admin/profile'],
-            ['label' => 'Edytuj dane', 'href' => 'index.php?route=/admin/profile'],
+            ['label' => 'Edytuj dane', 'href' => 'index.php?route=/admin/profile/edit'],
             ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/identities'],
-            ['label' => 'Ustawienia avatara', 'href' => 'index.php?route=/admin/profile'],
-            ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile'],
+            ['label' => 'Ustawienia avatara', 'href' => 'index.php?route=/admin/profile/avatar'],
+            ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile/security'],
         ];
 
         return array_values(array_filter(
