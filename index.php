@@ -327,14 +327,20 @@ $status = $router->dispatch($application->request());
 
 if ($status === 404) {
     http_response_code(404);
-    $renderStart('Nie znaleziono trasy', 'Router nie ma zarejestrowanego widoku dla podanego adresu.');
-    $theme->render_alert('Błąd 404: sprawdź adres lub wróć do dashboardu rdzenia.', 'warning');
-    $theme->render_button('Wróć do dashboardu', 'index.php');
-    $renderEnd();
+    $theme->render_public_error(
+        404,
+        'Nie znaleziono strony',
+        'Adres nie pasuje do żadnej opublikowanej strony ani aktywnego modułu.',
+        'Wróć do strony głównej',
+        '/'
+    );
 } elseif ($status === 405) {
     http_response_code(405);
-    $renderStart('Niedozwolona metoda', 'Trasa istnieje, ale nie obsługuje użytej metody HTTP.');
-    $theme->render_alert('Błąd 405: użyj metody przewidzianej dla tej operacji.', 'danger');
-    $theme->render_button('Wróć do dashboardu', 'index.php');
-    $renderEnd();
+    $theme->render_public_error(
+        405,
+        'Nie można wykonać tej akcji',
+        'Ten adres istnieje, ale nie obsługuje użytej metody HTTP.',
+        'Wróć do strony głównej',
+        '/'
+    );
 }

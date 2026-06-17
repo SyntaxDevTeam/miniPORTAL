@@ -172,6 +172,25 @@ final class ModuleManagerService
         $this->installer->uninstall($manifest, $preserveData);
     }
 
+    /**
+     * @return array{path: string, filename: string, mime: string}
+     */
+    public function exportPackage(string $moduleId): array
+    {
+        $manifest = $this->manifest($moduleId);
+        $state = $this->states->find($moduleId);
+        if ($state === null || !$state->isInstalled()) {
+            throw new RuntimeException("Moduł {$moduleId} nie jest zainstalowany.");
+        }
+        if ($manifest->type !== 'extension' || $manifest->protected) {
+            throw new RuntimeException('Eksportować można wyłącznie zainstalowane moduły typu rozszerzenie.');
+        }
+
+        $targetDirectory = dirname(rtrim($this->modulesPath, '/')) . '/cache/module-exports';
+
+        return (new ModulePackageExporter())->exportZip($manifest, $targetDirectory);
+    }
+
     public function toggle(string $moduleId, bool $active): void
     {
         $manifest = $this->manifest($moduleId);

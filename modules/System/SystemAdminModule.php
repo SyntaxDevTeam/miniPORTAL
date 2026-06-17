@@ -117,6 +117,11 @@ final class SystemAdminModule implements ModuleInterface
             'modules.install',
             fn () => $this->importModuleArchive($request)
         ));
+        $router->post('/admin/modules/export', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->exportModuleArchive($request)
+        ));
         $router->get('/admin/design-system', fn (Request $request) => $this->guard(
             $request,
             'admin.access',
@@ -170,15 +175,42 @@ final class SystemAdminModule implements ModuleInterface
             static fn (array $entry): int => count($entry['pending']),
             $moduleEntries
         ));
+        $installedExtensions = count(array_filter(
+            $moduleEntries,
+            static fn (array $entry): bool => $entry['manifest']?->type === 'extension'
+                && $entry['state']?->isInstalled() === true
+        ));
+        $disabledModules = count(array_filter(
+            $moduleEntries,
+            static fn (array $entry): bool => $entry['state']?->status === 'disabled'
+        ));
+        $today = date('Y-m-d');
+        $eventsToday = 0;
+        $failedEventsToday = 0;
+        $recentEvents = [];
+        if ($this->logs !== null) {
+            try {
+                $eventsToday = $this->logs->count(['date_from' => $today, 'date_to' => $today]);
+                $failedEventsToday = $this->logs->count([
+                    'result' => 'failed',
+                    'date_from' => $today,
+                    'date_to' => $today,
+                ]);
+                $recentEvents = $this->logs->page(1, 10);
+            } catch (\Throwable) {
+                $eventsToday = 0;
+                $failedEventsToday = 0;
+                $recentEvents = [];
+            }
+        }
 
         $this->startPage(
             'Dashboard',
             '/admin',
-            'Stan uruchomionych modułów, migracji i menu wynikający z bieżącej konfiguracji.'
+            'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
         );
 
         $this->theme->start_admin_metrics();
-        $this->theme->render_admin_metric('Widoczne pozycje menu', (string) count($visibleMenu), 'ACL', 'Zależne od uprawnień');
         $this->theme->render_admin_metric(
             'Aktywne moduły',
             (string) $activeModules,
@@ -186,8 +218,59 @@ final class SystemAdminModule implements ModuleInterface
             count($moduleEntries) . ' wykrytych, ' . $invalidModules . ' z błędem'
         );
         $this->theme->render_admin_metric('Oczekujące migracje', (string) $pendingMigrations, 'SQL', 'Kontrola SHA-256');
-        $this->theme->render_admin_metric('Warstwa HTML', 'Theme', 'UI', 'Moduł nie zna znaczników');
+        $this->theme->render_admin_metric('Rozszerzenia', (string) $installedExtensions, 'EXT', $disabledModules . ' wyłączonych');
+        $this->theme->render_admin_metric('Zdarzenia dzisiaj', (string) $eventsToday, 'LOG', $failedEventsToday . ' nieudanych');
         $this->theme->end_admin_metrics();
+
+        $signals = [
+            [
+                'Moduły z błędem',
+                (string) $invalidModules,
+                $invalidModules > 0 ? 'Sprawdź manager modułów' : 'Brak błędów pakietów',
+            ],
+            [
+                'Oczekujące migracje',
+                (string) $pendingMigrations,
+                $pendingMigrations > 0 ? 'Wykonaj migracje przed dalszym wdrożeniem' : 'Schematy są aktualne',
+            ],
+            [
+                'Wyłączone moduły',
+                (string) $disabledModules,
+                $disabledModules > 0 ? 'Zweryfikuj, czy to świadoma decyzja' : 'Brak wyłączonych modułów',
+            ],
+            [
+                'Nieudane zdarzenia dzisiaj',
+                (string) $failedEventsToday,
+                $failedEventsToday > 0 ? 'Przejrzyj dziennik zdarzeń' : 'Brak nieudanych operacji dzisiaj',
+            ],
+            [
+                'Widoczne pozycje menu',
+                (string) count($visibleMenu),
+                'Wynik bieżących uprawnień użytkownika',
+            ],
+        ];
+
+        $this->theme->start_admin_panel('Sygnały operacyjne', 'Decyzje');
+        $this->theme->render_admin_table(['Obszar', 'Wartość', 'Wniosek'], $signals);
+        $this->theme->end_admin_panel();
+
+        if ($recentEvents !== []) {
+            $this->theme->start_admin_panel('Ostatnia aktywność', count($recentEvents) . ' zdarzeń');
+            $this->theme->render_admin_table(
+                ['Czas', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Źródło'],
+                array_map(
+                    static fn (array $event): array => [
+                        (string) ($event['created_at'] ?? ''),
+                        (string) ($event['display_name'] ?? 'System'),
+                        (string) ($event['event_type'] ?? ''),
+                        (string) ($event['result'] ?? ''),
+                        (string) ($event['provider'] ?? ''),
+                    ],
+                    $recentEvents
+                )
+            );
+            $this->theme->end_admin_panel();
+        }
 
         $this->theme->start_admin_panel('Stan architektury', 'Krok 6');
         $this->theme->render_admin_table(
@@ -307,6 +390,19 @@ final class SystemAdminModule implements ModuleInterface
                 $actions[] = [
                     'label' => 'Historia migracji',
                     'href' => 'index.php?route=/admin/modules/history&module_id=' . rawurlencode($manifest->id),
+                    'variant' => 'outline-light',
+                ];
+            }
+            if (
+                $state->isInstalled()
+                && $manifest->type === 'extension'
+                && !$manifest->protected
+                && $allows('modules.install')
+            ) {
+                $actions[] = [
+                    'label' => 'Eksportuj ZIP',
+                    'action' => 'index.php?route=/admin/modules/export',
+                    'fields' => ['module_id' => $manifest->id],
                     'variant' => 'outline-light',
                 ];
             }
@@ -544,6 +640,40 @@ final class SystemAdminModule implements ModuleInterface
             $this->renderModules($message, $manifest !== null ? 'success' : 'warning');
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'module_archive_import', 'failed', null, $actor?->id);
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function exportModuleArchive(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $moduleId = $request->postString('module_id');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_export', 'invalid_csrf', $moduleId, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $moduleId) !== 1 || $this->moduleManager === null) {
+            $this->audit->record($request, 'module_export', 'invalid_module', $moduleId, $actor?->id);
+            $this->renderModules('Nieprawidłowy moduł albo niedostępny manager.', 'danger');
+            return;
+        }
+
+        try {
+            $export = $this->moduleManager->exportPackage($moduleId);
+            $this->audit->record($request, 'module_export', 'success', $moduleId, $actor?->id);
+            if (!headers_sent()) {
+                header('Content-Type: ' . $export['mime']);
+                header('Content-Disposition: attachment; filename="' . str_replace('"', '', $export['filename']) . '"');
+                header('Content-Length: ' . (string) filesize($export['path']));
+                header('X-Content-Type-Options: nosniff');
+            }
+            readfile($export['path']);
+            @unlink($export['path']);
+            exit;
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'module_export', 'failed', $moduleId, $actor?->id);
             $this->renderModules($exception->getMessage(), 'danger');
         }
     }

@@ -19,6 +19,9 @@ php bin/migrate-core.php
 Zewnętrzne moduły z własną fabryką wymagają jawnego pochodzenia oraz podpisu
 RSA-SHA256 zweryfikowanego aktywnym albo poprawnie wycofanym kluczem publicznym
 z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
+Zainstalowane moduły typu `extension` można eksportować z managera do archiwum ZIP;
+eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
+top-level katalog modułu z `info.json`.
 
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.

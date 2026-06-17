@@ -248,6 +248,14 @@ interface ThemeInterface
 
     public function render_rich_content(string $content, string $format = 'html'): void;
 
+    public function render_public_error(
+        int $status,
+        string $title,
+        string $message,
+        string $actionLabel = 'Wróć do strony głównej',
+        string $actionHref = '/',
+    ): void;
+
     public function render_page_not_found(string $title, string $message): void;
 
     /**

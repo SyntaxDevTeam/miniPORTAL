@@ -87,10 +87,17 @@ final class Theme implements ThemeInterface
         echo $this->escape($this->publicName) . '</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
+        if (!$fixed) {
+            echo '<li class="nav-item"><a class="nav-link" href="/">Home</a></li>';
+        }
+        $hasContactLink = false;
         foreach ($sections as $section) {
             if ($section['type'] === 'hero') {
                 continue;
             }
+            $hasContactLink = $hasContactLink
+                || (string) ($section['key'] ?? '') === 'contact'
+                || (string) ($section['layout'] ?? '') === 'contact';
             echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($section['key']) . '">';
             echo $this->escape($this->navigationLabel($section)) . '</a></li>';
         }
@@ -107,6 +114,9 @@ final class Theme implements ThemeInterface
             if ($authenticated) {
                 echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
             }
+        }
+        if (!$hasContactLink) {
+            echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';
         echo $authenticated ? '/admin' : '/admin/login';
@@ -838,12 +848,27 @@ final class Theme implements ThemeInterface
 
     public function render_page_not_found(string $title, string $message): void
     {
-        $this->start_page('404 - ' . $this->publicName, $message);
-        $this->start_header($title, $message, '404 / Nie znaleziono');
+        $this->render_public_error(404, $title, $message);
+    }
+
+    public function render_public_error(
+        int $status,
+        string $title,
+        string $message,
+        string $actionLabel = 'Wróć do strony głównej',
+        string $actionHref = '/',
+    ): void
+    {
+        $this->start_page($status . ' - ' . $this->publicName, $message);
+        $this->start_header($title, $message, $status . ' / ' . $this->errorEyebrow($status));
         $this->end_header();
         $this->start_section();
-        $this->render_alert($message, 'warning');
-        $this->render_button('Wróć do strony głównej', 'index.php', 'outline-light');
+        echo '<article class="showcase-card">';
+        echo '<p class="eyebrow mb-2">Kod odpowiedzi ' . $this->escape((string) $status) . '</p>';
+        echo '<h2 class="h4">' . $this->escape($this->errorSummary($status)) . '</h2>';
+        echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
+        $this->render_button($actionLabel, $actionHref, 'outline-light');
+        echo '</article>';
         $this->end_section();
         $this->end_page();
     }
@@ -1164,6 +1189,28 @@ final class Theme implements ThemeInterface
         }
 
         return '/p/' . rawurlencode((string) ($item['slug'] ?? ''));
+    }
+
+    private function errorEyebrow(int $status): string
+    {
+        return match ($status) {
+            401 => 'Wymagane logowanie',
+            403 => 'Brak dostępu',
+            404 => 'Nie znaleziono',
+            405 => 'Niedozwolona metoda',
+            default => 'Problem z żądaniem',
+        };
+    }
+
+    private function errorSummary(int $status): string
+    {
+        return match ($status) {
+            401 => 'Ta część serwisu wymaga zalogowania.',
+            403 => 'Twoje konto nie ma dostępu do tego widoku.',
+            404 => 'Ten adres nie prowadzi do aktywnej strony.',
+            405 => 'Ten adres istnieje, ale oczekuje innego typu żądania.',
+            default => 'Nie udało się poprawnie obsłużyć żądania.',
+        };
     }
 
     private function safeHref(string $href): string

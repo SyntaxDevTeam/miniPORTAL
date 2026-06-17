@@ -787,3 +787,59 @@ SEO i ustawienia systemowe bez wiązania modułów z HTML.
 `find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l`
 oraz dwukrotnie `php bin/migrate-core.php`; pierwszy przebieg wykonał
 `20260617_system_settings_text.sql`, drugi potwierdził `SKIP`.
+
+### Sesja: 2026-06-17 - wspólne menu i publiczne strony błędów
+
+**Faza i krok specyfikacji:** Krok 3 oraz Krok 5C - wspólna prezentacja publiczna
+niezależna od modułów.
+
+**Wykonano:**
+- publiczne widoki renderowane przez `start_page()` pokazują teraz link `Home`
+  oraz link `Kontakt` do sekcji kontaktowej strony głównej,
+- strona główna nadal nie dubluje `Home`, a kontakt z sekcji homepage pozostaje
+  lokalnym anchorem,
+- dodano `ThemeInterface::render_public_error()` i wdrożono go w motywach `default`
+  oraz `glassnight`,
+- Front Controller renderuje 404 i 405 jako przyjazne publiczne strony z powrotem
+  na stronę główną, bez komunikatu o dashboardzie,
+- dodano testy dla wspólnej nawigacji publicznej i przyjaznej strony 404.
+
+**Weryfikacja:** wykonano `php tests/run.php`, lint zmienionych plików PHP, pełny
+`find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l`
+oraz `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - eksport ZIP modułów rozszerzeń
+
+**Faza i krok specyfikacji:** Krok 6 - manager modułów i kontrolowane operacje na
+pakietach rozszerzeń.
+
+**Wykonano:**
+- dodano `ModulePackageExporter`, który tworzy ZIP z katalogu zainstalowanego modułu,
+- eksport obejmuje jeden top-level katalog modułu z `info.json`,
+- eksport blokuje dowiązania symboliczne i ukryte segmenty ścieżek,
+- `ModuleManagerService::exportPackage()` dopuszcza wyłącznie zainstalowane,
+  niechronione moduły typu `extension`,
+- `/admin/modules` pokazuje akcję „Eksportuj ZIP” dla takich rozszerzeń,
+- pobranie wymaga ACL `modules.install`, CSRF i zapisuje audit event `module_export`,
+- gdy `ZipArchive` nie jest dostępny, exporter korzysta z systemowego narzędzia `zip`.
+
+**Weryfikacja:** dodano test tworzący ZIP i importujący go z powrotem przez
+`ModuleArchiveImporter`; wykonano `php tests/run.php`, lint zmienionych plików PHP,
+pełny lint repo oraz `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - dashboard jako centrum informacji
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - panel administracyjny,
+moduły i audit log jako źródła decyzji operacyjnych.
+
+**Wykonano:**
+- rozszerzono metryki dashboardu o zainstalowane rozszerzenia, wyłączone moduły,
+  zdarzenia dzisiejsze i dzisiejsze nieudane operacje,
+- dodano panel „Sygnały operacyjne” z wnioskami dla błędów modułów, migracji,
+  wyłączonych modułów, nieudanych zdarzeń i widoczności menu,
+- dodano panel ostatniej aktywności oparty o `SystemLogRepository`, dostępny gdy
+  aktywna jest baza danych i audit log,
+- pozostawiono dotychczasowy panel architektury jako kontekst techniczny Kroku 6.
+
+**Weryfikacja:** wykonano `php tests/run.php`, lint `modules/System/SystemAdminModule.php`,
+pełny lint repo oraz `php bin/migrate-core.php`.

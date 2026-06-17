@@ -2,29 +2,29 @@
 
 ## System modułów
 1. ~~Obecnie głownym założeniem modulacji jest separacja pozwalajaca na "wrzuć -> zainstaluj -> używaj". Chciałbym aby moduły "Rozszerzenie" dodawały do sekcji ustawień rozszerzone możliwości ustawień dla linków. W tej chwili taką mozliwość ma wyłacznie "Dokumentacja" w dodatku z wyborem Menu głowne lub stopka (tylko na stronie głównej) bez opcji ustawienia nazwy/etykiety linku anie zaznaczenia obu tych elementów. To trzeba zmienić aby każdy z modułów "Rozszerzenie" posiadał taką implementację oraz w niej bardziej zaaawansowane opcje.~~ (gotowe)
-2. Możliwość eksportu do zip już zainstalowanych modułów "Rozszerzenie"
+2. ~~Możliwość eksportu do zip już zainstalowanych modułów "Rozszerzenie"~~ (gotowe)
 
 ## Szablony
 
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)
-3. Menu główne - część elementów dostępna wszedzie np.
-   -  "Home" - strona główna, dostępna powinna być wszędzie po za samą stroną główną
-   - Linki do modułów ustawionych w panelu admina w "Ustawienia"
-   - Zaloguj/Panel (gotowe)
-   - Kontakt - aby z każdego miejsca uzytkwonik mógł wejść i sprawdzić jak się skontaktować z zespołem.
-4. Panel admina -> Ustawienia - obecnie to szerokie na całą stronę ilości informacji z nie wielką doża realnych ustawień.
-   - Brak możliwości edycji stopki - trzeba koniecznie to zmienić.
-   - Szablon i branding można rozdzielic na dwa osobne elementy (będące responsywnie obok siebie w jednej lini)"Branding i SEO" oraz Szablon. Branding i SEO pozwalały na ustawienie więcej niż nazwy strony jej domyślny "nadtytuł" (czymkolwiek to jest) ale na realne wpisy w meta strony takiej jak słowa kluczowe, opis i całą resztę.
+3. ~~Menu główne - część elementów dostępna wszedzie np.~~ (gotowe)
+   -  ~~"Home" - strona główna, dostępna powinna być wszędzie po za samą stroną główną~~
+   - ~~Linki do modułów ustawionych w panelu admina w "Ustawienia"~~
+   - ~~Zaloguj/Panel~~ (gotowe)
+   - ~~Kontakt - aby z każdego miejsca uzytkwonik mógł wejść i sprawdzić jak się skontaktować z zespołem.~~
+4. Panel admina -> Ustawienia i Dashboard - obecnie to szerokie na całą stronę ilości informacji z nie wielką doża realnych ustawień.
+   - ~~Brak możliwości edycji stopki - trzeba koniecznie to zmienić.~~ (gotowe)
+   - ~~Szablon i branding można rozdzielic na dwa osobne elementy (będące responsywnie obok siebie w jednej lini)"Branding i SEO" oraz Szablon. Branding i SEO pozwalały na ustawienie więcej niż nazwy strony jej domyślny "nadtytuł" (czymkolwiek to jest) ale na realne wpisy w meta strony takiej jak słowa kluczowe, opis i całą resztę.~~ (gotowe)
    - Wiele podobnych zabiegów można zrobić z informacjami o statusie ustawień gdzie nie ma możliwości konfiguracji z poziomu strony.
 5. Obsługa wszystkich stron błędu.
-   - Przykładowo obecnie brak ścieżki czy popularne 404 wygląda wizualnie jak niewiadomo jaki błąd a buton "Wróć do dashboardu" nie wiele mówi zwykłemu użytkownikowi ![alt text](image.png)
+   - ~~Przykładowo obecnie brak ścieżki czy popularne 404 wygląda wizualnie jak niewiadomo jaki błąd a buton "Wróć do dashboardu" nie wiele mówi zwykłemu użytkownikowi~~ (publiczne 404/405 gotowe) ![alt text](image.png)
    - Przyjazne strony błędów znacznei uatrakcyjnią samą stronę
 6. Przyjazne linki  - mode_rewrite (gotowe)
 
 ## Dashboard
-Więcej elementów statystyk i informacji o modułach, aktywności użytkowników itp. Dashboard musi byc centrum informacji o stronie gdzie padają decyzję co dalej 😉.
+~~Więcej elementów statystyk i informacji o modułach, aktywności użytkowników itp. Dashboard musi byc centrum informacji o stronie gdzie padają decyzję co dalej 😉.~~ (gotowe)
 
 ## Przyszłę moduły i pomysły
 ### Profil użytkownika

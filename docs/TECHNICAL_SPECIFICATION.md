@@ -246,6 +246,10 @@ automatycznie po zgodnym adresie e-mail.
   głównego menu, stopki, obu obszarów albo ukryć,
 - `ThemeInterface::set_public_navigation()` przekazuje wspólne menu i stopkę do
   wszystkich publicznych widoków modułów, nie tylko do strony głównej,
+- publiczne widoki poza stroną główną pokazują wspólne pozycje `Home`, `Kontakt`,
+  linki modułów przypięte w ustawieniach oraz przycisk logowania albo panelu,
+- Front Controller renderuje publiczne 404 i 405 przez komponent motywu zamiast
+  technicznego alertu z odnośnikiem do dashboardu,
 - moduły `wikipedia` i `articles` deklarują publiczne linki startowe do `/wiki` oraz
   `/articles`, które administrator konfiguruje przez ten sam panel,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
@@ -302,6 +306,11 @@ Stan managera:
 - import archiwum modułu przyjmuje `.tar`, `.tar.gz`, `.tgz` oraz `.zip`, rozpakowuje
   pakiet wyłącznie do `cache/module-quarantine`, waliduje manifest i podpis bez
   wykonywania fabryki oraz bez kopiowania plików do aktywnego katalogu `modules/`.
+- manager pozwala eksportować zainstalowane moduły typu `extension` do ZIP z jednym
+  top-level katalogiem pakietu; eksport wymaga ACL/CSRF, jest audytowany i blokuje
+  dowiązania symboliczne oraz ukryte segmenty ścieżek.
+- dashboard panelu pokazuje syntetyczne metryki modułów, rozszerzeń, migracji,
+  aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 
 ---
 

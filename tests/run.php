@@ -9,6 +9,7 @@ use SyntaxDevTeam\Cms\Core\FileTemplateCache;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\ModulePackageExporter;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleState;
@@ -24,10 +25,13 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
+use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
 
 Autoloader::register();
+
+require_once dirname(__DIR__) . '/templates/default/theme.php';
 
 $failures = [];
 $test = static function (string $name, callable $callback) use (&$failures): void {
@@ -327,6 +331,36 @@ $test('Articles module exposes a configurable public navigation link', static fu
     $assert(is_subclass_of(ArticlesModule::class, PublicNavigationProviderInterface::class));
 });
 
+$test('Public theme exposes common Home and Kontakt navigation on subpages', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->start_page('Test', 'Opis');
+    $theme->end_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'href="/">Home</a>'));
+    $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
+});
+
+$test('Public error page is friendly and does not mention dashboard', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->render_public_error(404, 'Nie znaleziono strony', 'Adres nie pasuje do aktywnego widoku.');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'Kod odpowiedzi 404'));
+    $assert(str_contains($html, 'Wróć do strony głównej'));
+    $assert(!str_contains($html, 'dashboard'));
+});
+
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
     $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
     $validator = new ModuleManifestValidator('0.1.0', $publishers);
@@ -395,6 +429,49 @@ $test('Module archive import extracts only to quarantine and inspects manifest',
         } else {
             $assert(count($importer->imports()) === 1);
         }
+    } finally {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($root);
+    }
+});
+
+$test('Module package exporter creates an importable ZIP archive', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-export-root-' . bin2hex(random_bytes(6));
+    $source = $root . '/ExportModule';
+    $exports = $root . '/exports';
+    $quarantine = $root . '/quarantine';
+    mkdir($source, 0700, true);
+    mkdir($exports, 0700, true);
+    mkdir($quarantine, 0700, true);
+    file_put_contents($source . '/info.json', json_encode([
+        'id' => 'export_module',
+        'name' => 'Export Module',
+        'version' => '1.2.3',
+        'type' => 'extension',
+        'author' => 'Tests',
+        'requires' => ['php' => '>=8.4', 'miniportal' => '>=0.1.0', 'modules' => []],
+        'protected' => false,
+        'origin' => ['type' => 'archive', 'url' => 'https://example.test/export'],
+        'install' => null,
+    ], JSON_THROW_ON_ERROR));
+    file_put_contents($source . '/Module.php', "<?php\n");
+
+    try {
+        $manifest = (new ModuleManifestValidator('0.1.0'))->validate($source);
+        $export = (new ModulePackageExporter())->exportZip($manifest, $exports);
+        $assert($export['filename'] === 'export_module-1.2.3.zip');
+        $assert(is_file($export['path']) && filesize($export['path']) > 0);
+
+        $import = (new ModuleArchiveImporter($quarantine, new ModuleManifestValidator('0.1.0')))
+            ->importFile($export['path'], $export['filename']);
+        $assert($import['manifest'] !== null && $import['manifest']->id === 'export_module');
+        $assert(is_file($import['directory'] . '/source/ExportModule/info.json'));
     } finally {
         $files = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
