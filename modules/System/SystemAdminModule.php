@@ -667,8 +667,61 @@ final class SystemAdminModule implements ModuleInterface
             'theme' => (string) ($app['theme'] ?? 'default'),
             'public_name' => (string) ($app['public_name'] ?? 'SyntaxDevTeam'),
             'public_eyebrow' => (string) ($app['public_eyebrow'] ?? 'Software dla społeczności'),
+            'public_meta_description' => (string) (
+                $app['public_meta_description']
+                ?? 'SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.'
+            ),
+            'public_meta_keywords' => (string) (
+                $app['public_meta_keywords']
+                ?? 'SyntaxDevTeam, miniPORTAL, pluginy Minecraft, boty Discord, aplikacje Android'
+            ),
+            'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
         ]);
-        $this->theme->start_admin_panel('Szablon i branding', 'Bezpieczne do edycji');
+        $this->theme->start_admin_panel('Branding i SEO', 'Publiczne meta');
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                [
+                    'name' => 'settings_scope',
+                    'label' => 'Zakres ustawień',
+                    'type' => 'hidden',
+                    'value' => 'branding',
+                ],
+                [
+                    'name' => 'public_name',
+                    'label' => 'Publiczna nazwa marki',
+                    'value' => $values['public_name'],
+                ],
+                [
+                    'name' => 'public_eyebrow',
+                    'label' => 'Domyślny nadtytuł',
+                    'value' => $values['public_eyebrow'],
+                ],
+                [
+                    'name' => 'public_meta_description',
+                    'label' => 'Domyślny opis meta',
+                    'type' => 'textarea',
+                    'rows' => 3,
+                    'value' => $values['public_meta_description'],
+                ],
+                [
+                    'name' => 'public_meta_keywords',
+                    'label' => 'Słowa kluczowe meta',
+                    'value' => $values['public_meta_keywords'],
+                    'help' => 'Oddzielaj słowa i frazy przecinkami.',
+                ],
+                [
+                    'name' => 'public_footer_text',
+                    'label' => 'Tekst stopki',
+                    'value' => $values['public_footer_text'],
+                ],
+            ],
+            'Zapisz branding i SEO',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Szablon', 'Motyw publiczny');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
             [
@@ -686,42 +739,36 @@ final class SystemAdminModule implements ModuleInterface
                     'options' => $this->availableThemes,
                     'help' => 'Zmiana zacznie obowiązywać od następnego żądania.',
                 ],
-                [
-                    'name' => 'public_name',
-                    'label' => 'Publiczna nazwa marki',
-                    'value' => $values['public_name'],
-                ],
-                [
-                    'name' => 'public_eyebrow',
-                    'label' => 'Domyślny nadtytuł',
-                    'value' => $values['public_eyebrow'],
-                ],
             ],
-            'Zapisz ustawienia',
+            'Zapisz szablon',
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
 
-        $publicNavigationItems = $this->publicNavigation->items($this->settings->publicNavigationAreas());
+        $publicNavigationItems = $this->publicNavigation->items($this->settings->publicNavigationSettings());
         if ($publicNavigationItems !== []) {
             $fields = [
                 ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'navigation'],
-                ['name' => 'theme', 'label' => 'Aktywny motyw', 'type' => 'hidden', 'value' => $values['theme']],
-                ['name' => 'public_name', 'label' => 'Publiczna nazwa marki', 'type' => 'hidden', 'value' => $values['public_name']],
-                ['name' => 'public_eyebrow', 'label' => 'Domyślny nadtytuł', 'type' => 'hidden', 'value' => $values['public_eyebrow']],
             ];
             foreach ($publicNavigationItems as $item) {
+                $key = $this->publicNavigationFieldKey($item['id']);
                 $fields[] = [
-                    'name' => 'public_nav_' . $this->publicNavigationFieldKey($item['id']),
-                    'label' => $item['label'],
-                    'type' => 'select',
-                    'value' => $item['area'],
-                    'options' => [
-                        'none' => 'Nie pokazuj automatycznie',
-                        'main' => 'Główne menu',
-                        'footer' => 'Stopka',
-                    ],
+                    'name' => 'public_nav_' . $key . '_label',
+                    'label' => 'Etykieta: ' . $item['default_label'],
+                    'value' => $item['label'],
                     'help' => $item['href'],
+                ];
+                $fields[] = [
+                    'name' => 'public_nav_' . $key . '_main',
+                    'label' => 'Pokazuj w menu głównym',
+                    'type' => 'checkbox',
+                    'checked' => $item['show_main'],
+                ];
+                $fields[] = [
+                    'name' => 'public_nav_' . $key . '_footer',
+                    'label' => 'Pokazuj w stopce',
+                    'type' => 'checkbox',
+                    'checked' => $item['show_footer'],
                 ];
             }
             $this->theme->start_admin_panel('Publiczna nawigacja modułów', count($publicNavigationItems) . ' linków');
@@ -800,26 +847,39 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         try {
-            $this->settings->saveThemeSettings(
-                [
-                    'theme' => $request->postString('theme'),
-                    'public_name' => $request->postString('public_name'),
-                    'public_eyebrow' => $request->postString('public_eyebrow'),
-                ],
-                $this->availableThemes,
-                $actor->id
-            );
-            if ($request->postString('settings_scope') === 'navigation') {
-                $publicNavigationAreas = [];
-                $publicNavigationIds = [];
+            $scope = $request->postString('settings_scope');
+            if ($scope === 'theme') {
+                $this->settings->saveThemeChoice($request->postString('theme'), $this->availableThemes, $actor->id);
+            } elseif ($scope === 'branding') {
+                $this->settings->saveBrandingSeoSettings(
+                    [
+                        'public_name' => $request->postString('public_name'),
+                        'public_eyebrow' => $request->postString('public_eyebrow'),
+                        'public_meta_description' => $request->postString('public_meta_description'),
+                        'public_meta_keywords' => $request->postString('public_meta_keywords'),
+                        'public_footer_text' => $request->postString('public_footer_text'),
+                    ],
+                    $actor->id
+                );
+            } elseif ($scope === 'navigation') {
+                $publicNavigationSettings = [];
+                $publicNavigationLinks = [];
                 foreach ($this->publicNavigation->items() as $item) {
-                    $publicNavigationIds[] = $item['id'];
-                    $publicNavigationAreas[$item['id']] = $request->postString(
-                        'public_nav_' . $this->publicNavigationFieldKey($item['id']),
-                        $item['area']
-                    );
+                    $key = $this->publicNavigationFieldKey($item['id']);
+                    $publicNavigationLinks[$item['id']] = $item['default_label'];
+                    $publicNavigationSettings[$item['id']] = [
+                        'label' => $request->postString('public_nav_' . $key . '_label', $item['default_label']),
+                        'main' => $request->postBool('public_nav_' . $key . '_main'),
+                        'footer' => $request->postBool('public_nav_' . $key . '_footer'),
+                    ];
                 }
-                $this->settings->savePublicNavigationAreas($publicNavigationAreas, $publicNavigationIds, $actor->id);
+                $this->settings->savePublicNavigationSettings(
+                    $publicNavigationSettings,
+                    $publicNavigationLinks,
+                    $actor->id
+                );
+            } else {
+                throw new \RuntimeException('Nieznany zakres ustawień.');
             }
             $this->templateCache->invalidateTags(['theme', 'homepage']);
             $this->audit->record($request, 'system_settings_update', 'success', null, $actor->id);

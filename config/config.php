@@ -57,6 +57,15 @@ return [
         'theme' => (string) $env('APP_THEME', 'default'),
         'public_name' => (string) $env('SITE_NAME', 'SyntaxDevTeam'),
         'public_eyebrow' => (string) $env('SITE_EYEBROW', 'Software dla społeczności'),
+        'public_meta_description' => (string) $env(
+            'SITE_META_DESCRIPTION',
+            'SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.'
+        ),
+        'public_meta_keywords' => (string) $env(
+            'SITE_META_KEYWORDS',
+            'SyntaxDevTeam, miniPORTAL, pluginy Minecraft, boty Discord, aplikacje Android'
+        ),
+        'public_footer_text' => (string) $env('SITE_FOOTER_TEXT', 'Projektowane modułowo. Rozwijane świadomie.'),
     ],
     'session' => [
         'name' => (string) $env('SESSION_NAME', 'MINIPORTALSESSID'),

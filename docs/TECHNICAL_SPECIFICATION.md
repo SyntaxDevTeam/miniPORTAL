@@ -242,9 +242,12 @@ automatycznie po zgodnym adresie e-mail.
 - breadcrumb formularzy Wiki pokazuje kontekst: panel, dokumentację, projekt,
   edytowaną stronę i bieżącą akcję,
 - aktywne moduły mogą deklarować publiczne linki przez `PublicNavigationRegistry`,
-  a `/admin/settings` przypisuje je do głównego menu, stopki albo ukrywa,
+  a `/admin/settings` pozwala zmienić ich etykietę oraz niezależnie przypisać je do
+  głównego menu, stopki, obu obszarów albo ukryć,
 - `ThemeInterface::set_public_navigation()` przekazuje wspólne menu i stopkę do
   wszystkich publicznych widoków modułów, nie tylko do strony głównej,
+- moduły `wikipedia` i `articles` deklarują publiczne linki startowe do `/wiki` oraz
+  `/articles`, które administrator konfiguruje przez ten sam panel,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   kontraktu motywu metodami specyficznymi dla dokumentacji.
 

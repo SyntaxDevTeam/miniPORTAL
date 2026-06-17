@@ -173,22 +173,24 @@ $publicNavigationItems = static function () use ($pageRepository, $publicNavigat
         );
     }
     $settings = $application->database() !== null
-        ? (new SystemSettingsRepository($application->database()))->publicNavigationAreas()
+        ? (new SystemSettingsRepository($application->database()))->publicNavigationSettings()
         : [];
     foreach ($publicNavigation->items($settings) as $item) {
-        if ($item['area'] === 'none') {
-            continue;
+        foreach (['main' => $item['show_main'], 'footer' => $item['show_footer']] as $area => $enabled) {
+            if (!$enabled) {
+                continue;
+            }
+            $navigation[] = [
+                'title' => $item['label'],
+                'slug' => '',
+                'href' => $item['href'],
+                'summary' => '',
+                'type' => 'module',
+                'navigation_area' => $area,
+                'navigation_label' => $item['label'],
+                'sort_order' => $item['order'],
+            ];
         }
-        $navigation[] = [
-            'title' => $item['label'],
-            'slug' => '',
-            'href' => $item['href'],
-            'summary' => '',
-            'type' => 'module',
-            'navigation_area' => $item['area'],
-            'navigation_label' => $item['label'],
-            'sort_order' => $item['order'],
-        ];
     }
     usort(
         $navigation,

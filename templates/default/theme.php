@@ -14,6 +14,12 @@ final class Theme implements ThemeInterface
 
     private readonly string $publicEyebrow;
 
+    private readonly string $publicMetaDescription;
+
+    private readonly string $publicMetaKeywords;
+
+    private readonly string $publicFooterText;
+
     private array $publicNavigation = [];
 
     private bool $publicAuthenticated = false;
@@ -22,6 +28,15 @@ final class Theme implements ThemeInterface
     {
         $this->publicName = trim((string) ($config['public_name'] ?? 'SyntaxDevTeam')) ?: 'SyntaxDevTeam';
         $this->publicEyebrow = trim((string) ($config['public_eyebrow'] ?? 'Software dla społeczności'));
+        $this->publicMetaDescription = trim((string) (
+            $config['public_meta_description']
+            ?? 'SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.'
+        ));
+        $this->publicMetaKeywords = trim((string) ($config['public_meta_keywords'] ?? ''));
+        $this->publicFooterText = trim((string) (
+            $config['public_footer_text']
+            ?? 'Projektowane modułowo. Rozwijane świadomie.'
+        )) ?: 'Projektowane modułowo. Rozwijane świadomie.';
     }
 
     public function set_public_navigation(array $items, bool $authenticated): void
@@ -34,8 +49,12 @@ final class Theme implements ThemeInterface
     {
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-        echo '<meta name="description" content="SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.">';
-        echo '<meta name="theme-color" content="#080c12"><title>SyntaxDevTeam - software dla społeczności</title>';
+        echo '<meta name="description" content="' . $this->escape($this->publicMetaDescription) . '">';
+        if ($this->publicMetaKeywords !== '') {
+            echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
+        }
+        echo '<meta name="theme-color" content="#080c12"><title>' . $this->escape($this->publicName);
+        echo ' - ' . $this->escape($this->publicEyebrow) . '</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
@@ -106,17 +125,20 @@ final class Theme implements ThemeInterface
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a>';
         }
-        echo '<span>Projektowane modułowo. Rozwijane świadomie.</span></span></div></footer>';
+        echo '<span>' . $this->escape($this->publicFooterText) . '</span></span></div></footer>';
     }
 
     public function start_page(string $title, string $description = ''): void
     {
         $title = $this->escape($title);
-        $description = $this->escape($description);
+        $description = $this->escape($description !== '' ? $description : $this->publicMetaDescription);
 
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $description . '">';
+        if ($this->publicMetaKeywords !== '') {
+            echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
+        }
         echo '<title>' . $title . '</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';

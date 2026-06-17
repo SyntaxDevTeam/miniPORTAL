@@ -7,6 +7,8 @@ namespace SyntaxDevTeam\Cms\Modules\Articles;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
+use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
@@ -17,7 +19,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
-final class ArticlesModule implements ModuleInterface
+final class ArticlesModule implements ModuleInterface, PublicNavigationProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -38,7 +40,7 @@ final class ArticlesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.3';
+        return '1.0.4';
     }
 
     public function dependencies(): array
@@ -59,6 +61,11 @@ final class ArticlesModule implements ModuleInterface
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Treść', 'Artykuły', '/admin/articles', 'AR', 'articles.view', 30);
+    }
+
+    public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
+    {
+        $navigation->add('articles.index', 'Artykuły', '/articles', 'none', 50);
     }
 
     public function registerRoutes(Router $router): void

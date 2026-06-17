@@ -159,7 +159,14 @@ final class Bootstrap
             $rows = $database->read(
                 'system_settings',
                 ['setting_key', 'setting_value'],
-                ['setting_key' => ['theme', 'public_name', 'public_eyebrow']]
+                ['setting_key' => [
+                    'theme',
+                    'public_name',
+                    'public_eyebrow',
+                    'public_meta_description',
+                    'public_meta_keywords',
+                    'public_footer_text',
+                ]]
             ) ?? [];
         } catch (Throwable) {
             return [];
@@ -168,7 +175,14 @@ final class Bootstrap
         $settings = [];
         foreach ($rows as $row) {
             $key = (string) ($row['setting_key'] ?? '');
-            if (in_array($key, ['theme', 'public_name', 'public_eyebrow'], true)) {
+            if (in_array($key, [
+                'theme',
+                'public_name',
+                'public_eyebrow',
+                'public_meta_description',
+                'public_meta_keywords',
+                'public_footer_text',
+            ], true)) {
                 $settings[$key] = (string) ($row['setting_value'] ?? '');
             }
         }

@@ -7,6 +7,9 @@ Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczy
 1. `README.md` - mapę dokumentacji projektu.
 2. `docs/SZKIC.md` - pierwotne założenia i wymaganie maksymalnej modularności.
 3. `docs/TECHNICAL_SPECIFICATION.md` - architekturę, bezpieczeństwo i plan wykonawczy.
+4. `docs/POPRAWKI_I_ULEPSZENIA.md` - Spostrzeżenia użytkownika na końcowym etapie prac wymagane do poprawy projektu.
+
+
 
 Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfikacją techniczną albo najpierw zaktualizuj dokumentację.
 

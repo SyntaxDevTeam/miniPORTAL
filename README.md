@@ -23,9 +23,9 @@ z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.
 Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne wpisy.
-Moduł `wikipedia` dodaje projektową bazę wiedzy z projektami i stronami dokumentacji.
-Aktywne moduły mogą deklarować publiczne linki, które administrator przypina do
-głównego menu albo stopki w `/admin/settings`.
+Moduły `wikipedia` i `articles` dodają publiczne sekcje dokumentacji oraz artykułów.
+Aktywne moduły mogą deklarować publiczne linki, którym administrator nadaje etykietę
+i niezależnie przypina je do głównego menu, stopki albo obu obszarów w `/admin/settings`.
 Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wiki`
 i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
 

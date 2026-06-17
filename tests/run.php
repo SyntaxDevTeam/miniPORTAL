@@ -22,6 +22,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
+use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
@@ -294,6 +295,36 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert(count($menu->visibleFor(['test.view'])) === 1);
     $assert($publicItems[0]['id'] === 'test_module.index');
     $assert($publicItems[0]['area'] === 'footer');
+    $assert(!$publicItems[0]['show_main']);
+    $assert($publicItems[0]['show_footer']);
+});
+
+$test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
+    $navigation = new PublicNavigationRegistry();
+    $navigation->add('module.docs', 'Dokumentacja', '/wiki', 'none', 10);
+
+    $legacy = $navigation->items(['module.docs' => 'footer'])[0];
+    $assert($legacy['label'] === 'Dokumentacja');
+    $assert($legacy['area'] === 'footer');
+    $assert(!$legacy['show_main']);
+    $assert($legacy['show_footer']);
+
+    $configured = $navigation->items([
+        'module.docs' => [
+            'label' => 'Baza wiedzy',
+            'main' => true,
+            'footer' => true,
+        ],
+    ])[0];
+    $assert($configured['default_label'] === 'Dokumentacja');
+    $assert($configured['label'] === 'Baza wiedzy');
+    $assert($configured['area'] === 'main');
+    $assert($configured['show_main']);
+    $assert($configured['show_footer']);
+});
+
+$test('Articles module exposes a configurable public navigation link', static function () use ($assert): void {
+    $assert(is_subclass_of(ArticlesModule::class, PublicNavigationProviderInterface::class));
 });
 
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
@@ -302,7 +333,7 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.0.3');
+    $assert($manifest->version === '1.0.4');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);

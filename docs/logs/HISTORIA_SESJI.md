@@ -741,3 +741,49 @@ publicznej prezentacji modułów z nawigacją strony głównej.
 `/wiki/page/punisherx/home` potwierdziły przyjazne linki oraz obecność stopki
 z `/p/polityka-prywatnosci`; wykonano pełny `php tests/run.php`, pełny `php -l`
 i `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - rozszerzone ustawienia linków modułów
+
+**Faza i krok specyfikacji:** Krok 6 - system modułów oraz publiczne wejścia
+rozszerzeń konfigurowane z panelu.
+
+**Wykonano:**
+- przeanalizowano `docs/POPRAWKI_I_ULEPSZENIA.md` i rozpoczęto wdrażanie od ustawień
+  linków modułów rozszerzeń,
+- rozszerzono `PublicNavigationRegistry` o kompatybilny format ustawień z etykietą
+  oraz niezależnymi flagami `main` i `footer`,
+- `/admin/settings` pozwala teraz zmienić etykietę linku modułu oraz zaznaczyć menu
+  główne, stopkę albo oba obszary,
+- wspólna publiczna nawigacja w `index.php` tworzy osobne wpisy dla menu i stopki,
+  jeśli administrator włączy oba miejsca,
+- zachowano odczyt starego zapisu `id => "main|footer|none"` bez migracji bazy.
+
+**Weryfikacja:** dodano test jednostkowy dla starego i nowego formatu publicznej
+nawigacji; wykonano `php tests/run.php`, lint zmienionych plików PHP, pełny
+`find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l`
+oraz `php bin/migrate-core.php`.
+
+**Doprecyzowanie po przeglądzie:** moduł `articles` również implementuje
+`PublicNavigationProviderInterface`, deklaruje link `Artykuły` do `/articles`,
+a jego manifest i klasa zostały podniesione do wersji 1.0.4. Dodano test pilnujący,
+że `ArticlesModule` pozostaje providerem publicznej nawigacji.
+
+### Sesja: 2026-06-17 - Branding i SEO w ustawieniach
+
+**Faza i krok specyfikacji:** Krok 3 oraz Krok 6 - publiczny branding motywu,
+SEO i ustawienia systemowe bez wiązania modułów z HTML.
+
+**Wykonano:**
+- rozdzielono `/admin/settings` na osobne panele „Branding i SEO” oraz „Szablon”,
+- dodano edytowalne ustawienia: publiczna nazwa, domyślny nadtytuł, opis meta,
+  słowa kluczowe meta i tekst stopki,
+- formularz nawigacji modułów nie przenosi już ukrytych pól brandingu,
+- motywy `default` i `glassnight` używają skonfigurowanego opisu meta, keywords
+  oraz tekstu stopki w publicznych widokach,
+- dodano migrację Core `20260617_system_settings_text.sql`, aby `system_settings`
+  mogło bezpiecznie przechowywać dłuższe ustawienia i JSON publicznej nawigacji.
+
+**Weryfikacja:** wykonano `php tests/run.php`, lint zmienionych plików PHP, pełny
+`find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l`
+oraz dwukrotnie `php bin/migrate-core.php`; pierwszy przebieg wykonał
+`20260617_system_settings_text.sql`, drugi potwierdził `SKIP`.
