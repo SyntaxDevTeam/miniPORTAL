@@ -860,3 +860,23 @@ pełny lint repo oraz `php bin/migrate-core.php`.
 
 **Weryfikacja:** dodano test renderowania siatki paneli; wykonano `php tests/run.php`,
 pełny lint PHP oraz `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - profil użytkownika w topbarze panelu
+
+**Faza i krok specyfikacji:** Krok 5B - kontrakt panelu, `CoreAuth` i ergonomia
+uwierzytelnionego użytkownika.
+
+**Wykonano:**
+- usunięto osobną sekcję sidebaru `Profil / Połączone konta`,
+- dodano trasę `/admin/profile` z widokiem danych konta, ról, statusu,
+  połączonych tożsamości i podstawowego stanu bezpieczeństwa,
+- przeniesiono wejścia profilu do dropdownu pod użytkownikiem w topbarze panelu,
+- dropdown zawiera: `Pokaż profil`, `Edytuj dane`, `Połączone konta`,
+  `Ustawienia avatara`, `Bezpieczeństwo` i `Wyloguj`,
+- rozszerzono dokumentację `ThemeInterface::start_admin_page()` o opcjonalne
+  `profile_links`, zachowując domyślne linki dla istniejących modułów,
+- wdrożono identyczne style dropdownu w motywach `default` i `glassnight`,
+- podniesiono `core_auth` do wersji `1.3.0` bez migracji SQL.
+
+**Weryfikacja:** dodano test renderowania dropdownu profilu w topbarze; wykonano
+`php tests/run.php`, pełny lint PHP oraz `php bin/migrate-core.php`.

@@ -398,6 +398,58 @@ body.admin-stylebook {
   border-color: rgba(var(--mp-primary-rgb), 0.4);
 }
 
+.admin-user-menu {
+  flex: 0 0 auto;
+}
+
+.admin-user-menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: min(18rem, 42vw);
+  padding: 0.35rem 0.55rem;
+  color: var(--mp-text);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--mp-border);
+  border-radius: 0.85rem;
+}
+
+.admin-user-menu-toggle:hover,
+.admin-user-menu-toggle:focus-visible {
+  border-color: rgba(var(--mp-primary-rgb), 0.45);
+}
+
+.admin-user-dropdown {
+  min-width: 16rem;
+  padding: 0.45rem;
+  background: rgba(12, 18, 28, 0.98);
+  border: 1px solid var(--mp-border);
+  box-shadow: var(--mp-shadow);
+}
+
+.admin-user-dropdown .dropdown-item {
+  border-radius: 0.55rem;
+  color: var(--mp-text);
+  font-size: 0.92rem;
+}
+
+.admin-user-dropdown .dropdown-item:hover,
+.admin-user-dropdown .dropdown-item:focus {
+  color: #06120c;
+  background: var(--mp-primary);
+}
+
+.admin-user-dropdown .dropdown-divider {
+  border-top-color: var(--mp-border);
+}
+
+.admin-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
 .notification-dot {
   position: absolute;
   top: 0.48rem;

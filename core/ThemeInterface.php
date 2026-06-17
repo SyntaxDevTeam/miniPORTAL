@@ -146,7 +146,8 @@ interface ThemeInterface
      *     role: string,
      *     initials: string,
      *     logout_action?: string,
-     *     logout_token?: string
+     *     logout_token?: string,
+     *     profile_links?: list<array{label: string, href: string}>
      * } $user
      */
     public function start_admin_page(string $title, array $menuItems, string $activePath, array $user): void;

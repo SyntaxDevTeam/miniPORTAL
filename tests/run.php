@@ -380,6 +380,30 @@ $test('Admin panel grid renders compact responsive layout wrappers', static func
     $assert(substr_count($html, 'class="admin-panel"') === 2);
 });
 
+$test('Admin topbar exposes profile dropdown actions', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->start_admin_page('Panel', [], '/admin', [
+        'name' => 'Admin Test',
+        'role' => 'Administrator',
+        'initials' => 'AT',
+        'logout_action' => 'index.php?route=/admin/logout',
+        'logout_token' => 'csrf-token',
+    ]);
+    $theme->end_admin_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'admin-user-menu-toggle'));
+    $assert(str_contains($html, 'dropdown-menu dropdown-menu-end admin-user-dropdown'));
+    $assert(str_contains($html, 'index.php?route=/admin/profile'));
+    $assert(str_contains($html, 'index.php?route=/admin/identities'));
+    $assert(str_contains($html, '>Wyloguj</button>'));
+});
+
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
     $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
     $validator = new ModuleManifestValidator('0.1.0', $publishers);

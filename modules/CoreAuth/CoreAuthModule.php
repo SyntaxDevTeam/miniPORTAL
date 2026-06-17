@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.2.0';
+        return '1.3.0';
     }
 
     public function dependencies(): array
@@ -58,7 +58,6 @@ final class CoreAuthModule implements ModuleInterface
     {
         $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('System', 'Role i uprawnienia', '/admin/roles', 'RL', 'roles.view', 45);
-        $menu->add('Profil', 'Połączone konta', '/admin/identities', 'ID', 'admin.access', 60);
     }
 
     public function registerRoutes(Router $router): void
@@ -110,6 +109,11 @@ final class CoreAuthModule implements ModuleInterface
             $request,
             'roles.manage',
             fn () => $this->deleteRole($request)
+        ));
+        $router->get('/admin/profile', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderProfile()
         ));
         $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
@@ -899,6 +903,61 @@ final class CoreAuthModule implements ModuleInterface
             $message,
             $variant
         );
+    }
+
+    private function renderProfile(): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $this->startAdminPage(
+            'Profil użytkownika',
+            '/admin/profile',
+            'Podstawowe dane konta, role i połączone tożsamości logowania.'
+        );
+
+        $roles = $user->roles !== [] ? implode(', ', array_map('ucfirst', $user->roles)) : 'Brak';
+        $providers = array_map(
+            static fn (ExternalIdentity $identity): string => ucfirst($identity->provider),
+            $user->identities
+        );
+
+        $this->theme->start_admin_panel_grid('compact');
+        $this->theme->start_admin_panel('Dane konta', 'Widoczne w panelu administracyjnym');
+        $this->theme->render_admin_table(
+            ['Pole', 'Wartość'],
+            [
+                ['Nazwa wyświetlana', $user->displayName],
+                ['E-mail kontaktowy', $user->email ?? 'Brak'],
+                ['Status', match ($user->status) {
+                    'active' => 'Aktywny',
+                    'blocked' => 'Zablokowany',
+                    default => 'Oczekujący',
+                }],
+                ['Role', $roles],
+            ]
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Bezpieczeństwo', 'Sesja, uprawnienia i tożsamości');
+        $this->theme->render_admin_table(
+            ['Obszar', 'Stan'],
+            [
+                ['Połączone konta', (string) count($user->identities)],
+                ['Dostawcy', $providers !== [] ? implode(', ', $providers) : 'Brak'],
+                ['Uprawnienia', in_array('*', $user->permissions, true) ? 'Pełny dostęp' : (string) count($user->permissions)],
+            ]
+        );
+        echo '<div class="admin-panel-actions">';
+        echo '<a class="btn btn-primary" href="index.php?route=/admin/identities">Połączone konta</a>';
+        echo '<a class="btn btn-outline-light" href="index.php?route=/admin/profile">Bezpieczeństwo</a>';
+        echo '</div>';
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+
+        $this->endAdminPage();
     }
 
     private function renderIdentitiesNotice(Request $request): void

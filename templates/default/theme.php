@@ -503,12 +503,22 @@ final class Theme implements ThemeInterface
         echo '<input class="form-control" id="admin-global-search" type="search" placeholder="Szukaj w panelu..."></div>';
         echo '<div class="ms-auto d-flex align-items-center gap-2">';
         echo '<a class="admin-icon-button text-decoration-none" href="index.php" aria-label="Wróć do strony głównej">HM</a>';
-        if (($user['logout_action'] ?? '') !== '' && ($user['logout_token'] ?? '') !== '') {
-            echo '<form action="' . $this->escape($user['logout_action']) . '" method="post" class="m-0">';
-            $this->csrf_field($user['logout_token']);
-            echo '<button class="admin-icon-button" type="submit" aria-label="Wyloguj">EX</button></form>';
+        echo '<div class="dropdown admin-user-menu">';
+        echo '<button class="admin-user-menu-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">';
+        echo '<span class="admin-avatar" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
+        echo '<span class="admin-user-copy d-none d-sm-block"><strong>' . $this->escape($user['name']) . '</strong>';
+        echo '<span>' . $this->escape($user['role']) . '</span></span></button>';
+        echo '<div class="dropdown-menu dropdown-menu-end admin-user-dropdown">';
+        foreach ($this->adminProfileLinks($user) as $link) {
+            echo '<a class="dropdown-item" href="' . $this->escape($this->safeHref($link['href'])) . '">';
+            echo $this->escape($link['label']) . '</a>';
         }
-        echo '<span class="admin-avatar d-none d-sm-grid" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
+        if (($user['logout_action'] ?? '') !== '' && ($user['logout_token'] ?? '') !== '') {
+            echo '<div class="dropdown-divider"></div><form action="' . $this->escape($user['logout_action']) . '" method="post">';
+            $this->csrf_field($user['logout_token']);
+            echo '<button class="dropdown-item" type="submit">Wyloguj</button></form>';
+        }
+        echo '</div></div>';
         echo '</div></header><main id="admin-main" class="admin-content">';
     }
 
@@ -1257,6 +1267,26 @@ final class Theme implements ThemeInterface
         }
 
         echo '</nav>';
+    }
+
+    /**
+     * @param array{profile_links?: list<array{label: string, href: string}>} $user
+     * @return list<array{label: string, href: string}>
+     */
+    private function adminProfileLinks(array $user): array
+    {
+        $links = $user['profile_links'] ?? [
+            ['label' => 'Pokaż profil', 'href' => 'index.php?route=/admin/profile'],
+            ['label' => 'Edytuj dane', 'href' => 'index.php?route=/admin/profile'],
+            ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/identities'],
+            ['label' => 'Ustawienia avatara', 'href' => 'index.php?route=/admin/profile'],
+            ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile'],
+        ];
+
+        return array_values(array_filter(
+            $links,
+            fn (array $link): bool => ($link['label'] ?? '') !== '' && $this->safeHref((string) ($link['href'] ?? '')) !== ''
+        ));
     }
 
     private function escape(string $value): string
