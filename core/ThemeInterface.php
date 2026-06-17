@@ -145,6 +145,7 @@ interface ThemeInterface
      *     name: string,
      *     role: string,
      *     initials: string,
+     *     avatar_url?: string,
      *     logout_action?: string,
      *     logout_token?: string,
      *     profile_links?: list<array{label: string, href: string}>

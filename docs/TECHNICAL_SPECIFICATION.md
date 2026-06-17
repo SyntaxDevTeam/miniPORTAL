@@ -313,6 +313,9 @@ Stan managera:
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
   Dashboard i Ustawienia nie składały krótkich informacji jako pełnoszerokich bloków.
+- `/admin/database` udostępnia pierwszy etap Managera SQL: read-only podgląd
+  aktywnej bazy, listy tabel i struktury kolumn przez `information_schema`,
+  chroniony ACL `database.view`.
 
 ---
 

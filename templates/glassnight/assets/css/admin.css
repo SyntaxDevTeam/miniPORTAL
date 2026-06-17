@@ -321,10 +321,17 @@ body.admin-stylebook {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
+  overflow: hidden;
   color: #06120c;
   background: linear-gradient(135deg, var(--mp-primary), var(--mp-cyan));
   border-radius: 0.7rem;
   font-weight: 900;
+}
+
+.admin-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .admin-user-copy {

@@ -37,6 +37,11 @@ Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki
 ### Manager SQL
 Prosty manager bazy danych al`a mikro-PHPMyAdmin pokazujący baze danych, tabele, kolumny, strukture i dane, przyciski akcji takie jak optymalizacja, wstaw, sql, export/import, usuwanie kolumna tabel, opróżnianie itd.
 
+Etap 1 gotowy: bezpieczny podgląd read-only `/admin/database` pokazuje bazę,
+listę tabel, rozmiary, przybliżoną liczbę wierszy oraz strukturę kolumn. Operacje
+zapisu, SQL, import/export i akcje destrukcyjne wymagają kolejnych etapów z ACL,
+CSRF, potwierdzeniami i audytem.
+
 ### Translator pluginów
 Autorska biblioteka MessageHandler używana w pluginach SyntaxDevTeam korzysta z plików YAML z wiadomościami na zasadzie kategoria, klucz, treść. Chciałbym mieć moduł który pozwoli na załadowanie pliku .yml z komputera przez formularz (lub przeciągnij/upuść) i otworzy przedzielony na pół ekran z treściką oryginalna i formlarzem dla utworzenia nowego pliku w którym wpisuję własną wersję tłumaczenia i zapis z weryfikacją parsera YAML (możliwie pomocne użycie biblioteki `/core/libs/Spyc.php`)
 

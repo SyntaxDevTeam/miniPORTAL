@@ -12,6 +12,7 @@ use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
+use SyntaxDevTeam\Cms\Modules\System\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
@@ -101,6 +102,7 @@ return [
             $services['module_archive_importer'],
             $services['database'] !== null ? new SystemSettingsRepository($services['database']) : null,
             $services['database'] !== null ? new SystemLogRepository($services['database']) : null,
+            $services['database'] !== null ? new DatabaseExplorerRepository($services['database']) : null,
             $services['config'],
             $services['diagnostics'],
             $services['available_themes'],

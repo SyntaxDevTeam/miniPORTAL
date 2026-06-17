@@ -901,3 +901,39 @@ panelu administracyjnego.
 
 **Weryfikacja:** dodano test zapisu profilu i avatara przez `AuthService` oraz
 rozszerzono test dropdownu o nowe trasy i brak footera użytkownika w sidebarze.
+
+### Sesja: 2026-06-17 - dopracowanie avatara i powrotu z tożsamości
+
+**Faza i krok specyfikacji:** Krok 5B - spójność profilu użytkownika w panelu.
+
+**Wykonano:**
+- widok `Połączone konta` prowadzi przyciskiem powrotu do profilu zamiast dashboardu,
+- `ThemeInterface::start_admin_page()` przyjmuje opcjonalny `avatar_url`,
+- topbar panelu pokazuje obraz avatara, gdy użytkownik ma zapisany bezpieczny URL,
+  a w przeciwnym razie zachowuje inicjały,
+- helpery użytkownika panelu w `CoreAuth`, `System`, `CorePages`, `Articles`
+  i `Wikipedia` przekazują avatar do motywu,
+- oba motywy dostały styl obrazka avatara z kadrowaniem do stałego kafla.
+
+**Weryfikacja:** dodano test renderowania avatara w topbarze i test powrotu z
+widoku połączonych kont do profilu.
+
+### Sesja: 2026-06-17 - Manager SQL, etap read-only
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - narzędzia systemowe panelu,
+ACL i bezpieczny podgląd infrastruktury.
+
+**Wykonano:**
+- dodano uprawnienie `database.view` w `CoreAuth` oraz migrację
+  `20260617_database_view_permission.sql`,
+- dodano `DatabaseExplorerRepository`, które czyta metadane tabel i kolumn przez
+  `information_schema`,
+- dodano menu `System / Baza danych` oraz trasę `/admin/database`,
+- widok pokazuje nazwę bazy, liczbę tabel, tryb read-only, listę tabel, silnik,
+  przybliżoną liczbę wierszy, rozmiar, kodowanie oraz strukturę kolumn wybranej tabeli,
+- operacje zapisu, własny SQL, import/export i akcje destrukcyjne pozostają poza tym
+  etapem i wymagają osobnych zabezpieczeń,
+- podniesiono `system_admin` do wersji `1.5.0`.
+
+**Weryfikacja:** dodano test wersji `system_admin` oraz deklaracji uprawnienia
+`database.view` w install SQL i migracji.

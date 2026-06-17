@@ -119,6 +119,7 @@ INSERT INTO permissions (name, label) VALUES
     ('modules.install', 'Instalacja modułów'),
     ('modules.toggle', 'Aktywacja modułów'),
     ('modules.remove', 'Usuwanie modułów'),
+    ('database.view', 'Podgląd struktury bazy danych'),
     ('settings.manage', 'Zarządzanie ustawieniami');
 
 INSERT INTO role_permissions (role_id, permission_id)

@@ -406,6 +406,7 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
         'name' => 'Admin Test',
         'role' => 'Administrator',
         'initials' => 'AT',
+        'avatar_url' => 'https://example.test/avatar.png',
         'logout_action' => 'index.php?route=/admin/logout',
         'logout_token' => 'csrf-token',
     ]);
@@ -419,8 +420,28 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, 'index.php?route=/admin/profile/avatar'));
     $assert(str_contains($html, 'index.php?route=/admin/profile/security'));
     $assert(str_contains($html, 'index.php?route=/admin/identities'));
+    $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
     $assert(str_contains($html, '>Wyloguj</button>'));
     $assert(!str_contains($html, 'admin-sidebar-footer'));
+});
+
+$test('Connected identities page returns to profile', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->render_admin_identities(
+        ['name' => 'Admin Test', 'role' => 'Administrator'],
+        [['name' => 'github', 'label' => 'GitHub', 'configured' => true, 'linked' => true]],
+        'index.php?route=/admin/identity/unlink',
+        'csrf-token'
+    );
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'index.php?route=/admin/profile">Wróć do profilu'));
+    $assert(!str_contains($html, 'Wróć do panelu'));
 });
 
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
@@ -443,6 +464,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
+    $assert($system->version === '1.5.0');
     $assert($system->protected);
 
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
@@ -454,6 +476,16 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($learning->signatureStatus === 'verified');
     $assert($learning->signatureKeyId === 'syntaxdevteam-learning-2026-rotated');
     $assert(is_callable(require $learning->directory . '/' . $learning->factoryFile));
+});
+
+$test('CoreAuth declares database explorer permission', static function () use ($assert): void {
+    $installSql = (string) file_get_contents(dirname(__DIR__) . '/modules/CoreAuth/install.sql');
+    $migrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/CoreAuth/migrations/20260617_database_view_permission.sql'
+    );
+
+    $assert(str_contains($installSql, "'database.view'"));
+    $assert(str_contains($migrationSql, "'database.view'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {

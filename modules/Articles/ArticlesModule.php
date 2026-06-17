@@ -761,6 +761,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             'name' => $user->displayName,
             'role' => ucfirst($user->primaryRole()),
             'initials' => $user->initials(),
+            'avatar_url' => $user->avatarUrl ?? '',
             'logout_action' => 'index.php?route=/admin/logout',
             'logout_token' => $this->security->csrfToken(),
         ];

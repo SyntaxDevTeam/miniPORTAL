@@ -51,7 +51,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function requiredPermissions(): array
     {
-        return ['users.view', 'users.manage', 'roles.view', 'roles.manage', 'logs.view'];
+        return ['users.view', 'users.manage', 'roles.view', 'roles.manage', 'logs.view', 'database.view'];
     }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
@@ -1216,6 +1216,7 @@ final class CoreAuthModule implements ModuleInterface
                 'name' => $user->displayName,
                 'role' => ucfirst($user->primaryRole()),
                 'initials' => $user->initials(),
+                'avatar_url' => $user->avatarUrl ?? '',
                 'logout_action' => 'index.php?route=/admin/logout',
                 'logout_token' => $this->security->csrfToken(),
             ]

@@ -502,7 +502,7 @@ final class Theme implements ThemeInterface
         echo '<a class="admin-icon-button text-decoration-none" href="index.php" aria-label="Wróć do strony głównej">HM</a>';
         echo '<div class="dropdown admin-user-menu">';
         echo '<button class="admin-user-menu-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">';
-        echo '<span class="admin-avatar" aria-hidden="true">' . $this->escape($user['initials']) . '</span>';
+        $this->renderAdminAvatar($user);
         echo '<span class="admin-user-copy d-none d-sm-block"><strong>' . $this->escape($user['name']) . '</strong>';
         echo '<span>' . $this->escape($user['role']) . '</span></span></button>';
         echo '<div class="dropdown-menu dropdown-menu-end admin-user-dropdown">';
@@ -808,7 +808,7 @@ final class Theme implements ThemeInterface
         echo '<section class="admin-panel mt-4"><div class="admin-panel-header">';
         echo '<div><p class="showcase-label mb-1">Profil</p><h1 class="h3 mb-1">Połączone tożsamości</h1>';
         echo '<p class="text-secondary mb-0">' . $this->escape($user['name']) . ' · ' . $this->escape($user['role']) . '</p></div>';
-        echo '<a class="btn btn-outline-light" href="index.php?route=/admin">Wróć do panelu</a></div>';
+        echo '<a class="btn btn-outline-light" href="index.php?route=/admin/profile">Wróć do profilu</a></div>';
 
         if ($message !== '') {
             $allowedVariants = ['success', 'danger', 'warning', 'info'];
@@ -1310,6 +1310,21 @@ final class Theme implements ThemeInterface
             $links,
             fn (array $link): bool => ($link['label'] ?? '') !== '' && $this->safeHref((string) ($link['href'] ?? '')) !== ''
         ));
+    }
+
+    /**
+     * @param array{initials: string, avatar_url?: string} $user
+     */
+    private function renderAdminAvatar(array $user): void
+    {
+        $avatarUrl = isset($user['avatar_url']) ? $this->safeHref((string) $user['avatar_url']) : '';
+        echo '<span class="admin-avatar" aria-hidden="true">';
+        if ($avatarUrl !== '' && preg_match('~^https?://~i', $avatarUrl) === 1) {
+            echo '<img src="' . $this->escape($avatarUrl) . '" alt="" loading="lazy">';
+        } else {
+            echo $this->escape($user['initials']);
+        }
+        echo '</span>';
     }
 
     private function escape(string $value): string

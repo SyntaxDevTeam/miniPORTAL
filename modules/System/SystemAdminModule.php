@@ -31,6 +31,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly ModuleArchiveImporter $moduleArchiveImporter,
         private readonly ?SystemSettingsRepository $settings,
         private readonly ?SystemLogRepository $logs,
+        private readonly ?DatabaseExplorerRepository $databaseExplorer,
         private readonly array $config,
         private readonly array $diagnostics,
         private readonly array $availableThemes,
@@ -47,7 +48,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.0';
+        return '1.5.0';
     }
 
     public function dependencies(): array
@@ -62,7 +63,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function requiredPermissions(): array
     {
-        return ['admin.access', 'settings.manage', 'logs.view'];
+        return ['admin.access', 'settings.manage', 'logs.view', 'database.view'];
     }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
@@ -70,6 +71,7 @@ final class SystemAdminModule implements ModuleInterface
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
         $menu->add('System', 'Ustawienia', '/admin/settings', 'ST', 'settings.manage', 55);
+        $menu->add('System', 'Baza danych', '/admin/database', 'SQ', 'database.view', 58);
         $menu->add('System', 'Dziennik zdarzeń', '/admin/logs', 'LG', 'logs.view', 60);
         $menu->add('System', 'Wzorce UI', '/admin/design-system', 'UI', 'admin.access', 70);
     }
@@ -141,6 +143,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'settings.manage',
             fn () => $this->clearTemplateCache($request)
+        ));
+        $router->get('/admin/database', fn (Request $request) => $this->guard(
+            $request,
+            'database.view',
+            fn () => $this->renderDatabaseExplorer($request)
         ));
         $router->get('/admin/logs', fn (Request $request) => $this->guard(
             $request,
@@ -776,10 +783,90 @@ final class SystemAdminModule implements ModuleInterface
                 'name' => $user->displayName,
                 'role' => ucfirst($user->primaryRole()),
                 'initials' => $user->initials(),
+                'avatar_url' => $user->avatarUrl ?? '',
                 'logout_action' => 'index.php?route=/admin/logout',
                 'logout_token' => $this->security->csrfToken(),
             ]
         );
+    }
+
+    private function renderDatabaseExplorer(Request $request): void
+    {
+        $this->startPage(
+            'Baza danych',
+            '/admin/database',
+            'Bezpieczny podgląd tabel, rozmiarów i struktury kolumn bez edycji danych.'
+        );
+        if ($this->databaseExplorer === null) {
+            $this->theme->render_alert('Manager SQL wymaga aktywnego połączenia z bazą danych.', 'danger');
+            $this->endPage();
+            return;
+        }
+
+        $tables = $this->databaseExplorer->tables();
+        $tableNames = array_column($tables, 'name');
+        $selectedTable = $request->queryString('table');
+        if (!in_array($selectedTable, $tableNames, true)) {
+            $selectedTable = $tableNames[0] ?? '';
+        }
+
+        $this->theme->start_admin_metrics();
+        $this->theme->render_admin_metric('Baza', $this->databaseExplorer->databaseName(), 'SQL', 'Aktywne połączenie');
+        $this->theme->render_admin_metric('Tabele', (string) count($tables), 'TB', 'information_schema');
+        $this->theme->render_admin_metric('Wybrana tabela', $selectedTable !== '' ? $selectedTable : 'Brak', 'SEL', 'Podgląd struktury');
+        $this->theme->render_admin_metric('Tryb', 'Read only', 'RO', 'Etap 1 managera');
+        $this->theme->end_admin_metrics();
+
+        $this->theme->start_admin_panel_grid('balanced');
+        $this->theme->start_admin_panel('Tabele', count($tables) . ' obiektów');
+        $this->theme->render_admin_action_table(
+            ['Tabela', 'Silnik', 'Wiersze', 'Rozmiar', 'Kodowanie'],
+            array_map(
+                static fn (array $table): array => [
+                    'cells' => [
+                        $table['name'],
+                        $table['engine'],
+                        $table['rows'],
+                        $table['size'],
+                        $table['collation'],
+                    ],
+                    'actions' => [[
+                        'label' => 'Struktura',
+                        'href' => 'index.php?route=/admin/database&table=' . rawurlencode($table['name']),
+                        'variant' => $table['name'] === $selectedTable ? 'primary' : 'outline-light',
+                    ]],
+                ],
+                $tables
+            ),
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel(
+            $selectedTable !== '' ? 'Struktura: ' . $selectedTable : 'Struktura',
+            $selectedTable !== '' ? 'Kolumny tabeli' : 'Brak tabel'
+        );
+        if ($selectedTable === '') {
+            $this->theme->render_alert('Baza nie zawiera tabel do pokazania.', 'info');
+        } else {
+            $this->theme->render_admin_table(
+                ['Kolumna', 'Typ', 'NULL', 'Klucz', 'Domyślnie', 'Extra'],
+                array_map(
+                    static fn (array $column): array => [
+                        $column['name'],
+                        $column['type'],
+                        $column['nullable'],
+                        $column['key'],
+                        $column['default'],
+                        $column['extra'],
+                    ],
+                    $this->databaseExplorer->columns($selectedTable)
+                )
+            );
+        }
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+        $this->endPage();
     }
 
     private function renderSettings(string $message = '', string $variant = 'info'): void
