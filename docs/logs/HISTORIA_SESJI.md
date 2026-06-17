@@ -973,3 +973,142 @@ read-only eksport danych i audyt operacji.
 
 **Weryfikacja:** dodano test neutralizacji formuł w eksporcie tabeli do CSV oraz
 zaktualizowano test manifestu `system_admin` do wersji `1.7.0`.
+
+### Sesja: 2026-06-17 - Manager SQL, eksport SQL tabeli
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - narzędzia systemowe panelu,
+backup danych i audyt eksportu.
+
+**Wykonano:**
+- dodano `DatabaseTableSqlExporter`,
+- `/admin/database/export` obsługuje `format=sql` jako domyślny format eksportu,
+- widok tabeli pokazuje osobne akcje `Eksportuj CSV` i `Eksportuj SQL`,
+- eksport SQL zawiera `DROP TABLE IF EXISTS`, `CREATE TABLE`, paczkowane `INSERT`
+  oraz tymczasowe wyłączenie i przywrócenie `FOREIGN_KEY_CHECKS`,
+- wartości dumpa SQL są cytowane przez PDO aktywnego połączenia,
+- nazwa pliku jest sanitizowana i otrzymuje rozszerzenie `.sql`,
+- podniesiono `system_admin` do wersji `1.8.0`.
+
+**Weryfikacja:** dodano test generowania przenośnego dumpa SQL i zaktualizowano
+test manifestu `system_admin` do wersji `1.8.0`.
+
+### Sesja: 2026-06-17 - Manager SQL, konsola read-only
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - narzędzia systemowe panelu,
+bezpieczne wykonywanie zapytań i audyt operacji.
+
+**Wykonano:**
+- dodano `/admin/database/query` dla metody GET i POST,
+- formularz konsoli SQL używa CSRF i komponentów `ThemeInterface`,
+- repozytorium waliduje pojedyncze zapytanie read-only,
+- dozwolone są tylko `SELECT`, `SHOW`, `DESCRIBE`, `DESC` i `EXPLAIN`,
+- wynik zapytania jest renderowany tabelą i ograniczony do 100 wierszy,
+- powodzenie i odrzucenia zapisują audit event `database_query`,
+- podniesiono `system_admin` do wersji `1.9.0`.
+
+**Weryfikacja:** dodano test normalizacji i odrzucania zapytań konsoli SQL oraz
+zaktualizowano test manifestu `system_admin` do wersji `1.9.0`.
+
+### Sesja: 2026-06-17 - Manager SQL jako osobny moduł
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - separacja modułów rozszerzeń,
+manifesty, instalator SQL i zachowanie granicy Core -> Modules -> Templates.
+
+**Wykonano:**
+- skorygowano wcześniejszą decyzję architektoniczną: Manager SQL został wydzielony
+  z `system_admin` do osobnego modułu `database_manager`,
+- dodano `modules/DatabaseManager/info.json`, `install.sql` oraz klasę
+  `DatabaseManagerModule`,
+- przeniesiono `DatabaseExplorerRepository`, `DatabaseTableCsvExporter` i
+  `DatabaseTableSqlExporter` do namespace `SyntaxDevTeam\Cms\Modules\DatabaseManager`,
+- usunięto trasy `/admin/database`, `/admin/database/export` i
+  `/admin/database/query` z `SystemAdminModule`,
+- przywrócono `system_admin` do wersji `1.4.0`; dalszy rozwój Managera SQL podnosi
+  wersję modułu `database_manager`,
+- `install.sql` modułu tworzy tabelę `database_manager_history` dla historii operacji,
+  a `uninstall.sql` bezpiecznie usuwa dane własne modułu,
+- eksport CSV/SQL i konsola read-only zapisują wpisy historii modułu oraz nadal
+  korzystają z globalnego audit logu,
+- menu panelu pokazuje osobną pozycję `Manager SQL` chronioną ACL `database.view`,
+- systemowe strony panelu przekazują `avatar_url` do topbara tak jak pozostałe widoki.
+
+**Weryfikacja:** zaktualizowano testy manifestów i klas eksportu tak, aby sprawdzały
+`database_manager` 1.0.0 oraz brak dalszego bumpowania `system_admin`.
+
+### Sesja: 2026-06-17 - Pasek akcji modułu i historia Managera SQL
+
+**Faza i krok specyfikacji:** Krok 5A, Krok 5C oraz Krok 6 - ergonomia panelu,
+kontrakt motywu i kolejny etap modułu `database_manager`.
+
+**Wykonano:**
+- zmieniono renderowanie `start_admin_content()` tak, aby główne akcje modułu były
+  pokazywane w pełnoszerokim pasku pod nagłówkiem treści panelu,
+- pasek akcji obsługuje jedną akcję albo listę akcji i zawija przyciski na urządzeniach
+  mobilnych,
+- lokalne akcje w panelach pozostają dla paginacji i operacji kontekstowych,
+- Manager SQL pokazuje w górnym pasku `Konsola SQL`, `Historia` oraz eksporty
+  wybranej tabeli,
+- dodano trasę `/admin/database/history` z paginowaną historią operacji z tabeli
+  `database_manager_history`,
+- podniesiono moduł `database_manager` do wersji `1.1.0`.
+
+**Weryfikacja:** dodano test renderowania pełnoszerokiego paska akcji modułu oraz
+zaktualizowano test manifestu `database_manager` do wersji `1.1.0`.
+
+### Sesja: 2026-06-17 - Manager SQL, operacje zapisowe
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - pełniejszy moduł rozszerzenia,
+ACL operacji mutujących, CSRF, audyt i historia modułu.
+
+**Wykonano:**
+- podniesiono `database_manager` do wersji `1.2.0`,
+- dodano uprawnienie `database.manage` w `install.sql` modułu oraz migracji
+  `20260617_database_manage_permission.sql`,
+- rozszerzono repozytorium Managera SQL o whitelistę pojedynczych zapytań mutujących,
+- dodano trasę `/admin/database/query/manage` dla zapytań zapisowych wymagających
+  potwierdzenia `WRITE`,
+- dodano trasę `/admin/database/table-operation` dla operacji tabeli: `OPTIMIZE`,
+  `CHECK`, `ANALYZE`, `REPAIR`, `TRUNCATE` i `DROP`,
+- akcje destrukcyjne `TRUNCATE` oraz `DROP` wymagają wpisania dokładnej nazwy tabeli,
+- operacje zapisowe zapisują globalny audit log oraz historię modułu
+  `database_manager_history`,
+- podgląd i eksport pozostają chronione `database.view`, a operacje zapisowe wymagają
+  `database.manage`.
+
+**Weryfikacja:** dodano test walidacji zapytań zapisowych i test obecności
+`database.manage` w instalatorze oraz migracji modułu.
+
+### Sesja: 2026-06-17 - Manager SQL, import SQL
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - domknięcie podstawowego cyklu
+eksport/import w osobnym module `database_manager`.
+
+**Wykonano:**
+- podniesiono `database_manager` do wersji `1.3.0`,
+- dodano kontrolowany import SQL w `/admin/database/import`,
+- import przyjmuje plik `.sql` albo treść SQL w formularzu,
+- import ma limit 2 MB, odrzuca pusty payload i bajt NUL,
+- operacja wymaga ACL `database.manage`, CSRF oraz potwierdzenia `IMPORT`,
+- powodzenie i błędy importu zapisują globalny audit log oraz historię modułu.
+
+**Weryfikacja:** dodano test walidacji payloadu importu SQL.
+
+### Sesja: 2026-06-17 - Naprawa katalogu eksportu modułów ZIP
+
+**Faza i krok specyfikacji:** Krok 6 - manager modułów, eksport pakietów rozszerzeń,
+ACL/CSRF/audyt oraz operacyjne przygotowanie katalogów cache.
+
+**Wykonano:**
+- zdiagnozowano przyczynę komunikatu `Nie można utworzyć katalogu eksportu modułów.`
+  jako brak zapisu procesu WWW do `cache/`,
+- ustawiono `cache/` na grupę `www-data` z bitem setgid i utworzono
+  `cache/module-exports` jako katalog zapisywalny dla panelu,
+- `ModulePackageExporter` jawnie sprawdza teraz, czy katalog eksportu jest
+  zapisywalny po utworzeniu,
+- test eksportu ZIP sprawdza scenariusz, w którym katalog eksportu nie istnieje
+  przed rozpoczęciem operacji,
+- zsynchronizowano oczekiwaną wersję testu manifestu `database_manager` z aktualnym
+  manifestem `1.2.0`.
+
+**Weryfikacja:** `php tests/run.php`, lint wszystkich plików PHP oraz test zapisu
+do `cache/module-exports` uruchomiony jako `www-data` zakończyły się powodzeniem.

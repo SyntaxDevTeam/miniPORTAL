@@ -15,9 +15,7 @@ final class ModulePackageExporter
     public function exportZip(ModuleManifest $manifest, string $targetDirectory): array
     {
         $this->assertExportableDirectory($manifest->directory);
-        if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0770, true)) {
-            throw new RuntimeException('Nie można utworzyć katalogu eksportu modułów.');
-        }
+        $this->ensureExportDirectory($targetDirectory);
 
         $filename = $manifest->id . '-' . $manifest->version . '.zip';
         $target = rtrim($targetDirectory, '/') . '/' . $filename;
@@ -35,6 +33,18 @@ final class ModulePackageExporter
             'filename' => $filename,
             'mime' => 'application/zip',
         ];
+    }
+
+    private function ensureExportDirectory(string $targetDirectory): void
+    {
+        if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0770, true)) {
+            throw new RuntimeException('Nie można utworzyć katalogu eksportu modułów.');
+        }
+
+        clearstatcache(true, $targetDirectory);
+        if (!is_dir($targetDirectory) || !is_writable($targetDirectory)) {
+            throw new RuntimeException('Katalog eksportu modułów nie jest zapisywalny.');
+        }
     }
 
     private function exportWithZipArchive(string $directory, string $target): void

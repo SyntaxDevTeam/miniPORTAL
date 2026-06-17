@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SyntaxDevTeam\Cms\Modules\System;
+namespace SyntaxDevTeam\Cms\Modules\DatabaseManager;
 
 use RuntimeException;
 

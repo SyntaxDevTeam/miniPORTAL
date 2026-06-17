@@ -31,6 +31,10 @@ Aktywne moduły mogą deklarować publiczne linki, którym administrator nadaje 
 i niezależnie przypina je do głównego menu, stopki albo obu obszarów w `/admin/settings`.
 Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wiki`
 i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
+`database_manager` jest osobnym modułem rozszerzenia panelu dla Managera SQL i
+przechowuje własną historię operacji. Moduł rozdziela podgląd `database.view` od
+operacji zapisowych `database.manage`. Główne akcje panelowych modułów są renderowane
+w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

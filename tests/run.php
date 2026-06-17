@@ -25,7 +25,9 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
-use SyntaxDevTeam\Cms\Modules\System\DatabaseTableCsvExporter;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
@@ -113,6 +115,81 @@ $test('Database table CSV export neutralizes spreadsheet formulas', static funct
     $assert(str_contains($csv, "'=bad-header"));
     $assert(str_contains($csv, "'=cmd"));
     $assert(str_contains($csv, "'@risk line"));
+});
+
+$test('Database table SQL export creates portable insert dump', static function () use ($assert): void {
+    $stream = fopen('php://temp', 'w+b');
+    $repository = (new ReflectionClass(SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository::class))
+        ->newInstanceWithoutConstructor();
+    $quote = static fn (mixed $value): string => $value === null
+        ? 'NULL'
+        : "'" . str_replace("'", "''", (string) $value) . "'";
+    (new DatabaseTableSqlExporter($repository, $quote))->write($stream, 'demo_table', [
+        'create' => 'CREATE TABLE `demo_table` (`id` int NOT NULL, `title` varchar(120) NULL)',
+        'columns' => ['id', 'title'],
+        'rows' => [['id' => 1, 'title' => "O'Hara"], ['id' => 2, 'title' => null]],
+        'total' => 2,
+        'exported' => 2,
+    ]);
+    rewind($stream);
+    $sql = (string) stream_get_contents($stream);
+    fclose($stream);
+
+    $assert(str_contains($sql, 'DROP TABLE IF EXISTS `demo_table`;'));
+    $assert(str_contains($sql, 'CREATE TABLE `demo_table`'));
+    $assert(str_contains($sql, 'INSERT INTO `demo_table` (`id`, `title`) VALUES'));
+    $assert(str_contains($sql, "('1', 'O''Hara')"));
+    $assert(str_contains($sql, "('2', NULL)"));
+});
+
+$test('Database SQL console accepts only one read-only statement', static function () use ($assert): void {
+    $assert(DatabaseExplorerRepository::normalizeReadOnlyQuery(' SELECT * FROM users; ') === 'SELECT * FROM users');
+    $assert(DatabaseExplorerRepository::normalizeReadOnlyQuery('SHOW TABLES') === 'SHOW TABLES');
+
+    foreach (['UPDATE users SET status = "active"', 'SELECT 1; DROP TABLE users', ''] as $sql) {
+        $rejected = false;
+        try {
+            DatabaseExplorerRepository::normalizeReadOnlyQuery($sql);
+        } catch (RuntimeException) {
+            $rejected = true;
+        }
+        $assert($rejected);
+    }
+});
+
+$test('Database SQL console validates managed write statements', static function () use ($assert): void {
+    $insert = DatabaseExplorerRepository::normalizeMutableQuery(' INSERT INTO logs (message) VALUES ("ok"); ');
+    $drop = DatabaseExplorerRepository::normalizeMutableQuery('DROP TABLE temporary_table');
+
+    $assert($insert['sql'] === 'INSERT INTO logs (message) VALUES ("ok")');
+    $assert($insert['operation'] === 'insert');
+    $assert($drop['operation'] === 'drop');
+
+    foreach (['SELECT * FROM users', 'GRANT ALL ON *.* TO root', 'UPDATE users SET status = "active"; DROP TABLE users', ''] as $sql) {
+        $rejected = false;
+        try {
+            DatabaseExplorerRepository::normalizeMutableQuery($sql);
+        } catch (RuntimeException) {
+            $rejected = true;
+        }
+        $assert($rejected);
+    }
+});
+
+$test('Database SQL import validates dump payloads', static function () use ($assert): void {
+    $sql = DatabaseExplorerRepository::normalizeImportSql("SET NAMES utf8mb4;\nCREATE TABLE demo_import (id INT);");
+
+    $assert(str_contains($sql, 'CREATE TABLE demo_import'));
+
+    foreach (['', "SELECT\0 1;", str_repeat('a', (2 * 1024 * 1024) + 1)] as $payload) {
+        $rejected = false;
+        try {
+            DatabaseExplorerRepository::normalizeImportSql($payload);
+        } catch (RuntimeException) {
+            $rejected = true;
+        }
+        $assert($rejected);
+    }
 });
 
 $test('Template cache remembers output and invalidates matching tags', static function () use ($assert): void {
@@ -413,6 +490,30 @@ $test('Admin panel grid renders compact responsive layout wrappers', static func
     $assert(substr_count($html, 'class="admin-panel"') === 2);
 });
 
+$test('Admin content renders module actions in a full-width toolbar', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->start_admin_content(
+        'Manager SQL',
+        'Opis testowy',
+        [['label' => 'Panel', 'href' => 'index.php?route=/admin']],
+        [
+            ['label' => 'Konsola SQL', 'href' => 'index.php?route=/admin/database/query', 'variant' => 'primary'],
+            ['label' => 'Historia', 'href' => 'index.php?route=/admin/database/history'],
+        ]
+    );
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'class="admin-module-actions"'));
+    $assert(str_contains($html, 'index.php?route=/admin/database/query'));
+    $assert(str_contains($html, 'index.php?route=/admin/database/history'));
+    $assert(strpos($html, 'admin-module-actions') > strpos($html, 'admin-page-heading'));
+});
+
 $test('Admin topbar exposes profile dropdown actions', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -482,8 +583,16 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.7.0');
+    $assert($system->version === '1.4.0');
     $assert($system->protected);
+
+    $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
+    $assert($database->id === 'database_manager');
+    $assert($database->version === '1.3.0');
+    $assert($database->type === 'extension');
+    $assert($database->installFile === 'install.sql');
+    $assert($database->uninstallFile === 'uninstall.sql');
+    $assert($database->requiredModules === ['core_auth']);
 
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
     $assert($learning->id === 'learning_module');
@@ -504,6 +613,15 @@ $test('CoreAuth declares database explorer permission', static function () use (
 
     $assert(str_contains($installSql, "'database.view'"));
     $assert(str_contains($migrationSql, "'database.view'"));
+
+    $databaseInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/DatabaseManager/install.sql');
+    $databaseMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/DatabaseManager/migrations/20260617_database_manage_permission.sql'
+    );
+    $assert(str_contains($databaseInstallSql, 'CREATE TABLE database_manager_history'));
+    $assert(str_contains($databaseInstallSql, 'fk_database_manager_history_user'));
+    $assert(str_contains($databaseInstallSql, "'database.manage'"));
+    $assert(str_contains($databaseMigrationSql, "'database.manage'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {
@@ -559,7 +677,6 @@ $test('Module package exporter creates an importable ZIP archive', static functi
     $exports = $root . '/exports';
     $quarantine = $root . '/quarantine';
     mkdir($source, 0700, true);
-    mkdir($exports, 0700, true);
     mkdir($quarantine, 0700, true);
     file_put_contents($source . '/info.json', json_encode([
         'id' => 'export_module',

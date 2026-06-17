@@ -157,7 +157,7 @@ interface ThemeInterface
 
     /**
      * @param list<array{label: string, href: string}> $breadcrumbs
-     * @param array{label: string, href: string}|null $action
+     * @param array{label?: string, href?: string, variant?: string}|list<array{label: string, href: string, variant?: string}>|null $action
      */
     public function start_admin_content(
         string $title,

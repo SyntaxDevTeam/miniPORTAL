@@ -12,7 +12,9 @@ use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
-use SyntaxDevTeam\Cms\Modules\System\DatabaseExplorerRepository;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
+use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
@@ -89,6 +91,20 @@ return [
         ),
     ],
     [
+        'directory' => 'DatabaseManager',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): DatabaseManagerModule => new DatabaseManagerModule(
+            $services['theme'],
+            $services['admin_menu'],
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit'],
+            new DatabaseExplorerRepository($services['database']),
+            new DatabaseManagerHistoryRepository($services['database'])
+        ),
+    ],
+    [
         'directory' => 'System',
         'required' => true,
         'factory' => static fn (array $services): SystemAdminModule => new SystemAdminModule(
@@ -102,7 +118,6 @@ return [
             $services['module_archive_importer'],
             $services['database'] !== null ? new SystemSettingsRepository($services['database']) : null,
             $services['database'] !== null ? new SystemLogRepository($services['database']) : null,
-            $services['database'] !== null ? new DatabaseExplorerRepository($services['database']) : null,
             $services['config'],
             $services['diagnostics'],
             $services['available_themes'],

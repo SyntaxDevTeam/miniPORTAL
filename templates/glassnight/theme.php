@@ -551,12 +551,8 @@ final class Theme implements ThemeInterface
         if ($lead !== '') {
             echo '<p class="text-secondary mb-0">' . $this->escape($lead) . '</p>';
         }
-        echo '</div>';
-        if ($action !== null) {
-            echo '<a class="btn btn-primary" href="' . $this->escape($action['href']) . '">';
-            echo $this->escape($action['label']) . '</a>';
-        }
-        echo '</div>';
+        echo '</div></div>';
+        $this->renderAdminModuleActions($action);
     }
 
     public function end_admin_content(): void
@@ -632,6 +628,25 @@ final class Theme implements ThemeInterface
             $variant = $this->buttonVariant((string) ($action['variant'] ?? 'outline-light'));
             echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($this->safeHref($action['href'])) . '">';
             echo $this->escape($action['label']) . '</a>';
+        }
+        echo '</div>';
+    }
+
+    private function renderAdminModuleActions(?array $actions): void
+    {
+        if ($actions === null || $actions === []) {
+            return;
+        }
+
+        $normalized = isset($actions['label'], $actions['href']) ? [$actions] : $actions;
+        echo '<div class="admin-module-actions" aria-label="Akcje modułu">';
+        foreach ($normalized as $action) {
+            if (!is_array($action) || ($action['label'] ?? '') === '' || ($action['href'] ?? '') === '') {
+                continue;
+            }
+            $variant = $this->buttonVariant((string) ($action['variant'] ?? 'outline-light'));
+            echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($this->safeHref((string) $action['href'])) . '">';
+            echo $this->escape((string) $action['label']) . '</a>';
         }
         echo '</div>';
     }

@@ -313,11 +313,36 @@ Stan managera:
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
   Dashboard i Ustawienia nie składały krótkich informacji jako pełnoszerokich bloków.
-- `/admin/database` udostępnia pierwszy etap Managera SQL: read-only podgląd
-  aktywnej bazy, listy tabel, struktury kolumn i paginowanych danych tabeli przez
-  `information_schema` oraz walidowaną nazwę tabeli, chroniony ACL `database.view`.
+- główne akcje modułu są renderowane przez motyw jako pełnoszeroki pasek pod
+  nagłówkiem treści panelu; lokalnie w panelach pozostają tylko akcje kontekstowe
+  i paginacja.
+- `database_manager` jest osobnym modułem typu `extension`, a nie częścią
+  `system_admin`; zachowuje adres `/admin/database`, własny manifest, instalator SQL
+  i tabelę `database_manager_history` dla historii operacji.
+- `/admin/database` udostępnia read-only podgląd aktywnej bazy, listy tabel,
+  struktury kolumn i paginowanych danych tabeli przez `information_schema` oraz
+  walidowaną nazwę tabeli, chroniony ACL `database.view`.
 - `/admin/database/export` eksportuje walidowaną tabelę do CSV z limitem 10 000
   rekordów, audytem operacji i neutralizacją formuł arkusza.
+- Ta sama trasa obsługuje `format=sql` jako domyślny eksport SQL z definicją tabeli
+  i paczkowanymi `INSERT`; wartości są cytowane przez PDO aktywnego połączenia.
+- `/admin/database/query` jest konsolą SQL wyłącznie read-only: akceptuje pojedyncze
+  zapytania `SELECT`, `SHOW`, `DESCRIBE`, `DESC` i `EXPLAIN`, wymaga CSRF,
+  zapisuje audit event `database_query` i pokazuje maksymalnie 100 wierszy wyniku.
+- `/admin/database/history` pokazuje paginowaną historię operacji zapisaną w tabeli
+  własnej modułu `database_manager_history`.
+- `database_manager` rozdziela ACL na `database.view` dla podglądu i eksportu oraz
+  `database.manage` dla operacji zmieniających stan.
+- `/admin/database/table-operation` wykonuje kontrolowane operacje `OPTIMIZE`,
+  `CHECK`, `ANALYZE`, `REPAIR`, `TRUNCATE` i `DROP` dla walidowanej tabeli; operacje
+  destrukcyjne wymagają wpisania dokładnej nazwy tabeli.
+- `/admin/database/query/manage` wykonuje pojedyncze zapytania zapisowe z whitelisty
+  `INSERT`, `UPDATE`, `DELETE`, `REPLACE`, `CREATE`, `ALTER`, `DROP`, `TRUNCATE`,
+  `OPTIMIZE`, `ANALYZE`, `CHECK` i `REPAIR`; wymaga CSRF, ACL `database.manage`,
+  potwierdzenia `WRITE`, audit logu i historii modułu.
+- `/admin/database/import` pozwala zaimportować plik `.sql` albo treść SQL z limitem
+  2 MB; wymaga CSRF, ACL `database.manage`, potwierdzenia `IMPORT`, audit logu i
+  historii modułu.
 
 ---
 

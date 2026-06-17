@@ -1,18 +1,19 @@
 {
-  "id": "system_admin",
-  "name": "System Admin i Manager Modułów",
-  "version": "1.4.0",
-  "type": "system",
+  "id": "database_manager",
+  "name": "Manager SQL",
+  "version": "1.3.0",
+  "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
     "miniportal": ">=0.1.0",
     "modules": ["core_auth"]
   },
-  "protected": true,
+  "protected": false,
   "origin": {
     "type": "bundled",
     "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
   },
-  "install": null
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
 }
