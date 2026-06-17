@@ -311,6 +311,8 @@ Stan managera:
   dowiązania symboliczne oraz ukryte segmenty ścieżek.
 - dashboard panelu pokazuje syntetyczne metryki modułów, rozszerzeń, migracji,
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
+- `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
+  Dashboard i Ustawienia nie składały krótkich informacji jako pełnoszerokich bloków.
 
 ---
 

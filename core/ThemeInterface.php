@@ -172,6 +172,10 @@ interface ThemeInterface
 
     public function end_admin_metrics(): void;
 
+    public function start_admin_panel_grid(string $variant = 'balanced'): void;
+
+    public function end_admin_panel_grid(): void;
+
     public function start_admin_panel(string $title, string $meta = ''): void;
 
     public function end_admin_panel(): void;

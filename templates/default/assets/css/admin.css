@@ -486,6 +486,31 @@ body.admin-stylebook {
   box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.14);
 }
 
+.admin-panel-grid {
+  display: grid;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-panel-grid > .admin-panel {
+  min-width: 0;
+}
+
+.admin-panel-grid-balanced,
+.admin-panel-grid-dashboard,
+.admin-panel-grid-system {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-panel-grid-compact {
+  grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr);
+}
+
+.admin-panel-grid-system {
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
 .admin-panel-header {
   display: flex;
   align-items: center;
@@ -977,6 +1002,12 @@ body.admin-stylebook {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .admin-panel-grid-balanced,
+  .admin-panel-grid-dashboard,
+  .admin-panel-grid-compact {
+    grid-template-columns: 1fr;
+  }
+
   .state-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1031,6 +1062,7 @@ body.admin-stylebook {
   }
 
   .metric-grid,
+  .admin-panel-grid,
   .state-grid,
   .permission-group-options {
     grid-template-columns: 1fr;

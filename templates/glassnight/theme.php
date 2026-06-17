@@ -577,6 +577,17 @@ final class Theme implements ThemeInterface
         echo '</div>';
     }
 
+    public function start_admin_panel_grid(string $variant = 'balanced'): void
+    {
+        $variant = preg_replace('/[^a-z0-9_-]/i', '', $variant) ?: 'balanced';
+        echo '<div class="admin-panel-grid admin-panel-grid-' . $this->escape($variant) . '">';
+    }
+
+    public function end_admin_panel_grid(): void
+    {
+        echo '</div>';
+    }
+
     public function start_admin_panel(string $title, string $meta = ''): void
     {
         echo '<section class="admin-panel"><div class="admin-panel-header"><h2 class="h5 mb-0">';

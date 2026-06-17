@@ -129,6 +129,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Podgląd roboczy i lokalny autozapis formularzy treści |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 | [x] | `wikipedia` jako niezależny moduł dokumentacji projektowej |
+| [ ] | `team` jako moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika. |
+| [ ] | `profil_uzytkownika` jako moduł w któ©ym można uzuepełnić i edytować wszystkie dane użytkwonika od avatara przez połączone konta aż po publiczny profil dla modułu `team`. |
 
 ### Krok 6 - system modułów
 

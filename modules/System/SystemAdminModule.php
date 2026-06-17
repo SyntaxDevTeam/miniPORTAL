@@ -250,12 +250,15 @@ final class SystemAdminModule implements ModuleInterface
             ],
         ];
 
+        $this->theme->start_admin_panel_grid('dashboard');
         $this->theme->start_admin_panel('Sygnały operacyjne', 'Decyzje');
         $this->theme->render_admin_table(['Obszar', 'Wartość', 'Wniosek'], $signals);
         $this->theme->end_admin_panel();
 
-        if ($recentEvents !== []) {
-            $this->theme->start_admin_panel('Ostatnia aktywność', count($recentEvents) . ' zdarzeń');
+        $this->theme->start_admin_panel('Ostatnia aktywność', count($recentEvents) . ' zdarzeń');
+        if ($recentEvents === []) {
+            $this->theme->render_alert('Brak zdarzeń do pokazania albo audit log jest niedostępny.', 'info');
+        } else {
             $this->theme->render_admin_table(
                 ['Czas', 'Użytkownik', 'Zdarzenie', 'Wynik', 'Źródło'],
                 array_map(
@@ -269,9 +272,11 @@ final class SystemAdminModule implements ModuleInterface
                     $recentEvents
                 )
             );
-            $this->theme->end_admin_panel();
         }
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
 
+        $this->theme->start_admin_panel_grid('system');
         $this->theme->start_admin_panel('Stan architektury', 'Krok 6');
         $this->theme->render_admin_table(
             ['Odpowiedzialność', 'Właściciel'],
@@ -285,6 +290,7 @@ final class SystemAdminModule implements ModuleInterface
             ]
         );
         $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
 
         $this->endPage();
     }
@@ -807,6 +813,7 @@ final class SystemAdminModule implements ModuleInterface
             ),
             'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
         ]);
+        $this->theme->start_admin_panel_grid('compact');
         $this->theme->start_admin_panel('Branding i SEO', 'Publiczne meta');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
@@ -874,7 +881,9 @@ final class SystemAdminModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
 
+        $this->theme->start_admin_panel_grid('balanced');
         $publicNavigationItems = $this->publicNavigation->items($this->settings->publicNavigationSettings());
         if ($publicNavigationItems !== []) {
             $fields = [
@@ -911,18 +920,6 @@ final class SystemAdminModule implements ModuleInterface
             $this->theme->end_admin_panel();
         }
 
-        $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
-        $this->theme->render_alert(
-            'Sekrety pozostają w pliku środowiskowym poza katalogiem publicznym. Panel pokazuje wyłącznie stan ich konfiguracji.',
-            'warning'
-        );
-        $this->theme->render_admin_table(['Obszar', 'Parametr', 'Stan / wartość'], $this->configurationRows());
-        $this->theme->end_admin_panel();
-
-        $this->theme->start_admin_panel('Diagnostyka Core', count($this->diagnostics) . ' kontroli');
-        $this->theme->render_admin_table(['Element', 'Implementacja', 'Stan'], $this->diagnostics);
-        $this->theme->end_admin_panel();
-
         $cache = $this->templateCache->stats();
         $this->theme->start_admin_panel('Cache szablonów', $cache['enabled'] ? 'Aktywny' : 'Wyłączony');
         $this->theme->render_admin_table(
@@ -940,6 +937,21 @@ final class SystemAdminModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+
+        $this->theme->start_admin_panel_grid('system');
+        $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
+        $this->theme->render_alert(
+            'Sekrety pozostają w pliku środowiskowym poza katalogiem publicznym. Panel pokazuje wyłącznie stan ich konfiguracji.',
+            'warning'
+        );
+        $this->theme->render_admin_table(['Obszar', 'Parametr', 'Stan / wartość'], $this->configurationRows());
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Diagnostyka Core', count($this->diagnostics) . ' kontroli');
+        $this->theme->render_admin_table(['Element', 'Implementacja', 'Stan'], $this->diagnostics);
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
 
         $publisherRows = [];
         foreach ($this->trustedModulePublishers as $keyId => $publisher) {

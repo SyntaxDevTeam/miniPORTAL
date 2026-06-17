@@ -843,3 +843,20 @@ moduły i audit log jako źródła decyzji operacyjnych.
 
 **Weryfikacja:** wykonano `php tests/run.php`, lint `modules/System/SystemAdminModule.php`,
 pełny lint repo oraz `php bin/migrate-core.php`.
+
+### Sesja: 2026-06-17 - zwarte układy Dashboardu i Ustawień
+
+**Faza i krok specyfikacji:** Krok 3 oraz Krok 5B - komponenty panelu w
+`ThemeInterface` i ergonomia administracyjna.
+
+**Wykonano:**
+- dodano `ThemeInterface::start_admin_panel_grid()` i `end_admin_panel_grid()`,
+- wdrożono responsywne siatki paneli w motywach `default` i `glassnight`,
+- dodano style `admin-panel-grid-*` do obu plików `admin.css`,
+- Dashboard układa sygnały operacyjne i aktywność obok siebie na desktopie,
+- Ustawienia układają „Branding i SEO” z „Szablonem”, nawigację z cache oraz
+  konfigurację z diagnostyką w zwarte sekcje,
+- na mniejszych ekranach układ przechodzi do jednej kolumny.
+
+**Weryfikacja:** dodano test renderowania siatki paneli; wykonano `php tests/run.php`,
+pełny lint PHP oraz `php bin/migrate-core.php`.

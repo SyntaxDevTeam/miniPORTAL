@@ -361,6 +361,25 @@ $test('Public error page is friendly and does not mention dashboard', static fun
     $assert(!str_contains($html, 'dashboard'));
 });
 
+$test('Admin panel grid renders compact responsive layout wrappers', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->start_admin_panel_grid('compact');
+    $theme->start_admin_panel('Pierwszy panel');
+    $theme->end_admin_panel();
+    $theme->start_admin_panel('Drugi panel');
+    $theme->end_admin_panel();
+    $theme->end_admin_panel_grid();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'admin-panel-grid admin-panel-grid-compact'));
+    $assert(substr_count($html, 'class="admin-panel"') === 2);
+});
+
 $test('Module manifests are validated against runtime requirements', static function () use ($assert): void {
     $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
     $validator = new ModuleManifestValidator('0.1.0', $publishers);
