@@ -48,7 +48,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.5.0';
+        return '1.7.0';
     }
 
     public function dependencies(): array
@@ -148,6 +148,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'database.view',
             fn () => $this->renderDatabaseExplorer($request)
+        ));
+        $router->get('/admin/database/export', fn (Request $request) => $this->guard(
+            $request,
+            'database.view',
+            fn () => $this->exportDatabaseTable($request)
         ));
         $router->get('/admin/logs', fn (Request $request) => $this->guard(
             $request,
@@ -809,12 +814,17 @@ final class SystemAdminModule implements ModuleInterface
         if (!in_array($selectedTable, $tableNames, true)) {
             $selectedTable = $tableNames[0] ?? '';
         }
+        $page = max(1, $request->queryInt('page', 1) ?? 1);
+        $perPage = max(10, min(50, $request->queryInt('per_page', 25) ?? 25));
+        $tableData = $selectedTable !== ''
+            ? $this->databaseExplorer->data($selectedTable, $page, $perPage)
+            : ['headers' => [], 'rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'pages' => 1];
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Baza', $this->databaseExplorer->databaseName(), 'SQL', 'Aktywne połączenie');
         $this->theme->render_admin_metric('Tabele', (string) count($tables), 'TB', 'information_schema');
-        $this->theme->render_admin_metric('Wybrana tabela', $selectedTable !== '' ? $selectedTable : 'Brak', 'SEL', 'Podgląd struktury');
-        $this->theme->render_admin_metric('Tryb', 'Read only', 'RO', 'Etap 1 managera');
+        $this->theme->render_admin_metric('Wybrana tabela', $selectedTable !== '' ? $selectedTable : 'Brak', 'SEL', 'Struktura i dane');
+        $this->theme->render_admin_metric('Rekordy', number_format((int) $tableData['total'], 0, ',', ' '), 'ROW', 'Podgląd read-only');
         $this->theme->end_admin_metrics();
 
         $this->theme->start_admin_panel_grid('balanced');
@@ -866,7 +876,103 @@ final class SystemAdminModule implements ModuleInterface
         }
         $this->theme->end_admin_panel();
         $this->theme->end_admin_panel_grid();
+
+        $this->theme->start_admin_panel(
+            $selectedTable !== '' ? 'Dane: ' . $selectedTable : 'Dane tabeli',
+            $selectedTable !== ''
+                ? 'Strona ' . $tableData['page'] . ' z ' . $tableData['pages'] . ', limit ' . $tableData['per_page']
+                : 'Brak tabel'
+        );
+        if ($selectedTable === '') {
+            $this->theme->render_alert('Wybierz tabelę, aby zobaczyć dane.', 'info');
+        } elseif ($tableData['headers'] === []) {
+            $this->theme->render_alert('Tabela nie ma kolumn do pokazania.', 'info');
+        } else {
+            $this->theme->render_admin_table($tableData['headers'], $tableData['rows']);
+            $actions = [];
+            if ($tableData['page'] > 1) {
+                $actions[] = [
+                    'label' => 'Poprzednia strona',
+                    'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
+                        . '&page=' . ($tableData['page'] - 1) . '&per_page=' . $tableData['per_page'],
+                ];
+            }
+            if ($tableData['page'] < $tableData['pages']) {
+                $actions[] = [
+                    'label' => 'Następna strona',
+                    'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
+                        . '&page=' . ($tableData['page'] + 1) . '&per_page=' . $tableData['per_page'],
+                    'variant' => 'primary',
+                ];
+            }
+            if ($actions !== []) {
+                $this->theme->render_admin_panel_actions($actions);
+            }
+            $this->theme->render_admin_panel_actions([[
+                'label' => 'Eksportuj CSV',
+                'href' => 'index.php?route=/admin/database/export&table=' . rawurlencode($selectedTable),
+                'variant' => 'outline-light',
+            ]]);
+        }
+        $this->theme->end_admin_panel();
         $this->endPage();
+    }
+
+    private function exportDatabaseTable(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $table = $request->queryString('table');
+        if ($this->databaseExplorer === null) {
+            $this->audit->record($request, 'database_export', 'unavailable', $table, $actor?->id);
+            http_response_code(503);
+            $this->theme->render_admin_access_state(
+                503,
+                'Baza niedostępna',
+                'Eksport wymaga aktywnego połączenia z bazą danych.',
+                'index.php?route=/admin/database',
+                'Wróć do bazy danych'
+            );
+            return;
+        }
+
+        $tableNames = array_column($this->databaseExplorer->tables(), 'name');
+        if (!in_array($table, $tableNames, true)) {
+            $this->audit->record($request, 'database_export', 'invalid_table', $table, $actor?->id);
+            http_response_code(404);
+            $this->theme->render_admin_access_state(
+                404,
+                'Nie znaleziono tabeli',
+                'Wybrana tabela nie istnieje w aktywnej bazie.',
+                'index.php?route=/admin/database',
+                'Wróć do bazy danych'
+            );
+            return;
+        }
+
+        try {
+            $export = $this->databaseExplorer->exportData($table);
+            $this->audit->record($request, 'database_export', 'success', $table, $actor?->id);
+            if (!headers_sent()) {
+                header('Content-Type: text/csv; charset=UTF-8');
+                header('Content-Disposition: attachment; filename="table-' . $this->csvFilename($table) . '.csv"');
+                header('X-Content-Type-Options: nosniff');
+            }
+            $stream = fopen('php://output', 'wb');
+            (new DatabaseTableCsvExporter())->write($stream, $export['headers'], $export['rows']);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'database_export', 'failed', $table, $actor?->id);
+            http_response_code(500);
+            $this->theme->render_admin_access_state(
+                500,
+                'Eksport nieudany',
+                $exception->getMessage(),
+                'index.php?route=/admin/database&table=' . rawurlencode($table),
+                'Wróć do tabeli'
+            );
+        }
     }
 
     private function renderSettings(string $message = '', string $variant = 'info'): void
@@ -1388,6 +1494,14 @@ final class SystemAdminModule implements ModuleInterface
     private function mask(string $value): string
     {
         return $value === '' ? 'Brak' : substr($value, 0, 1) . str_repeat('•', min(8, max(3, strlen($value) - 1)));
+    }
+
+    private function csvFilename(string $table): string
+    {
+        $filename = preg_replace('/[^a-z0-9_.-]+/i', '-', $table) ?? 'table';
+        $filename = trim($filename, '-.');
+
+        return $filename !== '' ? $filename : 'table';
     }
 
     private function startPage(string $title, string $activePath, string $lead): void

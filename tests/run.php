@@ -25,6 +25,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
+use SyntaxDevTeam\Cms\Modules\System\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
@@ -95,6 +96,23 @@ $test('Audit CSV export neutralizes spreadsheet formulas', static function () us
     $assert(str_contains($csv, "'=HYPERLINK"));
     $assert(str_contains($csv, "'@command"));
     $assert(!str_contains($csv, "module\r\nname"));
+});
+
+$test('Database table CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
+    $stream = fopen('php://temp', 'w+b');
+    (new DatabaseTableCsvExporter())->write(
+        $stream,
+        ['id', '=bad-header'],
+        [['1', '=cmd'], ['2', "@risk\nline"]]
+    );
+    rewind($stream);
+    $csv = (string) stream_get_contents($stream);
+    fclose($stream);
+
+    $assert(str_starts_with($csv, "\xEF\xBB\xBF"));
+    $assert(str_contains($csv, "'=bad-header"));
+    $assert(str_contains($csv, "'=cmd"));
+    $assert(str_contains($csv, "'@risk line"));
 });
 
 $test('Template cache remembers output and invalidates matching tags', static function () use ($assert): void {
@@ -464,7 +482,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.5.0');
+    $assert($system->version === '1.7.0');
     $assert($system->protected);
 
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');

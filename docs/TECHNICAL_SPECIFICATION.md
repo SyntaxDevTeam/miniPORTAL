@@ -314,8 +314,10 @@ Stan managera:
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
   Dashboard i Ustawienia nie składały krótkich informacji jako pełnoszerokich bloków.
 - `/admin/database` udostępnia pierwszy etap Managera SQL: read-only podgląd
-  aktywnej bazy, listy tabel i struktury kolumn przez `information_schema`,
-  chroniony ACL `database.view`.
+  aktywnej bazy, listy tabel, struktury kolumn i paginowanych danych tabeli przez
+  `information_schema` oraz walidowaną nazwę tabeli, chroniony ACL `database.view`.
+- `/admin/database/export` eksportuje walidowaną tabelę do CSV z limitem 10 000
+  rekordów, audytem operacji i neutralizacją formuł arkusza.
 
 ---
 

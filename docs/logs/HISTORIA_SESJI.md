@@ -937,3 +937,39 @@ ACL i bezpieczny podgląd infrastruktury.
 
 **Weryfikacja:** dodano test wersji `system_admin` oraz deklaracji uprawnienia
 `database.view` w install SQL i migracji.
+
+### Sesja: 2026-06-17 - Manager SQL, podgląd danych tabel
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - narzędzia systemowe panelu,
+ACL i bezpieczny podgląd danych.
+
+**Wykonano:**
+- rozszerzono `DatabaseExplorerRepository` o bezpieczny odczyt rekordów wybranej
+  tabeli z walidowanego identyfikatora,
+- dodano dokładne liczenie rekordów dla wybranej tabeli,
+- `/admin/database` pokazuje panel `Dane: tabela` z rekordami w trybie read-only,
+- limit podglądu jest ograniczony do 10-50 wierszy na stronę,
+- dodano prostą paginację `Poprzednia strona` / `Następna strona`,
+- komórki danych są normalizowane i skracane, aby nie rozsadzać układu panelu,
+- podniesiono `system_admin` do wersji `1.6.0`.
+
+**Weryfikacja:** zaktualizowano test manifestu `system_admin` do wersji `1.6.0`.
+
+### Sesja: 2026-06-17 - Manager SQL, eksport CSV tabeli
+
+**Faza i krok specyfikacji:** Krok 5B oraz Krok 6 - narzędzia systemowe panelu,
+read-only eksport danych i audyt operacji.
+
+**Wykonano:**
+- dodano `DatabaseTableCsvExporter` z BOM UTF-8, separatorem `;` i neutralizacją
+  wartości zaczynających się od `=`, `+`, `-` albo `@`,
+- rozszerzono `DatabaseExplorerRepository` o eksport danych tabeli do 10 000 rekordów,
+- dodano trasę `/admin/database/export`,
+- widok danych tabeli pokazuje akcję `Eksportuj CSV`,
+- eksport wymaga ACL `database.view`, waliduje nazwę tabeli przez listę z
+  `information_schema` i zapisuje audit event `database_export`,
+- nazwa pliku eksportu jest sanitizowana,
+- podniesiono `system_admin` do wersji `1.7.0`.
+
+**Weryfikacja:** dodano test neutralizacji formuł w eksporcie tabeli do CSV oraz
+zaktualizowano test manifestu `system_admin` do wersji `1.7.0`.

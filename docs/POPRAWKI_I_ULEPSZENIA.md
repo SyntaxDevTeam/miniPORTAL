@@ -42,6 +42,12 @@ listę tabel, rozmiary, przybliżoną liczbę wierszy oraz strukturę kolumn. Op
 zapisu, SQL, import/export i akcje destrukcyjne wymagają kolejnych etapów z ACL,
 CSRF, potwierdzeniami i audytem.
 
+Etap 2 gotowy: widok wybranej tabeli pokazuje również dane rekordów w trybie
+read-only z limitem 10-50 wierszy na stronę i prostą paginacją.
+
+Etap 3 gotowy: wybraną tabelę można wyeksportować do CSV z limitem 10 000
+rekordów, audytem operacji i neutralizacją formuł arkusza.
+
 ### Translator pluginów
 Autorska biblioteka MessageHandler używana w pluginach SyntaxDevTeam korzysta z plików YAML z wiadomościami na zasadzie kategoria, klucz, treść. Chciałbym mieć moduł który pozwoli na załadowanie pliku .yml z komputera przez formularz (lub przeciągnij/upuść) i otworzy przedzielony na pół ekran z treściką oryginalna i formlarzem dla utworzenia nowego pliku w którym wpisuję własną wersję tłumaczenia i zapis z weryfikacją parsera YAML (możliwie pomocne użycie biblioteki `/core/libs/Spyc.php`)
 
