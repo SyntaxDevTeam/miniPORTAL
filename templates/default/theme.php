@@ -1297,7 +1297,7 @@ final class Theme implements ThemeInterface
                 echo ' aria-current="page"';
             }
             if ($mobile) {
-                echo ' data-bs-dismiss="offcanvas"';
+                echo ' data-admin-mobile-nav-link';
             }
             echo '>';
             echo '<span class="admin-nav-icon" aria-hidden="true">' . $this->escape($item['icon']) . '</span>';
