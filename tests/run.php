@@ -191,13 +191,19 @@ $test('Plugin translator rejects empty YAML', static function () use ($assert): 
 
 $test('Minecraft formatting preview parses legacy and MiniMessage styles', static function () use ($assert): void {
     $preview = new MinecraftFormatPreview();
-    $segments = $preview->segments('&aOK <bold>ważne <#ff00aa>RGB');
+    $result = $preview->preview('&aOK <bold>ważne</bold> <#ff00aa>RGB</#ff00aa> <player>');
+    $segments = $result['segments'];
 
     $assert($segments !== []);
     $assert($segments[0]['color'] === '#55FF55');
     $assert($segments[1]['bold'] || $segments[2]['bold']);
-    $assert($segments[count($segments) - 1]['color'] === '#FF00AA');
+    $assert($segments[count($segments) - 2]['color'] === '#FF00AA');
+    $assert($result['issues'] === []);
+    $assert($result['variables'] === ['<player>']);
     $assert($preview->segments('§cBłąd')[0]['color'] === '#FF5555');
+    $broken = $preview->preview('<bold>Brak zamknięcia <#12zzzz> <player>');
+    $assert($broken['issues'] !== []);
+    $assert(in_array('<player>', $broken['variables'], true));
 });
 
 $test('Database SQL console accepts only one read-only statement', static function () use ($assert): void {
@@ -670,7 +676,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.2.0');
+    $assert($translator->version === '1.2.1');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');

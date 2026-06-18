@@ -108,6 +108,13 @@ również dla kont oczekujących, które mogą tłumaczyć publicznie bez dostę
 panelu admina. Liczniki używają określenia `linijki tekstu`, a przycisk `Sprawdź
 formatowanie` pokazuje podgląd Minecraft legacy, RGB i MiniMessage bez zapisu.
 
+Etap 4 gotowy: dodano widok `/translations/mine`, w którym zalogowany użytkownik
+wraca do własnych szkiców, prac gotowych do sprawdzenia i odrzuconych zgłoszeń.
+Kontynuacja edycji aktualizuje istniejący rekord zamiast tworzyć kolejne kopie, a
+zatwierdzone tłumaczenia są zablokowane przed zmianą. Podgląd formatowania renderuje
+wynik do HTML, pokazuje zmienne typu `<player>` jako zwykłe placeholdery i zgłasza
+błędy MiniMessage, np. brak zamknięcia tagu lub błędny kolor HEX.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

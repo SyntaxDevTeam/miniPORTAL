@@ -1294,6 +1294,28 @@ rozszerzeń po dodaniu translatora i modułu Team.
 `/index.php?route=%2Fadmin%2Fplugin-translator`, który zwraca poprawny widok 401
 dla niezalogowanego użytkownika zamiast HTTP 500.
 
+### Sesja: 2026-06-18 - Translator pluginów, powrót do szkiców i walidacja podglądu
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - domknięcie publicznego
+workflow edycji tłumaczeń.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.2.1`,
+- dodano publiczny widok `/translations/mine` z listą własnych szkiców, zgłoszeń
+  gotowych do sprawdzenia, odrzuconych i zatwierdzonych prac,
+- dodano `/translations/edit`, który pozwala wrócić do własnego szkicu albo
+  odrzuconego zgłoszenia,
+- zapis istniejącej pracy aktualizuje rekord po `submission_id` i sprawdza
+  właściciela oraz edytowalny status,
+- podgląd `Sprawdź formatowanie` renderuje realny HTML z kolorami i stylami
+  Minecraft legacy, RGB oraz MiniMessage,
+- walidator podglądu pokazuje zmienne typu `<player>` jako placeholdery i zgłasza
+  błędy składni formatowania, m.in. brak zamknięcia tagu oraz niepoprawny HEX.
+
+**Weryfikacja:** zaktualizowano test `MinecraftFormatPreview` o placeholder
+`<player>` i błędy MiniMessage; uruchomiono lint zmienionych plików PHP oraz
+`php tests/run.php`.
+
 ### Sesja: 2026-06-19 - Poprawka publicznego menu mobilnego
 
 **Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja wspólnej

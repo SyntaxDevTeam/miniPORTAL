@@ -277,10 +277,15 @@ automatycznie po zgodnym adresie e-mail.
 - wprowadzanie tłumaczeń i zapis wymagają zalogowanego użytkownika; próba zapisu
   bez sesji odkłada źródło, język i dotychczasowe pola tłumaczenia w sesji oraz
   kieruje do OAuth z powrotem przez `/translations/resume`,
+- publiczny widok `/translations/mine` pokazuje własne prace użytkownika i pozwala
+  wznowić edycję szkiców, zgłoszeń gotowych do sprawdzenia oraz prac odrzuconych;
+  zatwierdzone tłumaczenia są tylko informacją o stanie,
 - konto lokalne w statusie `pending` może pracować nad publicznymi tłumaczeniami,
   ale nie dostaje uprawnień panelu administracyjnego,
-- akcja `Sprawdź formatowanie` renderuje bez zapisu podgląd wynikowy dla kodów
-  Minecraft legacy, RGB i MiniMessage,
+- akcja `Sprawdź formatowanie` renderuje bez zapisu podgląd HTML dla kodów
+  Minecraft legacy, RGB i MiniMessage, rozpoznaje zmienne tekstowe typu `<player>`
+  i zgłasza błędy składni tagów formatujących, np. brak zamknięcia lub niepoprawny
+  kolor HEX,
 - panel administracyjny `/admin/plugin-translator` prezentuje listę prac, procent
   ukończenia, oznaczenie gotowości, podgląd różnic oraz akcje akceptacji lub
   odrzucenia,

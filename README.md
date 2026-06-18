@@ -42,10 +42,13 @@ pluginy SyntaxDevTeam. Publiczna strona `/translations` pozwala użytkownikom wg
 tłumaczenie w edytorze z wyrównanym oryginałem i zapisać je domyślnie jako szkic.
 Wprowadzanie i zapis wymagają logowania; konto oczekujące może pracować nad
 tłumaczeniami publicznymi bez dostępu do panelu admina, a rozpoczęta praca jest
-wznawiana po OAuth. Edytor ma podgląd formatowania Minecraft legacy, RGB i
-MiniMessage. Panel `/admin/plugin-translator` pokazuje zgłoszenia, postęp, statusy
-oraz akcje zatwierdzenia, odrzucenia i pobrania zweryfikowanego YAML. Jednorazowe
-narzędzie eksportu administratora pozostało pod `/admin/plugin-translator/tool`.
+wznawiana po OAuth. Widok `/translations/mine` pozwala wrócić do własnych szkiców,
+zgłoszeń gotowych do sprawdzenia i odrzuconych prac. Edytor ma podgląd HTML
+formatowania Minecraft legacy, RGB i MiniMessage, pokazuje zmienne typu `<player>`
+oraz błędy składni formatowania. Panel `/admin/plugin-translator` pokazuje
+zgłoszenia, postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania
+zweryfikowanego YAML. Jednorazowe narzędzie eksportu administratora pozostało pod
+`/admin/plugin-translator/tool`.
 `team` jest osobnym modułem prezentacji zespołu. Publiczne `/team` pokazuje
 widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu
 powiązanego z lokalnym kontem użytkownika i jego avatarem. Panel `/admin/team`

@@ -65,6 +65,35 @@ final class PluginTranslationRepository
     }
 
     /**
+     * @return list<PluginTranslationSubmission>
+     */
+    public function forUser(int $userId): array
+    {
+        $statement = $this->database->query(
+            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
+            . 'WHERE user_id = :user_id ORDER BY updated_at DESC, id DESC',
+            [':user_id' => $userId]
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać prac użytkownika.');
+        }
+
+        return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function findForUser(int $id, int $userId): ?PluginTranslationSubmission
+    {
+        $statement = $this->database->query(
+            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
+            . 'WHERE id = :id AND user_id = :user_id LIMIT 1',
+            [':id' => $id, ':user_id' => $userId]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    /**
      * @param array<string, string> $translations
      */
     public function create(
@@ -96,6 +125,45 @@ final class PluginTranslationRepository
             'progress_percent' => $this->progress($totalItems, $translatedItems),
             'status' => $status,
         ]);
+    }
+
+    /**
+     * @param array<string, string> $translations
+     */
+    public function updateUserSubmission(
+        int $id,
+        int $userId,
+        string $authorName,
+        string $authorEmail,
+        string $title,
+        string $targetLanguage,
+        array $translations,
+        string $outputYaml,
+        int $totalItems,
+        int $translatedItems,
+        string $status,
+    ): bool {
+        $statement = $this->database->update('plugin_translation_submissions', [
+            'author_name' => $authorName,
+            'author_email' => $authorEmail,
+            'title' => $title,
+            'target_language' => $targetLanguage,
+            'translations_json' => json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'output_yaml' => $outputYaml,
+            'total_items' => $totalItems,
+            'translated_items' => $translatedItems,
+            'progress_percent' => $this->progress($totalItems, $translatedItems),
+            'status' => $status,
+            'reviewer_id' => null,
+            'review_note' => '',
+            'reviewed_at' => null,
+        ], [
+            'id' => $id,
+            'user_id' => $userId,
+            'status' => ['draft', 'ready_for_review', 'rejected'],
+        ]);
+
+        return $statement !== null;
     }
 
     public function review(int $id, int $reviewerId, string $status, string $note): bool

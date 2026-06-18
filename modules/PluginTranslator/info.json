@@ -1,7 +1,7 @@
 {
   "id": "plugin_translator",
   "name": "Translator pluginów",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

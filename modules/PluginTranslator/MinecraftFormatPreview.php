@@ -49,9 +49,24 @@ final class MinecraftFormatPreview
      */
     public function segments(string $text): array
     {
+        return $this->preview($text)['segments'];
+    }
+
+    /**
+     * @return array{
+     *     segments: list<array{text: string, color: string, bold: bool, italic: bool, underline: bool, strikethrough: bool}>,
+     *     issues: list<string>,
+     *     variables: list<string>
+     * }
+     */
+    public function preview(string $text): array
+    {
         $text = str_replace('§', '&', $text);
         $segments = [];
+        $issues = [];
+        $variables = [];
         $style = $this->emptyStyle();
+        $miniStack = [];
         $buffer = '';
         $length = strlen($text);
 
@@ -73,18 +88,45 @@ final class MinecraftFormatPreview
                     $i++;
                     continue;
                 }
+
+                if ($code === '#' || $code === 'x') {
+                    $issues[] = 'Niepoprawny albo niepełny kod koloru RGB legacy przy znaku ' . ($i + 1) . '.';
+                }
             }
 
             if ($char === '<') {
                 $end = strpos($text, '>', $i);
                 if ($end !== false) {
-                    $tag = strtolower(substr($text, $i + 1, $end - $i - 1));
-                    $newStyle = $this->applyMiniMessage($style, $tag);
-                    if ($newStyle !== null) {
+                    $rawTag = substr($text, $i + 1, $end - $i - 1);
+                    $tag = strtolower($rawTag);
+                    $mini = $this->miniMessageStyle($style, $tag);
+                    if ($mini !== null) {
                         $this->push($segments, $buffer, $style);
-                        $style = $newStyle;
+                        if ($mini['mode'] === 'open') {
+                            $miniStack[] = ['tag' => $mini['tag'], 'style' => $style];
+                            $style = $mini['style'];
+                        } elseif ($mini['mode'] === 'close') {
+                            $last = array_pop($miniStack);
+                            if (!is_array($last) || $last['tag'] !== $mini['tag']) {
+                                $issues[] = 'Nieprawidłowe zamknięcie tagu </' . $mini['tag'] . '> przy znaku ' . ($i + 1) . '.';
+                                if (is_array($last)) {
+                                    $miniStack[] = $last;
+                                }
+                            } else {
+                                $style = $last['style'];
+                            }
+                        } else {
+                            $miniStack = [];
+                            $style = $this->emptyStyle();
+                        }
                         $i = $end;
                         continue;
+                    }
+
+                    if (preg_match('/^#[0-9a-fA-F]*$/', $rawTag) === 1) {
+                        $issues[] = 'Niepoprawny kolor MiniMessage <' . $rawTag . '> przy znaku ' . ($i + 1) . '.';
+                    } elseif ($this->looksLikeVariable($rawTag)) {
+                        $variables[] = '<' . $rawTag . '>';
                     }
                 }
             }
@@ -93,8 +135,17 @@ final class MinecraftFormatPreview
         }
 
         $this->push($segments, $buffer, $style);
+        foreach (array_reverse($miniStack) as $entry) {
+            if (is_array($entry) && isset($entry['tag'])) {
+                $issues[] = 'Brak zamknięcia tagu <' . $entry['tag'] . '>.';
+            }
+        }
 
-        return $segments !== [] ? $segments : [['text' => '', ...$this->emptyStyle()]];
+        return [
+            'segments' => $segments !== [] ? $segments : [['text' => '', ...$this->emptyStyle()]],
+            'issues' => array_values(array_unique($issues)),
+            'variables' => array_values(array_unique($variables)),
+        ];
     }
 
     /**
@@ -156,34 +207,89 @@ final class MinecraftFormatPreview
      */
     private function applyMiniMessage(array $style, string $tag): ?array
     {
-        $tag = ltrim($tag, '/');
-        if ($tag === 'reset') {
+        $mini = $this->miniMessageStyle($style, $tag);
+        if ($mini === null) {
+            return null;
+        }
+        if ($mini['mode'] === 'reset') {
             return $this->emptyStyle();
         }
+
+        return $mini['style'];
+    }
+
+    /**
+     * @param array{color: string, bold: bool, italic: bool, underline: bool, strikethrough: bool} $style
+     * @return array{mode: 'open'|'close'|'reset', tag: string, style: array{color: string, bold: bool, italic: bool, underline: bool, strikethrough: bool}}|null
+     */
+    private function miniMessageStyle(array $style, string $tag): ?array
+    {
+        $closing = str_starts_with($tag, '/');
+        $tag = ltrim($tag, '/');
+        $canonical = $this->canonicalMiniTag($tag);
+        if ($canonical === null) {
+            return null;
+        }
+        if ($closing) {
+            return ['mode' => 'close', 'tag' => $canonical, 'style' => $style];
+        }
+        if ($tag === 'reset') {
+            return ['mode' => 'reset', 'tag' => 'reset', 'style' => $this->emptyStyle()];
+        }
         if (preg_match('/^#[0-9a-f]{6}$/', $tag) === 1) {
-            return $this->colorStyle($style, strtoupper($tag));
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $this->colorStyle($style, strtoupper($tag))];
         }
         if (isset(self::MINI_COLORS[$tag])) {
-            return $this->colorStyle($style, self::MINI_COLORS[$tag]);
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $this->colorStyle($style, self::MINI_COLORS[$tag])];
         }
         if (in_array($tag, ['bold', 'b'], true)) {
             $style['bold'] = true;
-            return $style;
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $style];
         }
         if (in_array($tag, ['italic', 'i'], true)) {
             $style['italic'] = true;
-            return $style;
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $style];
         }
         if (in_array($tag, ['underlined', 'underline', 'u'], true)) {
             $style['underline'] = true;
-            return $style;
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $style];
         }
         if (in_array($tag, ['strikethrough', 'st'], true)) {
             $style['strikethrough'] = true;
-            return $style;
+            return ['mode' => 'open', 'tag' => $canonical, 'style' => $style];
         }
 
         return null;
+    }
+
+    private function canonicalMiniTag(string $tag): ?string
+    {
+        if ($tag === 'reset') {
+            return 'reset';
+        }
+        if (preg_match('/^#[0-9a-f]{6}$/', $tag) === 1) {
+            return $tag;
+        }
+        if (isset(self::MINI_COLORS[$tag])) {
+            return $tag;
+        }
+
+        return [
+            'b' => 'bold',
+            'bold' => 'bold',
+            'i' => 'italic',
+            'italic' => 'italic',
+            'u' => 'underlined',
+            'underline' => 'underlined',
+            'underlined' => 'underlined',
+            'st' => 'strikethrough',
+            'strikethrough' => 'strikethrough',
+        ][$tag] ?? null;
+    }
+
+    private function looksLikeVariable(string $tag): bool
+    {
+        return preg_match('/^\/?[a-zA-Z][a-zA-Z0-9_.:-]*$/', $tag) === 1;
     }
 
     /**
