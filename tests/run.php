@@ -28,6 +28,7 @@ use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
@@ -58,7 +59,7 @@ session_start();
 $test('Request normalizes route and input', static function () use ($assert): void {
     $request = Request::fromArrays(
         ['route' => '//admin///pages/', 'id' => '12'],
-        ['confirmed' => '1', 'roles' => ['editor', 'user', 'editor']],
+        ['confirmed' => '1', 'roles' => ['editor', 'user', 'editor'], 'values' => ['title' => 'Demo']],
         ['REQUEST_METHOD' => 'post'],
         ['archive' => [
             'name' => '../Module.tar.gz',
@@ -74,6 +75,7 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $assert($request->queryInt('id') === 12);
     $assert($request->postBool('confirmed'));
     $assert($request->postStringList('roles') === ['editor', 'user']);
+    $assert($request->postArray('values') === ['title' => 'Demo']);
     $file = $request->file('archive');
     $assert($file !== null && $file['name'] === 'Module.tar.gz');
     $assert($file['error'] === UPLOAD_ERR_OK && $file['size'] === 123);
@@ -140,6 +142,45 @@ $test('Database table SQL export creates portable insert dump', static function 
     $assert(str_contains($sql, 'INSERT INTO `demo_table` (`id`, `title`) VALUES'));
     $assert(str_contains($sql, "('1', 'O''Hara')"));
     $assert(str_contains($sql, "('2', NULL)"));
+});
+
+$test('Plugin translator parses and exports translated YAML', static function () use ($assert): void {
+    $translator = new PluginTranslatorYaml();
+    $source = <<<'YAML'
+general:
+  enabled: Plugin jest włączony.
+  disabled: Plugin jest wyłączony.
+commands:
+  reload:
+    success: Przeładowano konfigurację.
+YAML;
+
+    $parsed = $translator->parse($source);
+    $items = $translator->flatten($parsed);
+    $assert(count($items) === 3);
+    $assert($items[0]['label'] === 'general.enabled');
+
+    $translated = $translator->translated($parsed, [
+        $items[0]['token'] => 'Plugin is enabled.',
+        $items[2]['token'] => 'Configuration reloaded.',
+    ]);
+    $dump = $translator->dump($translated);
+    $roundTrip = $translator->parse($dump);
+
+    $assert($roundTrip['general']['enabled'] === 'Plugin is enabled.');
+    $assert($roundTrip['general']['disabled'] === 'Plugin jest wyłączony.');
+    $assert($roundTrip['commands']['reload']['success'] === 'Configuration reloaded.');
+});
+
+$test('Plugin translator rejects empty YAML', static function () use ($assert): void {
+    try {
+        (new PluginTranslatorYaml())->parse('   ');
+    } catch (InvalidArgumentException) {
+        $assert(true);
+        return;
+    }
+
+    throw new RuntimeException('Empty YAML should be rejected.');
 });
 
 $test('Database SQL console accepts only one read-only statement', static function () use ($assert): void {
@@ -538,7 +579,7 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, 'index.php?route=/admin/profile/edit'));
     $assert(str_contains($html, 'index.php?route=/admin/profile/avatar'));
     $assert(str_contains($html, 'index.php?route=/admin/profile/security'));
-    $assert(str_contains($html, 'index.php?route=/admin/identities'));
+    $assert(str_contains($html, 'index.php?route=/admin/profile/identities'));
     $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
     $assert(str_contains($html, '>Wyloguj</button>'));
     $assert(!str_contains($html, 'admin-sidebar-footer'));
@@ -588,11 +629,19 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
     $assert($database->id === 'database_manager');
-    $assert($database->version === '1.3.0');
+    $assert($database->version === '1.4.0');
     $assert($database->type === 'extension');
     $assert($database->installFile === 'install.sql');
     $assert($database->uninstallFile === 'uninstall.sql');
     $assert($database->requiredModules === ['core_auth']);
+
+    $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
+    $assert($translator->id === 'plugin_translator');
+    $assert($translator->version === '1.0.0');
+    $assert($translator->type === 'extension');
+    $assert($translator->installFile === 'install.sql');
+    $assert($translator->uninstallFile === 'uninstall.sql');
+    $assert($translator->requiredModules === ['core_auth']);
 
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
     $assert($learning->id === 'learning_module');
@@ -622,6 +671,9 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($databaseInstallSql, 'fk_database_manager_history_user'));
     $assert(str_contains($databaseInstallSql, "'database.manage'"));
     $assert(str_contains($databaseMigrationSql, "'database.manage'"));
+
+    $translatorInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/PluginTranslator/install.sql');
+    $assert(str_contains($translatorInstallSql, "'plugin_translator.use'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {

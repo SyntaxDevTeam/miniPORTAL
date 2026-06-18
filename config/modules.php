@@ -15,6 +15,8 @@ use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
@@ -102,6 +104,18 @@ return [
             $services['audit'],
             new DatabaseExplorerRepository($services['database']),
             new DatabaseManagerHistoryRepository($services['database'])
+        ),
+    ],
+    [
+        'directory' => 'PluginTranslator',
+        'factory' => static fn (array $services): PluginTranslatorModule => new PluginTranslatorModule(
+            $services['theme'],
+            $services['admin_menu'],
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit'],
+            new PluginTranslatorYaml()
         ),
     ],
     [

@@ -255,6 +255,41 @@ automatycznie po zgodnym adresie e-mail.
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   kontraktu motywu metodami specyficznymi dla dokumentacji.
 
+#### 4.4 Moduł narzędziowy `plugin_translator`
+- niezależne rozszerzenie panelu do tłumaczenia plików YAML używanych przez pluginy
+  SyntaxDevTeam,
+- panel `/admin/plugin-translator` przyjmuje upload `.yml/.yaml` albo treść YAML
+  wklejoną w formularzu; upload przechodzi wyłącznie przez `Request::file()`,
+- parser i eksporter korzystają z lokalnej biblioteki `core/libs/Spyc.php`,
+- struktura YAML jest spłaszczana do pól tłumaczenia w modelu
+  `kategoria -> klucz -> treść`, z obsługą głębszych zagnieżdżeń przez ścieżki,
+- eksport `/admin/plugin-translator/export` składa nowy plik `translation.yml`,
+  waliduje wygenerowany YAML przed wysłaniem i nie zapisuje treści tłumaczenia
+  na dysku serwera,
+- moduł wymaga ACL `plugin_translator.use`, CSRF przy otwieraniu edytora i eksporcie
+  oraz zapisuje zdarzenia `plugin_translation_open` i `plugin_translation_export`
+  do audit logu,
+- moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
+  `ThemeInterface` metodami specyficznymi dla translatora.
+
+Docelowy etap publiczny:
+- moduł ma udostępniać publiczny widok tłumaczenia od strony serwisu, a nie wyłącznie
+  narzędzie w panelu administracyjnym,
+- użytkownik powinien móc wybrać lub otworzyć źródłowy plik wiadomości, uzupełnić
+  tłumaczenie i zapisać pracę jako zgłoszenie,
+- zgłoszenia tłumaczeń wymagają trwałego modelu danych z informacją o autorze,
+  źródle YAML, wartościach tłumaczenia, postępie i statusie,
+- statusy robocze powinny co najmniej rozróżniać `draft`, `ready_for_review`,
+  `approved` i `rejected`,
+- panel administracyjny modułu ma prezentować listę prac, procent ukończenia,
+  oznaczenie „gotowe do zatwierdzenia”, podgląd różnic oraz akcje akceptacji lub
+  odrzucenia,
+- zatwierdzone tłumaczenie powinno być możliwe do pobrania jako zweryfikowany YAML
+  i powinno zapisywać audit log operacji akceptacji,
+- publiczne formularze zapisu muszą używać `Request`, CSRF dla zalogowanych sesji
+  albo równoważnej ochrony formularza publicznego, walidacji rozmiaru i parsera
+  `Spyc`; panel administracyjny pozostaje chroniony ACL.
+
 ### Faza 5: Manager modułów (Lego System)
 
 1. Manager skanuje katalog /modules/.
@@ -343,6 +378,10 @@ Stan managera:
 - `/admin/database/import` pozwala zaimportować plik `.sql` albo treść SQL z limitem
   2 MB; wymaga CSRF, ACL `database.manage`, potwierdzenia `IMPORT`, audit logu i
   historii modułu.
+- `/admin/database/row/create`, `/admin/database/row/edit` i
+  `/admin/database/row/delete` obsługują dodawanie, edycję i usuwanie rekordów;
+  edycja oraz usuwanie wymagają tabeli z dokładnie jednym kluczem głównym, CSRF,
+  ACL `database.manage`, audit logu i historii modułu.
 
 ---
 
@@ -445,6 +484,8 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 9. `core_pages`: edytor sekcji strony głównej i kontrolowany WYSIWYG.
 10. `wikipedia`: projektowa baza wiedzy z projektami i stronami dokumentacji.
 11. `articles`: przykład niezależnego modułu.
+12. `plugin_translator`: narzędzie do walidacji, tłumaczenia, zgłaszania i
+    administracyjnego zatwierdzania plików YAML pluginów.
 
 Stan Kroku 5:
 

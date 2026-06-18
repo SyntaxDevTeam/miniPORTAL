@@ -76,8 +76,28 @@ Etap 8 gotowy: dodano kontrolowany import SQL przez `/admin/database/import`.
 Import przyjmuje plik `.sql` albo treść formularza, ma limit 2 MB, wymaga ACL
 `database.manage`, CSRF, potwierdzenia `IMPORT`, audit logu i wpisu w historii modułu.
 
+Etap 9 gotowy: dodano CRUD rekordów tabel. Manager SQL pozwala dodawać rekordy,
+a dla tabel z dokładnie jednym kluczem głównym również edytować i usuwać wiersze.
+Formularze są budowane z metadanych kolumn, korzystają z `Request`, CSRF, ACL
+`database.manage`, audit logu i historii modułu.
+
 ### Translator pluginów
 Autorska biblioteka MessageHandler używana w pluginach SyntaxDevTeam korzysta z plików YAML z wiadomościami na zasadzie kategoria, klucz, treść. Chciałbym mieć moduł który pozwoli na załadowanie pliku .yml z komputera przez formularz (lub przeciągnij/upuść) i otworzy przedzielony na pół ekran z treściką oryginalna i formlarzem dla utworzenia nowego pliku w którym wpisuję własną wersję tłumaczenia i zapis z weryfikacją parsera YAML (możliwie pomocne użycie biblioteki `/core/libs/Spyc.php`)
+
+Etap 1 gotowy: dodano osobny moduł rozszerzenia `plugin_translator`. Panel
+`/admin/plugin-translator` pozwala wkleić albo wgrać `.yml/.yaml`, waliduje YAML
+przez `Spyc`, pokazuje oryginalne wiadomości oraz generuje formularz nowego
+tłumaczenia. Eksport `/admin/plugin-translator/export` buduje `translation.yml`,
+waliduje wynik przed pobraniem, wymaga CSRF i ACL `plugin_translator.use` oraz
+zapisuje operacje do audit logu.
+
+Etap 2 do wykonania: translator nie powinien pozostać narzędziem wyłącznie
+administracyjnym. Publiczna część strony ma umożliwiać użytkownikom rozpoczęcie i
+zapisanie pracy nad tłumaczeniem, oznaczenie jej jako ukończonej/gotowej do
+sprawdzenia oraz ewentualny powrót do wersji roboczej. Część administracyjna ma
+pokazywać podgląd prac, postęp, statusy, oznaczenia gotowych tłumaczeń oraz akcje
+zatwierdzenia albo odrzucenia. Wymaga to trwałych tabel modułu dla zgłoszeń,
+statusów i autorów tłumaczeń.
 
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).

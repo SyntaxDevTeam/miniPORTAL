@@ -35,7 +35,7 @@ final class DatabaseManagerModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.4.0';
     }
 
     public function dependencies(): array
@@ -85,6 +85,31 @@ final class DatabaseManagerModule implements ModuleInterface
             'database.manage',
             fn () => $this->renderDatabaseImport()
         ));
+        $router->get('/admin/database/row/create', fn (Request $request) => $this->guard(
+            $request,
+            'database.manage',
+            fn () => $this->renderRowCreate($request)
+        ));
+        $router->post('/admin/database/row/create', fn (Request $request) => $this->guard(
+            $request,
+            'database.manage',
+            fn () => $this->createRow($request)
+        ));
+        $router->get('/admin/database/row/edit', fn (Request $request) => $this->guard(
+            $request,
+            'database.manage',
+            fn () => $this->renderRowEdit($request)
+        ));
+        $router->post('/admin/database/row/edit', fn (Request $request) => $this->guard(
+            $request,
+            'database.manage',
+            fn () => $this->updateRow($request)
+        ));
+        $router->post('/admin/database/row/delete', fn (Request $request) => $this->guard(
+            $request,
+            'database.manage',
+            fn () => $this->deleteRow($request)
+        ));
         $router->post('/admin/database/table-operation', fn (Request $request) => $this->guard(
             $request,
             'database.manage',
@@ -123,7 +148,7 @@ final class DatabaseManagerModule implements ModuleInterface
 
         $tables = $this->databaseExplorer->tables();
         $tableNames = array_column($tables, 'name');
-        $selectedTable = $request->queryString('table');
+        $selectedTable = $request->queryString('table', $request->postString('table'));
         if (!in_array($selectedTable, $tableNames, true)) {
             $selectedTable = $tableNames[0] ?? '';
         }
@@ -131,8 +156,9 @@ final class DatabaseManagerModule implements ModuleInterface
         $perPage = max(10, min(50, $request->queryInt('per_page', 25) ?? 25));
         $tableData = $selectedTable !== ''
             ? $this->databaseExplorer->data($selectedTable, $page, $perPage)
-            : ['headers' => [], 'rows' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'pages' => 1];
+            : ['headers' => [], 'rows' => [], 'records' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'pages' => 1];
         $canManage = $user !== null && $this->hasPermission($user->permissions, 'database.manage');
+        $primaryKey = $selectedTable !== '' ? $this->databaseExplorer->primaryKey($selectedTable) : null;
         $actions = [[
             'label' => 'Konsola SQL',
             'href' => 'index.php?route=/admin/database/query',
@@ -155,6 +181,13 @@ final class DatabaseManagerModule implements ModuleInterface
             ];
         }
         if ($canManage) {
+            if ($selectedTable !== '') {
+                $actions[] = [
+                    'label' => 'Dodaj rekord',
+                    'href' => 'index.php?route=/admin/database/row/create&table=' . rawurlencode($selectedTable),
+                    'variant' => 'primary',
+                ];
+            }
             $actions[] = [
                 'label' => 'Import SQL',
                 'href' => 'index.php?route=/admin/database/import',
@@ -245,7 +278,40 @@ final class DatabaseManagerModule implements ModuleInterface
         } elseif ($tableData['headers'] === []) {
             $this->theme->render_alert('Tabela nie ma kolumn do pokazania.', 'info');
         } else {
-            $this->theme->render_admin_table($tableData['headers'], $tableData['rows']);
+            if ($canManage && $primaryKey !== null) {
+                $headers = $tableData['headers'];
+                $this->theme->render_admin_action_table(
+                    $headers,
+                    array_map(
+                        fn (array $row, array $record): array => [
+                            'cells' => $row,
+                            'actions' => [[
+                                'label' => 'Edytuj',
+                                'href' => 'index.php?route=/admin/database/row/edit&table=' . rawurlencode($selectedTable)
+                                    . '&id=' . rawurlencode((string) ($record[$primaryKey] ?? '')),
+                                'variant' => 'outline-primary',
+                            ], [
+                                'label' => 'Usuń',
+                                'action' => 'index.php?route=/admin/database/row/delete',
+                                'fields' => [
+                                    'table' => $selectedTable,
+                                    'id' => (string) ($record[$primaryKey] ?? ''),
+                                ],
+                                'variant' => 'outline-danger',
+                                'confirm' => 'Usunąć rekord z tabeli ' . $selectedTable . '?',
+                            ]],
+                        ],
+                        $tableData['rows'],
+                        $tableData['records']
+                    ),
+                    $this->security->csrfToken()
+                );
+            } else {
+                $this->theme->render_admin_table($tableData['headers'], $tableData['rows']);
+                if ($canManage && $primaryKey === null) {
+                    $this->theme->render_alert('Edycja i usuwanie wierszy wymagają pojedynczego klucza głównego tabeli.', 'warning');
+                }
+            }
             $actions = [];
             if ($tableData['page'] > 1) {
                 $actions[] = [
@@ -561,6 +627,185 @@ final class DatabaseManagerModule implements ModuleInterface
         }
     }
 
+    private function renderRowCreate(Request $request, string $message = '', string $variant = 'info'): void
+    {
+        $table = $request->queryString('table', $request->postString('table'));
+        if (!$this->canUseTable($table)) {
+            $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
+            return;
+        }
+
+        $this->startPage(
+            'Dodaj rekord',
+            '/admin/database',
+            'Dodawanie wiersza do tabeli ' . $table . '.',
+            [[
+                'label' => 'Wróć do tabeli',
+                'href' => 'index.php?route=/admin/database&table=' . rawurlencode($table),
+                'variant' => 'outline-light',
+            ]]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+
+        $columns = $this->databaseExplorer?->columns($table) ?? [];
+        $this->theme->start_admin_panel('Nowy rekord', 'Kolumny AUTO_INCREMENT są pomijane');
+        $this->theme->render_form(
+            'index.php?route=/admin/database/row/create',
+            $this->rowFields($table, $columns, [], null, true),
+            'Dodaj rekord',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    private function createRow(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $table = $request->postString('table');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'database_row_create', 'invalid_csrf', $table, $actor?->id);
+            $this->renderRowCreate($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        if (!$this->canUseTable($table)) {
+            $this->audit->record($request, 'database_row_create', 'invalid_table', $table, $actor?->id);
+            $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
+            return;
+        }
+
+        try {
+            $columns = $this->databaseExplorer?->columns($table) ?? [];
+            $affected = $this->databaseExplorer?->insertRow($table, $this->rowPayload($request, $columns, null, true)) ?? 0;
+            $this->audit->record($request, 'database_row_create', 'success', $table, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_create', 'success', $table, null, $affected, 'Dodano rekord.');
+            $this->renderDatabaseExplorer($request, 'Rekord został dodany do tabeli ' . $table . '.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'database_row_create', 'failed', $table, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_create', 'failed', $table, null, null, $exception->getMessage());
+            $this->renderRowCreate($request, $exception->getMessage(), 'danger');
+        }
+    }
+
+    private function renderRowEdit(Request $request, string $message = '', string $variant = 'info'): void
+    {
+        $table = $request->queryString('table', $request->postString('table'));
+        $id = $request->queryString('id', $request->postString('id'));
+        if (!$this->canUseTable($table)) {
+            $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
+            return;
+        }
+        $primaryKey = $this->databaseExplorer?->primaryKey($table);
+        if ($primaryKey === null) {
+            $this->renderDatabaseExplorer($request, 'Edycja rekordu wymaga pojedynczego klucza głównego tabeli.', 'danger');
+            return;
+        }
+        $row = $this->databaseExplorer?->findRow($table, $primaryKey, $id);
+        if ($row === null) {
+            $this->renderDatabaseExplorer($request, 'Nie znaleziono rekordu do edycji.', 'danger');
+            return;
+        }
+
+        $this->startPage(
+            'Edytuj rekord',
+            '/admin/database',
+            'Edycja wiersza z tabeli ' . $table . '.',
+            [[
+                'label' => 'Wróć do tabeli',
+                'href' => 'index.php?route=/admin/database&table=' . rawurlencode($table),
+                'variant' => 'outline-light',
+            ]]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+
+        $columns = $this->databaseExplorer?->columns($table) ?? [];
+        $this->theme->start_admin_panel('Rekord #' . $id, 'Klucz główny: ' . $primaryKey);
+        $this->theme->render_form(
+            'index.php?route=/admin/database/row/edit',
+            $this->rowFields($table, $columns, $row, $primaryKey, false, $id),
+            'Zapisz rekord',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->endPage();
+    }
+
+    private function updateRow(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $table = $request->postString('table');
+        $id = $request->postString('id');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'database_row_update', 'invalid_csrf', $table, $actor?->id);
+            $this->renderRowEdit($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        if (!$this->canUseTable($table)) {
+            $this->audit->record($request, 'database_row_update', 'invalid_table', $table, $actor?->id);
+            $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
+            return;
+        }
+        $primaryKey = $this->databaseExplorer?->primaryKey($table);
+        if ($primaryKey === null) {
+            $this->renderDatabaseExplorer($request, 'Aktualizacja rekordu wymaga pojedynczego klucza głównego tabeli.', 'danger');
+            return;
+        }
+
+        try {
+            $columns = $this->databaseExplorer?->columns($table) ?? [];
+            $affected = $this->databaseExplorer?->updateRow(
+                $table,
+                $primaryKey,
+                $id,
+                $this->rowPayload($request, $columns, $primaryKey, false)
+            ) ?? 0;
+            $this->audit->record($request, 'database_row_update', 'success', $table . ':' . $id, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_update', 'success', $table, null, $affected, 'Zaktualizowano rekord.');
+            $this->renderDatabaseExplorer($request, 'Rekord został zapisany.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'database_row_update', 'failed', $table . ':' . $id, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_update', 'failed', $table, null, null, $exception->getMessage());
+            $this->renderRowEdit($request, $exception->getMessage(), 'danger');
+        }
+    }
+
+    private function deleteRow(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $table = $request->postString('table');
+        $id = $request->postString('id');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'database_row_delete', 'invalid_csrf', $table . ':' . $id, $actor?->id);
+            $this->renderDatabaseExplorer($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        if (!$this->canUseTable($table)) {
+            $this->audit->record($request, 'database_row_delete', 'invalid_table', $table, $actor?->id);
+            $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
+            return;
+        }
+        $primaryKey = $this->databaseExplorer?->primaryKey($table);
+        if ($primaryKey === null) {
+            $this->renderDatabaseExplorer($request, 'Usuwanie rekordu wymaga pojedynczego klucza głównego tabeli.', 'danger');
+            return;
+        }
+
+        try {
+            $affected = $this->databaseExplorer?->deleteRow($table, $primaryKey, $id) ?? 0;
+            $this->audit->record($request, 'database_row_delete', 'success', $table . ':' . $id, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_delete', 'success', $table, null, $affected, 'Usunięto rekord.');
+            $this->renderDatabaseExplorer($request, 'Rekord został usunięty.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'database_row_delete', 'failed', $table . ':' . $id, $actor?->id);
+            $this->recordHistory($actor?->id, 'row_delete', 'failed', $table, null, null, $exception->getMessage());
+            $this->renderDatabaseExplorer($request, $exception->getMessage(), 'danger');
+        }
+    }
+
     private function renderDatabaseHistory(Request $request): void
     {
         $this->startPage(
@@ -842,6 +1087,121 @@ final class DatabaseManagerModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+    }
+
+    /**
+     * @param list<array{name: string, type: string, nullable: string, key: string, default: string, extra: string}> $columns
+     * @param array<string, mixed> $row
+     * @return list<array<string, mixed>>
+     */
+    private function rowFields(
+        string $table,
+        array $columns,
+        array $row,
+        ?string $primaryKey,
+        bool $insert,
+        string $id = '',
+    ): array {
+        $fields = [[
+            'name' => 'table',
+            'label' => 'Tabela',
+            'type' => 'hidden',
+            'value' => $table,
+        ]];
+        if (!$insert) {
+            $fields[] = [
+                'name' => 'id',
+                'label' => 'Identyfikator',
+                'type' => 'hidden',
+                'value' => $id,
+            ];
+        }
+
+        foreach ($columns as $column) {
+            $name = $column['name'];
+            if ($insert && str_contains(strtolower($column['extra']), 'auto_increment')) {
+                continue;
+            }
+            if (!$insert && $name === $primaryKey) {
+                continue;
+            }
+
+            $value = $row[$name] ?? '';
+            $fields[] = [
+                'name' => 'values[' . $name . ']',
+                'label' => $name . ' (' . $column['type'] . ')',
+                'type' => $this->fieldType($column['type']),
+                'value' => $value !== null && is_scalar($value) ? (string) $value : '',
+                'rows' => 6,
+                'help' => $column['nullable'] === 'YES' ? 'Zaznacz NULL poniżej, aby zapisać wartość NULL.' : '',
+            ];
+            if ($column['nullable'] === 'YES') {
+                $fields[] = [
+                    'name' => 'nulls[' . $name . ']',
+                    'label' => 'Ustaw ' . $name . ' jako NULL',
+                    'type' => 'checkbox',
+                    'checked' => array_key_exists($name, $row) && $row[$name] === null,
+                ];
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * @param list<array{name: string, type: string, nullable: string, key: string, default: string, extra: string}> $columns
+     * @return array<string, scalar|null>
+     */
+    private function rowPayload(Request $request, array $columns, ?string $primaryKey, bool $insert): array
+    {
+        $values = $request->postArray('values');
+        $nulls = $request->postArray('nulls');
+        $payload = [];
+        foreach ($columns as $column) {
+            $name = $column['name'];
+            if ($insert && str_contains(strtolower($column['extra']), 'auto_increment')) {
+                continue;
+            }
+            if (!$insert && $name === $primaryKey) {
+                continue;
+            }
+            if (!array_key_exists($name, $values) && !array_key_exists($name, $nulls)) {
+                continue;
+            }
+            if ($column['nullable'] === 'YES' && array_key_exists($name, $nulls)) {
+                $payload[$name] = null;
+                continue;
+            }
+            $value = $values[$name] ?? '';
+            $payload[$name] = is_scalar($value) ? (string) $value : '';
+        }
+
+        return $payload;
+    }
+
+    private function fieldType(string $columnType): string
+    {
+        $type = strtolower($columnType);
+        if (str_contains($type, 'text') || str_contains($type, 'json') || str_contains($type, 'blob')) {
+            return 'textarea';
+        }
+        if (preg_match('/\b(int|decimal|float|double|real|bit)\b/', $type) === 1) {
+            return 'number';
+        }
+        if (str_contains($type, 'date') && !str_contains($type, 'time')) {
+            return 'date';
+        }
+
+        return 'text';
+    }
+
+    private function canUseTable(string $table): bool
+    {
+        if ($this->databaseExplorer === null || $table === '') {
+            return false;
+        }
+
+        return in_array($table, array_column($this->databaseExplorer->tables(), 'name'), true);
     }
 
     private function safeFilename(string $table): string

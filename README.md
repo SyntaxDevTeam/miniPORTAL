@@ -33,8 +33,16 @@ Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wi
 i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
 `database_manager` jest osobnym modułem rozszerzenia panelu dla Managera SQL i
 przechowuje własną historię operacji. Moduł rozdziela podgląd `database.view` od
-operacji zapisowych `database.manage`. Główne akcje panelowych modułów są renderowane
-w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
+operacji zapisowych `database.manage`, obsługuje eksport/import SQL, operacje tabel
+oraz dodawanie, edycję i usuwanie rekordów. Główne akcje panelowych modułów są
+renderowane w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
+`plugin_translator` jest osobnym modułem narzędziowym do tłumaczenia plików YAML
+używanych przez pluginy SyntaxDevTeam. Pozwala wgrać albo wkleić `.yml/.yaml`,
+waliduje strukturę przez `core/libs/Spyc.php`, pokazuje oryginalne komunikaty i
+eksportuje nowy plik `translation.yml` po ponownej walidacji.
+Docelowy workflow modułu ma być publiczny: użytkownik pracuje nad tłumaczeniem od
+strony serwisu, a panel administracyjny służy do podglądu prac, statusów ukończenia
+i zatwierdzania gotowych tłumaczeń.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

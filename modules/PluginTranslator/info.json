@@ -1,7 +1,7 @@
 {
-  "id": "database_manager",
-  "name": "Manager SQL",
-  "version": "1.4.0",
+  "id": "plugin_translator",
+  "name": "Translator pluginów",
+  "version": "1.0.0",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

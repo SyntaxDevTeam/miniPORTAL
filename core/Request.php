@@ -106,6 +106,16 @@ final class Request
         )));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function postArray(string $key): array
+    {
+        $value = $this->post[$key] ?? [];
+
+        return is_array($value) ? $value : [];
+    }
+
     public function isSecure(): bool
     {
         $https = strtolower($this->stringValue($this->server, 'HTTPS'));

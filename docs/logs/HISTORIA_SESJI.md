@@ -1093,6 +1093,29 @@ eksport/import w osobnym module `database_manager`.
 
 **Weryfikacja:** dodano test walidacji payloadu importu SQL.
 
+### Sesja: 2026-06-18 - Manager SQL, CRUD rekordów
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - finalizacja praktycznego
+zarządzania danymi w module `database_manager`.
+
+**Wykonano:**
+- podniesiono `database_manager` do wersji `1.4.0`,
+- dodano trasy `/admin/database/row/create`, `/admin/database/row/edit` i
+  `/admin/database/row/delete`,
+- formularz dodawania rekordu jest generowany z metadanych kolumn tabeli i pomija
+  pola `AUTO_INCREMENT`,
+- edycja oraz usuwanie rekordu są dostępne tylko dla tabel z dokładnie jednym kluczem
+  głównym,
+- widok danych tabeli pokazuje akcje `Edytuj` i `Usuń` przy rekordach, gdy spełniony
+  jest warunek stabilnego klucza głównego,
+- zapis, aktualizacja i usuwanie używają przygotowanych zapytań, cytowanych
+  identyfikatorów, CSRF, ACL `database.manage`, audit logu i historii modułu,
+- dodano `Request::postArray()` jako kontrolowaną warstwę pobierania tablic formularza
+  bez bezpośredniego odczytu `$_POST`.
+
+**Weryfikacja:** zaktualizowano test normalizacji `Request` o `postArray()` oraz
+test manifestu `database_manager` do wersji `1.4.0`.
+
 ### Sesja: 2026-06-17 - Naprawa katalogu eksportu modułów ZIP
 
 **Faza i krok specyfikacji:** Krok 6 - manager modułów, eksport pakietów rozszerzeń,
@@ -1128,3 +1151,45 @@ administracyjnego, kontrakt motywu i używalność chronionych tras `/admin/*`.
 
 **Weryfikacja:** uruchomiono testy repozytorium, lint PHP zmienionych motywów oraz
 kontrolę składni JavaScript przez `node --check`.
+
+### Sesja: 2026-06-18 - Translator pluginów YAML
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - kolejny niezależny moduł
+rozszerzenia panelu, zgodny z listą `POPRAWKI_I_ULEPSZENIA`.
+
+**Wykonano:**
+- dodano moduł `plugin_translator` w wersji `1.0.0`,
+- dodano manifest, `install.sql`, `uninstall.sql` i uprawnienie
+  `plugin_translator.use`,
+- moduł rejestruje menu `Translator YAML` i trasy `/admin/plugin-translator` oraz
+  `/admin/plugin-translator/export`,
+- panel przyjmuje upload `.yml/.yaml` przez `Request::file()` albo treść YAML
+  w formularzu,
+- parser i eksporter korzystają z lokalnego `core/libs/Spyc.php`,
+- źródłowy YAML jest spłaszczany do pól tłumaczenia i eksportowany jako
+  `translation.yml` po ponownej walidacji,
+- operacje otwarcia edytora i eksportu wymagają CSRF/ACL i zapisują audit log,
+- poprawiono fallback linku `Połączone konta` w dropdownie profilu motywów
+  `default` i `glassnight` na `/admin/profile/identities`.
+
+**Weryfikacja:** dodano test parsera/eksportu YAML, test pustego YAML, walidację
+manifestu `plugin_translator` i obecności uprawnienia w `install.sql`; uruchomiono
+`php tests/run.php`, pełny lint PHP, `php bin/migrate-core.php`, instalację modułu
+przez `ModuleInstaller` oraz kontrolę stanu `plugin_translator 1.0.0 active`.
+
+### Sesja: 2026-06-18 - Translator pluginów, korekta kierunku publicznego
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - doprecyzowanie wymagań modułu
+`plugin_translator` przed kolejną implementacją.
+
+**Ustalenie:**
+- moduł nie powinien pozostać narzędziem dostępnym wyłącznie z panelu admina,
+- użytkownicy mają pracować nad tłumaczeniami od strony publicznej serwisu,
+- panel administracyjny ma pełnić rolę kolejki moderacji: podgląd prac, postęp,
+  status ukończenia, oznaczenie „gotowe do zatwierdzenia” oraz akcje zatwierdzenia
+  albo odrzucenia,
+- dalszy etap wymaga trwałego modelu danych dla zgłoszeń tłumaczeń, autorów,
+  statusów i wygenerowanego YAML.
+
+**Weryfikacja:** zmiana dokumentacyjna; doprecyzowano README,
+`TECHNICAL_SPECIFICATION.md`, `POPRAWKI_I_ULEPSZENIA.md` i historię sesji.

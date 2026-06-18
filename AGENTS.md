@@ -27,6 +27,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 - Koduj dane HTML przez `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`, używaj przygotowanych zapytań i tokenów CSRF.
 - Zachowuj zgodność z PHP 8.4 lub nowszym i nie wprowadzaj frameworka aplikacyjnego bez zmiany dokumentacji.
 - Minimalizuj diff i nie rozbudowuj starego katalogu `theme/`; nowa prezentacja trafia do `templates/`.
+- Ukończone etapy prac odznaczaj by było jasne że dany element jest już skończony i nie potrzeba go więcej modyfikować.
 
 ## Weryfikacja
 

@@ -82,7 +82,8 @@ final class DatabaseExplorerRepository
      *     total: int,
      *     page: int,
      *     per_page: int,
-     *     pages: int
+     *     pages: int,
+     *     records: list<array<string, mixed>>
      * }
      */
     public function data(string $table, int $page = 1, int $perPage = 25): array
@@ -120,7 +121,108 @@ final class DatabaseExplorerRepository
             'page' => $page,
             'per_page' => $perPage,
             'pages' => $pages,
+            'records' => $records,
         ];
+    }
+
+    public function primaryKey(string $table): ?string
+    {
+        $columns = array_values(array_filter(
+            $this->columns($table),
+            static fn (array $column): bool => $column['key'] === 'PRI'
+        ));
+
+        return count($columns) === 1 ? $columns[0]['name'] : null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findRow(string $table, string $primaryKey, string $primaryValue): ?array
+    {
+        $statement = $this->database->query(
+            'SELECT * FROM ' . $this->quoteIdentifier($table)
+            . ' WHERE ' . $this->quoteIdentifier($primaryKey) . ' = :primary_value LIMIT 1',
+            [':primary_value' => $primaryValue]
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać rekordu.');
+        }
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * @param array<string, scalar|null> $data
+     */
+    public function insertRow(string $table, array $data): int
+    {
+        if ($data === []) {
+            throw new RuntimeException('Brak danych do dodania rekordu.');
+        }
+
+        $columns = array_keys($data);
+        $placeholders = array_map(static fn (string $column): string => ':v_' . md5($column), $columns);
+        $parameters = [];
+        foreach ($columns as $index => $column) {
+            $parameters[$placeholders[$index]] = $data[$column];
+        }
+
+        $statement = $this->database->query(
+            'INSERT INTO ' . $this->quoteIdentifier($table)
+            . ' (' . implode(', ', array_map($this->quoteIdentifier(...), $columns)) . ') VALUES ('
+            . implode(', ', $placeholders) . ')',
+            $parameters
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można dodać rekordu.');
+        }
+
+        return $statement->rowCount();
+    }
+
+    /**
+     * @param array<string, scalar|null> $data
+     */
+    public function updateRow(string $table, string $primaryKey, string $primaryValue, array $data): int
+    {
+        if ($data === []) {
+            throw new RuntimeException('Brak danych do aktualizacji rekordu.');
+        }
+
+        $assignments = [];
+        $parameters = [':primary_value' => $primaryValue];
+        foreach ($data as $column => $value) {
+            $placeholder = ':v_' . md5($column);
+            $assignments[] = $this->quoteIdentifier($column) . ' = ' . $placeholder;
+            $parameters[$placeholder] = $value;
+        }
+
+        $statement = $this->database->query(
+            'UPDATE ' . $this->quoteIdentifier($table) . ' SET ' . implode(', ', $assignments)
+            . ' WHERE ' . $this->quoteIdentifier($primaryKey) . ' = :primary_value LIMIT 1',
+            $parameters
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można zaktualizować rekordu.');
+        }
+
+        return $statement->rowCount();
+    }
+
+    public function deleteRow(string $table, string $primaryKey, string $primaryValue): int
+    {
+        $statement = $this->database->query(
+            'DELETE FROM ' . $this->quoteIdentifier($table)
+            . ' WHERE ' . $this->quoteIdentifier($primaryKey) . ' = :primary_value LIMIT 1',
+            [':primary_value' => $primaryValue]
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można usunąć rekordu.');
+        }
+
+        return $statement->rowCount();
     }
 
     /**

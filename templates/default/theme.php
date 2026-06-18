@@ -1316,7 +1316,7 @@ final class Theme implements ThemeInterface
         $links = $user['profile_links'] ?? [
             ['label' => 'Pokaż profil', 'href' => 'index.php?route=/admin/profile'],
             ['label' => 'Edytuj dane', 'href' => 'index.php?route=/admin/profile/edit'],
-            ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/identities'],
+            ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/profile/identities'],
             ['label' => 'Ustawienia avatara', 'href' => 'index.php?route=/admin/profile/avatar'],
             ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile/security'],
         ];
