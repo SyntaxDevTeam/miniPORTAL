@@ -765,8 +765,9 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
-        $this->audit->record($request, 'login', 'success', $name, $user->id);
-        header('Location: index.php?route=/admin', true, 303);
+        $this->audit->record($request, 'login', $user->isActive() ? 'success' : 'pending_public_session', $name, $user->id);
+        $redirect = $this->consumeAfterLoginRedirect();
+        header('Location: ' . $redirect, true, 303);
     }
 
     private function login(Request $request): void
@@ -799,8 +800,8 @@ final class CoreAuthModule implements ModuleInterface
             return;
         }
 
-        $this->audit->record($request, 'login_demo', 'success', 'demo', $user->id);
-        header('Location: index.php?route=/admin', true, 303);
+        $this->audit->record($request, 'login_demo', $user->isActive() ? 'success' : 'pending_public_session', 'demo', $user->id);
+        header('Location: ' . $this->consumeAfterLoginRedirect(), true, 303);
     }
 
     private function logout(Request $request): void
@@ -822,6 +823,20 @@ final class CoreAuthModule implements ModuleInterface
         $this->auth->logout();
         $this->audit->record($request, 'logout', 'success', null, $userId);
         header('Location: index.php?route=/admin/login', true, 303);
+    }
+
+    private function consumeAfterLoginRedirect(): string
+    {
+        $redirect = $_SESSION['_miniportal_after_login'] ?? '';
+        unset($_SESSION['_miniportal_after_login']);
+        if (!is_string($redirect) || $redirect === '') {
+            return 'index.php?route=/admin';
+        }
+        if (!str_starts_with($redirect, 'index.php?route=/') && !str_starts_with($redirect, '/')) {
+            return 'index.php?route=/admin';
+        }
+
+        return $redirect;
     }
 
     private function completeIdentityLink(

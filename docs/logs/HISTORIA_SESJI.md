@@ -1248,3 +1248,48 @@ komponentu avatara; uruchomiono testy repozytorium, lint PHP zmienionych plików
 instalację modułu przez `ModuleInstaller`, kontrolę stanu `team 1.0.0 active`,
 obecność tabeli i uprawnień oraz test renderowania publicznej trasy `/team` i
 chronionej trasy `/admin/team`.
+
+### Sesja: 2026-06-18 - Translator pluginów, edytor publiczny i formatowanie Minecraft
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - dopracowanie publicznego
+modułu `plugin_translator` i zasad dostępu użytkowników oczekujących.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.2.0`,
+- dodano migrację `20260618_translation_language_and_ux.sql` oraz kolumnę
+  `target_language` w `plugin_translation_submissions`,
+- formularz startowy `/translations` obsługuje upload YAML przez pole
+  przeciągnij/upuść i wybór języka docelowego z listy kodów ISO `XX`,
+- edytor tłumaczenia pokazuje `Oryginał` i `Twoje tłumaczenie` w jednym układzie,
+  z każdą linijką tekstu wyrównaną do odpowiadającego pola formularza,
+- domyślnym statusem zapisu jest `Kopia robocza`,
+- wprowadzanie i zapis tłumaczeń wymagają logowania, ale rozpoczęta praca jest
+  zachowywana w sesji i wznawiana po powrocie OAuth przez `/translations/resume`,
+- konto w statusie `pending` może korzystać z publicznego tłumaczenia bez dostępu
+  do panelu administracyjnego,
+- dodano podgląd `Sprawdź formatowanie` dla Minecraft legacy, RGB i MiniMessage,
+- poprawiono słownictwo liczników na `linijki tekstu`.
+
+**Weryfikacja:** dodano test parsera formatowania Minecraft i zaktualizowano testy
+manifestu oraz SQL translatora do wersji `1.2.0`; wykonano migrację modułu przez
+`ModuleInstaller`, sprawdzono stan `plugin_translator 1.2.0 active`, obecność
+kolumny `target_language` oraz renderowanie publicznej trasy `/translations`.
+
+### Sesja: 2026-06-18 - Poprawka 500 panelu translatora
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja paneli modułów
+rozszerzeń po dodaniu translatora i modułu Team.
+
+**Wykonano:**
+- naprawiono błąd 500 na `/admin/plugin-translator` spowodowany wywołaniem
+  nieistniejącej metody `AdminMenuRegistry::items()`,
+- panel translatora używa teraz istniejącego filtrowania menu
+  `AdminMenuRegistry::visibleFor()`,
+- tę samą korektę zastosowano w panelu modułu `team`, gdzie występował analogiczny
+  błąd pomocnika strony admina.
+
+**Weryfikacja:** `php -l` dla `PluginTranslatorModule.php` i `TeamModule.php`,
+`php tests/run.php`, `php bin/migrate-core.php`, kontrola braku błędnych wywołań
+`$this->menu->items()` oraz test HTTP
+`/index.php?route=%2Fadmin%2Fplugin-translator`, który zwraca poprawny widok 401
+dla niezalogowanego użytkownika zamiast HTTP 500.

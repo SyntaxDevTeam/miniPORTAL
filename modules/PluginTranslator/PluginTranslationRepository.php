@@ -10,7 +10,7 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class PluginTranslationRepository
 {
-    private const SELECT_COLUMNS = 'id, user_id, author_name, author_email, title, source_filename, source_yaml, '
+    private const SELECT_COLUMNS = 'id, user_id, author_name, author_email, title, source_filename, target_language, source_yaml, '
         . 'translations_json, output_yaml, total_items, translated_items, progress_percent, status, reviewer_id, '
         . 'review_note, reviewed_at, created_at, updated_at';
 
@@ -73,6 +73,7 @@ final class PluginTranslationRepository
         string $authorEmail,
         string $title,
         string $sourceFilename,
+        string $targetLanguage,
         string $sourceYaml,
         array $translations,
         string $outputYaml,
@@ -86,6 +87,7 @@ final class PluginTranslationRepository
             'author_email' => $authorEmail,
             'title' => $title,
             'source_filename' => $sourceFilename,
+            'target_language' => $targetLanguage,
             'source_yaml' => $sourceYaml,
             'translations_json' => json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'output_yaml' => $outputYaml,
@@ -133,6 +135,7 @@ final class PluginTranslationRepository
             (string) $row['author_email'],
             (string) $row['title'],
             (string) $row['source_filename'],
+            (string) ($row['target_language'] ?? 'EN'),
             (string) $row['source_yaml'],
             (string) $row['translations_json'],
             (string) $row['output_yaml'],

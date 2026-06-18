@@ -258,16 +258,29 @@ automatycznie po zgodnym adresie e-mail.
 #### 4.4 Moduł narzędziowy `plugin_translator`
 - niezależne rozszerzenie do tłumaczenia plików YAML używanych przez pluginy
   SyntaxDevTeam,
-- publiczna strona `/translations` przyjmuje upload `.yml/.yaml` albo treść YAML
-  wklejoną w formularzu; upload przechodzi wyłącznie przez `Request::file()`,
+- publiczna strona `/translations` przyjmuje upload `.yml/.yaml` metodą
+  przeciągnij/upuść; upload przechodzi wyłącznie przez `Request::file()`,
+- formularz startowy wymaga wyboru języka docelowego z listy kodów ISO 639-1 w
+  formacie `XX`, a wybrany kod jest zapisywany przy zgłoszeniu,
 - parser i eksporter korzystają z lokalnej biblioteki `core/libs/Spyc.php`,
 - struktura YAML jest spłaszczana do pól tłumaczenia w modelu
   `kategoria -> klucz -> treść`, z obsługą głębszych zagnieżdżeń przez ścieżki,
-- użytkownik może zapisać tłumaczenie jako `draft` albo `ready_for_review`; gotowe
-  zgłoszenie wymaga uzupełnienia wszystkich pozycji,
+- edytor pokazuje `Oryginał` i `Twoje tłumaczenie` w jednym oknie, wyrównując
+  każdą linijkę tekstu z odpowiadającym jej polem formularza,
+- użytkownik może zapisać tłumaczenie jako `draft` albo `ready_for_review`;
+  domyślnym statusem jest `draft`, a gotowe zgłoszenie wymaga uzupełnienia
+  wszystkich pozycji,
 - zgłoszenia są przechowywane w `plugin_translation_submissions` wraz z autorem,
-  źródłowym YAML, wartościami tłumaczenia, wygenerowanym YAML, postępem i statusem,
+  źródłowym YAML, językiem docelowym, wartościami tłumaczenia, wygenerowanym YAML,
+  postępem i statusem,
 - statusy robocze rozróżniają `draft`, `ready_for_review`, `approved` i `rejected`,
+- wprowadzanie tłumaczeń i zapis wymagają zalogowanego użytkownika; próba zapisu
+  bez sesji odkłada źródło, język i dotychczasowe pola tłumaczenia w sesji oraz
+  kieruje do OAuth z powrotem przez `/translations/resume`,
+- konto lokalne w statusie `pending` może pracować nad publicznymi tłumaczeniami,
+  ale nie dostaje uprawnień panelu administracyjnego,
+- akcja `Sprawdź formatowanie` renderuje bez zapisu podgląd wynikowy dla kodów
+  Minecraft legacy, RGB i MiniMessage,
 - panel administracyjny `/admin/plugin-translator` prezentuje listę prac, procent
   ukończenia, oznaczenie gotowości, podgląd różnic oraz akcje akceptacji lub
   odrzucenia,

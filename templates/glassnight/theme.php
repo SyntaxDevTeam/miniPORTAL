@@ -460,7 +460,9 @@ final class Theme implements ThemeInterface
                 echo '</div>';
             } elseif ($type === 'file') {
                 $accept = isset($field['accept']) ? ' accept="' . $this->escape((string) $field['accept']) . '"' : '';
+                echo '<div class="file-dropzone">';
                 echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . '>';
+                echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';

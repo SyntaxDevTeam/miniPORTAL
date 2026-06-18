@@ -17,6 +17,7 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
@@ -119,6 +120,7 @@ return [
             $services['security'],
             $services['audit'],
             new PluginTranslatorYaml(),
+            new MinecraftFormatPreview(),
             $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
         ),
     ],

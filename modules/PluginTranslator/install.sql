@@ -5,6 +5,7 @@ CREATE TABLE plugin_translation_submissions (
     author_email VARCHAR(190) NOT NULL,
     title VARCHAR(180) NOT NULL,
     source_filename VARCHAR(190) NOT NULL,
+    target_language CHAR(2) NOT NULL DEFAULT 'EN',
     source_yaml MEDIUMTEXT NOT NULL,
     translations_json MEDIUMTEXT NOT NULL,
     output_yaml MEDIUMTEXT NOT NULL,
@@ -22,6 +23,7 @@ CREATE TABLE plugin_translation_submissions (
     CONSTRAINT fk_plugin_translation_reviewer
         FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_plugin_translation_status_updated (status, updated_at),
+    INDEX idx_plugin_translation_language_status (target_language, status),
     INDEX idx_plugin_translation_user_updated (user_id, updated_at),
     INDEX idx_plugin_translation_reviewed (reviewed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

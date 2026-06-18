@@ -99,6 +99,15 @@ wygenerowanym YAML, postępem i statusem `draft`, `ready_for_review`, `approved`
 albo `rejected`. Panel `/admin/plugin-translator` jest kolejką prac z podglądem
 różnic, statusem ukończenia oraz akcjami zatwierdzenia, odrzucenia i pobrania YAML.
 
+Etap 3 gotowy: formularz publiczny przyjmuje plik YAML przez pole
+przeciągnij/upuść i wymaga wyboru języka docelowego z listy kodów `XX`. Edytor
+pokazuje `Oryginał` i `Twoje tłumaczenie` w jednym oknie, linijka w linijkę, a
+domyślny `Status zapisu` to `Kopia robocza`. Wprowadzanie i zapis wymagają
+logowania; rozpoczęta praca jest zachowywana w sesji i wznawiana po logowaniu,
+również dla kont oczekujących, które mogą tłumaczyć publicznie bez dostępu do
+panelu admina. Liczniki używają określenia `linijki tekstu`, a przycisk `Sprawdź
+formatowanie` pokazuje podgląd Minecraft legacy, RGB i MiniMessage bez zapisu.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

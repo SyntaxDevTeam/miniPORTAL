@@ -488,7 +488,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
     private function startAdminPage(string $title, string $lead, ?array $actions = null): void
     {
         $user = $this->auth->user();
-        $this->theme->start_admin_page($title, $this->menu->items($user?->permissions ?? []), '/admin/team', [
+        $this->theme->start_admin_page($title, $this->menu->visibleFor($user?->permissions ?? []), '/admin/team', [
             'name' => $user?->displayName ?? 'Gość',
             'role' => $user?->primaryRole() ?? 'Gość',
             'initials' => $user?->initials() ?? 'G',

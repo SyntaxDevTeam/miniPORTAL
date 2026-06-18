@@ -26,7 +26,7 @@ final class AuthService
 
         $user = $this->users->findById((int) $userId);
 
-        if ($user === null || !$user->isActive()) {
+        if ($user === null || $user->status === 'blocked') {
             $this->logout();
             return null;
         }
@@ -39,10 +39,9 @@ final class AuthService
         $user = $this->users->findByIdentity($identity->provider, $identity->subject);
 
         if ($user === null) {
-            $this->users->createPendingFromIdentity($identity);
-            return null;
+            $user = $this->users->createPendingFromIdentity($identity);
         }
-        if (!$user->isActive()) {
+        if ($user->status === 'blocked') {
             return null;
         }
 

@@ -13,6 +13,7 @@ final readonly class PluginTranslationSubmission
         public string $authorEmail,
         public string $title,
         public string $sourceFilename,
+        public string $targetLanguage,
         public string $sourceYaml,
         public string $translationsJson,
         public string $outputYaml,

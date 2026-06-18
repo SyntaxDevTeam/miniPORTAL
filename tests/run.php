@@ -29,6 +29,7 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
@@ -188,6 +189,17 @@ $test('Plugin translator rejects empty YAML', static function () use ($assert): 
     throw new RuntimeException('Empty YAML should be rejected.');
 });
 
+$test('Minecraft formatting preview parses legacy and MiniMessage styles', static function () use ($assert): void {
+    $preview = new MinecraftFormatPreview();
+    $segments = $preview->segments('&aOK <bold>ważne <#ff00aa>RGB');
+
+    $assert($segments !== []);
+    $assert($segments[0]['color'] === '#55FF55');
+    $assert($segments[1]['bold'] || $segments[2]['bold']);
+    $assert($segments[count($segments) - 1]['color'] === '#FF00AA');
+    $assert($preview->segments('§cBłąd')[0]['color'] === '#FF5555');
+});
+
 $test('Database SQL console accepts only one read-only statement', static function () use ($assert): void {
     $assert(DatabaseExplorerRepository::normalizeReadOnlyQuery(' SELECT * FROM users; ') === 'SELECT * FROM users');
     $assert(DatabaseExplorerRepository::normalizeReadOnlyQuery('SHOW TABLES') === 'SHOW TABLES');
@@ -269,9 +281,11 @@ $test('Unknown identity becomes a pending account', static function () use ($ass
         'Nowy użytkownik'
     );
 
-    $assert($auth->loginIdentity($identity) === null);
+    $logged = $auth->loginIdentity($identity);
     $pending = $repository->findByIdentity('test', 'new-subject');
     $assert($pending !== null && $pending->status === 'pending');
+    $assert($logged !== null && $logged->status === 'pending');
+    $assert($auth->user() !== null && $auth->user()?->status === 'pending');
     $assert($pending->roles === ['user']);
 });
 
@@ -656,7 +670,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.1.0');
+    $assert($translator->version === '1.2.0');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -704,12 +718,18 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($translatorInstallSql, "'plugin_translator.review'"));
     $assert(str_contains($translatorInstallSql, 'CREATE TABLE plugin_translation_submissions'));
     $assert(str_contains($translatorInstallSql, "ready_for_review"));
+    $assert(str_contains($translatorInstallSql, 'target_language'));
 
     $translatorMigrationSql = (string) file_get_contents(
         dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260618_public_translation_workflow.sql'
     );
     $assert(str_contains($translatorMigrationSql, 'CREATE TABLE plugin_translation_submissions'));
     $assert(str_contains($translatorMigrationSql, "'plugin_translator.review'"));
+
+    $translatorLanguageMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260618_translation_language_and_ux.sql'
+    );
+    $assert(str_contains($translatorLanguageMigrationSql, 'target_language'));
 
     $teamInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Team/install.sql');
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));

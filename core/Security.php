@@ -48,6 +48,9 @@ final class Security
     public function regenerateSession(): void
     {
         $this->assertSessionStarted();
+        if (headers_sent()) {
+            return;
+        }
         session_regenerate_id(true);
     }
 
