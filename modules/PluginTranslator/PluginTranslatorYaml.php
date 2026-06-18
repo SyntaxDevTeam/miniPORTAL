@@ -82,6 +82,23 @@ final class PluginTranslatorYaml
     }
 
     /**
+     * @param list<array{token: string, path: list<string>, label: string, value: string}> $items
+     * @param array<string, mixed> $translations
+     */
+    public function translatedCount(array $items, array $translations): int
+    {
+        $count = 0;
+        foreach ($items as $item) {
+            $value = $translations[$item['token']] ?? '';
+            if (is_scalar($value) && trim((string) $value) !== '' && trim((string) $value) !== trim($item['value'])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * @param array<mixed> $node
      * @param list<string> $path
      * @param list<array{token: string, path: list<string>, label: string, value: string}> $items

@@ -16,6 +16,7 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
+use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
@@ -115,7 +116,8 @@ return [
             $services['access'],
             $services['security'],
             $services['audit'],
-            new PluginTranslatorYaml()
+            new PluginTranslatorYaml(),
+            $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
         ),
     ],
     [

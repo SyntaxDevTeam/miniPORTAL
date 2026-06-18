@@ -91,13 +91,13 @@ tłumaczenia. Eksport `/admin/plugin-translator/export` buduje `translation.yml`
 waliduje wynik przed pobraniem, wymaga CSRF i ACL `plugin_translator.use` oraz
 zapisuje operacje do audit logu.
 
-Etap 2 do wykonania: translator nie powinien pozostać narzędziem wyłącznie
-administracyjnym. Publiczna część strony ma umożliwiać użytkownikom rozpoczęcie i
-zapisanie pracy nad tłumaczeniem, oznaczenie jej jako ukończonej/gotowej do
-sprawdzenia oraz ewentualny powrót do wersji roboczej. Część administracyjna ma
-pokazywać podgląd prac, postęp, statusy, oznaczenia gotowych tłumaczeń oraz akcje
-zatwierdzenia albo odrzucenia. Wymaga to trwałych tabel modułu dla zgłoszeń,
-statusów i autorów tłumaczeń.
+Etap 2 gotowy: translator ma publiczną stronę `/translations`, na której użytkownik
+może wgrać albo wkleić YAML, uzupełnić tłumaczenie i zapisać je jako szkic lub
+zgłoszenie gotowe do sprawdzenia. Dodano trwałą tabelę
+`plugin_translation_submissions` z autorem, źródłem, wartościami tłumaczenia,
+wygenerowanym YAML, postępem i statusem `draft`, `ready_for_review`, `approved`
+albo `rejected`. Panel `/admin/plugin-translator` jest kolejką prac z podglądem
+różnic, statusem ukończenia oraz akcjami zatwierdzenia, odrzucenia i pobrania YAML.
 
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).

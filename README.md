@@ -36,13 +36,13 @@ przechowuje własną historię operacji. Moduł rozdziela podgląd `database.vie
 operacji zapisowych `database.manage`, obsługuje eksport/import SQL, operacje tabel
 oraz dodawanie, edycję i usuwanie rekordów. Główne akcje panelowych modułów są
 renderowane w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
-`plugin_translator` jest osobnym modułem narzędziowym do tłumaczenia plików YAML
-używanych przez pluginy SyntaxDevTeam. Pozwala wgrać albo wkleić `.yml/.yaml`,
-waliduje strukturę przez `core/libs/Spyc.php`, pokazuje oryginalne komunikaty i
-eksportuje nowy plik `translation.yml` po ponownej walidacji.
-Docelowy workflow modułu ma być publiczny: użytkownik pracuje nad tłumaczeniem od
-strony serwisu, a panel administracyjny służy do podglądu prac, statusów ukończenia
-i zatwierdzania gotowych tłumaczeń.
+`plugin_translator` jest osobnym modułem do tłumaczenia plików YAML używanych przez
+pluginy SyntaxDevTeam. Publiczna strona `/translations` pozwala użytkownikom wgrać
+albo wkleić `.yml/.yaml`, uzupełnić tłumaczenie i zapisać je jako szkic lub pracę
+gotową do sprawdzenia. Panel `/admin/plugin-translator` pokazuje zgłoszenia,
+postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania zweryfikowanego
+YAML. Jednorazowe narzędzie eksportu administratora pozostało pod
+`/admin/plugin-translator/tool`.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

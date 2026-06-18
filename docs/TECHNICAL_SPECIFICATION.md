@@ -256,39 +256,29 @@ automatycznie po zgodnym adresie e-mail.
   kontraktu motywu metodami specyficznymi dla dokumentacji.
 
 #### 4.4 Moduł narzędziowy `plugin_translator`
-- niezależne rozszerzenie panelu do tłumaczenia plików YAML używanych przez pluginy
+- niezależne rozszerzenie do tłumaczenia plików YAML używanych przez pluginy
   SyntaxDevTeam,
-- panel `/admin/plugin-translator` przyjmuje upload `.yml/.yaml` albo treść YAML
+- publiczna strona `/translations` przyjmuje upload `.yml/.yaml` albo treść YAML
   wklejoną w formularzu; upload przechodzi wyłącznie przez `Request::file()`,
 - parser i eksporter korzystają z lokalnej biblioteki `core/libs/Spyc.php`,
 - struktura YAML jest spłaszczana do pól tłumaczenia w modelu
   `kategoria -> klucz -> treść`, z obsługą głębszych zagnieżdżeń przez ścieżki,
-- eksport `/admin/plugin-translator/export` składa nowy plik `translation.yml`,
-  waliduje wygenerowany YAML przed wysłaniem i nie zapisuje treści tłumaczenia
-  na dysku serwera,
-- moduł wymaga ACL `plugin_translator.use`, CSRF przy otwieraniu edytora i eksporcie
-  oraz zapisuje zdarzenia `plugin_translation_open` i `plugin_translation_export`
-  do audit logu,
+- użytkownik może zapisać tłumaczenie jako `draft` albo `ready_for_review`; gotowe
+  zgłoszenie wymaga uzupełnienia wszystkich pozycji,
+- zgłoszenia są przechowywane w `plugin_translation_submissions` wraz z autorem,
+  źródłowym YAML, wartościami tłumaczenia, wygenerowanym YAML, postępem i statusem,
+- statusy robocze rozróżniają `draft`, `ready_for_review`, `approved` i `rejected`,
+- panel administracyjny `/admin/plugin-translator` prezentuje listę prac, procent
+  ukończenia, oznaczenie gotowości, podgląd różnic oraz akcje akceptacji lub
+  odrzucenia,
+- zatwierdzone i przeglądane tłumaczenie można pobrać jako zweryfikowany YAML,
+- jednorazowe narzędzie eksportu administratora pozostaje dostępne pod
+  `/admin/plugin-translator/tool`,
+- publiczne formularze używają `Request`, CSRF, walidacji rozmiaru i parsera `Spyc`;
+  panel administracyjny wymaga ACL `plugin_translator.review`, a narzędzie eksportu
+  wymaga `plugin_translator.use`,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   `ThemeInterface` metodami specyficznymi dla translatora.
-
-Docelowy etap publiczny:
-- moduł ma udostępniać publiczny widok tłumaczenia od strony serwisu, a nie wyłącznie
-  narzędzie w panelu administracyjnym,
-- użytkownik powinien móc wybrać lub otworzyć źródłowy plik wiadomości, uzupełnić
-  tłumaczenie i zapisać pracę jako zgłoszenie,
-- zgłoszenia tłumaczeń wymagają trwałego modelu danych z informacją o autorze,
-  źródle YAML, wartościach tłumaczenia, postępie i statusie,
-- statusy robocze powinny co najmniej rozróżniać `draft`, `ready_for_review`,
-  `approved` i `rejected`,
-- panel administracyjny modułu ma prezentować listę prac, procent ukończenia,
-  oznaczenie „gotowe do zatwierdzenia”, podgląd różnic oraz akcje akceptacji lub
-  odrzucenia,
-- zatwierdzone tłumaczenie powinno być możliwe do pobrania jako zweryfikowany YAML
-  i powinno zapisywać audit log operacji akceptacji,
-- publiczne formularze zapisu muszą używać `Request`, CSRF dla zalogowanych sesji
-  albo równoważnej ochrony formularza publicznego, walidacji rozmiaru i parsera
-  `Spyc`; panel administracyjny pozostaje chroniony ACL.
 
 ### Faza 5: Manager modułów (Lego System)
 

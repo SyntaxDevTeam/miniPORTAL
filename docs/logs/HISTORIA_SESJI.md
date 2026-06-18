@@ -1193,3 +1193,34 @@ przez `ModuleInstaller` oraz kontrolę stanu `plugin_translator 1.0.0 active`.
 
 **Weryfikacja:** zmiana dokumentacyjna; doprecyzowano README,
 `TECHNICAL_SPECIFICATION.md`, `POPRAWKI_I_ULEPSZENIA.md` i historię sesji.
+
+### Sesja: 2026-06-18 - Translator pluginów, publiczne zgłoszenia i moderacja
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - rozwinięcie modułu
+`plugin_translator` z narzędzia panelowego do publicznego workflow użytkownika i
+administracyjnej kolejki zatwierdzania.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.1.0`,
+- dodano tabelę `plugin_translation_submissions` w `install.sql` i migracji
+  `20260618_public_translation_workflow.sql`,
+- dodano model `PluginTranslationSubmission` i repozytorium
+  `PluginTranslationRepository` korzystające z `CrudApp`,
+- dodano publiczną trasę `/translations` oraz akcje `/translations/open` i
+  `/translations/submit`,
+- użytkownik może zapisać tłumaczenie jako `draft` albo `ready_for_review`; status
+  gotowy wymaga przetłumaczenia wszystkich pozycji,
+- panel `/admin/plugin-translator` stał się kolejką prac z postępem, statusem,
+  podglądem różnic, zatwierdzeniem, odrzuceniem i pobraniem wygenerowanego YAML,
+- zachowano jednorazowe narzędzie eksportu administratora pod
+  `/admin/plugin-translator/tool`,
+- dodano uprawnienie `plugin_translator.review`, pozostawiając `plugin_translator.use`
+  dla narzędzia eksportu,
+- moduł deklaruje publiczny link `Tłumaczenia` przez `PublicNavigationRegistry`.
+
+**Weryfikacja:** zaktualizowano test parsera o liczenie przetłumaczonych pozycji,
+test manifestu do wersji `1.1.0` oraz test SQL dla tabeli i uprawnienia moderacji.
+Uruchomiono `php tests/run.php`, pełny lint PHP, `php bin/migrate-core.php`,
+aktualizację modułu przez `ModuleInstaller`, kontrolę stanu
+`plugin_translator 1.1.0 active`, obecność tabeli i uprawnień oraz test renderowania
+publicznej trasy `/translations` i chronionej trasy admina.

@@ -164,6 +164,11 @@ YAML;
         $items[0]['token'] => 'Plugin is enabled.',
         $items[2]['token'] => 'Configuration reloaded.',
     ]);
+    $assert($translator->translatedCount($items, [
+        $items[0]['token'] => 'Plugin is enabled.',
+        $items[1]['token'] => 'Plugin jest wyłączony.',
+        $items[2]['token'] => 'Configuration reloaded.',
+    ]) === 2);
     $dump = $translator->dump($translated);
     $roundTrip = $translator->parse($dump);
 
@@ -637,7 +642,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.0.0');
+    $assert($translator->version === '1.1.0');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -674,6 +679,15 @@ $test('CoreAuth declares database explorer permission', static function () use (
 
     $translatorInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/PluginTranslator/install.sql');
     $assert(str_contains($translatorInstallSql, "'plugin_translator.use'"));
+    $assert(str_contains($translatorInstallSql, "'plugin_translator.review'"));
+    $assert(str_contains($translatorInstallSql, 'CREATE TABLE plugin_translation_submissions'));
+    $assert(str_contains($translatorInstallSql, "ready_for_review"));
+
+    $translatorMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260618_public_translation_workflow.sql'
+    );
+    $assert(str_contains($translatorMigrationSql, 'CREATE TABLE plugin_translation_submissions'));
+    $assert(str_contains($translatorMigrationSql, "'plugin_translator.review'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {
