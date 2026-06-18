@@ -280,6 +280,22 @@ automatycznie po zgodnym adresie e-mail.
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   `ThemeInterface` metodami specyficznymi dla translatora.
 
+#### 4.5 Moduł prezentacji zespołu `team`
+- niezależne rozszerzenie prezentujące publiczną listę członków drużyny,
+- tabela `team_members` wiąże publiczny profil z lokalnym kontem `users`, dzięki
+  czemu nazwa systemowa, status i avatar pozostają własnością profilu użytkownika,
+- moduł przechowuje dane prezentacyjne: slug, nazwę publiczną, rolę w zespole,
+  opis, opcjonalny link kontaktowy, kolejność i widoczność publiczną,
+- publiczne `/team` pokazuje wyłącznie widocznych członków powiązanych z aktywnymi
+  użytkownikami,
+- publiczne `/team/member/{slug}` prezentuje profil członka zespołu z avatarem,
+  opisem i linkiem profilu,
+- panel `/admin/team` pozwala dodawać, edytować, ukrywać i usuwać publiczne profile
+  zespołu; wymaga ACL `team.manage`, CSRF i zapisuje audit log operacji,
+- aktywny moduł deklaruje link publiczny `Zespół` przez `PublicNavigationRegistry`,
+- `ThemeInterface::render_avatar()` jest ogólnym komponentem prezentacji avatara
+  lub inicjałów i nie jest związany wyłącznie z modułem `team`.
+
 ### Faza 5: Manager modułów (Lego System)
 
 1. Manager skanuje katalog /modules/.
@@ -476,6 +492,8 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 11. `articles`: przykład niezależnego modułu.
 12. `plugin_translator`: narzędzie do walidacji, tłumaczenia, zgłaszania i
     administracyjnego zatwierdzania plików YAML pluginów.
+13. `team`: publiczna lista członków drużyny i profile zespołu powiązane z kontami
+    użytkowników.
 
 Stan Kroku 5:
 

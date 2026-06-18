@@ -21,6 +21,8 @@ use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
+use SyntaxDevTeam\Cms\Modules\Team\TeamModule;
+use SyntaxDevTeam\Cms\Modules\Team\TeamRepository;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikipediaModule;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikiRepository;
 
@@ -118,6 +120,19 @@ return [
             $services['audit'],
             new PluginTranslatorYaml(),
             $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
+        ),
+    ],
+    [
+        'directory' => 'Team',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): TeamModule => new TeamModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new TeamRepository($services['database']),
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit']
         ),
     ],
     [

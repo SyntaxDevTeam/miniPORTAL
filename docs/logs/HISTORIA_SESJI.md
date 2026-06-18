@@ -1224,3 +1224,27 @@ Uruchomiono `php tests/run.php`, pełny lint PHP, `php bin/migrate-core.php`,
 aktualizację modułu przez `ModuleInstaller`, kontrolę stanu
 `plugin_translator 1.1.0 active`, obecność tabeli i uprawnień oraz test renderowania
 publicznej trasy `/translations` i chronionej trasy admina.
+
+### Sesja: 2026-06-18 - Moduł Team, publiczna lista zespołu
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - kolejny niezależny moduł
+treściowy powiązany z profilem użytkownika.
+
+**Wykonano:**
+- dodano moduł `team` w wersji `1.0.0`,
+- dodano manifest, `install.sql`, `uninstall.sql` i uprawnienie `team.manage`,
+- dodano tabelę `team_members` powiązaną z lokalnymi kontami `users`,
+- dodano model `TeamMember` i repozytorium `TeamRepository` korzystające z
+  `CrudApp`,
+- dodano publiczną listę `/team` i publiczne profile `/team/member/{slug}`,
+- dodano panel `/admin/team` do dodawania, edycji, ukrywania i usuwania profili
+  członków zespołu,
+- moduł deklaruje publiczny link `Zespół` przez `PublicNavigationRegistry`,
+- dodano ogólny komponent motywu `render_avatar()` oraz style publicznego avatara
+  w motywach `default` i `glassnight`.
+
+**Weryfikacja:** dodano test manifestu i SQL modułu `team` oraz test renderowania
+komponentu avatara; uruchomiono testy repozytorium, lint PHP zmienionych plików,
+instalację modułu przez `ModuleInstaller`, kontrolę stanu `team 1.0.0 active`,
+obecność tabeli i uprawnień oraz test renderowania publicznej trasy `/team` i
+chronionej trasy `/admin/team`.

@@ -247,6 +247,19 @@ final class Theme implements ThemeInterface
         echo $this->escape($label) . '</a>';
     }
 
+    public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void
+    {
+        $size = in_array($size, ['sm', 'md', 'lg'], true) ? $size : 'md';
+        $avatarUrl = $avatarUrl !== null ? $this->safeHref($avatarUrl) : '';
+        echo '<div class="public-avatar public-avatar-' . $this->escape($size) . '" aria-hidden="true">';
+        if ($avatarUrl !== '' && preg_match('~^https?://~i', $avatarUrl) === 1) {
+            echo '<img src="' . $this->escape($avatarUrl) . '" alt="" loading="lazy">';
+        } else {
+            echo '<span>' . $this->escape($this->initials($name)) . '</span>';
+        }
+        echo '</div>';
+    }
+
     public function render_content_navigation(array $items): void
     {
         if ($items === []) {
@@ -1340,6 +1353,19 @@ final class Theme implements ThemeInterface
             echo $this->escape($user['initials']);
         }
         echo '</span>';
+    }
+
+    private function initials(string $name): string
+    {
+        $parts = preg_split('/\s+/', trim($name)) ?: [];
+        $initials = '';
+        foreach (array_slice($parts, 0, 2) as $part) {
+            $initials .= function_exists('mb_substr')
+                ? mb_strtoupper(mb_substr($part, 0, 1))
+                : strtoupper(substr($part, 0, 1));
+        }
+
+        return $initials !== '' ? $initials : 'SD';
     }
 
     private function escape(string $value): string

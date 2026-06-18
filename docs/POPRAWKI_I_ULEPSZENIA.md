@@ -102,6 +102,13 @@ różnic, statusem ukończenia oraz akcjami zatwierdzenia, odrzucenia i pobrania
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 
+Etap 1 gotowy: dodano osobny moduł rozszerzenia `team`. Moduł ma tabelę
+`team_members`, publiczną listę `/team`, publiczne profile `/team/member/{slug}`
+oraz panel `/admin/team` do zarządzania widocznością, opisem, rolą, linkiem
+kontaktowym i kolejnością członków zespołu. Profil publiczny jest powiązany z
+lokalnym kontem użytkownika i korzysta z jego avatara. Dodano ogólny komponent
+motywu `render_avatar()`.
+
 ### Projekty
 Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 

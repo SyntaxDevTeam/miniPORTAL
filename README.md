@@ -43,6 +43,10 @@ gotową do sprawdzenia. Panel `/admin/plugin-translator` pokazuje zgłoszenia,
 postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania zweryfikowanego
 YAML. Jednorazowe narzędzie eksportu administratora pozostało pod
 `/admin/plugin-translator/tool`.
+`team` jest osobnym modułem prezentacji zespołu. Publiczne `/team` pokazuje
+widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu
+powiązanego z lokalnym kontem użytkownika i jego avatarem. Panel `/admin/team`
+zarządza widocznością, opisem, rolą i kolejnością profili.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

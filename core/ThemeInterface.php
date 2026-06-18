@@ -86,6 +86,8 @@ interface ThemeInterface
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void;
 
+    public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void;
+
     /**
      * @param list<array{
      *     label: string,

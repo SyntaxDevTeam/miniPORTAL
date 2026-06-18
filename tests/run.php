@@ -502,6 +502,20 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
 });
 
+$test('Public theme renders avatar image component', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->render_avatar('Admin Test', 'https://example.test/avatar.png', 'lg');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'public-avatar public-avatar-lg'));
+    $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
+});
+
 $test('Public error page is friendly and does not mention dashboard', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -648,6 +662,14 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($translator->uninstallFile === 'uninstall.sql');
     $assert($translator->requiredModules === ['core_auth']);
 
+    $team = $validator->validate(dirname(__DIR__) . '/modules/Team');
+    $assert($team->id === 'team');
+    $assert($team->version === '1.0.0');
+    $assert($team->type === 'extension');
+    $assert($team->installFile === 'install.sql');
+    $assert($team->uninstallFile === 'uninstall.sql');
+    $assert($team->requiredModules === ['core_auth']);
+
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
     $assert($learning->id === 'learning_module');
     $assert($learning->version === '1.1.0');
@@ -688,6 +710,11 @@ $test('CoreAuth declares database explorer permission', static function () use (
     );
     $assert(str_contains($translatorMigrationSql, 'CREATE TABLE plugin_translation_submissions'));
     $assert(str_contains($translatorMigrationSql, "'plugin_translator.review'"));
+
+    $teamInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Team/install.sql');
+    $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));
+    $assert(str_contains($teamInstallSql, 'fk_team_members_user'));
+    $assert(str_contains($teamInstallSql, "'team.manage'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {

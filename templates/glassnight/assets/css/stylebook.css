@@ -193,6 +193,39 @@ a {
   padding: 0;
 }
 
+.public-avatar {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.42);
+  background: rgba(var(--mp-primary-rgb), 0.14);
+  color: var(--mp-text);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.public-avatar-sm {
+  width: 3rem;
+  height: 3rem;
+}
+
+.public-avatar-lg {
+  width: 7rem;
+  height: 7rem;
+  font-size: 1.5rem;
+}
+
+.public-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .btn-primary {
   --bs-btn-color: #06120c;
   --bs-btn-bg: var(--mp-primary);
