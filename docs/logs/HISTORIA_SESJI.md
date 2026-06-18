@@ -1112,3 +1112,19 @@ ACL/CSRF/audyt oraz operacyjne przygotowanie katalogów cache.
 
 **Weryfikacja:** `php tests/run.php`, lint wszystkich plików PHP oraz test zapisu
 do `cache/module-exports` uruchomiony jako `www-data` zakończyły się powodzeniem.
+
+### Sesja: 2026-06-18 - Mobilne linki menu panelu admina
+
+**Faza i krok specyfikacji:** Krok 5A oraz Krok 5B - responsywność panelu
+administracyjnego, kontrakt motywu i używalność chronionych tras `/admin/*`.
+
+**Wykonano:**
+- zdiagnozowano, że mobilne linki w offcanvas panelu miały `data-bs-dismiss="offcanvas"`,
+  co w obsłudze Bootstrap mogło zamykać menu i anulować domyślną nawigację linku,
+- zastąpiono atrybut Bootstrap własnym `data-admin-mobile-nav-link`,
+- dodano obsługę JS, która zamyka offcanvas bez wywoływania `preventDefault()` na
+  klikniętym odnośniku, więc przeglądarka może normalnie przejść pod wybrany adres,
+- zmianę zastosowano w motywach `default` i `glassnight`.
+
+**Weryfikacja:** uruchomiono testy repozytorium, lint PHP zmienionych motywów oraz
+kontrolę składni JavaScript przez `node --check`.

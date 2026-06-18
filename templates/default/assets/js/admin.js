@@ -9,6 +9,16 @@ sidebarToggle?.addEventListener("click", () => {
   window.bootstrap.Offcanvas.getOrCreateInstance(sidebarElement).show();
 });
 
+document.querySelectorAll("[data-admin-mobile-nav-link]").forEach((link) => {
+  link.addEventListener("click", () => {
+    if (!sidebarElement || !window.bootstrap) {
+      return;
+    }
+
+    window.bootstrap.Offcanvas.getOrCreateInstance(sidebarElement).hide();
+  });
+});
+
 document.querySelectorAll("[data-admin-nav-target]").forEach((link) => {
   link.addEventListener("click", () => {
     document.querySelectorAll("[data-admin-nav-target]").forEach((item) => {
