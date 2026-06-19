@@ -169,3 +169,11 @@ Gotowe
 
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
+
+Etap 1 gotowy: osobny moduł `projects` pełni rolę katalogu agregującego, zamiast
+powielać treści istniejących modułów. Przechowuje nazwę, slug, krótki opis, stan
+`planowany` / `w trakcie tworzenia` / `wydany` / `wstrzymany`, kolejność i
+publikację. Projekt może wskazywać istniejącą podstronę `core_pages` oraz projekt
+`wikipedia`. Publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie
+opublikowane wpisy, a panel `/admin/projects` udostępnia pełny CRUD z ACL, CSRF i
+audit logiem.

@@ -354,6 +354,19 @@ automatycznie po zgodnym adresie e-mail.
 - publiczne dane członka zespołu, slug i widoczność pozostają własnością `team`,
   który wiąże je z lokalnym użytkownikiem oraz jego avatarem.
 
+#### 4.7 Moduł katalogu projektów `projects`
+- niezależne rozszerzenie zależne od `core_auth`, `core_pages` i `wikipedia`,
+- przechowuje wyłącznie metadane katalogowe projektu: nazwę, slug, skrót, stan
+  lifecycle, kolejność i publikację,
+- opcjonalne klucze obce wiążą projekt z istniejącą podstroną oraz projektem Wiki;
+  moduł nie kopiuje ich treści,
+- publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie opublikowane wpisy,
+  a linki do opisu i dokumentacji pojawiają się tylko dla opublikowanych celów,
+- `/admin/projects` zapewnia CRUD przez `CrudApp`, `Request`, CSRF, ACL
+  `projects.view` / `projects.manage` oraz audit log,
+- moduł deklaruje konfigurowalny link publiczny `Projekty` przez
+  `PublicNavigationRegistry`.
+
 ### Faza 5: Manager modułów (Lego System)
 
 1. Manager skanuje katalog /modules/.
@@ -560,6 +573,7 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
     użytkowników.
 14. `user_profile`: wydzielony profil użytkownika, edycja danych i avatara oraz
     przegląd bezpieczeństwa z wejściem do tożsamości zarządzanych przez `core_auth`.
+15. `projects`: publiczny katalog stanu projektów powiązany z podstronami i Wiki.
 
 Stan Kroku 5:
 

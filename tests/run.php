@@ -715,6 +715,14 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($team->uninstallFile === 'uninstall.sql');
     $assert($team->requiredModules === ['core_auth']);
 
+    $projects = $validator->validate(dirname(__DIR__) . '/modules/Projects');
+    $assert($projects->id === 'projects');
+    $assert($projects->version === '1.0.0');
+    $assert($projects->type === 'extension');
+    $assert($projects->requiredModules === ['core_auth', 'core_pages', 'wikipedia']);
+    $assert($projects->installFile === 'install.sql');
+    $assert($projects->uninstallFile === 'uninstall.sql');
+
     $profile = $validator->validate(dirname(__DIR__) . '/modules/UserProfile');
     $assert($profile->id === 'user_profile');
     $assert($profile->version === '1.0.0');
@@ -815,6 +823,16 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));
     $assert(str_contains($teamInstallSql, 'fk_team_members_user'));
     $assert(str_contains($teamInstallSql, "'team.manage'"));
+
+    $projectsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/install.sql');
+    $assert(str_contains($projectsInstallSql, 'CREATE TABLE projects'));
+    $assert(str_contains($projectsInstallSql, 'fk_projects_page'));
+    $assert(str_contains($projectsInstallSql, 'fk_projects_wiki'));
+    $assert(str_contains($projectsInstallSql, "'projects.manage'"));
+    $projectsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/ProjectsModule.php');
+    $assert(str_contains($projectsSource, "\$router->get('/projects'"));
+    $assert(str_contains($projectsSource, "\$router->get('/admin/projects'"));
+    $assert(str_contains($projectsSource, "navigation->add('projects.index'"));
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {

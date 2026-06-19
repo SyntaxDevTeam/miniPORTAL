@@ -19,6 +19,8 @@ use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
+use SyntaxDevTeam\Cms\Modules\Projects\ProjectRepository;
+use SyntaxDevTeam\Cms\Modules\Projects\ProjectsModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
@@ -121,6 +123,18 @@ return [
             $services['audit'],
             new DatabaseExplorerRepository($services['database']),
             new DatabaseManagerHistoryRepository($services['database'])
+        ),
+    ],
+    [
+        'directory' => 'Projects',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): ProjectsModule => new ProjectsModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new ProjectRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit']
         ),
     ],
     [

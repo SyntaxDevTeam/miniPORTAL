@@ -1496,3 +1496,23 @@ między importem archiwum a instalacją modułu.
 Core, kontrolowana aktualizacja `system_admin` i test odpowiedzi panelu. Środowisko
 nie udostępnia `runuser`, a `su` wymaga hasła, dlatego prawa procesu WWW
 zweryfikowano przez właściciela, grupę i tryby katalogów zamiast zapisu jako UID.
+
+### Sesja: 2026-06-19 - Moduł katalogu projektów
+
+**Faza i krok specyfikacji:** Krok 5C i Krok 6 - kolejny niezależny moduł treści,
+agregujący istniejące podstrony i dokumentację bez duplikowania ich danych.
+
+**Wykonano:**
+- dodano moduł `projects` 1.0.0 zależny od `core_auth`, `core_pages` i `wikipedia`,
+- dodano tabelę `projects` z kluczami obcymi do `core_pages` i `wiki_projects`,
+- dodano stany projektu `planned`, `development`, `released`, `paused`, kolejność
+  i niezależną publikację wpisu katalogowego,
+- dodano publiczne `/projects`, `/projects/{slug}` i kompatybilne wejście query,
+- dodano panel `/admin/projects` z CRUD, ACL `projects.view` / `projects.manage`,
+  CSRF i audytem operacji,
+- dodano publiczny link modułu przez `PublicNavigationRegistry`,
+- dodano test manifestu, zależności, SQL i własności tras.
+
+**Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, instalacja
+przez `ModuleInstaller`, kontrola stanu produkcyjnego i testy HTTP tras publicznej
+oraz administracyjnej.

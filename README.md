@@ -73,6 +73,9 @@ zarządza widocznością, opisem, rolą i kolejnością profili.
 trasy `/admin/profile*` dla podglądu i edycji danych, ustawień avatara oraz stanu
 bezpieczeństwa. Łączenie i odłączanie kont OAuth pozostaje w chronionym `core_auth`,
 do którego moduł profilu prowadzi bez kopiowania logiki uwierzytelniania.
+`projects` jest katalogiem projektów łączącym status realizacji z istniejącą
+podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
+`/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

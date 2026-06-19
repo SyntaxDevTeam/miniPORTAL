@@ -132,6 +132,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `wikipedia` jako niezależny moduł dokumentacji projektowej |
 | [x] | `team` jako moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika. |
 | [x] | `user_profile` jako osobny moduł edycji danych i avatara, przeglądu bezpieczeństwa oraz wejścia do połączonych kont; profil publiczny pozostaje prezentowany przez zależny moduł `team`. |
+| [x] | `projects` jako katalog projektów z publicznymi trasami, stanem realizacji oraz powiązaniami do `core_pages` i `wikipedia`. |
 
 ### Krok 6 - system modułów
 
@@ -249,6 +250,7 @@ Brak aktywnych blokerów.
 | 2026-06-19 | `team` 1.0.0 realizuje publiczną listę i profile członków. Widoki oraz zapis danych profilu, avatara i przegląd bezpieczeństwa wydzielono z `CoreAuth` do opcjonalnego modułu `user_profile` 1.0.0 zależnego od `core_auth`; operacje OAuth pozostają własnością chronionego modułu uwierzytelniania. `core_auth` ma wersję 1.4.1. |
 | 2026-06-19 | Manager może zatwierdzić podpisane rozszerzenie z kwarantanny do `modules/` po ponownej walidacji i kontroli konfliktów. Operacja wymaga ACL/CSRF, jest audytowana i nie instaluje ani nie wykonuje kodu pakietu. `system_admin` ma wersję 1.5.0. |
 | 2026-06-19 | Produkcyjne katalogi lifecycle pakietów mają grupę `www-data`: `modules/` tryb `2775`, a `cache/module-quarantine` tryb `2770`. Pozwala to panelowi atomowo przenosić zatwierdzone pakiety bez nadawania zapisu do istniejących katalogów modułów. |
+| 2026-06-19 | `projects` 1.0.0 jest katalogiem agregującym metadane projektu i opcjonalne relacje do `core_pages` oraz `wikipedia`; nie duplikuje treści tych modułów. Publiczne trasy to `/projects` i `/projects/{slug}`. |
 
 ## Historia sesji
 
