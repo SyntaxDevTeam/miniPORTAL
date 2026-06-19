@@ -24,6 +24,7 @@ use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
 use SyntaxDevTeam\Cms\Modules\Team\TeamModule;
 use SyntaxDevTeam\Cms\Modules\Team\TeamRepository;
+use SyntaxDevTeam\Cms\Modules\UserProfile\UserProfileModule;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikipediaModule;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikiRepository;
 
@@ -49,6 +50,18 @@ return [
                 ? new UserAdministrationRepository($services['database'])
                 : null,
             $services['auth_demo_enabled']
+        ),
+    ],
+    [
+        'directory' => 'UserProfile',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): UserProfileModule => new UserProfileModule(
+            $services['theme'],
+            $services['admin_menu'],
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit']
         ),
     ],
     [

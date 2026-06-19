@@ -1436,3 +1436,23 @@ przepływu pracy modułu `plugin_translator`.
 **Weryfikacja:** lint PHP, testy repozytorium, kontrola diffu i aktualizacja modułu
 zostały wykonane po implementacji. Lokalny endpoint HTTPS nie odpowiedział przed
 limitem czasu, więc nie wykonano końcowego testu odpowiedzi przez serwer WWW.
+
+### Sesja: 2026-06-19 - Synchronizacja dokumentacji i moduł profilu użytkownika
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - domknięcie modułów zespołu i
+profilu użytkownika z zachowaniem granicy odpowiedzialności `CoreAuth`.
+
+**Wykonano:**
+- zsynchronizowano checklistę z istniejącym modułem `team` 1.0.0,
+- dodano opcjonalny moduł `user_profile` 1.0.0 zależny od `core_auth`,
+- przeniesiono do niego trasy `/admin/profile`, edycję danych, ustawienia avatara
+  i przegląd bezpieczeństwa bez zmiany adresów używanych przez dropdown użytkownika,
+- zapis nadal przechodzi przez `AuthService`, CSRF i audit log,
+- łączenie oraz odłączanie tożsamości OAuth pozostawiono w chronionym `core_auth`,
+  który po wydzieleniu profilu ma wersję 1.4.1,
+- dodano zgodny z dropdownem alias `/admin/profile/identities` do ekranu tożsamości
+  obsługiwanego przez `core_auth`,
+- dodano test manifestu, zależności i własności tras modułu profilu.
+
+**Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, migracja
+Core oraz instalacja i aktywacja modułu przez `ModuleInstaller`.

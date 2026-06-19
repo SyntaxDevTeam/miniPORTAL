@@ -690,6 +690,26 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($team->uninstallFile === 'uninstall.sql');
     $assert($team->requiredModules === ['core_auth']);
 
+    $profile = $validator->validate(dirname(__DIR__) . '/modules/UserProfile');
+    $assert($profile->id === 'user_profile');
+    $assert($profile->version === '1.0.0');
+    $assert($profile->type === 'extension');
+    $assert($profile->requiredModules === ['core_auth']);
+    $assert($profile->installFile === 'install.sql');
+    $assert($profile->uninstallFile === 'uninstall.sql');
+
+    $profileSource = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/UserProfile/UserProfileModule.php'
+    );
+    $authSource = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/CoreAuth/CoreAuthModule.php'
+    );
+    $assert(str_contains($profileSource, "\$router->get('/admin/profile'"));
+    $assert(str_contains($profileSource, "\$router->post('/admin/profile/edit'"));
+    $assert(str_contains($profileSource, "\$router->post('/admin/profile/avatar'"));
+    $assert(!str_contains($authSource, "\$router->get('/admin/profile'"));
+    $assert(str_contains($authSource, "\$router->get('/admin/profile/identities'"));
+
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
     $assert($learning->id === 'learning_module');
     $assert($learning->version === '1.1.0');

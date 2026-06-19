@@ -130,8 +130,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Podgląd roboczy i lokalny autozapis formularzy treści |
 | [x] | `articles` jako niezależny moduł z kategoriami, własnymi trasami i menu |
 | [x] | `wikipedia` jako niezależny moduł dokumentacji projektowej |
-| [ ] | `team` jako moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika. |
-| [ ] | `profil_uzytkownika` jako moduł w którym można uzuepełnić i edytować wszystkie dane użytkwonika od avatara przez połączone konta aż po publiczny profil dla modułu `team`. |
+| [x] | `team` jako moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika. |
+| [x] | `user_profile` jako osobny moduł edycji danych i avatara, przeglądu bezpieczeństwa oraz wejścia do połączonych kont; profil publiczny pozostaje prezentowany przez zależny moduł `team`. |
 
 ### Krok 6 - system modułów
 
@@ -246,6 +246,7 @@ Brak aktywnych blokerów.
 | 2026-06-16 | Breadcrumb panelu Wiki pokazuje kontekst projektu i edytowanej strony, np. `Panel / Dokumentacja / PunisherX / Konfiguracja / Edytuj stronę dokumentacji`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.2, status `active`. |
 | 2026-06-16 | `PublicNavigationRegistry` pozwala aktywnym modułom deklarować linki publiczne; `/admin/settings` przypisuje je do głównego menu, stopki albo ukrywa. `wikipedia` udostępnia link `Dokumentacja` do `/wiki`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.3, status `active`. |
 | 2026-06-16 | Publiczne widoki modułów używają wspólnej nawigacji i stopki przez `ThemeInterface::set_public_navigation()`. Wiki generuje `/wiki/project/{slug}` i `/wiki/page/{project}/{slug}` zamiast `index.php?route=...`; starsze wejścia pozostają kompatybilne. Stan modułów po zmianie: `wikipedia` 1.0.4 active, `articles` 1.0.3 disabled. |
+| 2026-06-19 | `team` 1.0.0 realizuje publiczną listę i profile członków. Widoki oraz zapis danych profilu, avatara i przegląd bezpieczeństwa wydzielono z `CoreAuth` do opcjonalnego modułu `user_profile` 1.0.0 zależnego od `core_auth`; operacje OAuth pozostają własnością chronionego modułu uwierzytelniania. `core_auth` ma wersję 1.4.1. |
 
 ## Historia sesji
 

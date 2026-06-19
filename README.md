@@ -66,6 +66,10 @@ Pliki tłumaczeń z katalogu są pobierane jako `messages_xx.yml`, np.
 widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu
 powiązanego z lokalnym kontem użytkownika i jego avatarem. Panel `/admin/team`
 zarządza widocznością, opisem, rolą i kolejnością profili.
+`user_profile` jest osobnym modułem zależnym od `core_auth`. Przejmuje kompatybilne
+trasy `/admin/profile*` dla podglądu i edycji danych, ustawień avatara oraz stanu
+bezpieczeństwa. Łączenie i odłączanie kont OAuth pozostaje w chronionym `core_auth`,
+do którego moduł profilu prowadzi bez kopiowania logiki uwierzytelniania.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

@@ -340,6 +340,20 @@ automatycznie po zgodnym adresie e-mail.
 - `ThemeInterface::render_avatar()` jest ogólnym komponentem prezentacji avatara
   lub inicjałów i nie jest związany wyłącznie z modułem `team`.
 
+#### 4.6 Moduł profilu użytkownika `user_profile`
+- niezależne rozszerzenie zależne od chronionego modułu `core_auth`,
+- przejmuje trasy `/admin/profile`, `/admin/profile/edit`,
+  `/admin/profile/avatar` i `/admin/profile/security`, zachowując publiczny kontrakt
+  linków dropdownu użytkownika,
+- pozwala użytkownikowi edytować nazwę wyświetlaną, kontaktowy adres e-mail i avatar
+  oraz przeglądać role, uprawnienia i stan bezpieczeństwa,
+- zapis przechodzi przez `AuthService` i repozytorium użytkowników `CoreAuth`, a
+  formularze korzystają z `Request`, CSRF i audit logu,
+- łączenie i odłączanie zewnętrznych tożsamości pozostaje w `core_auth`, ponieważ
+  jest częścią granicy uwierzytelniania; profil tylko prowadzi do tych operacji,
+- publiczne dane członka zespołu, slug i widoczność pozostają własnością `team`,
+  który wiąże je z lokalnym użytkownikiem oraz jego avatarem.
+
 ### Faza 5: Manager modułów (Lego System)
 
 1. Manager skanuje katalog /modules/.
@@ -538,13 +552,15 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
     administracyjnego zatwierdzania plików YAML pluginów.
 13. `team`: publiczna lista członków drużyny i profile zespołu powiązane z kontami
     użytkowników.
+14. `user_profile`: wydzielony profil użytkownika, edycja danych i avatara oraz
+    przegląd bezpieczeństwa z wejściem do tożsamości zarządzanych przez `core_auth`.
 
 Stan Kroku 5:
 
 - `core_pages` i `articles` są rzeczywistymi, odrębnymi modułami treści,
-- `core_auth` udostępnia profil użytkownika przez dropdown w topbarze panelu;
-  profil obejmuje podgląd, edycję danych, ustawienia avatara, bezpieczeństwo
-  i połączone konta bez osobnej sekcji sidebaru,
+- `user_profile` udostępnia profil użytkownika przez dropdown w topbarze panelu;
+  profil obejmuje podgląd, edycję danych, ustawienia avatara i bezpieczeństwo,
+  natomiast `core_auth` zachowuje operacje na połączonych kontach,
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
 - elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
   pozostają wyłączną odpowiedzialnością aktywnego motywu,
