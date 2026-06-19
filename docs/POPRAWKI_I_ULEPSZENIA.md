@@ -124,6 +124,13 @@ akceptacji jest widoczny i możliwy do pobrania w publicznym katalogu pluginu.
 Panel `/admin/plugin-translator/plugins` pozwala dodawać pluginy i zmieniać ich
 widoczność, a główna kolejka pokazuje plugin, wersję i rodzaj zgłoszenia.
 
+Etap 6 gotowy: formularz `Dodaj plugin` nie przechowuje opisu ani ręcznego URL.
+Administrator wybiera opcjonalną, już opublikowaną stronę `core_pages`, np.
+`/p/punisherx`. Katalog pokazuje powiązaną stronę i pozwala usunąć plugin bez
+zgłoszeń. Główna kolejka managera ma bezpośrednie akcje `Zatwierdź`, `Odrzuć` i
+`Usuń` obok podglądu oraz pobierania; akcje wymagają CSRF, potwierdzeń dla operacji
+ryzykownych i zapisują audit log.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

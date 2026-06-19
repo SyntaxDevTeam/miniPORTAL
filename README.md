@@ -51,7 +51,9 @@ zgłoszenia, postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania
 zweryfikowanego YAML. Zalogowany użytkownik może także przesłać gotowy plik przez
 `/translations/upload-ready`; po akceptacji plik trafia do publicznego katalogu
 pluginu i może zostać pobrany. Panel `/admin/plugin-translator/plugins` zarządza
-katalogiem pluginów. Jednorazowe narzędzie eksportu administratora pozostało pod
+katalogiem pluginów i łączy plugin z istniejącą opublikowaną stroną `/p/{slug}`.
+Manager zgłoszeń udostępnia podgląd, pobranie, zatwierdzenie, odrzucenie i trwałe
+usunięcie. Jednorazowe narzędzie eksportu administratora pozostało pod
 `/admin/plugin-translator/tool`.
 `team` jest osobnym modułem prezentacji zespołu. Publiczne `/team` pokazuje
 widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu

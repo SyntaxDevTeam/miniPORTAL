@@ -203,10 +203,11 @@ final class PluginTranslationRepository
     {
         $where = $includeHidden ? '' : "WHERE p.status = 'active'";
         $statement = $this->database->query(
-            'SELECT p.id, p.name, p.slug, p.description, p.website_url, p.status, p.created_by, '
+            'SELECT p.id, p.name, p.slug, p.page_id, cp.title AS page_title, cp.slug AS page_slug, p.status, p.created_by, '
             . 'p.created_at, p.updated_at, '
             . "SUM(CASE WHEN s.status = 'approved' THEN 1 ELSE 0 END) AS approved_files "
             . 'FROM plugin_translation_projects p '
+            . 'LEFT JOIN core_pages cp ON cp.id = p.page_id AND cp.status = \'published\' '
             . 'LEFT JOIN plugin_translation_submissions s ON s.project_id = p.id '
             . $where . ' GROUP BY p.id ORDER BY p.name ASC'
         );
@@ -228,13 +229,12 @@ final class PluginTranslationRepository
         return null;
     }
 
-    public function createProject(string $name, string $slug, string $description, string $websiteUrl, int $createdBy): int
+    public function createProject(string $name, string $slug, ?int $pageId, int $createdBy): int
     {
         return (int) $this->database->create('plugin_translation_projects', [
             'name' => $name,
             'slug' => $slug,
-            'description' => $description,
-            'website_url' => $websiteUrl,
+            'page_id' => $pageId,
             'status' => 'active',
             'created_by' => $createdBy,
         ]);
@@ -248,6 +248,47 @@ final class PluginTranslationRepository
         $statement = $this->database->update('plugin_translation_projects', ['status' => $status], ['id' => $id]);
 
         return $statement !== null;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function publishedPageOptions(): array
+    {
+        $statement = $this->database->query(
+            "SELECT id, title, slug FROM core_pages WHERE status = 'published' ORDER BY title ASC"
+        );
+        $options = ['' => 'Bez powiązanej strony'];
+        foreach ($statement?->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $options[(string) $row['id']] = (string) $row['title'] . ' (/p/' . (string) $row['slug'] . ')';
+        }
+
+        return $options;
+    }
+
+    public function publishedPageExists(int $id): bool
+    {
+        return $id > 0 && $this->database->count('core_pages', ['id' => $id, 'status' => 'published']) === 1;
+    }
+
+    public function deleteSubmission(int $id): bool
+    {
+        $statement = $this->database->delete('plugin_translation_submissions', ['id' => $id]);
+
+        return $statement !== null && $statement->rowCount() === 1;
+    }
+
+    public function deleteProject(int $id): bool
+    {
+        if ($this->database->count('plugin_translation_submissions', ['project_id' => $id]) > 0) {
+            return false;
+        }
+        $statement = $this->database->delete('plugin_translation_projects', [
+            'id' => $id,
+            'slug[!]' => 'nieprzypisane',
+        ]);
+
+        return $statement !== null && $statement->rowCount() === 1;
     }
 
     /**
@@ -319,8 +360,9 @@ final class PluginTranslationRepository
             (int) $row['id'],
             (string) $row['name'],
             (string) $row['slug'],
-            (string) $row['description'],
-            (string) $row['website_url'],
+            $row['page_id'] !== null ? (int) $row['page_id'] : null,
+            (string) ($row['page_title'] ?? ''),
+            (string) ($row['page_slug'] ?? ''),
             (string) $row['status'],
             $row['created_by'] !== null ? (int) $row['created_by'] : null,
             (int) $row['approved_files'],

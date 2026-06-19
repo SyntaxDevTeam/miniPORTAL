@@ -2,19 +2,21 @@ CREATE TABLE plugin_translation_projects (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(160) NOT NULL,
     slug VARCHAR(160) NOT NULL UNIQUE,
-    description VARCHAR(500) NOT NULL DEFAULT '',
-    website_url VARCHAR(500) NOT NULL DEFAULT '',
+    page_id BIGINT UNSIGNED NULL,
     status ENUM('active', 'hidden') NOT NULL DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_plugin_translation_project_creator
         FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_plugin_translation_project_page
+        FOREIGN KEY (page_id) REFERENCES core_pages(id) ON DELETE SET NULL,
+    INDEX idx_plugin_translation_project_page (page_id),
     INDEX idx_plugin_translation_project_status_name (status, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO plugin_translation_projects (name, slug, description, status)
-VALUES ('Nieprzypisane', 'nieprzypisane', 'Historyczne tłumaczenia bez przypisanego pluginu.', 'hidden');
+INSERT INTO plugin_translation_projects (name, slug, status)
+VALUES ('Nieprzypisane', 'nieprzypisane', 'hidden');
 
 CREATE TABLE plugin_translation_submissions (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

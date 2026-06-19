@@ -39,12 +39,12 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.3.1';
     }
 
     public function dependencies(): array
     {
-        return ['core_auth'];
+        return ['core_auth', 'core_pages'];
     }
 
     public function isProtected(): bool
@@ -100,6 +100,11 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'plugin_translator.review',
             fn () => $this->changeAdminProjectStatus($request)
         ));
+        $router->post('/admin/plugin-translator/plugins/delete', fn (Request $request) => $this->guard(
+            $request,
+            'plugin_translator.review',
+            fn () => $this->deleteAdminProject($request)
+        ));
         $router->get('/admin/plugin-translator/view', fn (Request $request) => $this->guard(
             $request,
             'plugin_translator.review',
@@ -109,6 +114,11 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $request,
             'plugin_translator.review',
             fn () => $this->reviewSubmission($request)
+        ));
+        $router->post('/admin/plugin-translator/delete', fn (Request $request) => $this->guard(
+            $request,
+            'plugin_translator.review',
+            fn () => $this->deleteSubmission($request)
         ));
         $router->get('/admin/plugin-translator/download', fn (Request $request) => $this->guard(
             $request,
@@ -253,7 +263,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
         $files = $this->translations->approvedForProject($project->id);
         $this->theme->start_page($project->name . ' - tłumaczenia', 'Zaakceptowane pliki językowe pluginu ' . $project->name . '.');
-        $this->theme->start_header($project->name, $project->description !== '' ? $project->description : 'Zaakceptowane pliki tłumaczeń YAML.', 'SyntaxDevTeam / Lokalizacja');
+        $this->theme->start_header($project->name, 'Zaakceptowane pliki tłumaczeń YAML.', 'SyntaxDevTeam / Lokalizacja');
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->start_card('Pliki językowe', count($files) . ' plików');
@@ -263,6 +273,9 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->renderApprovedFilesTable($files);
         }
         $this->theme->render_button('Wróć do katalogu', 'index.php?route=/translations', 'outline-light');
+        if ($project->pageSlug !== '') {
+            $this->theme->render_button('Strona pluginu', '/p/' . $project->pageSlug, 'primary');
+        }
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();
@@ -916,14 +929,20 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->theme->render_alert('Katalog pluginów jest pusty.', 'info');
         } else {
             $this->theme->render_admin_action_table(
-                ['Nazwa', 'Slug', 'Status', 'Zaakceptowane pliki'],
+                ['Nazwa', 'Slug', 'Powiązana strona', 'Status', 'Zaakceptowane pliki'],
                 array_map(static fn (PluginTranslationProject $project): array => [
-                    'cells' => [$project->name, $project->slug, $project->status === 'active' ? 'Aktywny' : 'Ukryty', $project->approvedFiles],
+                    'cells' => [$project->name, $project->slug, $project->pageTitle !== '' ? $project->pageTitle : 'Brak', $project->status === 'active' ? 'Aktywny' : 'Ukryty', $project->approvedFiles],
                     'actions' => [[
                         'label' => $project->status === 'active' ? 'Ukryj' : 'Pokaż',
                         'action' => 'index.php?route=/admin/plugin-translator/plugins/status',
                         'variant' => 'outline-light',
                         'fields' => ['id' => $project->id, 'status' => $project->status === 'active' ? 'hidden' : 'active'],
+                    ], [
+                        'label' => 'Usuń',
+                        'action' => 'index.php?route=/admin/plugin-translator/plugins/delete',
+                        'variant' => 'danger',
+                        'fields' => ['id' => $project->id],
+                        'confirm' => 'Usunąć plugin z katalogu? Jest to możliwe tylko bez przypisanych zgłoszeń.',
                     ]],
                 ], $projects),
                 $this->security->csrfToken()
@@ -942,14 +961,10 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'type' => 'text',
             'help' => 'Małe litery, cyfry i myślniki.',
         ], [
-            'name' => 'description',
-            'label' => 'Opis',
-            'type' => 'textarea',
-            'rows' => 4,
-        ], [
-            'name' => 'website_url',
+            'name' => 'page_id',
             'label' => 'Strona pluginu',
-            'type' => 'url',
+            'type' => 'select',
+            'options' => $this->translations->publishedPageOptions(),
         ]], 'Dodaj plugin', $this->security->csrfToken());
         $this->theme->end_admin_panel();
         $this->theme->end_admin_panel_grid();
@@ -970,14 +985,14 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         try {
             $name = $this->bounded($request->postString('name'), 160);
             $slug = $this->normalizeSlug($request->postString('slug', $name));
-            $url = $this->bounded($request->postString('website_url'), 500);
+            $pageId = $request->postInt('page_id', 0) ?? 0;
             if ($name === '' || $slug === '') {
                 throw new \InvalidArgumentException('Nazwa i slug pluginu są wymagane.');
             }
-            if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) === false) {
-                throw new \InvalidArgumentException('Adres strony pluginu jest nieprawidłowy.');
+            if ($pageId > 0 && !$this->translations->publishedPageExists($pageId)) {
+                throw new \InvalidArgumentException('Wybrana strona nie istnieje albo nie jest opublikowana.');
             }
-            $id = $this->translations->createProject($name, $slug, $this->bounded($request->postString('description'), 500), $url, $actor->id);
+            $id = $this->translations->createProject($name, $slug, $pageId > 0 ? $pageId : null, $actor->id);
             $this->audit->record($request, 'plugin_translation_project_create', 'success', 'project:' . $id, $actor->id);
             $this->renderAdminProjects('Plugin został dodany do katalogu.', 'success');
         } catch (\Throwable $exception) {
@@ -1001,6 +1016,22 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
         $this->audit->record($request, 'plugin_translation_project_status', $status, 'project:' . $id, $actor->id);
         $this->renderAdminProjects('Widoczność pluginu została zmieniona.', 'success');
+    }
+
+    private function deleteAdminProject(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$actor instanceof User || !$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->renderAdminProjects('Token formularza jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $id = $request->postInt('id', 0) ?? 0;
+        if ($this->translations === null || !$this->translations->deleteProject($id)) {
+            $this->renderAdminProjects('Pluginu nie można usunąć, dopóki ma przypisane zgłoszenia.', 'danger');
+            return;
+        }
+        $this->audit->record($request, 'plugin_translation_project_delete', 'success', 'project:' . $id, $actor->id);
+        $this->renderAdminProjects('Plugin został usunięty z katalogu.', 'success');
     }
 
     private function renderAdminQueue(string $message = '', string $variant = 'info'): void
@@ -1052,15 +1083,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                             $submission->progressPercent . '% (' . $submission->translatedItems . '/' . $submission->totalItems . ')',
                             $submission->updatedAt,
                         ],
-                        'actions' => [[
-                            'label' => 'Podgląd',
-                            'href' => 'index.php?route=/admin/plugin-translator/view&id=' . $submission->id,
-                            'variant' => $submission->status === 'ready_for_review' ? 'primary' : 'outline-light',
-                        ], [
-                            'label' => 'Pobierz',
-                            'href' => 'index.php?route=/admin/plugin-translator/download&id=' . $submission->id,
-                            'variant' => 'outline-light',
-                        ]],
+                        'actions' => $this->adminSubmissionActions($submission),
                     ],
                     $submissions
                 ),
@@ -1176,6 +1199,22 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
         $this->audit->record($request, 'plugin_translation_review', $status, 'submission:' . $id, $actor->id);
         $this->renderAdminQueue('Decyzja została zapisana.', 'success');
+    }
+
+    private function deleteSubmission(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$actor instanceof User || !$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->renderAdminQueue('Token formularza jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $id = $request->postInt('id', 0) ?? 0;
+        if ($this->translations === null || !$this->translations->deleteSubmission($id)) {
+            $this->renderAdminQueue('Nie udało się usunąć zgłoszenia.', 'danger');
+            return;
+        }
+        $this->audit->record($request, 'plugin_translation_delete', 'success', 'submission:' . $id, $actor->id);
+        $this->renderAdminQueue('Zgłoszenie zostało usunięte.', 'success');
     }
 
     private function downloadSubmission(Request $request): void
@@ -1523,6 +1562,48 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     private function submissionKindLabel(string $kind): string
     {
         return $kind === 'completed_upload' ? 'Gotowy plik' : 'Edytor';
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function adminSubmissionActions(PluginTranslationSubmission $submission): array
+    {
+        $actions = [[
+            'label' => 'Podgląd',
+            'href' => 'index.php?route=/admin/plugin-translator/view&id=' . $submission->id,
+            'variant' => $submission->status === 'ready_for_review' ? 'primary' : 'outline-light',
+        ], [
+            'label' => 'Pobierz',
+            'href' => 'index.php?route=/admin/plugin-translator/download&id=' . $submission->id,
+            'variant' => 'outline-light',
+        ]];
+        if ($submission->status !== 'approved') {
+            $actions[] = [
+                'label' => 'Zatwierdź',
+                'action' => 'index.php?route=/admin/plugin-translator/review',
+                'variant' => 'success',
+                'fields' => ['id' => $submission->id, 'status' => 'approved', 'note' => ''],
+            ];
+        }
+        if ($submission->status !== 'rejected') {
+            $actions[] = [
+                'label' => 'Odrzuć',
+                'action' => 'index.php?route=/admin/plugin-translator/review',
+                'variant' => 'warning',
+                'fields' => ['id' => $submission->id, 'status' => 'rejected', 'note' => ''],
+                'confirm' => 'Odrzucić to zgłoszenie?',
+            ];
+        }
+        $actions[] = [
+            'label' => 'Usuń',
+            'action' => 'index.php?route=/admin/plugin-translator/delete',
+            'variant' => 'danger',
+            'fields' => ['id' => $submission->id],
+            'confirm' => 'Trwale usunąć zgłoszenie tłumaczenia?',
+        ];
+
+        return $actions;
     }
 
     private function hidden(string $name, string $value): void

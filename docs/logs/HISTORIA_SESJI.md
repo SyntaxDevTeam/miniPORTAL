@@ -1340,6 +1340,29 @@ workflow edycji tłumaczeń.
 `git diff --check`, `php tests/run.php` oraz test HTTP `/translations` zakończony
 statusem 200. Stan produkcyjny: `plugin_translator 1.3.0 active`.
 
+### Sesja: 2026-06-19 - Powiązane strony i akcje managera tłumaczeń
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - dopracowanie katalogu
+pluginów i administracyjnego cyklu życia zgłoszeń.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.3.1` i zadeklarowano zależność od
+  `core_pages`,
+- usunięto z katalogu pluginów pola opisu i ręcznego adresu URL,
+- dodano opcjonalne `page_id` wskazujące opublikowaną stronę `core_pages`; formularz
+  pokazuje istniejące strony wraz z docelowymi adresami `/p/{slug}`,
+- publiczny katalog pluginu pokazuje przycisk do powiązanej strony,
+- manager pluginów pozwala usuwać wyłącznie pozycje bez zgłoszeń i chroni katalog
+  historyczny `Nieprzypisane`,
+- kolejka zgłoszeń ma szybkie akcje `Zatwierdź`, `Odrzuć` i `Usuń`; akcje POST
+  korzystają z CSRF, potwierdzeń i audit logu.
+
+**Weryfikacja:** uruchomiono testy repozytorium, lint PHP i `git diff --check`,
+wykonano migrację `20260619_translation_page_link_and_manager_actions.sql` przez
+`ModuleInstaller` oraz sprawdzono realny schemat. Stan produkcyjny:
+`plugin_translator 1.3.1 active`, `page_id=yes`, stare kolumny opisu i URL nie
+istnieją.
+
 ### Sesja: 2026-06-19 - Poprawka publicznego menu mobilnego
 
 **Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja wspólnej

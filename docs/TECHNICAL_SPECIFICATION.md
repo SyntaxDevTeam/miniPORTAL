@@ -259,7 +259,8 @@ automatycznie po zgodnym adresie e-mail.
 - niezależne rozszerzenie do tłumaczenia plików YAML używanych przez pluginy
   SyntaxDevTeam oraz zarządzania zatwierdzonymi plikami językowymi,
 - `plugin_translation_projects` przechowuje katalog pluginów z nazwą, slugiem,
-  opisem, adresem projektu i widocznością; każde zgłoszenie wskazuje `project_id`,
+  opcjonalnym `page_id` do opublikowanej `core_pages` i widocznością; każde
+  zgłoszenie wskazuje `project_id`,
 - zgłoszenie przechowuje opcjonalną wersję pluginu oraz rodzaj `editor` albo
   `completed_upload`,
 - publiczna strona `/translations` przyjmuje upload `.yml/.yaml` metodą
@@ -299,7 +300,11 @@ automatycznie po zgodnym adresie e-mail.
   ukończenia, plugin, wersję, rodzaj zgłoszenia, podgląd różnic oraz akcje
   akceptacji lub odrzucenia,
 - `/admin/plugin-translator/plugins` pozwala administratorowi tworzyć katalogi
-  pluginów oraz sterować ich publiczną widocznością,
+  pluginów, wybierać istniejącą stronę `/p/{slug}`, sterować widocznością oraz
+  usuwać pozycje bez przypisanych zgłoszeń,
+- główna kolejka udostępnia szybkie akcje podglądu, pobrania, zatwierdzenia,
+  odrzucenia i trwałego usunięcia zgłoszenia; operacje zapisowe wymagają CSRF i są
+  rejestrowane w audit logu,
 - zatwierdzone i przeglądane tłumaczenie można pobrać jako zweryfikowany YAML,
 - jednorazowe narzędzie eksportu administratora pozostaje dostępne pod
   `/admin/plugin-translator/tool`,

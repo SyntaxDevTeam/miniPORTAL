@@ -676,11 +676,11 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.3.0');
+    $assert($translator->version === '1.3.1');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
-    $assert($translator->requiredModules === ['core_auth']);
+    $assert($translator->requiredModules === ['core_auth', 'core_pages']);
 
     $team = $validator->validate(dirname(__DIR__) . '/modules/Team');
     $assert($team->id === 'team');
@@ -726,6 +726,8 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($translatorInstallSql, 'CREATE TABLE plugin_translation_projects'));
     $assert(str_contains($translatorInstallSql, 'submission_kind'));
     $assert(str_contains($translatorInstallSql, 'project_id'));
+    $assert(str_contains($translatorInstallSql, 'page_id'));
+    $assert(!str_contains($translatorInstallSql, 'website_url'));
     $assert(str_contains($translatorInstallSql, "ready_for_review"));
     $assert(str_contains($translatorInstallSql, 'target_language'));
 
@@ -744,6 +746,11 @@ $test('CoreAuth declares database explorer permission', static function () use (
     );
     $assert(str_contains($translatorCatalogMigrationSql, 'plugin_translation_projects'));
     $assert(str_contains($translatorCatalogMigrationSql, 'completed_upload'));
+    $translatorPageMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260619_translation_page_link_and_manager_actions.sql'
+    );
+    $assert(str_contains($translatorPageMigrationSql, 'page_id'));
+    $assert(str_contains($translatorPageMigrationSql, 'DROP COLUMN description'));
 
     $teamInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Team/install.sql');
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));
