@@ -162,7 +162,9 @@ final class Theme implements ThemeInterface
     {
         echo '</main>';
         $this->renderPublicFooter($this->publicNavigation);
-        echo '</body></html>';
+        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
+        echo '<script src="' . $this->asset('js/site.js') . '"></script></body></html>';
     }
 
     public function start_header(string $title, string $lead = '', string $eyebrow = ''): void

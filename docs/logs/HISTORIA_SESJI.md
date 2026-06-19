@@ -1293,3 +1293,17 @@ rozszerzeń po dodaniu translatora i modułu Team.
 `$this->menu->items()` oraz test HTTP
 `/index.php?route=%2Fadmin%2Fplugin-translator`, który zwraca poprawny widok 401
 dla niezalogowanego użytkownika zamiast HTTP 500.
+
+### Sesja: 2026-06-19 - Poprawka publicznego menu mobilnego
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja wspólnej
+publicznej nawigacji modułów i podstron poza stroną główną.
+
+**Wykonano:**
+- naprawiono publiczne widoki poza stroną główną, które renderowały przycisk
+  hamburgera Bootstrap, ale nie dołączały `bootstrap.bundle.min.js`, więc collapse
+  menu mobilnego nie miał obsługi JavaScript,
+- `end_page()` w motywach `default` i `glassnight` dołącza teraz ten sam bundle
+  Bootstrap oraz `site.js`, którego używa strona główna.
+
+**Weryfikacja:** wykonano lint PHP zmienionych motywów oraz pełne testy repozytorium.
