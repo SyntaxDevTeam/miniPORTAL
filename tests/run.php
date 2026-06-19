@@ -676,7 +676,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.2.1');
+    $assert($translator->version === '1.3.0');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -723,6 +723,9 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($translatorInstallSql, "'plugin_translator.use'"));
     $assert(str_contains($translatorInstallSql, "'plugin_translator.review'"));
     $assert(str_contains($translatorInstallSql, 'CREATE TABLE plugin_translation_submissions'));
+    $assert(str_contains($translatorInstallSql, 'CREATE TABLE plugin_translation_projects'));
+    $assert(str_contains($translatorInstallSql, 'submission_kind'));
+    $assert(str_contains($translatorInstallSql, 'project_id'));
     $assert(str_contains($translatorInstallSql, "ready_for_review"));
     $assert(str_contains($translatorInstallSql, 'target_language'));
 
@@ -736,6 +739,11 @@ $test('CoreAuth declares database explorer permission', static function () use (
         dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260618_translation_language_and_ux.sql'
     );
     $assert(str_contains($translatorLanguageMigrationSql, 'target_language'));
+    $translatorCatalogMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/migrations/20260619_translation_project_catalog.sql'
+    );
+    $assert(str_contains($translatorCatalogMigrationSql, 'plugin_translation_projects'));
+    $assert(str_contains($translatorCatalogMigrationSql, 'completed_upload'));
 
     $teamInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Team/install.sql');
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));

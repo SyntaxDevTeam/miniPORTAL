@@ -10,9 +10,13 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class PluginTranslationRepository
 {
-    private const SELECT_COLUMNS = 'id, user_id, author_name, author_email, title, source_filename, target_language, source_yaml, '
-        . 'translations_json, output_yaml, total_items, translated_items, progress_percent, status, reviewer_id, '
-        . 'review_note, reviewed_at, created_at, updated_at';
+    private const SELECT_COLUMNS = 's.id, s.project_id, p.name AS project_name, p.slug AS project_slug, s.user_id, '
+        . 's.author_name, s.author_email, s.title, s.source_filename, s.plugin_version, s.submission_kind, '
+        . 's.target_language, s.source_yaml, s.translations_json, s.output_yaml, s.total_items, s.translated_items, '
+        . 's.progress_percent, s.status, s.reviewer_id, s.review_note, s.reviewed_at, s.created_at, s.updated_at';
+
+    private const SELECT_FROM = ' FROM plugin_translation_submissions s '
+        . 'JOIN plugin_translation_projects p ON p.id = s.project_id ';
 
     public function __construct(
         private readonly CrudApp $database,
@@ -25,8 +29,8 @@ final class PluginTranslationRepository
     public function all(): array
     {
         $statement = $this->database->query(
-            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
-            . "ORDER BY FIELD(status, 'ready_for_review', 'draft', 'rejected', 'approved'), updated_at DESC, id DESC"
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM
+            . "ORDER BY FIELD(s.status, 'ready_for_review', 'draft', 'rejected', 'approved'), s.updated_at DESC, s.id DESC"
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać zgłoszeń tłumaczeń.');
@@ -42,8 +46,8 @@ final class PluginTranslationRepository
     {
         $limit = max(1, min(12, $limit));
         $statement = $this->database->query(
-            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
-            . 'WHERE status = :status ORDER BY reviewed_at DESC, id DESC LIMIT ' . $limit,
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM
+            . 'WHERE s.status = :status ORDER BY s.reviewed_at DESC, s.id DESC LIMIT ' . $limit,
             [':status' => 'approved']
         );
         if ($statement === null) {
@@ -56,7 +60,7 @@ final class PluginTranslationRepository
     public function find(int $id): ?PluginTranslationSubmission
     {
         $statement = $this->database->query(
-            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions WHERE id = :id LIMIT 1',
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM . 'WHERE s.id = :id LIMIT 1',
             [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -70,8 +74,8 @@ final class PluginTranslationRepository
     public function forUser(int $userId): array
     {
         $statement = $this->database->query(
-            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
-            . 'WHERE user_id = :user_id ORDER BY updated_at DESC, id DESC',
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM
+            . 'WHERE s.user_id = :user_id ORDER BY s.updated_at DESC, s.id DESC',
             [':user_id' => $userId]
         );
         if ($statement === null) {
@@ -84,8 +88,8 @@ final class PluginTranslationRepository
     public function findForUser(int $id, int $userId): ?PluginTranslationSubmission
     {
         $statement = $this->database->query(
-            'SELECT ' . self::SELECT_COLUMNS . ' FROM plugin_translation_submissions '
-            . 'WHERE id = :id AND user_id = :user_id LIMIT 1',
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM
+            . 'WHERE s.id = :id AND s.user_id = :user_id LIMIT 1',
             [':id' => $id, ':user_id' => $userId]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -97,11 +101,14 @@ final class PluginTranslationRepository
      * @param array<string, string> $translations
      */
     public function create(
+        int $projectId,
         ?int $userId,
         string $authorName,
         string $authorEmail,
         string $title,
         string $sourceFilename,
+        string $pluginVersion,
+        string $submissionKind,
         string $targetLanguage,
         string $sourceYaml,
         array $translations,
@@ -111,11 +118,14 @@ final class PluginTranslationRepository
         string $status,
     ): int {
         return (int) $this->database->create('plugin_translation_submissions', [
+            'project_id' => $projectId,
             'user_id' => $userId,
             'author_name' => $authorName,
             'author_email' => $authorEmail,
             'title' => $title,
             'source_filename' => $sourceFilename,
+            'plugin_version' => $pluginVersion,
+            'submission_kind' => $submissionKind,
             'target_language' => $targetLanguage,
             'source_yaml' => $sourceYaml,
             'translations_json' => json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
@@ -133,9 +143,11 @@ final class PluginTranslationRepository
     public function updateUserSubmission(
         int $id,
         int $userId,
+        int $projectId,
         string $authorName,
         string $authorEmail,
         string $title,
+        string $pluginVersion,
         string $targetLanguage,
         array $translations,
         string $outputYaml,
@@ -144,9 +156,11 @@ final class PluginTranslationRepository
         string $status,
     ): bool {
         $statement = $this->database->update('plugin_translation_submissions', [
+            'project_id' => $projectId,
             'author_name' => $authorName,
             'author_email' => $authorEmail,
             'title' => $title,
+            'plugin_version' => $pluginVersion,
             'target_language' => $targetLanguage,
             'translations_json' => json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             'output_yaml' => $outputYaml,
@@ -182,6 +196,78 @@ final class PluginTranslationRepository
         return $statement !== null && $statement->rowCount() === 1;
     }
 
+    /**
+     * @return list<PluginTranslationProject>
+     */
+    public function projects(bool $includeHidden = false): array
+    {
+        $where = $includeHidden ? '' : "WHERE p.status = 'active'";
+        $statement = $this->database->query(
+            'SELECT p.id, p.name, p.slug, p.description, p.website_url, p.status, p.created_by, '
+            . 'p.created_at, p.updated_at, '
+            . "SUM(CASE WHEN s.status = 'approved' THEN 1 ELSE 0 END) AS approved_files "
+            . 'FROM plugin_translation_projects p '
+            . 'LEFT JOIN plugin_translation_submissions s ON s.project_id = p.id '
+            . $where . ' GROUP BY p.id ORDER BY p.name ASC'
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać katalogu pluginów.');
+        }
+
+        return array_map($this->hydrateProject(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function project(int $id, bool $includeHidden = false): ?PluginTranslationProject
+    {
+        foreach ($this->projects($includeHidden) as $project) {
+            if ($project->id === $id) {
+                return $project;
+            }
+        }
+
+        return null;
+    }
+
+    public function createProject(string $name, string $slug, string $description, string $websiteUrl, int $createdBy): int
+    {
+        return (int) $this->database->create('plugin_translation_projects', [
+            'name' => $name,
+            'slug' => $slug,
+            'description' => $description,
+            'website_url' => $websiteUrl,
+            'status' => 'active',
+            'created_by' => $createdBy,
+        ]);
+    }
+
+    public function setProjectStatus(int $id, string $status): bool
+    {
+        if (!in_array($status, ['active', 'hidden'], true)) {
+            return false;
+        }
+        $statement = $this->database->update('plugin_translation_projects', ['status' => $status], ['id' => $id]);
+
+        return $statement !== null;
+    }
+
+    /**
+     * @return list<PluginTranslationSubmission>
+     */
+    public function approvedForProject(int $projectId): array
+    {
+        $statement = $this->database->query(
+            'SELECT ' . self::SELECT_COLUMNS . self::SELECT_FROM
+            . 'WHERE s.project_id = :project_id AND s.status = :status '
+            . 'ORDER BY s.target_language ASC, s.plugin_version DESC, s.reviewed_at DESC',
+            [':project_id' => $projectId, ':status' => 'approved']
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać zaakceptowanych plików pluginu.');
+        }
+
+        return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     private function progress(int $totalItems, int $translatedItems): int
     {
         if ($totalItems <= 0) {
@@ -198,11 +284,16 @@ final class PluginTranslationRepository
     {
         return new PluginTranslationSubmission(
             (int) $row['id'],
+            (int) $row['project_id'],
+            (string) $row['project_name'],
+            (string) $row['project_slug'],
             $row['user_id'] !== null ? (int) $row['user_id'] : null,
             (string) $row['author_name'],
             (string) $row['author_email'],
             (string) $row['title'],
             (string) $row['source_filename'],
+            (string) ($row['plugin_version'] ?? ''),
+            (string) ($row['submission_kind'] ?? 'editor'),
             (string) ($row['target_language'] ?? 'EN'),
             (string) $row['source_yaml'],
             (string) $row['translations_json'],
@@ -214,6 +305,25 @@ final class PluginTranslationRepository
             $row['reviewer_id'] !== null ? (int) $row['reviewer_id'] : null,
             (string) ($row['review_note'] ?? ''),
             $row['reviewed_at'] !== null ? (string) $row['reviewed_at'] : null,
+            (string) $row['created_at'],
+            (string) $row['updated_at'],
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function hydrateProject(array $row): PluginTranslationProject
+    {
+        return new PluginTranslationProject(
+            (int) $row['id'],
+            (string) $row['name'],
+            (string) $row['slug'],
+            (string) $row['description'],
+            (string) $row['website_url'],
+            (string) $row['status'],
+            $row['created_by'] !== null ? (int) $row['created_by'] : null,
+            (int) $row['approved_files'],
             (string) $row['created_at'],
             (string) $row['updated_at'],
         );

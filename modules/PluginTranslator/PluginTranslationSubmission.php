@@ -8,11 +8,16 @@ final readonly class PluginTranslationSubmission
 {
     public function __construct(
         public int $id,
+        public int $projectId,
+        public string $projectName,
+        public string $projectSlug,
         public ?int $userId,
         public string $authorName,
         public string $authorEmail,
         public string $title,
         public string $sourceFilename,
+        public string $pluginVersion,
+        public string $submissionKind,
         public string $targetLanguage,
         public string $sourceYaml,
         public string $translationsJson,

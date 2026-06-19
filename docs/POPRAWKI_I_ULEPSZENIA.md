@@ -115,6 +115,15 @@ zatwierdzone tłumaczenia są zablokowane przed zmianą. Podgląd formatowania r
 wynik do HTML, pokazuje zmienne typu `<player>` jako zwykłe placeholdery i zgłasza
 błędy MiniMessage, np. brak zamknięcia tagu lub błędny kolor HEX.
 
+Etap 5 gotowy: translator jest także managerem zaakceptowanych plików językowych.
+Dodano katalog `plugin_translation_projects`, przypisanie zgłoszeń do pluginu,
+opcjonalną wersję pluginu oraz rozróżnienie pracy z edytora i gotowego uploadu.
+Zalogowany użytkownik może przesłać ukończony YAML przez
+`/translations/upload-ready`; plik trafia do kolejki `ready_for_review`, a po
+akceptacji jest widoczny i możliwy do pobrania w publicznym katalogu pluginu.
+Panel `/admin/plugin-translator/plugins` pozwala dodawać pluginy i zmieniać ich
+widoczność, a główna kolejka pokazuje plugin, wersję i rodzaj zgłoszenia.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

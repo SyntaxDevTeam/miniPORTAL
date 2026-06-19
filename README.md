@@ -37,7 +37,8 @@ operacji zapisowych `database.manage`, obsługuje eksport/import SQL, operacje t
 oraz dodawanie, edycję i usuwanie rekordów. Główne akcje panelowych modułów są
 renderowane w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
 `plugin_translator` jest osobnym modułem do tłumaczenia plików YAML używanych przez
-pluginy SyntaxDevTeam. Publiczna strona `/translations` pozwala użytkownikom wgrać
+pluginy SyntaxDevTeam oraz managerem zaakceptowanych plików językowych. Publiczna
+strona `/translations` grupuje pliki według katalogu pluginów i pozwala użytkownikom wgrać
 `.yml/.yaml` metodą przeciągnij/upuść, wybrać język docelowy ISO `XX`, uzupełnić
 tłumaczenie w edytorze z wyrównanym oryginałem i zapisać je domyślnie jako szkic.
 Wprowadzanie i zapis wymagają logowania; konto oczekujące może pracować nad
@@ -47,7 +48,10 @@ zgłoszeń gotowych do sprawdzenia i odrzuconych prac. Edytor ma podgląd HTML
 formatowania Minecraft legacy, RGB i MiniMessage, pokazuje zmienne typu `<player>`
 oraz błędy składni formatowania. Panel `/admin/plugin-translator` pokazuje
 zgłoszenia, postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania
-zweryfikowanego YAML. Jednorazowe narzędzie eksportu administratora pozostało pod
+zweryfikowanego YAML. Zalogowany użytkownik może także przesłać gotowy plik przez
+`/translations/upload-ready`; po akceptacji plik trafia do publicznego katalogu
+pluginu i może zostać pobrany. Panel `/admin/plugin-translator/plugins` zarządza
+katalogiem pluginów. Jednorazowe narzędzie eksportu administratora pozostało pod
 `/admin/plugin-translator/tool`.
 `team` jest osobnym modułem prezentacji zespołu. Publiczne `/team` pokazuje
 widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu

@@ -39,7 +39,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function version(): string
     {
-        return '1.2.1';
+        return '1.3.0';
     }
 
     public function dependencies(): array
@@ -70,6 +70,10 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     public function registerRoutes(Router $router): void
     {
         $router->get('/translations', fn (Request $request) => $this->renderPublicStart());
+        $router->get('/translations/project', fn (Request $request) => $this->renderPublicProject($request));
+        $router->get('/translations/upload-ready', fn (Request $request) => $this->renderReadyUpload());
+        $router->post('/translations/upload-ready', fn (Request $request) => $this->submitReadyUpload($request));
+        $router->get('/translations/download', fn (Request $request) => $this->downloadApprovedSubmission($request));
         $router->get('/translations/mine', fn (Request $request) => $this->renderUserSubmissions());
         $router->get('/translations/edit', fn (Request $request) => $this->editUserSubmission($request));
         $router->get('/translations/resume', fn (Request $request) => $this->resumePublicEditor());
@@ -80,6 +84,21 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $request,
             'plugin_translator.review',
             fn () => $this->renderAdminQueue()
+        ));
+        $router->get('/admin/plugin-translator/plugins', fn (Request $request) => $this->guard(
+            $request,
+            'plugin_translator.review',
+            fn () => $this->renderAdminProjects()
+        ));
+        $router->post('/admin/plugin-translator/plugins', fn (Request $request) => $this->guard(
+            $request,
+            'plugin_translator.review',
+            fn () => $this->createAdminProject($request)
+        ));
+        $router->post('/admin/plugin-translator/plugins/status', fn (Request $request) => $this->guard(
+            $request,
+            'plugin_translator.review',
+            fn () => $this->changeAdminProjectStatus($request)
         ));
         $router->get('/admin/plugin-translator/view', fn (Request $request) => $this->guard(
             $request,
@@ -129,12 +148,26 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             return;
         }
 
+        $projects = $this->translations->projects();
         $this->theme->start_grid();
         $this->theme->start_column('lg-7');
         $this->theme->start_card('Rozpocznij tłumaczenie', 'YAML');
-        $this->theme->render_form(
+        if ($projects === []) {
+            $this->theme->render_alert('Tłumaczenie będzie dostępne po dodaniu pierwszego pluginu przez administratora.', 'info');
+        } else {
+            $this->theme->render_form(
             'index.php?route=/translations/open',
             [[
+                'name' => 'project_id',
+                'label' => 'Plugin',
+                'type' => 'select',
+                'options' => $this->projectOptions($projects),
+            ], [
+                'name' => 'plugin_version',
+                'label' => 'Wersja pluginu',
+                'type' => 'text',
+                'help' => 'Opcjonalnie, np. 2.4.1.',
+            ], [
                 'name' => 'yaml_file',
                 'label' => 'Plik YAML',
                 'type' => 'file',
@@ -149,9 +182,11 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             ]],
             'Otwórz edytor',
             $this->security->csrfToken()
-        );
+            );
+        }
         if ($this->auth->user() instanceof User) {
             $this->theme->render_button('Moje tłumaczenia', 'index.php?route=/translations/mine', 'outline-light');
+            $this->theme->render_button('Wyślij gotowy plik', 'index.php?route=/translations/upload-ready', 'outline-light');
         } else {
             $this->theme->render_button('Zaloguj się, aby wrócić do szkiców', 'index.php?route=/admin/login', 'outline-light');
         }
@@ -159,17 +194,41 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $this->theme->end_column();
 
         $this->theme->start_column('lg-5');
+        $this->theme->start_card('Katalog pluginów', count($projects) . ' pluginów');
+        if ($projects === []) {
+            $this->theme->render_alert('Administrator nie dodał jeszcze pluginów do katalogu.', 'info');
+        } else {
+            $this->theme->render_table(
+                ['Plugin', 'Zaakceptowane pliki'],
+                array_map(static fn (PluginTranslationProject $project): array => [
+                    $project->name,
+                    (string) $project->approvedFiles,
+                ], $projects)
+            );
+            foreach ($projects as $project) {
+                $this->theme->render_button(
+                    'Otwórz ' . $project->name,
+                    'index.php?route=/translations/project&id=' . $project->id,
+                    'outline-light'
+                );
+            }
+        }
+        $this->theme->end_card();
+        $this->theme->end_column();
+        $this->theme->end_grid();
+
         $this->theme->start_card('Ostatnio zatwierdzone', 'Review');
         $approved = $this->translations->recentApproved();
         if ($approved === []) {
             $this->theme->render_alert('Nie ma jeszcze zatwierdzonych tłumaczeń.', 'info');
         } else {
             $this->theme->render_table(
-                ['Nazwa', 'Postęp', 'Data'],
+                ['Plugin', 'Język', 'Wersja', 'Data'],
                 array_map(
                     static fn (PluginTranslationSubmission $submission): array => [
-                        $submission->title,
-                        $submission->progressPercent . '%',
+                        $submission->projectName,
+                        $submission->targetLanguage,
+                        $submission->pluginVersion !== '' ? $submission->pluginVersion : '—',
                         $submission->reviewedAt ?? $submission->updatedAt,
                     ],
                     $approved
@@ -177,10 +236,165 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             );
         }
         $this->theme->end_card();
-        $this->theme->end_column();
-        $this->theme->end_grid();
         $this->theme->end_section();
         $this->theme->end_page();
+    }
+
+    private function renderPublicProject(Request $request): void
+    {
+        if ($this->translations === null) {
+            $this->renderPublicStart('Translator wymaga aktywnego połączenia z bazą danych.', 'danger');
+            return;
+        }
+        $project = $this->translations->project($request->queryInt('id', 0) ?? 0);
+        if (!$project instanceof PluginTranslationProject) {
+            $this->renderPublicStart('Nie znaleziono pluginu w katalogu tłumaczeń.', 'danger');
+            return;
+        }
+        $files = $this->translations->approvedForProject($project->id);
+        $this->theme->start_page($project->name . ' - tłumaczenia', 'Zaakceptowane pliki językowe pluginu ' . $project->name . '.');
+        $this->theme->start_header($project->name, $project->description !== '' ? $project->description : 'Zaakceptowane pliki tłumaczeń YAML.', 'SyntaxDevTeam / Lokalizacja');
+        $this->theme->end_header();
+        $this->theme->start_section();
+        $this->theme->start_card('Pliki językowe', count($files) . ' plików');
+        if ($files === []) {
+            $this->theme->render_alert('Ten plugin nie ma jeszcze zaakceptowanych tłumaczeń.', 'info');
+        } else {
+            $this->renderApprovedFilesTable($files);
+        }
+        $this->theme->render_button('Wróć do katalogu', 'index.php?route=/translations', 'outline-light');
+        $this->theme->end_card();
+        $this->theme->end_section();
+        $this->theme->end_page();
+    }
+
+    private function renderReadyUpload(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if (!$user instanceof User) {
+            $this->renderLoginRequired('', 'gotowe-tlumaczenie.yml', 'EN', [], 'Zaloguj się, aby przesłać gotowy plik do akceptacji.', 'index.php?route=/translations/upload-ready');
+            return;
+        }
+        if ($this->translations === null) {
+            $this->renderPublicStart('Translator wymaga aktywnego połączenia z bazą danych.', 'danger');
+            return;
+        }
+        $projects = $this->translations->projects();
+        $this->theme->start_page('Wyślij gotowe tłumaczenie - SyntaxDevTeam', 'Prześlij gotowy plik YAML do weryfikacji administratora.');
+        $this->theme->start_header('Wyślij gotowy plik', 'Gotowe tłumaczenie trafi do kolejki administracyjnej i pojawi się w katalogu po akceptacji.', 'SyntaxDevTeam / Lokalizacja');
+        $this->theme->end_header();
+        $this->theme->start_section();
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        if ($projects === []) {
+            $this->theme->render_alert('Brak aktywnych pluginów. Administrator musi najpierw utworzyć katalog pluginu.', 'warning');
+        } else {
+            $this->theme->start_card('Gotowy plik YAML', 'Do akceptacji');
+            $this->theme->render_form('index.php?route=/translations/upload-ready', [[
+                'name' => 'project_id',
+                'label' => 'Plugin',
+                'type' => 'select',
+                'options' => $this->projectOptions($projects),
+            ], [
+                'name' => 'plugin_version',
+                'label' => 'Wersja pluginu',
+                'type' => 'text',
+                'help' => 'Opcjonalnie, np. 2.4.1.',
+            ], [
+                'name' => 'target_language',
+                'label' => 'Język pliku',
+                'type' => 'select',
+                'value' => 'PL',
+                'options' => $this->targetLanguages(),
+            ], [
+                'name' => 'title',
+                'label' => 'Nazwa zgłoszenia',
+                'type' => 'text',
+                'value' => 'Gotowe tłumaczenie',
+            ], [
+                'name' => 'yaml_file',
+                'label' => 'Gotowy plik YAML',
+                'type' => 'file',
+                'accept' => '.yml,.yaml,text/yaml,text/x-yaml,text/plain',
+            ]], 'Wyślij do akceptacji', $this->security->csrfToken());
+            $this->theme->end_card();
+        }
+        $this->theme->end_section();
+        $this->theme->end_page();
+    }
+
+    private function submitReadyUpload(Request $request): void
+    {
+        $user = $this->auth->user();
+        if (!$user instanceof User) {
+            $this->renderReadyUpload('Sesja wygasła. Zaloguj się ponownie.', 'warning');
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->renderReadyUpload('Token formularza jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        if ($this->translations === null) {
+            $this->renderPublicStart('Translator wymaga aktywnego połączenia z bazą danych.', 'danger');
+            return;
+        }
+
+        try {
+            $projectId = $request->postInt('project_id', 0) ?? 0;
+            $project = $this->translations->project($projectId);
+            if (!$project instanceof PluginTranslationProject) {
+                throw new \InvalidArgumentException('Wybierz aktywny plugin z katalogu.');
+            }
+            $filename = 'translation.yml';
+            $source = $this->sourceYaml($request, '', $filename);
+            $parsed = $this->yaml->parse($source);
+            $items = $this->yaml->flatten($parsed);
+            if ($items === []) {
+                throw new \InvalidArgumentException('Gotowy plik nie zawiera żadnych linijek tekstu.');
+            }
+            $id = $this->translations->create(
+                $project->id,
+                $user->id,
+                $user->displayName,
+                $user->email,
+                $this->bounded($request->postString('title', 'Gotowe tłumaczenie'), 180),
+                $this->bounded($filename, 190),
+                $this->bounded($request->postString('plugin_version'), 40),
+                'completed_upload',
+                $this->normalizeLanguage($request->postString('target_language', 'PL')),
+                $source,
+                [],
+                $source,
+                count($items),
+                count($items),
+                'ready_for_review'
+            );
+            $this->audit->record($request, 'plugin_translation_upload_ready', 'success', 'submission:' . $id, $user->id);
+            $this->renderUserSubmissions('Gotowy plik został wysłany do akceptacji administratora.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'plugin_translation_upload_ready', 'failed', 'yaml', $user->id);
+            $this->renderReadyUpload($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function downloadApprovedSubmission(Request $request): void
+    {
+        $submission = $this->translations?->find($request->queryInt('id', 0) ?? 0);
+        $project = $submission instanceof PluginTranslationSubmission
+            ? $this->translations?->project($submission->projectId)
+            : null;
+        if (!$submission instanceof PluginTranslationSubmission
+            || !$project instanceof PluginTranslationProject
+            || $submission->status !== 'approved') {
+            $this->renderPublicStart('Nie znaleziono zaakceptowanego pliku tłumaczenia.', 'danger');
+            return;
+        }
+
+        header('Content-Type: application/x-yaml; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $this->downloadFilename($submission) . '"');
+        header('X-Content-Type-Options: nosniff');
+        echo $submission->outputYaml;
     }
 
     private function renderUserSubmissions(string $message = '', string $variant = 'info'): void
@@ -241,6 +455,10 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->renderUserSubmissions('Nie znaleziono Twojej pracy tłumaczeniowej.', 'danger');
             return;
         }
+        if ($submission->submissionKind !== 'editor') {
+            $this->renderUserSubmissions('Gotowy plik można zastąpić przez ponowny upload.', 'warning');
+            return;
+        }
         if (!in_array($submission->status, ['draft', 'ready_for_review', 'rejected'], true)) {
             $this->renderUserSubmissions('Zatwierdzonego tłumaczenia nie można już edytować.', 'warning');
             return;
@@ -253,6 +471,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 $submission->sourceYaml,
                 $submission->sourceFilename,
                 $submission->targetLanguage,
+                $submission->projectId,
+                $submission->pluginVersion,
                 $items,
                 is_array($translations) ? $this->normalizedTranslations($translations) : [],
                 'Wczytano zapisaną pracę. Możesz kontynuować edycję.',
@@ -274,9 +494,15 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
 
         try {
+            $user = $this->auth->user();
             $filename = 'messages.yml';
             $source = $this->sourceYaml($request, $source, $filename);
             $targetLanguage = $this->normalizeLanguage($request->postString('target_language', 'EN'));
+            $projectId = $request->postInt('project_id', 0) ?? 0;
+            if (!$this->translations?->project($projectId) instanceof PluginTranslationProject) {
+                throw new \InvalidArgumentException('Wybierz aktywny plugin z katalogu.');
+            }
+            $pluginVersion = $this->bounded($request->postString('plugin_version'), 40);
             $parsed = $this->yaml->parse($source);
             $items = $this->yaml->flatten($parsed);
             if ($items === []) {
@@ -287,12 +513,14 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                     'source_yaml' => $source,
                     'source_filename' => $filename,
                     'target_language' => $targetLanguage,
+                    'project_id' => $projectId,
+                    'plugin_version' => $pluginVersion,
                     'translations' => [],
                 ]);
                 $this->renderLoginRequired($source, $filename, $targetLanguage, [], 'Zaloguj się, aby rozpocząć wprowadzanie tłumaczeń. Plik został zachowany w tej sesji.');
                 return;
             }
-            $this->renderPublicEditor($source, $filename, $targetLanguage, $items);
+            $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items);
         } catch (\Throwable $exception) {
             $this->renderPublicStart($exception->getMessage(), 'danger');
         }
@@ -323,6 +551,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 $resume['source_yaml'],
                 $resume['source_filename'],
                 $resume['target_language'],
+                $resume['project_id'],
+                $resume['plugin_version'],
                 $items,
                 $resume['translations'],
                 'Możesz kontynuować zachowane tłumaczenie.',
@@ -350,13 +580,17 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $items = $this->yaml->flatten($parsed);
             $translations = $this->normalizedTranslations($request->postArray('translations'));
             $targetLanguage = $this->normalizeLanguage($request->postString('target_language', 'EN'));
+            $projectId = $request->postInt('project_id', 0) ?? 0;
+            $pluginVersion = $this->bounded($request->postString('plugin_version'), 40);
             $filename = $request->postString('source_filename', 'messages.yml');
             $user = $this->auth->user();
-            if (!$this->auth->user() instanceof User) {
+            if (!$user instanceof User) {
                 $this->storeResume([
                     'source_yaml' => $source,
                     'source_filename' => $filename,
                     'target_language' => $targetLanguage,
+                    'project_id' => $projectId,
+                    'plugin_version' => $pluginVersion,
                     'translations' => $translations,
                     'title' => $request->postString('title'),
                     'author_name' => $request->postString('author_name'),
@@ -366,8 +600,11 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 $this->renderLoginRequired($source, $filename, $targetLanguage, $translations, 'Zaloguj się, aby zapisać tłumaczenie. Wpisane pola zostały zachowane.');
                 return;
             }
+            if (!$this->translations->project($projectId) instanceof PluginTranslationProject) {
+                throw new \InvalidArgumentException('Wybierz aktywny plugin z katalogu.');
+            }
             if ($request->postString('_action') === 'preview') {
-                $this->renderPublicEditor($source, $filename, $targetLanguage, $items, $translations, 'Sprawdzono formatowanie. Podgląd HTML znajduje się pod formularzem.', 'success', true, $this->postedSubmission($request, $user));
+                $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, 'Sprawdzono formatowanie. Podgląd HTML znajduje się pod formularzem.', 'success', true, $this->postedSubmission($request, $user));
                 return;
             }
             $translated = $this->yaml->translated($parsed, $translations);
@@ -377,7 +614,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $status = $request->postString('status') === 'ready_for_review' ? 'ready_for_review' : 'draft';
             $translatedCount = $this->yaml->translatedCount($items, $translations);
             if ($status === 'ready_for_review' && $translatedCount < count($items)) {
-                $this->renderPublicEditor($source, $filename, $targetLanguage, $items, $translations, 'Tłumaczenie można oznaczyć jako gotowe dopiero po uzupełnieniu wszystkich linijek tekstu.', 'danger', false, $this->postedSubmission($request, $user));
+                $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, 'Tłumaczenie można oznaczyć jako gotowe dopiero po uzupełnieniu wszystkich linijek tekstu.', 'danger', false, $this->postedSubmission($request, $user));
                 return;
             }
 
@@ -385,15 +622,17 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             if ($submissionId > 0 && $user instanceof User) {
                 $existing = $this->translations->findForUser($submissionId, $user->id);
                 if (!$existing instanceof PluginTranslationSubmission || !in_array($existing->status, ['draft', 'ready_for_review', 'rejected'], true)) {
-                    $this->renderPublicEditor($source, $filename, $targetLanguage, $items, $translations, 'Nie możesz edytować tej pracy tłumaczeniowej.', 'danger');
+                    $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, 'Nie możesz edytować tej pracy tłumaczeniowej.', 'danger');
                     return;
                 }
                 $updated = $this->translations->updateUserSubmission(
                     $submissionId,
                     $user->id,
+                    $projectId,
                     $this->bounded($request->postString('author_name', $user->displayName), 160),
                     $this->bounded($request->postString('author_email', $user->email), 190),
                     $this->bounded($request->postString('title', 'Tłumaczenie pluginu'), 180),
+                    $pluginVersion,
                     $targetLanguage,
                     $translations,
                     $output,
@@ -402,17 +641,20 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                     $status
                 );
                 if (!$updated) {
-                    $this->renderPublicEditor($source, $filename, $targetLanguage, $items, $translations, 'Nie udało się zaktualizować tej pracy.', 'danger', false, $this->postedSubmission($request, $user));
+                    $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, 'Nie udało się zaktualizować tej pracy.', 'danger', false, $this->postedSubmission($request, $user));
                     return;
                 }
                 $id = $submissionId;
             } else {
                 $id = $this->translations->create(
+                    $projectId,
                     $user?->id,
                     $this->bounded($request->postString('author_name', $user?->displayName ?? 'Anonim'), 160),
                     $this->bounded($request->postString('author_email', $user?->email ?? ''), 190),
                     $this->bounded($request->postString('title', 'Tłumaczenie pluginu'), 180),
                     $this->bounded($filename, 190),
+                    $pluginVersion,
+                    'editor',
                     $targetLanguage,
                     $source,
                     $translations,
@@ -440,6 +682,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         string $source,
         string $filename,
         string $targetLanguage,
+        int $projectId,
+        string $pluginVersion,
         array $items,
         array $translations = [],
         string $message = '',
@@ -456,7 +700,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->theme->render_alert($message, $variant);
         }
 
-        $this->renderTranslationForm($source, $filename, $targetLanguage, $items, $translations, $user, $showPreview, $submission);
+        $this->renderTranslationForm($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, $user, $showPreview, $submission);
         $this->theme->end_section();
         $this->theme->end_page();
     }
@@ -469,6 +713,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         string $source,
         string $filename,
         string $targetLanguage,
+        int $projectId,
+        string $pluginVersion,
         array $items,
         array $translations,
         ?User $user,
@@ -480,6 +726,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $this->hidden('source_yaml', $source);
         $this->hidden('source_filename', $filename);
         $this->hidden('target_language', $targetLanguage);
+        $this->hidden('project_id', (string) $projectId);
+        $this->hidden('plugin_version', $pluginVersion);
         if ($submission instanceof PluginTranslationSubmission) {
             $this->hidden('submission_id', (string) $submission->id);
         }
@@ -531,19 +779,24 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     {
         echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table">';
         echo '<thead><tr>';
-        foreach (['Nazwa', 'Język', 'Status', 'Postęp', 'Aktualizacja', 'Akcja'] as $header) {
+        foreach (['Plugin', 'Nazwa', 'Język', 'Wersja', 'Rodzaj', 'Status', 'Postęp', 'Aktualizacja', 'Akcja'] as $header) {
             echo '<th scope="col">' . $this->escape($header) . '</th>';
         }
         echo '</tr></thead><tbody>';
         foreach ($submissions as $submission) {
             echo '<tr>';
+            echo '<td>' . $this->escape($submission->projectName) . '</td>';
             echo '<td>' . $this->escape($submission->title) . '</td>';
             echo '<td>' . $this->escape($submission->targetLanguage) . '</td>';
+            echo '<td>' . $this->escape($submission->pluginVersion !== '' ? $submission->pluginVersion : '—') . '</td>';
+            echo '<td>' . $this->escape($this->submissionKindLabel($submission->submissionKind)) . '</td>';
             echo '<td>' . $this->escape($this->statusLabel($submission->status)) . '</td>';
             echo '<td>' . $this->escape($submission->progressPercent . '% (' . $submission->translatedItems . '/' . $submission->totalItems . ')') . '</td>';
             echo '<td>' . $this->escape($submission->updatedAt) . '</td>';
             echo '<td>';
-            if (in_array($submission->status, ['draft', 'ready_for_review', 'rejected'], true)) {
+            if ($submission->submissionKind === 'completed_upload' && in_array($submission->status, ['ready_for_review', 'rejected'], true)) {
+                echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/translations/upload-ready">Wyślij ponownie</a>';
+            } elseif (in_array($submission->status, ['draft', 'ready_for_review', 'rejected'], true)) {
                 echo '<a class="btn btn-sm btn-primary" href="index.php?route=/translations/edit&amp;id=' . $submission->id . '">Kontynuuj</a>';
             } else {
                 echo '<span class="text-secondary">Zatwierdzone</span>';
@@ -624,8 +877,9 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         string $targetLanguage,
         array $translations,
         string $message,
+        string $afterLogin = 'index.php?route=/translations/resume',
     ): void {
-        $_SESSION['_miniportal_after_login'] = 'index.php?route=/translations/resume';
+        $_SESSION['_miniportal_after_login'] = $afterLogin;
         $this->theme->start_page('Logowanie do tłumaczenia - SyntaxDevTeam', 'Zaloguj się, aby kontynuować tłumaczenie.');
         $this->theme->start_header('Zaloguj się do tłumaczenia', $message, 'SyntaxDevTeam / Lokalizacja');
         $this->theme->end_header();
@@ -639,12 +893,126 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $this->theme->end_page();
     }
 
+    private function renderAdminProjects(string $message = '', string $variant = 'info'): void
+    {
+        $this->startAdminPage('Pluginy translatora', 'Katalog pluginów grupujący zaakceptowane i oczekujące pliki językowe.', [[
+            'label' => 'Wróć do kolejki',
+            'href' => 'index.php?route=/admin/plugin-translator',
+            'variant' => 'outline-light',
+        ]]);
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        if ($this->translations === null) {
+            $this->theme->render_alert('Translator wymaga aktywnego połączenia z bazą danych.', 'danger');
+            $this->endAdminPage();
+            return;
+        }
+
+        $projects = $this->translations->projects(true);
+        $this->theme->start_admin_panel_grid('balanced');
+        $this->theme->start_admin_panel('Katalog pluginów', count($projects) . ' pozycji');
+        if ($projects === []) {
+            $this->theme->render_alert('Katalog pluginów jest pusty.', 'info');
+        } else {
+            $this->theme->render_admin_action_table(
+                ['Nazwa', 'Slug', 'Status', 'Zaakceptowane pliki'],
+                array_map(static fn (PluginTranslationProject $project): array => [
+                    'cells' => [$project->name, $project->slug, $project->status === 'active' ? 'Aktywny' : 'Ukryty', $project->approvedFiles],
+                    'actions' => [[
+                        'label' => $project->status === 'active' ? 'Ukryj' : 'Pokaż',
+                        'action' => 'index.php?route=/admin/plugin-translator/plugins/status',
+                        'variant' => 'outline-light',
+                        'fields' => ['id' => $project->id, 'status' => $project->status === 'active' ? 'hidden' : 'active'],
+                    ]],
+                ], $projects),
+                $this->security->csrfToken()
+            );
+        }
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Dodaj plugin', 'Nowy katalog plików językowych');
+        $this->theme->render_form('index.php?route=/admin/plugin-translator/plugins', [[
+            'name' => 'name',
+            'label' => 'Nazwa pluginu',
+            'type' => 'text',
+        ], [
+            'name' => 'slug',
+            'label' => 'Slug',
+            'type' => 'text',
+            'help' => 'Małe litery, cyfry i myślniki.',
+        ], [
+            'name' => 'description',
+            'label' => 'Opis',
+            'type' => 'textarea',
+            'rows' => 4,
+        ], [
+            'name' => 'website_url',
+            'label' => 'Strona pluginu',
+            'type' => 'url',
+        ]], 'Dodaj plugin', $this->security->csrfToken());
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+        $this->endAdminPage();
+    }
+
+    private function createAdminProject(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$actor instanceof User || !$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->renderAdminProjects('Token formularza jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        if ($this->translations === null) {
+            $this->renderAdminProjects('Translator wymaga aktywnego połączenia z bazą danych.', 'danger');
+            return;
+        }
+        try {
+            $name = $this->bounded($request->postString('name'), 160);
+            $slug = $this->normalizeSlug($request->postString('slug', $name));
+            $url = $this->bounded($request->postString('website_url'), 500);
+            if ($name === '' || $slug === '') {
+                throw new \InvalidArgumentException('Nazwa i slug pluginu są wymagane.');
+            }
+            if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) === false) {
+                throw new \InvalidArgumentException('Adres strony pluginu jest nieprawidłowy.');
+            }
+            $id = $this->translations->createProject($name, $slug, $this->bounded($request->postString('description'), 500), $url, $actor->id);
+            $this->audit->record($request, 'plugin_translation_project_create', 'success', 'project:' . $id, $actor->id);
+            $this->renderAdminProjects('Plugin został dodany do katalogu.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'plugin_translation_project_create', 'failed', 'project', $actor->id);
+            $this->renderAdminProjects($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function changeAdminProjectStatus(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$actor instanceof User || !$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->renderAdminProjects('Token formularza jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $id = $request->postInt('id', 0) ?? 0;
+        $status = $request->postString('status');
+        if ($this->translations === null || !$this->translations->setProjectStatus($id, $status)) {
+            $this->renderAdminProjects('Nie udało się zmienić widoczności pluginu.', 'danger');
+            return;
+        }
+        $this->audit->record($request, 'plugin_translation_project_status', $status, 'project:' . $id, $actor->id);
+        $this->renderAdminProjects('Widoczność pluginu została zmieniona.', 'success');
+    }
+
     private function renderAdminQueue(string $message = '', string $variant = 'info'): void
     {
         $this->startAdminPage(
             'Translator YAML',
             'Podgląd prac użytkowników, statusów ukończenia i kolejki zatwierdzania.',
             [[
+                'label' => 'Pluginy',
+                'href' => 'index.php?route=/admin/plugin-translator/plugins',
+                'variant' => 'outline-light',
+            ], [
                 'label' => 'Narzędzie eksportu',
                 'href' => 'index.php?route=/admin/plugin-translator/tool',
                 'variant' => 'outline-light',
@@ -669,13 +1037,16 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->theme->render_alert('Nie ma jeszcze zapisanych prac tłumaczeniowych.', 'info');
         } else {
             $this->theme->render_admin_action_table(
-                ['ID', 'Nazwa', 'Język', 'Autor', 'Status', 'Postęp', 'Aktualizacja'],
+                ['ID', 'Plugin', 'Nazwa', 'Język', 'Wersja', 'Rodzaj', 'Autor', 'Status', 'Postęp', 'Aktualizacja'],
                 array_map(
                     fn (PluginTranslationSubmission $submission): array => [
                         'cells' => [
                             $submission->id,
+                            $submission->projectName,
                             $submission->title,
                             $submission->targetLanguage,
+                            $submission->pluginVersion !== '' ? $submission->pluginVersion : '—',
+                            $this->submissionKindLabel($submission->submissionKind),
                             $submission->authorName,
                             $this->statusLabel($submission->status),
                             $submission->progressPercent . '% (' . $submission->translatedItems . '/' . $submission->totalItems . ')',
@@ -734,7 +1105,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Status', $this->statusLabel($submission->status), 'ST', $submission->title);
-        $this->theme->render_admin_metric('Język', $submission->targetLanguage, 'LG', $submission->sourceFilename);
+        $this->theme->render_admin_metric('Plugin', $submission->projectName, 'PL', $submission->pluginVersion !== '' ? $submission->pluginVersion : 'Wersja niepodana');
+        $this->theme->render_admin_metric('Język', $submission->targetLanguage, 'LG', $this->submissionKindLabel($submission->submissionKind));
         $this->theme->render_admin_metric('Postęp', $submission->progressPercent . '%', 'PR', $submission->translatedItems . '/' . $submission->totalItems);
         $this->theme->render_admin_metric('Autor', $submission->authorName, 'AU', $submission->authorEmail);
         $this->theme->end_admin_metrics();
@@ -984,6 +1356,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'source_yaml' => (string) ($data['source_yaml'] ?? ''),
             'source_filename' => (string) ($data['source_filename'] ?? 'messages.yml'),
             'target_language' => $this->normalizeLanguage((string) ($data['target_language'] ?? 'EN')),
+            'project_id' => (int) ($data['project_id'] ?? 0),
+            'plugin_version' => $this->bounded((string) ($data['plugin_version'] ?? ''), 40),
             'translations' => is_array($data['translations'] ?? null) ? $this->normalizedTranslations($data['translations']) : [],
             'title' => (string) ($data['title'] ?? ''),
             'author_name' => (string) ($data['author_name'] ?? ''),
@@ -994,7 +1368,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     }
 
     /**
-     * @return array{source_yaml: string, source_filename: string, target_language: string, translations: array<string, string>, title: string, author_name: string, author_email: string, status: string}|null
+     * @return array{source_yaml: string, source_filename: string, target_language: string, project_id: int, plugin_version: string, translations: array<string, string>, title: string, author_name: string, author_email: string, status: string}|null
      */
     private function resumeData(): ?array
     {
@@ -1007,6 +1381,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'source_yaml' => (string) $resume['source_yaml'],
             'source_filename' => (string) ($resume['source_filename'] ?? 'messages.yml'),
             'target_language' => $this->normalizeLanguage((string) ($resume['target_language'] ?? 'EN')),
+            'project_id' => (int) ($resume['project_id'] ?? 0),
+            'plugin_version' => $this->bounded((string) ($resume['plugin_version'] ?? ''), 40),
             'translations' => is_array($resume['translations'] ?? null) ? $this->normalizedTranslations($resume['translations']) : [],
             'title' => (string) ($resume['title'] ?? ''),
             'author_name' => (string) ($resume['author_name'] ?? ''),
@@ -1090,6 +1466,63 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $language = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $language) ?? 'EN', 0, 2));
 
         return array_key_exists($language, $this->targetLanguages()) ? $language : 'EN';
+    }
+
+    /**
+     * @param list<PluginTranslationProject> $projects
+     * @return array<string, string>
+     */
+    private function projectOptions(array $projects): array
+    {
+        $options = [];
+        foreach ($projects as $project) {
+            $options[(string) $project->id] = $project->name;
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param list<PluginTranslationSubmission> $files
+     */
+    private function renderApprovedFilesTable(array $files): void
+    {
+        echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table">';
+        echo '<thead><tr><th>Język</th><th>Wersja</th><th>Plik</th><th>Autor</th><th>Akcja</th></tr></thead><tbody>';
+        foreach ($files as $file) {
+            echo '<tr><td>' . $this->escape($file->targetLanguage) . '</td>';
+            echo '<td>' . $this->escape($file->pluginVersion !== '' ? $file->pluginVersion : '—') . '</td>';
+            echo '<td>' . $this->escape($file->sourceFilename) . '</td>';
+            echo '<td>' . $this->escape($file->authorName) . '</td>';
+            echo '<td><a class="btn btn-sm btn-primary" href="index.php?route=/translations/download&amp;id=' . $file->id . '">Pobierz YAML</a></td></tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
+    private function downloadFilename(PluginTranslationSubmission $submission): string
+    {
+        $base = $submission->projectSlug . '-' . strtolower($submission->targetLanguage);
+        if ($submission->pluginVersion !== '') {
+            $base .= '-' . preg_replace('/[^a-zA-Z0-9._-]/', '-', $submission->pluginVersion);
+        }
+
+        return trim($base, '-') . '.yml';
+    }
+
+    private function normalizeSlug(string $value): string
+    {
+        $value = strtr(strtolower(trim($value)), [
+            'ą' => 'a', 'ć' => 'c', 'ę' => 'e', 'ł' => 'l', 'ń' => 'n',
+            'ó' => 'o', 'ś' => 's', 'ź' => 'z', 'ż' => 'z',
+        ]);
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+
+        return trim(substr($value, 0, 160), '-');
+    }
+
+    private function submissionKindLabel(string $kind): string
+    {
+        return $kind === 'completed_upload' ? 'Gotowy plik' : 'Edytor';
     }
 
     private function hidden(string $name, string $value): void

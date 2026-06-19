@@ -1316,6 +1316,30 @@ workflow edycji tłumaczeń.
 `<player>` i błędy MiniMessage; uruchomiono lint zmienionych plików PHP oraz
 `php tests/run.php`.
 
+### Sesja: 2026-06-19 - Translator jako manager plików językowych
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - rozwinięcie
+`plugin_translator` z narzędzia tłumacza do katalogu zaakceptowanych lokalizacji.
+
+**Wykonano:**
+- podniesiono moduł do wersji `1.3.0`,
+- dodano tabelę `plugin_translation_projects` i migrację
+  `20260619_translation_project_catalog.sql`,
+- istniejące zgłoszenia przypisano do ukrytego katalogu `Nieprzypisane`,
+- zgłoszenia przechowują plugin, opcjonalną wersję oraz rodzaj `editor` albo
+  `completed_upload`,
+- `/translations` prezentuje katalog pluginów i zaakceptowanych plików,
+- `/translations/project` pokazuje pliki językowe wybranego pluginu, a publiczny
+  download udostępnia wyłącznie rekordy `approved`,
+- `/translations/upload-ready` przyjmuje od zalogowanego użytkownika gotowy YAML,
+  waliduje go przez `Spyc` i zapisuje jako `ready_for_review`,
+- `/admin/plugin-translator/plugins` zarządza katalogiem i widocznością pluginów,
+- kolejki użytkownika i administratora pokazują plugin, wersję oraz rodzaj pracy.
+
+**Weryfikacja:** wykonano migrację modułu przez `ModuleInstaller`, pełny lint PHP,
+`git diff --check`, `php tests/run.php` oraz test HTTP `/translations` zakończony
+statusem 200. Stan produkcyjny: `plugin_translator 1.3.0 active`.
+
 ### Sesja: 2026-06-19 - Poprawka publicznego menu mobilnego
 
 **Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja wspólnej

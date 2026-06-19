@@ -257,7 +257,11 @@ automatycznie po zgodnym adresie e-mail.
 
 #### 4.4 Moduł narzędziowy `plugin_translator`
 - niezależne rozszerzenie do tłumaczenia plików YAML używanych przez pluginy
-  SyntaxDevTeam,
+  SyntaxDevTeam oraz zarządzania zatwierdzonymi plikami językowymi,
+- `plugin_translation_projects` przechowuje katalog pluginów z nazwą, slugiem,
+  opisem, adresem projektu i widocznością; każde zgłoszenie wskazuje `project_id`,
+- zgłoszenie przechowuje opcjonalną wersję pluginu oraz rodzaj `editor` albo
+  `completed_upload`,
 - publiczna strona `/translations` przyjmuje upload `.yml/.yaml` metodą
   przeciągnij/upuść; upload przechodzi wyłącznie przez `Request::file()`,
 - formularz startowy wymaga wyboru języka docelowego z listy kodów ISO 639-1 w
@@ -280,6 +284,11 @@ automatycznie po zgodnym adresie e-mail.
 - publiczny widok `/translations/mine` pokazuje własne prace użytkownika i pozwala
   wznowić edycję szkiców, zgłoszeń gotowych do sprawdzenia oraz prac odrzuconych;
   zatwierdzone tłumaczenia są tylko informacją o stanie,
+- `/translations/upload-ready` pozwala zalogowanemu użytkownikowi przesłać gotowy,
+  poprawny składniowo plik YAML bez przechodzenia przez edytor; zgłoszenie otrzymuje
+  status `ready_for_review`,
+- publiczny katalog `/translations` grupuje zaakceptowane pliki według pluginów,
+  języka i opcjonalnej wersji, a `/translations/project` udostępnia ich pobieranie,
 - konto lokalne w statusie `pending` może pracować nad publicznymi tłumaczeniami,
   ale nie dostaje uprawnień panelu administracyjnego,
 - akcja `Sprawdź formatowanie` renderuje bez zapisu podgląd HTML dla kodów
@@ -287,8 +296,10 @@ automatycznie po zgodnym adresie e-mail.
   i zgłasza błędy składni tagów formatujących, np. brak zamknięcia lub niepoprawny
   kolor HEX,
 - panel administracyjny `/admin/plugin-translator` prezentuje listę prac, procent
-  ukończenia, oznaczenie gotowości, podgląd różnic oraz akcje akceptacji lub
-  odrzucenia,
+  ukończenia, plugin, wersję, rodzaj zgłoszenia, podgląd różnic oraz akcje
+  akceptacji lub odrzucenia,
+- `/admin/plugin-translator/plugins` pozwala administratorowi tworzyć katalogi
+  pluginów oraz sterować ich publiczną widocznością,
 - zatwierdzone i przeglądane tłumaczenie można pobrać jako zweryfikowany YAML,
 - jednorazowe narzędzie eksportu administratora pozostaje dostępne pod
   `/admin/plugin-translator/tool`,
