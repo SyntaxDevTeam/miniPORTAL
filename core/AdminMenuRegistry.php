@@ -67,10 +67,27 @@ final class AdminMenuRegistry
                 || in_array($item['permission'], $permissions, true)
         ));
 
+        $sectionOrder = [];
+        $sectionPosition = [];
+        foreach ($items as $position => $item) {
+            $section = $item['section'];
+            $sectionOrder[$section] = min($sectionOrder[$section] ?? PHP_INT_MAX, $item['order']);
+            $sectionPosition[$section] ??= $position;
+        }
+
         usort(
             $items,
-            static fn (array $left, array $right): int => [$left['order'], $left['label']]
-                <=> [$right['order'], $right['label']]
+            static fn (array $left, array $right): int => [
+                $sectionOrder[$left['section']],
+                $sectionPosition[$left['section']],
+                $left['order'],
+                $left['label'],
+            ] <=> [
+                $sectionOrder[$right['section']],
+                $sectionPosition[$right['section']],
+                $right['order'],
+                $right['label'],
+            ]
         );
 
         return $items;

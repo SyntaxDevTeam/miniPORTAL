@@ -1456,3 +1456,43 @@ profilu użytkownika z zachowaniem granicy odpowiedzialności `CoreAuth`.
 
 **Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, migracja
 Core oraz instalacja i aktywacja modułu przez `ModuleInstaller`.
+
+### Sesja: 2026-06-19 - Grupowanie sekcji menu panelu
+
+**Faza i krok specyfikacji:** Krok 5A i Krok 6 - stabilizacja wspólnej nawigacji
+panelu dla pozycji rejestrowanych przez niezależne moduły.
+
+**Wykonano:**
+- poprawiono sortowanie `AdminMenuRegistry`, które wcześniej mieszało sekcje według
+  globalnej wartości `order` i mogło wielokrotnie renderować nagłówki `Treść` oraz
+  `System`,
+- menu grupuje teraz wszystkie pozycje tej samej sekcji, zachowując kolejność sekcji
+  według ich najwcześniejszej pozycji i kolejność wpisów wewnątrz grupy,
+- dodano test regresji odtwarzający pozycję `Zespół` pomiędzy wpisami systemowymi.
+
+**Weryfikacja:** `php tests/run.php`, lint zmienionych plików PHP,
+`git diff --check` oraz test odpowiedzi panelu.
+
+### Sesja: 2026-06-19 - Zatwierdzanie pakietu z kwarantanny
+
+**Faza i krok specyfikacji:** Krok 6 - bezpieczny lifecycle zewnętrznego pakietu
+między importem archiwum a instalacją modułu.
+
+**Wykonano:**
+- podniesiono `system_admin` do wersji 1.5.0,
+- dodano ponowną walidację importu i podpisu bezpośrednio przed zatwierdzeniem,
+- dopuszczono wyłącznie niechronione rozszerzenia z podpisem zaufanego wydawcy,
+- dodano kontrolę nazwy katalogu, konfliktu katalogu i identyfikatora modułu,
+- zweryfikowany pakiet jest atomowo przenoszony z kwarantanny do `modules/`, a
+  instalacja i wykonanie fabryki pozostają osobną operacją,
+- dodano akcję `/admin/modules/approve` z ACL `modules.install`, CSRF,
+  potwierdzeniem i zdarzeniem audytu `module_archive_approve`,
+- dodano test blokady niepodpisanego pakietu, poprawnej promocji podpisanego
+  `LearningModule` oraz konfliktu istniejącego katalogu,
+- przygotowano produkcyjne katalogi `modules/` i `cache/module-quarantine` z grupą
+  `www-data`, setgid i minimalnymi prawami wymaganymi do atomowego przeniesienia.
+
+**Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, migracja
+Core, kontrolowana aktualizacja `system_admin` i test odpowiedzi panelu. Środowisko
+nie udostępnia `runuser`, a `su` wymaga hasła, dlatego prawa procesu WWW
+zweryfikowano przez właściciela, grupę i tryby katalogów zamiast zapisu jako UID.

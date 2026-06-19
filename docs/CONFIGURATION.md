@@ -185,6 +185,19 @@ klucza i oznaczeniu poprzedniego jako `retired` z `replacement_key_id`. Stan
 Po zmianie choćby dokumentacji pakiet trzeba podpisać ponownie. Nieznany klucz
 oznacza pakiet jako niezaufany, a niezgodność pliku lub podpisu blokuje cały pakiet.
 
+Panelowy import i zatwierdzanie pakietów wymagają zapisywalnej kwarantanny oraz
+prawa utworzenia nowego katalogu w `modules/`. Na serwerze produkcyjnym przygotuj
+wyłącznie te dwa katalogi z dziedziczeniem grupy procesu WWW:
+
+```bash
+sudo install -d -m 2770 -o debian -g www-data cache/module-quarantine
+sudo chgrp www-data modules
+sudo chmod 2775 modules
+```
+
+Zatwierdzenie wykonuje atomowe przeniesienie w obrębie tego samego systemu plików.
+Nie nadaje zapisu do istniejących katalogów modułów i nie uruchamia ich kodu.
+
 ## Cache szablonów
 
 ```dotenv

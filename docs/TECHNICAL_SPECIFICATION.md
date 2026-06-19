@@ -405,6 +405,12 @@ Stan managera:
 - import archiwum modułu przyjmuje `.tar`, `.tar.gz`, `.tgz` oraz `.zip`, rozpakowuje
   pakiet wyłącznie do `cache/module-quarantine`, waliduje manifest i podpis bez
   wykonywania fabryki oraz bez kopiowania plików do aktywnego katalogu `modules/`.
+- zatwierdzenie importu ponownie waliduje pakiet i wszystkie podpisane pliki,
+  dopuszcza wyłącznie niechronione rozszerzenia z podpisem `verified` albo
+  `verified_retired`, odrzuca konflikt identyfikatora lub katalogu i atomowo
+  przenosi pakiet do `modules/`; nie instaluje modułu i nie wykonuje `factory.php`,
+- `/admin/modules/approve` wymaga ACL `modules.install`, CSRF, jawnego potwierdzenia
+  oraz zapisuje wynik operacji `module_archive_approve` w audit logu,
 - manager pozwala eksportować zainstalowane moduły typu `extension` do ZIP z jednym
   top-level katalogiem pakietu; eksport wymaga ACL/CSRF, jest audytowany i blokuje
   dowiązania symboliczne oraz ukryte segmenty ścieżek.

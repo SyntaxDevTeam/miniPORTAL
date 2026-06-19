@@ -47,7 +47,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.0';
+        return '1.5.0';
     }
 
     public function dependencies(): array
@@ -116,6 +116,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'modules.install',
             fn () => $this->importModuleArchive($request)
+        ));
+        $router->post('/admin/modules/approve', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->approveModuleArchive($request)
         ));
         $router->post('/admin/modules/export', fn (Request $request) => $this->guard(
             $request,
@@ -476,19 +481,38 @@ final class SystemAdminModule implements ModuleInterface
         );
         $imports = array_slice($this->moduleArchiveImporter->imports(), 0, 10);
         if ($imports !== []) {
-            $this->theme->render_admin_table(
+            $this->theme->render_admin_action_table(
                 ['Katalog', 'Pakiet', 'Manifest', 'Import'],
                 array_map(
-                    fn (array $import): array => [
-                        $import['directory'],
-                        $import['package'],
-                        $import['manifest'] !== null
-                            ? $import['manifest']->name . ' (' . $import['manifest']->id . ', ' . $this->packageTrustLabel($import['manifest']) . ')'
-                            : 'Błąd: ' . (string) $import['error'],
-                        $import['imported_at'],
-                    ],
+                    function (array $import) use ($allows): array {
+                        $manifest = $import['manifest'];
+                        $approvable = $manifest !== null
+                            && $manifest->type === 'extension'
+                            && !$manifest->protected
+                            && in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
+                            && $allows('modules.install');
+
+                        return [
+                            'cells' => [
+                                $import['directory'],
+                                $import['package'],
+                                $manifest !== null
+                                    ? $manifest->name . ' (' . $manifest->id . ', ' . $this->packageTrustLabel($manifest) . ')'
+                                    : 'Błąd: ' . (string) $import['error'],
+                                $import['imported_at'],
+                            ],
+                            'actions' => $approvable ? [[
+                                'label' => 'Zatwierdź pakiet',
+                                'action' => 'index.php?route=/admin/modules/approve',
+                                'fields' => ['import_directory' => $import['directory']],
+                                'variant' => 'primary',
+                                'confirm' => 'Przenieść zweryfikowany pakiet do modules/? Kod nie zostanie jeszcze uruchomiony; instalacja pozostanie osobną akcją.',
+                            ]] : [],
+                        ];
+                    },
                     $imports
-                )
+                ),
+                $this->security->csrfToken()
             );
         }
         $this->theme->end_admin_panel();
@@ -646,6 +670,41 @@ final class SystemAdminModule implements ModuleInterface
             $this->renderModules($message, $manifest !== null ? 'success' : 'warning');
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'module_archive_import', 'failed', null, $actor?->id);
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function approveModuleArchive(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $importDirectory = $request->postString('import_directory');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_archive_approve', 'invalid_csrf', $importDirectory, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        try {
+            $result = $this->moduleArchiveImporter->approve(
+                $importDirectory,
+                dirname(__DIR__, 2) . '/modules'
+            );
+            $manifest = $result['manifest'];
+            $this->audit->record(
+                $request,
+                'module_archive_approve',
+                'success',
+                $manifest->id . ' / ' . $manifest->signatureStatus,
+                $actor?->id
+            );
+            $this->renderModules(
+                'Pakiet ' . $manifest->name . ' zatwierdzono i przeniesiono do modules/. '
+                . 'Instalacja pozostaje osobną operacją.',
+                'success'
+            );
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'module_archive_approve', 'failed', $importDirectory, $actor?->id);
             $this->renderModules($exception->getMessage(), 'danger');
         }
     }

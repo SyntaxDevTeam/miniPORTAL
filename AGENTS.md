@@ -155,14 +155,14 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Projekt zadeklarowany jako PHP 8.4 lub wyższy bez wymogu PHP 8.5 |
 | [x] | Cache publicznych podstron i artykułów z granularnymi tagami |
 | [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
+| [x] | Kontrolowane zatwierdzanie podpisanego pakietu z kwarantanny do `modules/` bez instalacji i wykonania kodu |
 | [x] | Polityka retencji i archiwizacji audit logu |
 
 ## Następne kroki
 
-1. Dodać kontrolowane zatwierdzanie pakietu z kwarantanny do aktywnego katalogu `modules/`.
-2. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
-3. Rozważyć osobny widok przeglądania `auth_events_archive`.
-4. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
+1. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
+2. Rozważyć osobny widok przeglądania `auth_events_archive`.
+3. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
 
 ## Uwagi / blokery
 
@@ -247,6 +247,8 @@ Brak aktywnych blokerów.
 | 2026-06-16 | `PublicNavigationRegistry` pozwala aktywnym modułom deklarować linki publiczne; `/admin/settings` przypisuje je do głównego menu, stopki albo ukrywa. `wikipedia` udostępnia link `Dokumentacja` do `/wiki`. Stan produkcyjny modułu `wikipedia`: wersja 1.0.3, status `active`. |
 | 2026-06-16 | Publiczne widoki modułów używają wspólnej nawigacji i stopki przez `ThemeInterface::set_public_navigation()`. Wiki generuje `/wiki/project/{slug}` i `/wiki/page/{project}/{slug}` zamiast `index.php?route=...`; starsze wejścia pozostają kompatybilne. Stan modułów po zmianie: `wikipedia` 1.0.4 active, `articles` 1.0.3 disabled. |
 | 2026-06-19 | `team` 1.0.0 realizuje publiczną listę i profile członków. Widoki oraz zapis danych profilu, avatara i przegląd bezpieczeństwa wydzielono z `CoreAuth` do opcjonalnego modułu `user_profile` 1.0.0 zależnego od `core_auth`; operacje OAuth pozostają własnością chronionego modułu uwierzytelniania. `core_auth` ma wersję 1.4.1. |
+| 2026-06-19 | Manager może zatwierdzić podpisane rozszerzenie z kwarantanny do `modules/` po ponownej walidacji i kontroli konfliktów. Operacja wymaga ACL/CSRF, jest audytowana i nie instaluje ani nie wykonuje kodu pakietu. `system_admin` ma wersję 1.5.0. |
+| 2026-06-19 | Produkcyjne katalogi lifecycle pakietów mają grupę `www-data`: `modules/` tryb `2775`, a `cache/module-quarantine` tryb `2770`. Pozwala to panelowi atomowo przenosić zatwierdzone pakiety bez nadawania zapisu do istniejących katalogów modułów. |
 
 ## Historia sesji
 

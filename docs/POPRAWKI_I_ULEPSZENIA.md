@@ -152,7 +152,7 @@ Przy zaakceptowanych plikach dodano akcję `Zaproponuj poprawkę`, która otwier
 zawartość w edytorze jako nowy szkic bez modyfikowania zatwierdzonej wersji.
 
 ### Team
-Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
+Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głównej `Kontakt`).
 
 Etap 1 gotowy: dodano osobny moduł rozszerzenia `team`. Moduł ma tabelę
 `team_members`, publiczną listę `/team`, publiczne profile `/team/member/{slug}`
@@ -161,11 +161,11 @@ kontaktowym i kolejnością członków zespołu. Profil publiczny jest powiązan
 lokalnym kontem użytkownika i korzysta z jego avatara. Dodano ogólny komponent
 motywu `render_avatar()`.
 
-### Projekty
-Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
-
 ### Wiki
 Gotowe
 
 ### Build Explorer
 (Nie mam dokładnie pomysłu) Moduł pozwalający na wyświetlenie listy plików do pobrania dla wszystkich dodanych projektów (współpraca z modułem Projekty) dla wersji Release/Snapshot/Dev/WIP Przykład ze strony innej ekipy ![alt text](image-2.png)
+
+### Projekty
+(Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.

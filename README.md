@@ -19,6 +19,9 @@ php bin/migrate-core.php
 Zewnętrzne moduły z własną fabryką wymagają jawnego pochodzenia oraz podpisu
 RSA-SHA256 zweryfikowanego aktywnym albo poprawnie wycofanym kluczem publicznym
 z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
+Zweryfikowany import można zatwierdzić w managerze: pakiet jest ponownie sprawdzany
+i atomowo przenoszony z `cache/module-quarantine` do `modules/`. Zatwierdzenie nie
+instaluje modułu ani nie wykonuje jego fabryki; instalacja pozostaje osobną akcją.
 Zainstalowane moduły typu `extension` można eksportować z managera do archiwum ZIP;
 eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
 top-level katalog modułu z `info.json`.

@@ -479,6 +479,31 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert($publicItems[0]['show_footer']);
 });
 
+$test('Admin menu keeps entries from the same section together', static function () use ($assert): void {
+    $menu = new AdminMenuRegistry();
+    $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
+    $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
+    $menu->add('Treść', 'Strona główna', '/admin/homepage', 'HG', 'pages.view', 15);
+    $menu->add('Treść', 'Zespół', '/admin/team', 'TM', 'team.manage', 40);
+    $menu->add('System', 'Role', '/admin/roles', 'RL', 'roles.view', 45);
+
+    $items = $menu->visibleFor(['*']);
+    $assert(array_column($items, 'section') === [
+        'Przestrzeń robocza',
+        'Treść',
+        'Treść',
+        'System',
+        'System',
+    ]);
+    $assert(array_column($items, 'label') === [
+        'Dashboard',
+        'Strona główna',
+        'Zespół',
+        'Użytkownicy',
+        'Role',
+    ]);
+});
+
 $test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
     $navigation = new PublicNavigationRegistry();
     $navigation->add('module.docs', 'Dokumentacja', '/wiki', 'none', 10);
@@ -663,7 +688,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.4.0');
+    $assert($system->version === '1.5.0');
     $assert($system->protected);
 
     $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
@@ -796,8 +821,10 @@ $test('Module archive import extracts only to quarantine and inspects manifest',
     $root = sys_get_temp_dir() . '/miniportal-import-root-' . bin2hex(random_bytes(6));
     $source = $root . '/ExampleModule';
     $quarantine = $root . '/quarantine';
+    $modules = $root . '/modules';
     mkdir($source, 0700, true);
     mkdir($quarantine, 0700, true);
+    mkdir($modules, 0700, true);
     file_put_contents($source . '/info.json', json_encode([
         'id' => 'example_module',
         'name' => 'Example Module',
@@ -819,6 +846,13 @@ $test('Module archive import extracts only to quarantine and inspects manifest',
         $assert($result['manifest'] !== null && $result['manifest']->id === 'example_module');
         $assert(str_contains($result['directory'], $quarantine));
         $assert(is_file($result['directory'] . '/source/ExampleModule/info.json'));
+        try {
+            $importer->approve(basename($result['directory']), $modules);
+            $assert(false, 'Niepodpisany pakiet opuścił kwarantannę');
+        } catch (RuntimeException $exception) {
+            $assert(str_contains($exception->getMessage(), 'podpisu'));
+        }
+        $assert(!is_dir($modules . '/ExampleModule'));
         exec('cd ' . escapeshellarg($root) . ' && zip -qr example.zip ExampleModule', $output, $code);
         if ($code === 0) {
             $zipResult = $importer->importFile($root . '/example.zip', 'example.zip');
@@ -836,6 +870,52 @@ $test('Module archive import extracts only to quarantine and inspects manifest',
             $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
         }
         rmdir($root);
+    }
+});
+
+$test('Verified module archive can be approved without executing its factory', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-approve-root-' . bin2hex(random_bytes(6));
+    $exports = $root . '/exports';
+    $quarantine = $root . '/quarantine';
+    $modules = $root . '/modules';
+    mkdir($quarantine, 0700, true);
+    mkdir($modules, 0700, true);
+
+    try {
+        $validator = new ModuleManifestValidator(
+            '0.1.0',
+            require dirname(__DIR__) . '/config/module_publishers.php'
+        );
+        $sourceManifest = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
+        $archive = (new ModulePackageExporter())->exportZip($sourceManifest, $exports);
+        $importer = new ModuleArchiveImporter($quarantine, $validator);
+        $import = $importer->importFile($archive['path'], $archive['filename']);
+        $assert($import['manifest']?->signatureStatus === 'verified');
+
+        $approved = $importer->approve(basename($import['directory']), $modules);
+        $assert($approved['manifest']->id === 'learning_module');
+        $assert($approved['manifest']->signatureStatus === 'verified');
+        $assert(is_file($modules . '/LearningModule/factory.php'));
+        $assert(!is_dir($import['directory']));
+
+        try {
+            $secondImport = $importer->importFile($archive['path'], $archive['filename']);
+            $importer->approve(basename($secondImport['directory']), $modules);
+            $assert(false, 'Zaakceptowano konflikt katalogu modułu');
+        } catch (RuntimeException $exception) {
+            $assert(str_contains($exception->getMessage(), 'już istnieje'));
+        }
+    } finally {
+        if (is_dir($root)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+            }
+            rmdir($root);
+        }
     }
 });
 

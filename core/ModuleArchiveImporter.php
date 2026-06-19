@@ -109,6 +109,60 @@ final class ModuleArchiveImporter
         return $imports;
     }
 
+    /**
+     * @return array{directory: string, manifest: ModuleManifest}
+     */
+    public function approve(string $importDirectory, string $modulesPath): array
+    {
+        if (preg_match('/^import-\d{8}-\d{6}-[a-f0-9]{8}$/', $importDirectory) !== 1) {
+            throw new RuntimeException('Identyfikator importu z kwarantanny jest nieprawidłowy.');
+        }
+
+        $quarantine = rtrim($this->quarantinePath, '/');
+        $importPath = $quarantine . '/' . $importDirectory;
+        if (!is_dir($importPath) || is_link($importPath)) {
+            throw new RuntimeException('Nie znaleziono wskazanego importu w kwarantannie.');
+        }
+
+        $packageDirectory = $this->locatePackage($importPath . '/source');
+        $this->assertNoLinks($packageDirectory);
+        $manifest = $this->validator->validate($packageDirectory);
+        if ($manifest->type !== 'extension' || $manifest->protected) {
+            throw new RuntimeException('Z kwarantanny można zatwierdzać wyłącznie niechronione rozszerzenia.');
+        }
+        if (!in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)) {
+            throw new RuntimeException('Zatwierdzenie wymaga poprawnego podpisu zaufanego wydawcy.');
+        }
+
+        $packageName = basename($packageDirectory);
+        if (preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/', $packageName) !== 1) {
+            throw new RuntimeException('Nazwa katalogu pakietu jest nieprawidłowa.');
+        }
+        if (!is_dir($modulesPath) || !is_writable($modulesPath)) {
+            throw new RuntimeException('Aktywny katalog modułów nie jest zapisywalny.');
+        }
+
+        $target = rtrim($modulesPath, '/') . '/' . $packageName;
+        if (file_exists($target) || is_link($target)) {
+            throw new RuntimeException("Katalog modułu {$packageName} już istnieje.");
+        }
+        foreach (glob(rtrim($modulesPath, '/') . '/*/info.json') ?: [] as $manifestFile) {
+            $existing = $this->validator->inspect(dirname($manifestFile))['manifest'];
+            if ($existing !== null && $existing->id === $manifest->id) {
+                throw new RuntimeException("Moduł o identyfikatorze {$manifest->id} już istnieje.");
+            }
+        }
+
+        if (!rename($packageDirectory, $target)) {
+            throw new RuntimeException('Nie można atomowo przenieść pakietu do katalogu modules/.');
+        }
+        @chmod($target, 0770);
+        $approvedManifest = $this->validator->validate($target);
+        $this->removeDirectory($importPath);
+
+        return ['directory' => $target, 'manifest' => $approvedManifest];
+    }
+
     private function archiveExtension(string $name): string
     {
         $lower = strtolower($name);
@@ -219,5 +273,20 @@ final class ModuleArchiveImporter
                 throw new RuntimeException('Archiwum modułu nie może zawierać dowiązań symbolicznych.');
             }
         }
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory) || is_link($directory)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $file) {
+            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+        }
+        @rmdir($directory);
     }
 }
