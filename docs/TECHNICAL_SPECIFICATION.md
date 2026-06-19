@@ -283,14 +283,19 @@ automatycznie po zgodnym adresie e-mail.
 - wprowadzanie tłumaczeń i zapis wymagają zalogowanego użytkownika; próba zapisu
   bez sesji odkłada źródło, język i dotychczasowe pola tłumaczenia w sesji oraz
   kieruje do OAuth z powrotem przez `/translations/resume`,
-- publiczny widok `/translations/mine` pokazuje własne prace użytkownika i pozwala
-  wznowić edycję szkiców, zgłoszeń gotowych do sprawdzenia oraz prac odrzuconych;
-  zatwierdzone tłumaczenia są tylko informacją o stanie,
-- `/translations/upload-ready` pozwala zalogowanemu użytkownikowi przesłać gotowy,
-  poprawny składniowo plik YAML bez przechodzenia przez edytor; zgłoszenie otrzymuje
-  status `ready_for_review`,
-- publiczny katalog `/translations` grupuje zaakceptowane pliki według kategorii,
-  języka i opcjonalnej wersji, a `/translations/project` udostępnia ich pobieranie,
+- publiczne centrum `/translations` ma trzy zakładki: rozpoczęcie tłumaczenia,
+  własne wersje robocze oraz wysłanie gotowego pliku; starsze adresy
+  `/translations/mine` i `/translations/upload-ready` pozostają wejściami
+  kompatybilnymi do odpowiednich zakładek,
+- zakładka wersji roboczych pozwala wznowić szkice, zgłoszenia gotowe do sprawdzenia
+  oraz prace odrzucone, a zakładka uploadu przyjmuje poprawny składniowo YAML i
+  tworzy zgłoszenie `ready_for_review`,
+- pełnoszeroki katalog pod centrum pracy grupuje zaakceptowane pliki według
+  kategorii, języka i opcjonalnej wersji; nazwa kategorii jest linkiem do
+  `/translations/project`,
+- zaakceptowany plik można pobrać albo otworzyć przez `Zaproponuj poprawkę`;
+  operacja tworzy nowy szkic użytkownika i nigdy nie modyfikuje zatwierdzonego
+  zgłoszenia,
 - konto lokalne w statusie `pending` może pracować nad publicznymi tłumaczeniami,
   ale nie dostaje uprawnień panelu administracyjnego,
 - akcja `Sprawdź formatowanie` renderuje bez zapisu podgląd HTML dla kodów

@@ -676,7 +676,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.3.3');
+    $assert($translator->version === '1.4.0');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -758,6 +758,9 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($translatorModuleSource, "'source_filename'"));
     $assert(str_contains($translatorModuleSource, 'Kategorie tłumaczeń'));
     $assert(str_contains($translatorModuleSource, '/admin/plugin-translator/plugins/edit'));
+    $assert(str_contains($translatorModuleSource, 'Moje wersje robocze'));
+    $assert(str_contains($translatorModuleSource, '/translations/suggest'));
+    $assert(str_contains($translatorModuleSource, 'Zaproponuj poprawkę'));
     $translatorRepositorySource = (string) file_get_contents(
         dirname(__DIR__) . '/modules/PluginTranslator/PluginTranslationRepository.php'
     );

@@ -143,6 +143,13 @@ można edytować: zmienić nazwę, slug i powiązaną stronę. Usunięcie katego
 kasuje prac użytkowników; w jednej transakcji przenosi zgłoszenia do chronionej
 kategorii `Nieprzypisane`, a następnie usuwa wybraną pozycję.
 
+Etap 9 gotowy: publiczne narzędzia translatora połączono w jedno centrum
+`/translations` z zakładkami `Rozpocznij tłumaczenie`, `Moje wersje robocze` i
+`Wyślij gotowy plik`. Katalog kategorii znajduje się pod nim na pełnej szerokości,
+a nazwy kategorii są bezpośrednimi linkami zamiast osobnych przycisków pod tabelą.
+Przy zaakceptowanych plikach dodano akcję `Zaproponuj poprawkę`, która otwiera
+zawartość w edytorze jako nowy szkic bez modyfikowania zatwierdzonej wersji.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

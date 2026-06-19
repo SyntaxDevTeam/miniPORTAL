@@ -44,14 +44,16 @@ pluginy, boty albo inne projekty i pozwala użytkownikom wgrać
 tłumaczenie w edytorze z wyrównanym oryginałem i zapisać je domyślnie jako szkic.
 Wprowadzanie i zapis wymagają logowania; konto oczekujące może pracować nad
 tłumaczeniami publicznymi bez dostępu do panelu admina, a rozpoczęta praca jest
-wznawiana po OAuth. Widok `/translations/mine` pozwala wrócić do własnych szkiców,
-zgłoszeń gotowych do sprawdzenia i odrzuconych prac. Edytor ma podgląd HTML
+wznawiana po OAuth. Główne okno ma zakładki `Rozpocznij tłumaczenie`, `Moje wersje
+robocze` i `Wyślij gotowy plik`, więc cały publiczny przepływ pozostaje pod
+`/translations`. Edytor ma podgląd HTML
 formatowania Minecraft legacy, RGB i MiniMessage, pokazuje zmienne typu `<player>`
 oraz błędy składni formatowania. Panel `/admin/plugin-translator` pokazuje
 zgłoszenia, postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania
-zweryfikowanego YAML. Zalogowany użytkownik może także przesłać gotowy plik przez
-`/translations/upload-ready`; po akceptacji plik trafia do publicznego katalogu
-projektu i może zostać pobrany. Panel `/admin/plugin-translator/plugins` zarządza
+zweryfikowanego YAML. Katalog kategorii jest pełnoszeroką tabelą pod oknem pracy;
+nazwy kategorii prowadzą do zaakceptowanych plików. Każdy zaakceptowany plik można
+pobrać albo otworzyć jako nową propozycję poprawki. Panel
+`/admin/plugin-translator/plugins` zarządza
 kategoriami, pozwala je edytować i usuwać oraz łączy je z istniejącą opublikowaną
 stroną `/p/{slug}`. Przy usunięciu kategorii jej zgłoszenia trafiają do chronionej
 pozycji `Nieprzypisane`.

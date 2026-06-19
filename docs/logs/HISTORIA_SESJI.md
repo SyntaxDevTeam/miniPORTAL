@@ -1416,3 +1416,23 @@ publicznej nawigacji modułów i podstron poza stroną główną.
   Bootstrap oraz `site.js`, którego używa strona główna.
 
 **Weryfikacja:** wykonano lint PHP zmienionych motywów oraz pełne testy repozytorium.
+
+### Sesja: 2026-06-19 - Publiczne centrum translatora i propozycje poprawek
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - domknięcie publicznego
+przepływu pracy modułu `plugin_translator`.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.4.0`,
+- połączono rozpoczęcie pracy, własne wersje robocze i upload gotowego YAML w
+  trzech zakładkach publicznego widoku `/translations`,
+- pozostawiono dotychczasowe adresy jako kompatybilne wejścia do zakładek,
+- przeniesiono katalog kategorii pod centrum pracy i rozciągnięto go na pełną
+  szerokość; nazwy kategorii są teraz linkami w tabeli,
+- dodano akcję `Zaproponuj poprawkę` dla zaakceptowanych plików; tworzy ona nowy
+  szkic zarówno z pracy edytora, jak i z gotowego uploadu, bez zmiany oryginału,
+- dodano responsywny układ zakładek i grupy akcji dla obu aktywnych motywów.
+
+**Weryfikacja:** lint PHP, testy repozytorium, kontrola diffu i aktualizacja modułu
+zostały wykonane po implementacji. Lokalny endpoint HTTPS nie odpowiedział przed
+limitem czasu, więc nie wykonano końcowego testu odpowiedzi przez serwer WWW.
