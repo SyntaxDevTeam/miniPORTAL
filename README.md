@@ -38,7 +38,8 @@ oraz dodawanie, edycję i usuwanie rekordów. Główne akcje panelowych modułó
 renderowane w pełnoszerokim pasku pod nagłówkiem bieżącego widoku.
 `plugin_translator` jest osobnym modułem do tłumaczenia plików YAML używanych przez
 pluginy SyntaxDevTeam oraz managerem zaakceptowanych plików językowych. Publiczna
-strona `/translations` grupuje pliki według katalogu pluginów i pozwala użytkownikom wgrać
+strona `/translations` grupuje pliki według kategorii tłumaczeń reprezentujących
+pluginy, boty albo inne projekty i pozwala użytkownikom wgrać
 `.yml/.yaml` metodą przeciągnij/upuść, wybrać język docelowy ISO `XX`, uzupełnić
 tłumaczenie w edytorze z wyrównanym oryginałem i zapisać je domyślnie jako szkic.
 Wprowadzanie i zapis wymagają logowania; konto oczekujące może pracować nad
@@ -50,11 +51,15 @@ oraz błędy składni formatowania. Panel `/admin/plugin-translator` pokazuje
 zgłoszenia, postęp, statusy oraz akcje zatwierdzenia, odrzucenia i pobrania
 zweryfikowanego YAML. Zalogowany użytkownik może także przesłać gotowy plik przez
 `/translations/upload-ready`; po akceptacji plik trafia do publicznego katalogu
-pluginu i może zostać pobrany. Panel `/admin/plugin-translator/plugins` zarządza
-katalogiem pluginów i łączy plugin z istniejącą opublikowaną stroną `/p/{slug}`.
+projektu i może zostać pobrany. Panel `/admin/plugin-translator/plugins` zarządza
+kategoriami, pozwala je edytować i usuwać oraz łączy je z istniejącą opublikowaną
+stroną `/p/{slug}`. Przy usunięciu kategorii jej zgłoszenia trafiają do chronionej
+pozycji `Nieprzypisane`.
 Manager zgłoszeń udostępnia podgląd, pobranie, zatwierdzenie, odrzucenie i trwałe
-usunięcie. Jednorazowe narzędzie eksportu administratora pozostało pod
-`/admin/plugin-translator/tool`.
+usunięcie. Administracyjny edytor pliku YAML pozostał pod
+`/admin/plugin-translator/tool`; zachowuje oryginalną nazwę edytowanego pliku.
+Pliki tłumaczeń z katalogu są pobierane jako `messages_xx.yml`, np.
+`messages_pl.yml` albo `messages_de.yml`.
 `team` jest osobnym modułem prezentacji zespołu. Publiczne `/team` pokazuje
 widocznych członków, a `/team/member/{slug}` prowadzi do publicznego profilu
 powiązanego z lokalnym kontem użytkownika i jego avatarem. Panel `/admin/team`

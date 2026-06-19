@@ -676,7 +676,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.3.1');
+    $assert($translator->version === '1.3.3');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -751,6 +751,17 @@ $test('CoreAuth declares database explorer permission', static function () use (
     );
     $assert(str_contains($translatorPageMigrationSql, 'page_id'));
     $assert(str_contains($translatorPageMigrationSql, 'DROP COLUMN description'));
+    $translatorModuleSource = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/PluginTranslatorModule.php'
+    );
+    $assert(str_contains($translatorModuleSource, "'messages_' . strtolower(\$submission->targetLanguage) . '.yml'"));
+    $assert(str_contains($translatorModuleSource, "'source_filename'"));
+    $assert(str_contains($translatorModuleSource, 'Kategorie tłumaczeń'));
+    $assert(str_contains($translatorModuleSource, '/admin/plugin-translator/plugins/edit'));
+    $translatorRepositorySource = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/PluginTranslator/PluginTranslationRepository.php'
+    );
+    $assert(str_contains($translatorRepositorySource, "['project_id' => \$fallbackId]"));
 
     $teamInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Team/install.sql');
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));

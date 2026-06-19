@@ -7,6 +7,7 @@ namespace SyntaxDevTeam\Cms\Modules\PluginTranslator;
 use PDO;
 use RuntimeException;
 use SyntaxDevTeam\Cms\Database\CrudApp;
+use Throwable;
 
 final class PluginTranslationRepository
 {
@@ -240,14 +241,31 @@ final class PluginTranslationRepository
         ]);
     }
 
+    public function updateProject(int $id, string $name, string $slug, ?int $pageId): bool
+    {
+        $statement = $this->database->update('plugin_translation_projects', [
+            'name' => $name,
+            'slug' => $slug,
+            'page_id' => $pageId,
+        ], [
+            'id' => $id,
+            'slug[!]' => 'nieprzypisane',
+        ]);
+
+        return $statement !== null;
+    }
+
     public function setProjectStatus(int $id, string $status): bool
     {
         if (!in_array($status, ['active', 'hidden'], true)) {
             return false;
         }
-        $statement = $this->database->update('plugin_translation_projects', ['status' => $status], ['id' => $id]);
+        $statement = $this->database->update('plugin_translation_projects', ['status' => $status], [
+            'id' => $id,
+            'slug[!]' => 'nieprzypisane',
+        ]);
 
-        return $statement !== null;
+        return $statement !== null && $statement->rowCount() === 1;
     }
 
     /**
@@ -280,15 +298,29 @@ final class PluginTranslationRepository
 
     public function deleteProject(int $id): bool
     {
-        if ($this->database->count('plugin_translation_submissions', ['project_id' => $id]) > 0) {
+        $fallback = $this->database->get('plugin_translation_projects', ['id'], ['slug' => 'nieprzypisane']);
+        $fallbackId = is_array($fallback) ? (int) ($fallback['id'] ?? 0) : 0;
+        if ($fallbackId <= 0 || $id === $fallbackId) {
             return false;
         }
-        $statement = $this->database->delete('plugin_translation_projects', [
-            'id' => $id,
-            'slug[!]' => 'nieprzypisane',
-        ]);
 
-        return $statement !== null && $statement->rowCount() === 1;
+        $pdo = $this->database->connection()->pdo;
+        try {
+            $pdo->beginTransaction();
+            $this->database->update('plugin_translation_submissions', ['project_id' => $fallbackId], ['project_id' => $id]);
+            $statement = $this->database->delete('plugin_translation_projects', ['id' => $id]);
+            if ($statement === null || $statement->rowCount() !== 1) {
+                $pdo->rollBack();
+                return false;
+            }
+            $pdo->commit();
+            return true;
+        } catch (Throwable) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            return false;
+        }
     }
 
     /**

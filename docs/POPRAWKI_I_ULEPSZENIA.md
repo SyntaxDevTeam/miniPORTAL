@@ -131,6 +131,18 @@ zgłoszeń. Główna kolejka managera ma bezpośrednie akcje `Zatwierdź`, `Odrz
 `Usuń` obok podglądu oraz pobierania; akcje wymagają CSRF, potwierdzeń dla operacji
 ryzykownych i zapisują audit log.
 
+Etap 7 gotowy: pobierane tłumaczenia mają zawsze nazwę `messages_xx.yml`, gdzie
+`xx` jest kodem języka, np. `messages_en.yml`, `messages_pl.yml` lub
+`messages_de.yml`. Dotychczasowe `Narzędzie eksportu YAML` nazywa się teraz
+`Edytor pliku YAML`; po wgraniu i edycji zapisuje wynik pod bezpieczną wersją
+oryginalnej nazwy pliku zamiast stałego `translation.yml`.
+
+Etap 8 gotowy: obszar `Pluginy translatora` nazywa się `Kategorie tłumaczeń`, bo
+pozycja może reprezentować plugin, bota albo inny projekt. Każdą zwykłą kategorię
+można edytować: zmienić nazwę, slug i powiązaną stronę. Usunięcie kategorii nie
+kasuje prac użytkowników; w jednej transakcji przenosi zgłoszenia do chronionej
+kategorii `Nieprzypisane`, a następnie usuwa wybraną pozycję.
+
 ### Team
 Moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika (zależność z z sekcją strony głóœnej `Kontakt`).
 

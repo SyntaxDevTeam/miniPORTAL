@@ -258,7 +258,8 @@ automatycznie po zgodnym adresie e-mail.
 #### 4.4 Moduł narzędziowy `plugin_translator`
 - niezależne rozszerzenie do tłumaczenia plików YAML używanych przez pluginy
   SyntaxDevTeam oraz zarządzania zatwierdzonymi plikami językowymi,
-- `plugin_translation_projects` przechowuje katalog pluginów z nazwą, slugiem,
+- `plugin_translation_projects` przechowuje kategorie tłumaczeń dla pluginów,
+  botów i innych projektów z nazwą, slugiem,
   opcjonalnym `page_id` do opublikowanej `core_pages` i widocznością; każde
   zgłoszenie wskazuje `project_id`,
 - zgłoszenie przechowuje opcjonalną wersję pluginu oraz rodzaj `editor` albo
@@ -288,7 +289,7 @@ automatycznie po zgodnym adresie e-mail.
 - `/translations/upload-ready` pozwala zalogowanemu użytkownikowi przesłać gotowy,
   poprawny składniowo plik YAML bez przechodzenia przez edytor; zgłoszenie otrzymuje
   status `ready_for_review`,
-- publiczny katalog `/translations` grupuje zaakceptowane pliki według pluginów,
+- publiczny katalog `/translations` grupuje zaakceptowane pliki według kategorii,
   języka i opcjonalnej wersji, a `/translations/project` udostępnia ich pobieranie,
 - konto lokalne w statusie `pending` może pracować nad publicznymi tłumaczeniami,
   ale nie dostaje uprawnień panelu administracyjnego,
@@ -299,17 +300,21 @@ automatycznie po zgodnym adresie e-mail.
 - panel administracyjny `/admin/plugin-translator` prezentuje listę prac, procent
   ukończenia, plugin, wersję, rodzaj zgłoszenia, podgląd różnic oraz akcje
   akceptacji lub odrzucenia,
-- `/admin/plugin-translator/plugins` pozwala administratorowi tworzyć katalogi
-  pluginów, wybierać istniejącą stronę `/p/{slug}`, sterować widocznością oraz
-  usuwać pozycje bez przypisanych zgłoszeń,
+- `/admin/plugin-translator/plugins` pozwala administratorowi tworzyć i edytować
+  kategorie, wybierać istniejącą stronę `/p/{slug}`, sterować widocznością oraz
+  usuwać pozycje; usuwanie atomowo przenosi przypisane zgłoszenia do chronionej
+  kategorii `Nieprzypisane`,
 - główna kolejka udostępnia szybkie akcje podglądu, pobrania, zatwierdzenia,
   odrzucenia i trwałego usunięcia zgłoszenia; operacje zapisowe wymagają CSRF i są
   rejestrowane w audit logu,
 - zatwierdzone i przeglądane tłumaczenie można pobrać jako zweryfikowany YAML,
-- jednorazowe narzędzie eksportu administratora pozostaje dostępne pod
-  `/admin/plugin-translator/tool`,
+- plik tłumaczenia pobierany ze zgłoszenia lub katalogu ma zawsze nazwę
+  `messages_xx.yml`, gdzie `xx` jest kodem języka zapisanym małymi literami,
+- administracyjny edytor pliku YAML pozostaje dostępny pod
+  `/admin/plugin-translator/tool`; po edycji zachowuje bezpieczną wersję oryginalnej
+  nazwy wgranego pliku,
 - publiczne formularze używają `Request`, CSRF, walidacji rozmiaru i parsera `Spyc`;
-  panel administracyjny wymaga ACL `plugin_translator.review`, a narzędzie eksportu
+  panel administracyjny wymaga ACL `plugin_translator.review`, a edytor pliku YAML
   wymaga `plugin_translator.use`,
 - moduł jest opcjonalny, instalowany przez manager modułów i nie rozszerza
   `ThemeInterface` metodami specyficznymi dla translatora.

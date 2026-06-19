@@ -1363,6 +1363,46 @@ wykonano migrację `20260619_translation_page_link_and_manager_actions.sql` prze
 `plugin_translator 1.3.1 active`, `page_id=yes`, stare kolumny opisu i URL nie
 istnieją.
 
+### Sesja: 2026-06-19 - Nazwy plików tłumaczeń i edytor YAML
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - ujednolicenie kontraktu plików
+językowych i nazewnictwa narzędzia administracyjnego.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.3.2`,
+- download zaakceptowanego zgłoszenia, zarówno publiczny, jak i administracyjny,
+  używa nazwy `messages_xx.yml` wynikającej z języka zgłoszenia,
+- `Narzędzie eksportu YAML` przemianowano na `Edytor pliku YAML`,
+- edytor przekazuje oryginalną nazwę uploadu w chronionym polu formularza,
+  normalizuje ją przed nagłówkiem odpowiedzi i zachowuje rozszerzenie `.yml` albo
+  `.yaml`,
+- domyślną nazwą dla treści bez uploadu pozostaje `messages.yml`.
+
+**Weryfikacja:** zaktualizowano test manifestu i kontraktu nazw plików, uruchomiono
+pełny lint PHP, `php tests/run.php`, `git diff --check` oraz aktualizację modułu
+przez `ModuleInstaller`. Stan produkcyjny: `plugin_translator 1.3.2 active`.
+
+### Sesja: 2026-06-19 - Kategorie tłumaczeń i pełna edycja katalogu
+
+**Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - korekta modelu pojęciowego i
+pełny cykl życia kategorii managera tłumaczeń.
+
+**Wykonano:**
+- podniesiono `plugin_translator` do wersji `1.3.3`,
+- etykietę `Pluginy translatora` zastąpiono nazwą `Kategorie tłumaczeń`, obejmującą
+  pluginy, boty i inne projekty,
+- dodano ekran edycji nazwy, slugu i powiązanej strony istniejącej kategorii,
+- dodano akcje `Edytuj`, `Ukryj/Pokaż` i `Usuń` przy każdej zwykłej kategorii,
+- usuwanie kategorii działa transakcyjnie: zgłoszenia są przepinane do
+  `Nieprzypisane`, a następnie kategoria jest usuwana,
+- techniczna kategoria `Nieprzypisane` jest chroniona przed edycją, zmianą
+  widoczności i usunięciem,
+- operacje aktualizacji i usunięcia zapisują audit log oraz wymagają CSRF.
+
+**Weryfikacja:** uruchomiono pełny lint PHP, testy repozytorium,
+`git diff --check` oraz aktualizację modułu przez `ModuleInstaller`. Stan
+produkcyjny: `plugin_translator 1.3.3 active`.
+
 ### Sesja: 2026-06-19 - Poprawka publicznego menu mobilnego
 
 **Faza i krok specyfikacji:** Krok 5C oraz Krok 6 - stabilizacja wspólnej
