@@ -76,6 +76,10 @@ do którego moduł profilu prowadzi bez kopiowania logiki uwierzytelniania.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.
+`build_explorer` publikuje pliki JAR przypisane do projektów. Upload trafia poza
+publiczny katalog WWW, a rozmiar i SHA-256 są obliczane automatycznie. Domyślna
+nazwa ma postać `<projekt>-<serwer>-<wersja>-<typ>-<build>.jar`, ale administrator
+może ją edytować. Publiczny katalog znajduje się pod `/builds`.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

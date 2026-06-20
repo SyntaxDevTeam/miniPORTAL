@@ -36,7 +36,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.0.0'; }
+    public function version(): string { return '1.0.1'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }
@@ -48,7 +48,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('projects.index', 'Projekty', '/projects', 'none', 55);
+        $navigation->add('projects.index', 'Projekty', '/projects', 'main', 55);
     }
 
     public function registerRoutes(Router $router): void

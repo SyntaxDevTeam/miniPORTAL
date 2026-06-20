@@ -209,6 +209,22 @@ Pliki trafiają do `cache/templates`, który musi być zapisywalny dla użytkown
 serwera WWW. Panel `/admin/settings` pokazuje statystyki i udostępnia audytowane
 czyszczenie. Zmiana treści `core_pages` albo ustawień motywu unieważnia właściwe tagi.
 
+## Pliki Build Explorer
+
+```dotenv
+BUILD_UPLOAD_MAX_BYTES=20971520
+```
+
+Pliki JAR trafiają do `cache/build-artifacts`, który pozostaje zablokowany przez
+główny `.htaccess`. Katalog musi należeć do grupy procesu WWW:
+
+```bash
+sudo install -d -m 2770 -o debian -g www-data cache/build-artifacts
+```
+
+Limit aplikacji nie może przekraczać `upload_max_filesize` i `post_max_size`
+aktywnego handlera PHP. Produkcyjny Apache ma obecnie odpowiednio 20 MB i 64 MB.
+
 ## Uruchomienie lokalne
 
 Możesz wskazać dowolny plik tylko dla danego procesu:

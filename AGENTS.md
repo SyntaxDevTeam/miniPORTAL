@@ -133,6 +133,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `team` jako moduł prezentacji listy członków drużyny z możliwością wejścia w publiczny profil użytkownika. |
 | [x] | `user_profile` jako osobny moduł edycji danych i avatara, przeglądu bezpieczeństwa oraz wejścia do połączonych kont; profil publiczny pozostaje prezentowany przez zależny moduł `team`. |
 | [x] | `projects` jako katalog projektów z publicznymi trasami, stanem realizacji oraz powiązaniami do `core_pages` i `wikipedia`. |
+| [x] | `build_explorer` Etap 1: publiczna lista buildów Release/Snapshot/Dev/WIP i panel CRUD metadanych powiązanych z `projects`. |
+| [x] | `build_explorer` Etap 2: bezpośredni upload JAR, automatyczny rozmiar i SHA-256 oraz generowana, edytowalna nazwa pliku. |
 
 ### Krok 6 - system modułów
 
@@ -250,7 +252,10 @@ Brak aktywnych blokerów.
 | 2026-06-19 | `team` 1.0.0 realizuje publiczną listę i profile członków. Widoki oraz zapis danych profilu, avatara i przegląd bezpieczeństwa wydzielono z `CoreAuth` do opcjonalnego modułu `user_profile` 1.0.0 zależnego od `core_auth`; operacje OAuth pozostają własnością chronionego modułu uwierzytelniania. `core_auth` ma wersję 1.4.1. |
 | 2026-06-19 | Manager może zatwierdzić podpisane rozszerzenie z kwarantanny do `modules/` po ponownej walidacji i kontroli konfliktów. Operacja wymaga ACL/CSRF, jest audytowana i nie instaluje ani nie wykonuje kodu pakietu. `system_admin` ma wersję 1.5.0. |
 | 2026-06-19 | Produkcyjne katalogi lifecycle pakietów mają grupę `www-data`: `modules/` tryb `2775`, a `cache/module-quarantine` tryb `2770`. Pozwala to panelowi atomowo przenosić zatwierdzone pakiety bez nadawania zapisu do istniejących katalogów modułów. |
-| 2026-06-19 | `projects` 1.0.0 jest katalogiem agregującym metadane projektu i opcjonalne relacje do `core_pages` oraz `wikipedia`; nie duplikuje treści tych modułów. Publiczne trasy to `/projects` i `/projects/{slug}`. |
+| 2026-06-19 | `projects` 1.0.1 jest katalogiem agregującym metadane projektu i opcjonalne relacje do `core_pages` oraz `wikipedia`; nie duplikuje treści tych modułów. Publiczne trasy to `/projects` i `/projects/{slug}`, a link domyślnie trafia do menu głównego. |
+| 2026-06-19 | `build_explorer` 1.0.1 przechowuje metadane zewnętrznych plików HTTPS w kanałach Release/Snapshot/Dev/WIP i pokazuje je wyłącznie dla opublikowanych projektów oraz buildów; link domyślnie trafia do menu głównego. |
+| 2026-06-19 | `build_explorer` 1.1.0 zapisuje uploady JAR w `cache/build-artifacts`, automatycznie wylicza rozmiar i SHA-256 oraz generuje edytowalną nazwę `<projekt>-<serwer>-<wersja>-<kanał>-<build>.jar`. |
+| 2026-06-20 | `build_explorer` 1.1.1 naprawia sprzątanie starego artefaktu przy tworzeniu pierwszego buildu i nie usuwa nowego pliku po poprawnym zapisie bazy. |
 
 ## Historia sesji
 

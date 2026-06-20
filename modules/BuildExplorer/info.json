@@ -1,13 +1,13 @@
 {
-  "id": "projects",
-  "name": "Projekty",
-  "version": "1.0.1",
+  "id": "build_explorer",
+  "name": "Build Explorer",
+  "version": "1.1.1",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
     "miniportal": ">=0.1.0",
-    "modules": ["core_auth", "core_pages", "wikipedia"]
+    "modules": ["core_auth", "projects"]
   },
   "protected": false,
   "origin": {

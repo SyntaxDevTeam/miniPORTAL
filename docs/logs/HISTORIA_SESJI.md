@@ -1516,3 +1516,77 @@ agregujący istniejące podstrony i dokumentację bez duplikowania ich danych.
 **Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, instalacja
 przez `ModuleInstaller`, kontrola stanu produkcyjnego i testy HTTP tras publicznej
 oraz administracyjnej.
+
+### Sesja: 2026-06-19 - Build Explorer, etap 1
+
+**Faza i krok specyfikacji:** Krok 5C i Krok 6 - pliki wydań jako niezależne
+rozszerzenie zależne od katalogu projektów.
+
+**Wykonano:**
+- dodano moduł `build_explorer` 1.0.0 zależny od `core_auth` i `projects`,
+- dodano tabelę `project_builds` z kanałami Release, Snapshot, Dev i WIP,
+- dodano wersję, nazwę pliku, zewnętrzny URL HTTPS, opcjonalny rozmiar i SHA-256,
+  changelog, datę oraz stan publikacji,
+- dodano publiczne `/builds`, `/builds/project/{slug}` i wejście query,
+- publiczne zapytania wymagają publikacji zarówno buildu, jak i projektu,
+- dodano panel `/admin/builds` z CRUD, ACL `builds.view` / `builds.manage`, CSRF
+  i audytem operacji,
+- dodano testy manifestu, zależności, SQL, tras i walidacji HTTPS.
+
+**Weryfikacja:** `php tests/run.php`, pełny lint PHP, `git diff --check`, instalacja
+przez `ModuleInstaller`, kontrola stanu i testy HTTP tras publicznej oraz panelowej.
+
+### Sesja: 2026-06-19 - Widoczność publiczna Projektów i Build Explorer
+
+**Faza i krok specyfikacji:** Krok 5C - integracja nowych modułów ze wspólną
+nawigacją publiczną.
+
+**Wykonano:**
+- potwierdzono działanie tras `/projects` i `/builds`,
+- podniesiono `projects` i `build_explorer` do wersji 1.0.1,
+- poprawiono domyślny obszar linków `projects.index` i `build_explorer.index` z
+  `none` na `main`,
+- zachowano możliwość niezależnego ukrycia, przeniesienia do stopki albo pokazania
+  w obu obszarach przez `/admin/settings`,
+- dodano test regresji kontraktu deklaracji publicznej nawigacji obu modułów.
+
+**Weryfikacja:** testy repozytorium, pełny lint PHP, `git diff --check` oraz test
+HTML strony głównej i publicznych tras modułów.
+
+### Sesja: 2026-06-19 - Build Explorer, bezpośredni upload JAR
+
+**Faza i krok specyfikacji:** Krok 5C i Krok 6 - Etap 2 plików wydań projektów.
+
+**Wykonano:**
+- podniesiono `build_explorer` do wersji 1.1.0,
+- dodano migrację pól platformy, numeru buildu i niepublicznego klucza magazynu,
+- dodano upload `.jar` do `cache/build-artifacts` z limitem 20 MB i kontrolą
+  rozszerzenia oraz sygnatury ZIP,
+- rozmiar i SHA-256 są obliczane automatycznie z zapisanego artefaktu,
+- domyślna nazwa ma wzór `<projekt>-<serwer>-<wersja>-<kanał>-<build>.jar` i może
+  zostać ręcznie zmieniona na inny bezpieczny basename `.jar`,
+- dodano kontrolowane publiczne pobieranie tylko dla opublikowanego projektu i
+  buildu, z nagłówkami typu, długości, nazwy i `nosniff`,
+- podmiana oraz usunięcie buildu sprzątają poprzedni plik,
+- dodano test generatora nazwy, zapisu, SHA-256, rozmiaru i usuwania artefaktu.
+
+**Weryfikacja:** pełne testy i lint PHP, `git diff --check`, migracja modułu,
+uprawnienia magazynu, test jednostkowy zapisu artefaktu oraz testy HTTP publicznej
+listy, ochrony panelu i odpowiedzi 404 dla brakującego pliku.
+
+### Sesja: 2026-06-20 - Poprawka sprzątania po utworzeniu buildu
+
+**Faza i krok specyfikacji:** Krok 5C - stabilizacja Etapu 2 Build Explorer.
+
+**Wykonano:**
+- podniesiono `build_explorer` do wersji 1.1.1,
+- poprawiono próbę usunięcia starego `storageKey` dla nowego rekordu, gdzie obiekt
+  poprzedniego buildu nie istnieje,
+- `BuildArtifactStorage::delete()` bezpiecznie ignoruje pusty i brakujący klucz,
+- blok wycofujący nowy upload obejmuje teraz wyłącznie nieudany zapis bazy; po
+  utrwaleniu rekordu późniejsze sprzątanie nie może usunąć nowego artefaktu,
+- wykryto i usunięto pojedynczy osierocony rekord utworzony przez zgłoszoną próbę,
+- dodano test regresji wywołania sprzątania bez poprzedniego artefaktu.
+
+**Weryfikacja:** pełne testy repozytorium, lint PHP, `git diff --check`, kontrola
+spójności rekordów z magazynem oraz ponowny test zapisu buildu.

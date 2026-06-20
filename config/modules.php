@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
+use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildExplorerModule;
+use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage;
+use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
@@ -135,6 +138,22 @@ return [
             $services['auth'],
             $services['security'],
             $services['audit']
+        ),
+    ],
+    [
+        'directory' => 'BuildExplorer',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): BuildExplorerModule => new BuildExplorerModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new BuildRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
+            new BuildArtifactStorage(
+                dirname(__DIR__) . '/cache/build-artifacts',
+                (int) ($services['config']['modules']['build_upload_max_bytes'] ?? 20971520)
+            )
         ),
     ],
     [

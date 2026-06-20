@@ -365,7 +365,28 @@ automatycznie po zgodnym adresie e-mail.
 - `/admin/projects` zapewnia CRUD przez `CrudApp`, `Request`, CSRF, ACL
   `projects.view` / `projects.manage` oraz audit log,
 - moduł deklaruje konfigurowalny link publiczny `Projekty` przez
-  `PublicNavigationRegistry`.
+  `PublicNavigationRegistry`; domyślnym obszarem jest menu główne,
+
+#### 4.8 Moduł plików projektów `build_explorer`
+- niezależne rozszerzenie zależne od `core_auth` i `projects`,
+- tabela `project_builds` przechowuje wersję, kanał `release` / `snapshot` / `dev`
+  / `wip`, nazwę pliku, adres HTTPS, opcjonalny rozmiar i SHA-256, changelog oraz
+  publikację,
+- publiczne `/builds` i `/builds/project/{slug}` zwracają tylko opublikowane buildy
+  należące do opublikowanych projektów,
+- Etap 2 przyjmuje bezpośredni upload JAR do `cache/build-artifacts`, poza publicznym
+  routingiem Apache; domyślny limit aplikacji i produkcyjnego PHP wynosi 20 MB,
+- rozmiar i SHA-256 są wyliczane z zapisanego pliku, a nazwa domyślna ma wzór
+  `<projekt>-<serwer>-<wersja>-<kanał>-<build>.jar`; administrator może podać
+  własny bezpieczny basename `.jar`,
+- publiczne pobieranie przechodzi przez `/builds/download?id=...`, ponownie sprawdza
+  publikację projektu i buildu oraz wysyła `Content-Disposition` i `nosniff`,
+- podmiana pliku zapisuje nowy artefakt przed aktualizacją bazy, a stary usuwa po
+  sukcesie; usunięcie rekordu usuwa również lokalny plik,
+- `/admin/builds` zapewnia CRUD przez `CrudApp`, `Request`, CSRF, ACL
+  `builds.view` / `builds.manage` i audit log,
+- moduł deklaruje konfigurowalny link `Pliki do pobrania` przez
+  `PublicNavigationRegistry`; domyślnym obszarem jest menu główne.
 
 ### Faza 5: Manager modułów (Lego System)
 
@@ -574,6 +595,7 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 14. `user_profile`: wydzielony profil użytkownika, edycja danych i avatara oraz
     przegląd bezpieczeństwa z wejściem do tożsamości zarządzanych przez `core_auth`.
 15. `projects`: publiczny katalog stanu projektów powiązany z podstronami i Wiki.
+16. `build_explorer`: kanały i pliki wydań przypisane do katalogu projektów.
 
 Stan Kroku 5:
 

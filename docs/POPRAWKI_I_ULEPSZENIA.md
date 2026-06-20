@@ -167,6 +167,24 @@ Gotowe
 ### Build Explorer
 (Nie mam dokładnie pomysłu) Moduł pozwalający na wyświetlenie listy plików do pobrania dla wszystkich dodanych projektów (współpraca z modułem Projekty) dla wersji Release/Snapshot/Dev/WIP Przykład ze strony innej ekipy ![alt text](image-2.png)
 
+Etap 1 gotowy: dodano osobny moduł `build_explorer` zależny od `projects`.
+Każdy wpis należy do projektu i przechowuje wersję, kanał `Release`, `Snapshot`,
+`Dev` albo `WIP`, nazwę pliku, zewnętrzny adres HTTPS, opcjonalny rozmiar i SHA-256,
+opis zmian oraz stan publikacji. Publiczne `/builds` i
+`/builds/project/{slug}` pokazują wyłącznie buildy opublikowanych projektów.
+Panel `/admin/builds` udostępnia CRUD metadanych z ACL, CSRF i audit logiem.
+Pierwszy etap celowo nie przyjmuje binarnych uploadów na serwer. Link `Pliki do
+pobrania` jest domyślnie widoczny w menu głównym i pozostaje konfigurowalny w
+ustawieniach nawigacji.
+
+Etap 2 gotowy: panel przyjmuje bezpośredni upload `.jar` do chronionego katalogu
+`cache/build-artifacts`. Rozmiar w bajtach i SHA-256 są obliczane po zapisie.
+Domyślna nazwa powstaje jako
+`<projekt>-<serwer>-<wersja>-<typ wersji>-<nr buildu>.jar`, np.
+`PunisherX-Spigot-1.7.3-DEV-14c0e44.jar`, lecz pozostaje edytowalna. Publiczne
+pobieranie przechodzi przez kontrolowaną trasę, która wymaga opublikowanego buildu
+i projektu. Podmiana oraz usunięcie rekordu sprzątają poprzedni artefakt.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 
@@ -177,3 +195,5 @@ publikację. Projekt może wskazywać istniejącą podstronę `core_pages` oraz 
 `wikipedia`. Publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie
 opublikowane wpisy, a panel `/admin/projects` udostępnia pełny CRUD z ACL, CSRF i
 audit logiem.
+Link `Projekty` jest domyślnie widoczny w menu głównym i może zostać przeniesiony,
+powielony w stopce albo ukryty przez ustawienia publicznej nawigacji.

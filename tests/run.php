@@ -717,11 +717,19 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $projects = $validator->validate(dirname(__DIR__) . '/modules/Projects');
     $assert($projects->id === 'projects');
-    $assert($projects->version === '1.0.0');
+    $assert($projects->version === '1.0.1');
     $assert($projects->type === 'extension');
     $assert($projects->requiredModules === ['core_auth', 'core_pages', 'wikipedia']);
     $assert($projects->installFile === 'install.sql');
     $assert($projects->uninstallFile === 'uninstall.sql');
+
+    $builds = $validator->validate(dirname(__DIR__) . '/modules/BuildExplorer');
+    $assert($builds->id === 'build_explorer');
+    $assert($builds->version === '1.1.1');
+    $assert($builds->type === 'extension');
+    $assert($builds->requiredModules === ['core_auth', 'projects']);
+    $assert($builds->installFile === 'install.sql');
+    $assert($builds->uninstallFile === 'uninstall.sql');
 
     $profile = $validator->validate(dirname(__DIR__) . '/modules/UserProfile');
     $assert($profile->id === 'user_profile');
@@ -832,7 +840,57 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $projectsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/ProjectsModule.php');
     $assert(str_contains($projectsSource, "\$router->get('/projects'"));
     $assert(str_contains($projectsSource, "\$router->get('/admin/projects'"));
-    $assert(str_contains($projectsSource, "navigation->add('projects.index'"));
+    $assert(str_contains($projectsSource, "navigation->add('projects.index', 'Projekty', '/projects', 'main'"));
+
+    $buildsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/BuildExplorer/install.sql');
+    $assert(str_contains($buildsInstallSql, 'CREATE TABLE project_builds'));
+    $assert(str_contains($buildsInstallSql, 'fk_project_builds_project'));
+    $assert(str_contains($buildsInstallSql, "ENUM('release', 'snapshot', 'dev', 'wip')"));
+    $assert(str_contains($buildsInstallSql, "'builds.manage'"));
+    $assert(str_contains($buildsInstallSql, 'storage_key'));
+    $buildsMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/BuildExplorer/migrations/20260619_local_artifact_upload.sql'
+    );
+    $assert(str_contains($buildsMigrationSql, 'server_type'));
+    $assert(str_contains($buildsMigrationSql, 'build_number'));
+    $assert(str_contains($buildsMigrationSql, 'storage_key'));
+    $buildsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/BuildExplorer/BuildExplorerModule.php');
+    $assert(str_contains($buildsSource, "\$router->get('/builds'"));
+    $assert(str_contains($buildsSource, "\$router->get('/admin/builds'"));
+    $assert(str_contains($buildsSource, "\$router->get('/builds/download'"));
+    $assert(str_contains($buildsSource, "\$request->file('artifact')"));
+    $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main'"));
+});
+
+$test('Build artifact storage generates names and calculates upload metadata', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-build-storage-' . bin2hex(random_bytes(6));
+    $temporary = tempnam(sys_get_temp_dir(), 'miniportal-jar-');
+    file_put_contents($temporary, "PK\x03\x04test-build");
+    try {
+        $assert(
+            SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage::filename(
+                'PunisherX', 'Spigot', '1.7.3', 'dev', '14c0e44'
+            ) === 'PunisherX-Spigot-1.7.3-DEV-14c0e44.jar'
+        );
+        $storage = new SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage($directory, 1024);
+        $stored = $storage->store([
+            'name' => 'source.jar',
+            'type' => 'application/java-archive',
+            'tmp_name' => $temporary,
+            'error' => UPLOAD_ERR_OK,
+            'size' => 14,
+        ]);
+        $path = $storage->path($stored['storage_key']);
+        $assert($path !== null && is_file($path));
+        $assert($stored['size'] === 14);
+        $assert($stored['checksum'] === hash_file('sha256', $path));
+        $storage->delete($stored['storage_key']);
+        $assert($storage->path($stored['storage_key']) === null);
+        $storage->delete(null);
+    } finally {
+        if (is_file($temporary)) { unlink($temporary); }
+        if (is_dir($directory)) { rmdir($directory); }
+    }
 });
 
 $test('Module archive import extracts only to quarantine and inspects manifest', static function () use ($assert): void {

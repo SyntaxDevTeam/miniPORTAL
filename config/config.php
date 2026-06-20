@@ -77,6 +77,7 @@ return [
     ],
     'modules' => [
         'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
+        'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
     ],
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),
