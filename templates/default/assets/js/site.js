@@ -14,6 +14,23 @@ document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     if (menu && window.bootstrap) {
       window.bootstrap.Collapse.getOrCreateInstance(menu).hide();
     }
+
+    const targetId = decodeURIComponent(anchor.hash.slice(1));
+    const target = targetId === "" ? null : document.getElementById(targetId);
+    if (!target) {
+      return;
+    }
+
+    const hadTabindex = target.hasAttribute("tabindex");
+    if (!hadTabindex) {
+      target.setAttribute("tabindex", "-1");
+    }
+    window.requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
+      if (!hadTabindex) {
+        target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+      }
+    });
   });
 });
 

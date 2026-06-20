@@ -548,6 +548,7 @@ $test('Articles module exposes a configurable public navigation link', static fu
 
 $test('Public theme exposes common Home and Kontakt navigation on subpages', static function () use ($assert): void {
     $theme = new DefaultTheme([
+        'public_path' => '/test',
         'public_name' => 'SyntaxDevTeam',
         'public_meta_description' => 'Opis testowy',
     ]);
@@ -564,9 +565,29 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
 $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_url' => 'https://syntaxdevteam.pl',
+        'public_path' => '/projects',
         'public_name' => 'SyntaxDevTeam',
+        'public_default_title' => 'Domyślny tytuł',
         'public_meta_description' => 'Opis testowy',
+        'public_meta_author' => 'SyntaxDevTeam',
+        'public_meta_robots' => 'index, follow, max-image-preview:large',
+        'public_locale' => 'pl_PL',
+        'public_social_image_url' => '/social/cover.png',
+        'public_social_image_alt' => 'Okładka SyntaxDevTeam',
+        'public_twitter_site' => 'SyntaxDevTeam',
+        'public_theme_color' => '#112233',
+        'public_google_site_verification' => 'google-token_123',
+        'public_bing_site_verification' => 'bing-token_123',
     ]);
+    $theme->set_public_navigation([[
+        'title' => 'Projekty',
+        'slug' => 'projects',
+        'href' => '/projects',
+        'summary' => '',
+        'type' => 'module',
+        'navigation_area' => 'main',
+        'navigation_label' => 'Projekty',
+    ]], false);
 
     ob_start();
     $theme->start_page('Test', 'Opis');
@@ -578,9 +599,60 @@ $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews
     $assert(str_contains($html, 'apple-mobile-web-app-capable'));
     $assert(str_contains($html, 'site.webmanifest'));
     $assert(str_contains($html, 'class="site-brand-logo"'));
-    $assert(str_contains($html, 'property="og:image" content="https://syntaxdevteam.pl/templates/default/assets/img/brand/syntaxdevteam-logo.png"'));
+    $assert(str_contains($html, '<html lang="pl-PL"'));
+    $assert(str_contains($html, 'name="theme-color" content="#112233"'));
+    $assert(str_contains($html, 'rel="canonical" href="https://syntaxdevteam.pl/projects"'));
+    $assert(str_contains($html, 'property="og:locale" content="pl_PL"'));
+    $assert(str_contains($html, 'property="og:image" content="https://syntaxdevteam.pl/social/cover.png"'));
+    $assert(str_contains($html, 'property="og:image:alt" content="Okładka SyntaxDevTeam"'));
+    $assert(str_contains($html, 'name="twitter:card" content="summary_large_image"'));
+    $assert(str_contains($html, 'name="twitter:site" content="@SyntaxDevTeam"'));
+    $assert(str_contains($html, 'name="google-site-verification" content="google-token_123"'));
+    $assert(str_contains($html, 'name="msvalidate.01" content="bing-token_123"'));
+    $assert(str_contains($html, 'href="/projects" aria-current="page"'));
+    $assert(str_contains($html, '<main id="content" tabindex="-1">'));
     $assert(str_contains($html, 'application/ld+json'));
+    $assert(str_contains($html, '"@type":"WebSite"'));
+    $assert(preg_match('~<script type="application/ld\+json">(.*?)</script>~s', $html, $jsonLd) === 1);
+    $assert(is_array(json_decode($jsonLd[1], true, flags: JSON_THROW_ON_ERROR)));
     $assert(!str_contains($html, '<span aria-hidden="true">&lt;/&gt;</span>'));
+});
+
+$test('Public error metadata prevents indexing', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_url' => 'https://syntaxdevteam.pl',
+        'public_path' => '/missing',
+    ]);
+    ob_start();
+    $theme->render_public_error(404, 'Brak', 'Nie znaleziono.');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'name="robots" content="noindex, nofollow"'));
+    $assert(!str_contains($html, 'rel="canonical"'));
+});
+
+$test('Theme form controls expose browser validation and accessible help', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_form('/save', [[
+        'name' => 'site_url',
+        'label' => 'Adres',
+        'type' => 'url',
+        'value' => 'https://example.test',
+        'required' => true,
+        'maxlength' => 255,
+        'autocomplete' => 'url',
+        'placeholder' => 'https://example.test',
+        'help' => 'Publiczny adres HTTPS.',
+    ]], 'Zapisz', 'csrf-token');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'type="url"'));
+    $assert(str_contains($html, ' required'));
+    $assert(str_contains($html, 'maxlength="255"'));
+    $assert(str_contains($html, 'autocomplete="url"'));
+    $assert(str_contains($html, 'aria-describedby="site_url-help"'));
+    $assert(str_contains($html, 'id="site_url-help"'));
 });
 
 $test('Public theme renders avatar image component', static function () use ($assert): void {
@@ -756,7 +828,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.5.1');
+    $assert($system->version === '1.6.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -859,6 +931,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
+    $assert(str_contains($systemSource, "return '1.6.0';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 

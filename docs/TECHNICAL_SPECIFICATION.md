@@ -232,6 +232,10 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
 - wspólny publiczny branding motywu oraz edytowalne nadtytuły podstron
 - zestaw ikon marki dla przeglądarek, Apple i instalacji mobilnej, manifest oraz
   metadane Open Graph i schema.org generowane w warstwie motywu
+- canonical budowany z bazowego HTTPS i znormalizowanej ścieżki `Request`, pełne
+  Open Graph/Twitter Card, konfigurowalne robots/locale oraz Organization i WebSite JSON-LD
+- publiczne layouty mają landmarki, link pomijający nawigację, widoczny fokus,
+  aktywną pozycję menu, cele dotykowe i obsługę `prefers-reduced-motion`
 - układ kontaktowy homepage z deklaratywnymi kanałami, osobami i ikonami
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
 - autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia

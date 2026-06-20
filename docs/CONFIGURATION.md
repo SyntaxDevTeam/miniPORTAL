@@ -48,7 +48,19 @@ APP_TIMEZONE="Europe/Warsaw"
 APP_THEME="default"
 SITE_URL="https://syntaxdevteam.pl"
 SITE_NAME="SyntaxDevTeam"
+SITE_DEFAULT_TITLE="SyntaxDevTeam - software dla serwerów, społeczności i urządzeń"
 SITE_EYEBROW="Software dla społeczności"
+SITE_META_DESCRIPTION="SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe."
+SITE_META_KEYWORDS="SyntaxDevTeam, miniPORTAL, pluginy Minecraft"
+SITE_META_AUTHOR="SyntaxDevTeam"
+SITE_META_ROBOTS="index, follow, max-image-preview:large"
+SITE_LOCALE="pl_PL"
+SITE_SOCIAL_IMAGE_URL=""
+SITE_SOCIAL_IMAGE_ALT="Logo SyntaxDevTeam"
+SITE_TWITTER_SITE=""
+SITE_THEME_COLOR="#080c12"
+SITE_GOOGLE_VERIFICATION=""
+SITE_BING_VERIFICATION=""
 SESSION_NAME="MINIPORTALSESSID"
 SESSION_SAME_SITE="Lax"
 
@@ -121,7 +133,19 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
 | `SITE_URL` | Kanoniczny publiczny adres HTTPS używany w metadanych SEO i Open Graph |
 | `SITE_NAME` | Publiczna nazwa marki używana w logo, tytułach i stopce |
+| `SITE_DEFAULT_TITLE` | Domyślny tytuł strony głównej i podglądów społecznościowych |
 | `SITE_EYEBROW` | Domyślny nadtytuł publicznych widoków bez własnej wartości |
+| `SITE_META_DESCRIPTION` | Domyślny opis strony dla wyszukiwarek i social media |
+| `SITE_META_KEYWORDS` | Pole zgodności wstecznej; Google nie używa go do rankingu |
+| `SITE_META_AUTHOR` | Autor lub wydawca treści publicznych |
+| `SITE_META_ROBOTS` | Globalna polityka `index/follow`; strony błędów zawsze mają `noindex` |
+| `SITE_LOCALE` | Locale Open Graph i język dokumentu, np. `pl_PL` |
+| `SITE_SOCIAL_IMAGE_URL` | Opcjonalny lokalny lub zewnętrzny HTTPS obraz podglądu społecznościowego |
+| `SITE_SOCIAL_IMAGE_ALT` | Tekstowy opis obrazu Open Graph i Twitter Card |
+| `SITE_TWITTER_SITE` | Nazwa konta X/Twitter bez znaku `@` |
+| `SITE_THEME_COLOR` | Kolor paska przeglądarki w formacie `#rrggbb` |
+| `SITE_GOOGLE_VERIFICATION` | Opcjonalny token Google Search Console |
+| `SITE_BING_VERIFICATION` | Opcjonalny token Bing Webmaster Tools |
 | `SESSION_NAME` | Nazwa bezpiecznego cookie sesji |
 | `SESSION_SAME_SITE` | Polityka cookie: `Lax`, `Strict` albo `None` wyłącznie przez HTTPS |
 | `AUTH_STORAGE` | Repozytorium użytkowników: `database` produkcyjnie, `memory` wyłącznie do testów |
@@ -152,11 +176,12 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 Chroniona trasa `/admin/settings` przechowuje w tabeli `system_settings` wyłącznie
 bezpieczne nadpisania:
 
-- aktywny motyw,
-- publiczną nazwę marki,
-- domyślny nadtytuł.
+- aktywny motyw oraz publiczny branding,
+- canonical, domyślny tytuł, opis, autora, locale i politykę robots,
+- obraz i opis podglądu social media, konto X/Twitter oraz kolor urządzenia,
+- jawne tokeny weryfikacyjne Google i Bing; nie są to sekrety uwierzytelniające.
 
-Wartości z bazy mają pierwszeństwo przed `APP_THEME`, `SITE_NAME` i `SITE_EYEBROW`.
+Wartości z bazy mają pierwszeństwo przed odpowiadającymi im zmiennymi środowiskowymi.
 Jeżeli zapisany motyw przestanie istnieć, system wraca do motywu z pliku
 środowiskowego albo do `default`.
 

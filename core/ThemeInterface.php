@@ -58,7 +58,7 @@ interface ThemeInterface
      */
     public function set_public_navigation(array $items, bool $authenticated): void;
 
-    public function start_page(string $title, string $description = ''): void;
+    public function start_page(string $title, string $description = '', bool $indexable = true): void;
 
     public function end_page(): void;
 

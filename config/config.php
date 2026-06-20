@@ -57,6 +57,10 @@ return [
         'theme' => (string) $env('APP_THEME', 'default'),
         'public_url' => (string) $env('SITE_URL', 'https://syntaxdevteam.pl'),
         'public_name' => (string) $env('SITE_NAME', 'SyntaxDevTeam'),
+        'public_default_title' => (string) $env(
+            'SITE_DEFAULT_TITLE',
+            'SyntaxDevTeam - software dla serwerów, społeczności i urządzeń'
+        ),
         'public_eyebrow' => (string) $env('SITE_EYEBROW', 'Software dla społeczności'),
         'public_meta_description' => (string) $env(
             'SITE_META_DESCRIPTION',
@@ -66,6 +70,18 @@ return [
             'SITE_META_KEYWORDS',
             'SyntaxDevTeam, miniPORTAL, pluginy Minecraft, boty Discord, aplikacje Android'
         ),
+        'public_meta_author' => (string) $env('SITE_META_AUTHOR', 'SyntaxDevTeam'),
+        'public_meta_robots' => (string) $env(
+            'SITE_META_ROBOTS',
+            'index, follow, max-image-preview:large'
+        ),
+        'public_locale' => (string) $env('SITE_LOCALE', 'pl_PL'),
+        'public_social_image_url' => (string) $env('SITE_SOCIAL_IMAGE_URL', ''),
+        'public_social_image_alt' => (string) $env('SITE_SOCIAL_IMAGE_ALT', 'Logo SyntaxDevTeam'),
+        'public_twitter_site' => (string) $env('SITE_TWITTER_SITE', ''),
+        'public_theme_color' => (string) $env('SITE_THEME_COLOR', '#080c12'),
+        'public_google_site_verification' => (string) $env('SITE_GOOGLE_VERIFICATION', ''),
+        'public_bing_site_verification' => (string) $env('SITE_BING_VERIFICATION', ''),
         'public_footer_text' => (string) $env('SITE_FOOTER_TEXT', 'Projektowane modułowo. Rozwijane świadomie.'),
     ],
     'session' => [

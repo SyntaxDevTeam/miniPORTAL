@@ -32,6 +32,8 @@ Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne
 Moduły `wikipedia` i `articles` dodają publiczne sekcje dokumentacji oraz artykułów.
 Aktywne moduły mogą deklarować publiczne linki, którym administrator nadaje etykietę
 i niezależnie przypina je do głównego menu, stopki albo obu obszarów w `/admin/settings`.
+Ten sam widok rozdziela branding od SEO i udostępniania: zarządza tytułem, opisem,
+canonical, robots, locale, podglądem social media oraz tokenami weryfikacji wyszukiwarek.
 Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wiki`
 i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
 `database_manager` jest osobnym modułem rozszerzenia panelu dla Managera SQL i

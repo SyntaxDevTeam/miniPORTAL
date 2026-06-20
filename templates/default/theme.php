@@ -12,15 +12,39 @@ final class Theme implements ThemeInterface
 {
     private readonly string $publicName;
 
+    private readonly string $publicDefaultTitle;
+
     private readonly string $publicEyebrow;
 
     private readonly string $publicMetaDescription;
 
     private readonly string $publicMetaKeywords;
 
+    private readonly string $publicMetaAuthor;
+
+    private readonly string $publicMetaRobots;
+
+    private readonly string $publicLocale;
+
+    private readonly string $publicLanguage;
+
+    private readonly string $publicSocialImageUrl;
+
+    private readonly string $publicSocialImageAlt;
+
+    private readonly string $publicTwitterSite;
+
+    private readonly string $publicThemeColor;
+
+    private readonly string $publicGoogleSiteVerification;
+
+    private readonly string $publicBingSiteVerification;
+
     private readonly string $publicFooterText;
 
     private readonly string $publicUrl;
+
+    private readonly string $publicPath;
 
     private array $publicNavigation = [];
 
@@ -30,14 +54,43 @@ final class Theme implements ThemeInterface
     {
         $publicUrl = rtrim(trim((string) ($config['public_url'] ?? '')), '/');
         $this->publicUrl = filter_var($publicUrl, FILTER_VALIDATE_URL) !== false
-            && str_starts_with($publicUrl, 'https://') ? $publicUrl : '';
+            && str_starts_with($publicUrl, 'https://')
+            && in_array((string) parse_url($publicUrl, PHP_URL_PATH), ['', '/'], true) ? $publicUrl : '';
         $this->publicName = trim((string) ($config['public_name'] ?? 'SyntaxDevTeam')) ?: 'SyntaxDevTeam';
+        $this->publicDefaultTitle = trim((string) (
+            $config['public_default_title'] ?? 'SyntaxDevTeam - software dla serwerów, społeczności i urządzeń'
+        )) ?: $this->publicName;
         $this->publicEyebrow = trim((string) ($config['public_eyebrow'] ?? 'Software dla społeczności'));
         $this->publicMetaDescription = trim((string) (
             $config['public_meta_description']
             ?? 'SyntaxDevTeam tworzy pluginy Minecraft, boty Discord, aplikacje Android i narzędzia backendowe.'
         ));
         $this->publicMetaKeywords = trim((string) ($config['public_meta_keywords'] ?? ''));
+        $this->publicMetaAuthor = trim((string) ($config['public_meta_author'] ?? $this->publicName));
+        $robots = trim((string) ($config['public_meta_robots'] ?? 'index, follow, max-image-preview:large'));
+        $this->publicMetaRobots = in_array($robots, [
+            'index, follow',
+            'index, follow, max-image-preview:large',
+            'noindex, nofollow',
+        ], true) ? $robots : 'index, follow, max-image-preview:large';
+        $locale = trim((string) ($config['public_locale'] ?? 'pl_PL'));
+        $this->publicLocale = preg_match('/^[a-z]{2}_[A-Z]{2}$/', $locale) === 1 ? $locale : 'pl_PL';
+        $this->publicLanguage = str_replace('_', '-', $this->publicLocale);
+        $socialImageUrl = trim((string) ($config['public_social_image_url'] ?? ''));
+        $this->publicSocialImageUrl = $this->isSafePublicAssetUrl($socialImageUrl) ? $socialImageUrl : '';
+        $this->publicSocialImageAlt = trim((string) ($config['public_social_image_alt'] ?? 'Logo SyntaxDevTeam'));
+        $twitterSite = ltrim(trim((string) ($config['public_twitter_site'] ?? '')), '@');
+        $this->publicTwitterSite = preg_match('/^[A-Za-z0-9_]{1,15}$/', $twitterSite) === 1 ? $twitterSite : '';
+        $themeColor = strtolower(trim((string) ($config['public_theme_color'] ?? '#080c12')));
+        $this->publicThemeColor = preg_match('/^#[0-9a-f]{6}$/', $themeColor) === 1 ? $themeColor : '#080c12';
+        $this->publicGoogleSiteVerification = $this->verificationToken(
+            (string) ($config['public_google_site_verification'] ?? '')
+        );
+        $this->publicBingSiteVerification = $this->verificationToken(
+            (string) ($config['public_bing_site_verification'] ?? '')
+        );
+        $path = '/' . ltrim(trim((string) ($config['public_path'] ?? '/')), '/');
+        $this->publicPath = preg_match('#^/[A-Za-z0-9/%._~-]*$#', $path) === 1 ? rtrim($path, '/') ?: '/' : '/';
         $this->publicFooterText = trim((string) (
             $config['public_footer_text']
             ?? 'Projektowane modułowo. Rozwijane świadomie.'
@@ -52,14 +105,14 @@ final class Theme implements ThemeInterface
 
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
     {
-        $pageTitle = $this->publicName . ' - ' . $this->publicEyebrow;
-        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        $pageTitle = $this->publicDefaultTitle;
+        echo '<!doctype html><html lang="' . $this->escape($this->publicLanguage) . '" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $this->escape($this->publicMetaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
             echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
         }
-        echo '<meta name="theme-color" content="#080c12"><title>' . $this->escape($pageTitle) . '</title>';
+        echo '<title>' . $this->escape($pageTitle) . '</title>';
         $this->renderBrandHead($pageTitle, $this->publicMetaDescription);
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
@@ -67,7 +120,7 @@ final class Theme implements ThemeInterface
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
-        echo '<main id="content">';
+        echo '<main id="content" tabindex="-1">';
         $heroRendered = false;
         foreach ($sections as $section) {
             if ($section['type'] === 'hero' && !$heroRendered) {
@@ -94,7 +147,9 @@ final class Theme implements ThemeInterface
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
         if (!$fixed) {
-            echo '<li class="nav-item"><a class="nav-link" href="/">Home</a></li>';
+            echo '<li class="nav-item"><a class="nav-link" href="/"';
+            echo $this->publicPath === '/' ? ' aria-current="page"' : '';
+            echo '>Home</a></li>';
         }
         $hasContactLink = false;
         foreach ($sections as $section) {
@@ -111,8 +166,10 @@ final class Theme implements ThemeInterface
             if ($page['navigation_area'] !== 'main') {
                 continue;
             }
-            echo '<li class="nav-item"><a class="nav-link" href="';
-            echo $this->escape($this->navigationHref($page)) . '">';
+            $href = $this->navigationHref($page);
+            echo '<li class="nav-item"><a class="nav-link" href="' . $this->escape($href) . '"';
+            echo $this->isCurrentPublicHref($href) ? ' aria-current="page"' : '';
+            echo '>';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a></li>';
         }
@@ -132,37 +189,43 @@ final class Theme implements ThemeInterface
     private function renderPublicFooter(array $pages): void
     {
         echo '<footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
-        echo '<span>&copy; 2026 ' . $this->escape($this->publicName) . '</span><span class="d-flex flex-wrap gap-3">';
-        foreach ($pages as $page) {
-            if ($page['navigation_area'] !== 'footer') {
-                continue;
-            }
+        echo '<span>&copy; ' . date('Y') . ' ' . $this->escape($this->publicName) . '</span>';
+        echo '<div class="d-flex flex-wrap align-items-center gap-3">';
+        $footerPages = array_values(array_filter(
+            $pages,
+            static fn (array $page): bool => $page['navigation_area'] === 'footer'
+        ));
+        if ($footerPages !== []) {
+            echo '<nav class="footer-navigation d-flex flex-wrap gap-3" aria-label="Nawigacja w stopce">';
+        }
+        foreach ($footerPages as $page) {
             echo '<a class="text-secondary" href="' . $this->escape($this->navigationHref($page)) . '">';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a>';
         }
-        echo '<span>' . $this->escape($this->publicFooterText) . '</span></span></div></footer>';
+        echo $footerPages !== [] ? '</nav>' : '';
+        echo '<span>' . $this->escape($this->publicFooterText) . '</span></div></div></footer>';
     }
 
-    public function start_page(string $title, string $description = ''): void
+    public function start_page(string $title, string $description = '', bool $indexable = true): void
     {
         $pageTitle = $title;
         $metaDescription = $description !== '' ? $description : $this->publicMetaDescription;
 
-        echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
+        echo '<!doctype html><html lang="' . $this->escape($this->publicLanguage) . '" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $this->escape($metaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
             echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
         }
-        echo '<meta name="theme-color" content="#080c12"><title>' . $this->escape($pageTitle) . '</title>';
-        $this->renderBrandHead($pageTitle, $metaDescription);
+        echo '<title>' . $this->escape($pageTitle) . '</title>';
+        $this->renderBrandHead($pageTitle, $metaDescription, $indexable);
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
-        echo '</head><body>';
+        echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
         $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
-        echo '<main>';
+        echo '<main id="content" tabindex="-1">';
     }
 
     public function end_page(): void
@@ -389,6 +452,19 @@ final class Theme implements ThemeInterface
             $type = $field['type'] ?? 'text';
             $rawValue = (string) ($field['value'] ?? '');
             $value = $this->escape($rawValue);
+            $helpId = $name . '-help';
+            $controlAttributes = ($field['required'] ?? false) ? ' required' : '';
+            if (isset($field['maxlength'])) {
+                $controlAttributes .= ' maxlength="' . max(1, min(10000, (int) $field['maxlength'])) . '"';
+            }
+            foreach (['autocomplete', 'inputmode', 'placeholder'] as $attribute) {
+                if (isset($field[$attribute]) && trim((string) $field[$attribute]) !== '') {
+                    $controlAttributes .= ' ' . $attribute . '="' . $this->escape((string) $field[$attribute]) . '"';
+                }
+            }
+            if (($field['help'] ?? '') !== '') {
+                $controlAttributes .= ' aria-describedby="' . $helpId . '"';
+            }
 
             if ($type === 'hidden') {
                 echo '<input type="hidden" name="' . $name . '" value="' . $value . '">';
@@ -459,10 +535,11 @@ final class Theme implements ThemeInterface
                 echo '</p></div>';
             } elseif ($type === 'textarea') {
                 $rows = max(2, min(20, (int) ($field['rows'] ?? 5)));
-                echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '">';
+                echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '"';
+                echo $controlAttributes . '>';
                 echo $value . '</textarea>';
             } elseif ($type === 'select') {
-                echo '<select class="form-select" id="' . $name . '" name="' . $name . '">';
+                echo '<select class="form-select" id="' . $name . '" name="' . $name . '"' . $controlAttributes . '>';
                 foreach ($field['options'] ?? [] as $optionValue => $optionLabel) {
                     $selected = (string) $optionValue === ($field['value'] ?? '') ? ' selected' : '';
                     echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
@@ -510,13 +587,15 @@ final class Theme implements ThemeInterface
                 echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . '>';
                 echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
-                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date'];
+                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'color'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';
-                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="' . $type . '" value="' . $value . '">';
+                $class = $type === 'color' ? 'form-control form-control-color' : 'form-control';
+                echo '<input class="' . $class . '" id="' . $name . '" name="' . $name . '" type="' . $type;
+                echo '" value="' . $value . '"' . $controlAttributes . '>';
             }
 
             if (($field['help'] ?? '') !== '') {
-                echo '<div class="form-text">' . $this->escape((string) $field['help']) . '</div>';
+                echo '<div class="form-text" id="' . $helpId . '">' . $this->escape((string) $field['help']) . '</div>';
             }
             echo '</div>';
         }
@@ -981,7 +1060,7 @@ final class Theme implements ThemeInterface
         string $actionHref = '/',
     ): void
     {
-        $this->start_page($status . ' - ' . $this->publicName, $message);
+        $this->start_page($status . ' - ' . $this->publicName, $message, false);
         $this->start_header($title, $message, $status . ' / ' . $this->errorEyebrow($status));
         $this->end_header();
         $this->start_section();
@@ -1431,6 +1510,8 @@ final class Theme implements ThemeInterface
 
     private function renderBrandHead(string $title, string $description, bool $indexable = true): void
     {
+        echo '<meta name="color-scheme" content="dark">';
+        echo '<meta name="theme-color" content="' . $this->escape($this->publicThemeColor) . '">';
         echo '<meta name="application-name" content="' . $this->escape($this->publicName) . '">';
         echo '<meta name="mobile-web-app-capable" content="yes">';
         echo '<meta name="apple-mobile-web-app-capable" content="yes">';
@@ -1446,26 +1527,118 @@ final class Theme implements ThemeInterface
             return;
         }
 
+        echo '<meta name="robots" content="' . $this->escape($this->publicMetaRobots) . '">';
+        if ($this->publicMetaAuthor !== '') {
+            echo '<meta name="author" content="' . $this->escape($this->publicMetaAuthor) . '">';
+        }
+        if ($this->publicGoogleSiteVerification !== '') {
+            echo '<meta name="google-site-verification" content="';
+            echo $this->escape($this->publicGoogleSiteVerification) . '">';
+        }
+        if ($this->publicBingSiteVerification !== '') {
+            echo '<meta name="msvalidate.01" content="' . $this->escape($this->publicBingSiteVerification) . '">';
+        }
+
+        $canonicalUrl = $this->publicUrl !== '' ? $this->publicUrl . ($this->publicPath === '/' ? '/' : $this->publicPath) : '';
+        if ($canonicalUrl !== '') {
+            echo '<link rel="canonical" href="' . $this->escape($canonicalUrl) . '">';
+        }
+        $logoPath = (string) parse_url($this->asset('img/brand/syntaxdevteam-logo.png'), PHP_URL_PATH);
+        $logoUrl = $this->absolutePublicUrl($logoPath);
+        $socialImageUrl = $this->publicSocialImageUrl !== ''
+            ? $this->absolutePublicUrl($this->publicSocialImageUrl)
+            : $logoUrl;
         echo '<meta property="og:type" content="website">';
+        echo '<meta property="og:locale" content="' . $this->escape($this->publicLocale) . '">';
         echo '<meta property="og:site_name" content="' . $this->escape($this->publicName) . '">';
         echo '<meta property="og:title" content="' . $this->escape($title) . '">';
         echo '<meta property="og:description" content="' . $this->escape($description) . '">';
-        $logoPath = (string) parse_url($this->asset('img/brand/syntaxdevteam-logo.png'), PHP_URL_PATH);
-        $logoUrl = $this->publicUrl !== '' ? $this->publicUrl . $logoPath : $logoPath;
-        echo '<meta property="og:image" content="' . $this->escape($logoUrl) . '">';
-        echo '<meta property="og:image:width" content="512"><meta property="og:image:height" content="512">';
-        echo '<meta name="twitter:card" content="summary">';
+        if ($canonicalUrl !== '') {
+            echo '<meta property="og:url" content="' . $this->escape($canonicalUrl) . '">';
+        }
+        echo '<meta property="og:image" content="' . $this->escape($socialImageUrl) . '">';
+        if ($this->publicSocialImageAlt !== '') {
+            echo '<meta property="og:image:alt" content="' . $this->escape($this->publicSocialImageAlt) . '">';
+        }
+        if ($this->publicSocialImageUrl === '') {
+            echo '<meta property="og:image:type" content="image/png">';
+            echo '<meta property="og:image:width" content="512"><meta property="og:image:height" content="512">';
+        }
+        echo '<meta name="twitter:card" content="';
+        echo $this->publicSocialImageUrl !== '' ? 'summary_large_image' : 'summary';
+        echo '"><meta name="twitter:title" content="' . $this->escape($title) . '">';
+        echo '<meta name="twitter:description" content="' . $this->escape($description) . '">';
+        echo '<meta name="twitter:image" content="' . $this->escape($socialImageUrl) . '">';
+        if ($this->publicSocialImageAlt !== '') {
+            echo '<meta name="twitter:image:alt" content="' . $this->escape($this->publicSocialImageAlt) . '">';
+        }
+        if ($this->publicTwitterSite !== '') {
+            echo '<meta name="twitter:site" content="@' . $this->escape($this->publicTwitterSite) . '">';
+        }
 
         if ($this->publicUrl !== '') {
             $structuredData = json_encode([
                 '@context' => 'https://schema.org',
-                '@type' => 'Organization',
-                'name' => $this->publicName,
-                'url' => $this->publicUrl,
-                'logo' => $logoUrl,
+                '@graph' => [
+                    [
+                        '@type' => 'Organization',
+                        '@id' => $this->publicUrl . '/#organization',
+                        'name' => $this->publicName,
+                        'url' => $this->publicUrl . '/',
+                        'logo' => [
+                            '@type' => 'ImageObject',
+                            'url' => $logoUrl,
+                            'width' => 512,
+                            'height' => 512,
+                        ],
+                    ],
+                    [
+                        '@type' => 'WebSite',
+                        '@id' => $this->publicUrl . '/#website',
+                        'url' => $this->publicUrl . '/',
+                        'name' => $this->publicName,
+                        'inLanguage' => $this->publicLanguage,
+                        'publisher' => ['@id' => $this->publicUrl . '/#organization'],
+                    ],
+                ],
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
             echo '<script type="application/ld+json">' . $structuredData . '</script>';
         }
+    }
+
+    private function isSafePublicAssetUrl(string $url): bool
+    {
+        if ($url === '') {
+            return true;
+        }
+        if (str_starts_with($url, '/') && !str_starts_with($url, '//')) {
+            return !str_contains($url, "\0") && !str_contains($url, '\\');
+        }
+
+        return filter_var($url, FILTER_VALIDATE_URL) !== false && str_starts_with($url, 'https://');
+    }
+
+    private function absolutePublicUrl(string $url): string
+    {
+        if (str_starts_with($url, 'https://') || $this->publicUrl === '') {
+            return $url;
+        }
+
+        return $this->publicUrl . '/' . ltrim($url, '/');
+    }
+
+    private function verificationToken(string $token): string
+    {
+        $token = trim($token);
+
+        return strlen($token) <= 255 && preg_match('/^[A-Za-z0-9._=+-]*$/', $token) === 1 ? $token : '';
+    }
+
+    private function isCurrentPublicHref(string $href): bool
+    {
+        $path = parse_url($href, PHP_URL_PATH);
+
+        return is_string($path) && ($path === '/' ? '/' : rtrim($path, '/')) === $this->publicPath;
     }
 
     private function asset(string $relativePath): string

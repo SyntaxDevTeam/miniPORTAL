@@ -41,6 +41,7 @@ final class Bootstrap
             $config['app'] ?? [],
             self::themeSettings($database)
         );
+        $config['app']['public_path'] = $request->path();
         $themeName = (string) ($config['app']['theme'] ?? 'default');
         if (!isset($availableThemes[$themeName])) {
             $themeName = isset($availableThemes[$configuredTheme]) ? $configuredTheme : 'default';
@@ -161,10 +162,21 @@ final class Bootstrap
                 ['setting_key', 'setting_value'],
                 ['setting_key' => [
                     'theme',
+                    'public_url',
                     'public_name',
+                    'public_default_title',
                     'public_eyebrow',
                     'public_meta_description',
                     'public_meta_keywords',
+                    'public_meta_author',
+                    'public_meta_robots',
+                    'public_locale',
+                    'public_social_image_url',
+                    'public_social_image_alt',
+                    'public_twitter_site',
+                    'public_theme_color',
+                    'public_google_site_verification',
+                    'public_bing_site_verification',
                     'public_footer_text',
                 ]]
             ) ?? [];
@@ -177,10 +189,21 @@ final class Bootstrap
             $key = (string) ($row['setting_key'] ?? '');
             if (in_array($key, [
                 'theme',
+                'public_url',
                 'public_name',
+                'public_default_title',
                 'public_eyebrow',
                 'public_meta_description',
                 'public_meta_keywords',
+                'public_meta_author',
+                'public_meta_robots',
+                'public_locale',
+                'public_social_image_url',
+                'public_social_image_alt',
+                'public_twitter_site',
+                'public_theme_color',
+                'public_google_site_verification',
+                'public_bing_site_verification',
                 'public_footer_text',
             ], true)) {
                 $settings[$key] = (string) ($row['setting_value'] ?? '');

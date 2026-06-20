@@ -25,10 +25,21 @@ final class SystemSettingsRepository
             ['setting_key', 'setting_value'],
             ['setting_key' => [
                 'theme',
+                'public_url',
                 'public_name',
+                'public_default_title',
                 'public_eyebrow',
                 'public_meta_description',
                 'public_meta_keywords',
+                'public_meta_author',
+                'public_meta_robots',
+                'public_locale',
+                'public_social_image_url',
+                'public_social_image_alt',
+                'public_twitter_site',
+                'public_theme_color',
+                'public_google_site_verification',
+                'public_bing_site_verification',
                 'public_footer_text',
             ]]
         ) ?? [];
@@ -67,10 +78,16 @@ final class SystemSettingsRepository
      */
     public function saveBrandingSeoSettings(array $settings, int $actorId): void
     {
+        $this->saveBrandingSettings($settings, $actorId);
+        $this->saveSeoSettings($settings, $actorId);
+    }
+
+    /** @param array<string, string> $settings */
+    public function saveBrandingSettings(array $settings, int $actorId): void
+    {
         $publicName = trim((string) ($settings['public_name'] ?? ''));
         $publicEyebrow = trim((string) ($settings['public_eyebrow'] ?? ''));
-        $metaDescription = trim((string) ($settings['public_meta_description'] ?? ''));
-        $metaKeywords = trim((string) ($settings['public_meta_keywords'] ?? ''));
+        $themeColor = strtolower(trim((string) ($settings['public_theme_color'] ?? '')));
         $footerText = trim((string) ($settings['public_footer_text'] ?? ''));
         if ($publicName === '' || strlen($publicName) > 80) {
             throw new RuntimeException('Nazwa publiczna jest wymagana i może mieć maksymalnie 80 znaków.');
@@ -78,11 +95,8 @@ final class SystemSettingsRepository
         if ($publicEyebrow === '' || strlen($publicEyebrow) > 160) {
             throw new RuntimeException('Nadtytuł jest wymagany i może mieć maksymalnie 160 znaków.');
         }
-        if ($metaDescription === '' || strlen($metaDescription) > 255) {
-            throw new RuntimeException('Opis meta jest wymagany i może mieć maksymalnie 255 znaków.');
-        }
-        if (strlen($metaKeywords) > 255) {
-            throw new RuntimeException('Słowa kluczowe meta mogą mieć maksymalnie 255 znaków.');
+        if (preg_match('/^#[0-9a-f]{6}$/', $themeColor) !== 1) {
+            throw new RuntimeException('Kolor motywu musi mieć format HEX, np. #080c12.');
         }
         if ($footerText === '' || strlen($footerText) > 160) {
             throw new RuntimeException('Tekst stopki jest wymagany i może mieć maksymalnie 160 znaków.');
@@ -91,10 +105,94 @@ final class SystemSettingsRepository
         $this->upsertSettings([
             'public_name' => $publicName,
             'public_eyebrow' => $publicEyebrow,
-            'public_meta_description' => $metaDescription,
-            'public_meta_keywords' => $metaKeywords,
+            'public_theme_color' => $themeColor,
             'public_footer_text' => $footerText,
         ], $actorId);
+    }
+
+    /** @param array<string, string> $settings */
+    public function saveSeoSettings(array $settings, int $actorId): void
+    {
+        $publicUrl = rtrim(trim((string) ($settings['public_url'] ?? '')), '/');
+        $defaultTitle = trim((string) ($settings['public_default_title'] ?? ''));
+        $metaDescription = trim((string) ($settings['public_meta_description'] ?? ''));
+        $metaKeywords = trim((string) ($settings['public_meta_keywords'] ?? ''));
+        $metaAuthor = trim((string) ($settings['public_meta_author'] ?? ''));
+        $metaRobots = trim((string) ($settings['public_meta_robots'] ?? ''));
+        $locale = trim((string) ($settings['public_locale'] ?? ''));
+        $socialImageUrl = trim((string) ($settings['public_social_image_url'] ?? ''));
+        $socialImageAlt = trim((string) ($settings['public_social_image_alt'] ?? ''));
+        $twitterSite = ltrim(trim((string) ($settings['public_twitter_site'] ?? '')), '@');
+        $googleVerification = trim((string) ($settings['public_google_site_verification'] ?? ''));
+        $bingVerification = trim((string) ($settings['public_bing_site_verification'] ?? ''));
+
+        if (filter_var($publicUrl, FILTER_VALIDATE_URL) === false || !str_starts_with($publicUrl, 'https://')
+            || parse_url($publicUrl, PHP_URL_QUERY) !== null || parse_url($publicUrl, PHP_URL_FRAGMENT) !== null
+            || !in_array((string) parse_url($publicUrl, PHP_URL_PATH), ['', '/'], true)
+            || strlen($publicUrl) > 255) {
+            throw new RuntimeException('Bazowy adres strony musi być poprawnym adresem HTTPS bez zapytania i fragmentu.');
+        }
+        if ($defaultTitle === '' || strlen($defaultTitle) > 120) {
+            throw new RuntimeException('Domyślny tytuł jest wymagany i może mieć maksymalnie 120 znaków.');
+        }
+        if ($metaDescription === '' || strlen($metaDescription) > 320) {
+            throw new RuntimeException('Opis meta jest wymagany i może mieć maksymalnie 320 znaków.');
+        }
+        if (strlen($metaKeywords) > 255 || strlen($metaAuthor) > 80) {
+            throw new RuntimeException('Słowa kluczowe lub autor przekraczają dozwolony limit.');
+        }
+        if (!in_array($metaRobots, [
+            'index, follow',
+            'index, follow, max-image-preview:large',
+            'noindex, nofollow',
+        ], true)) {
+            throw new RuntimeException('Wybrano nieobsługiwaną politykę indeksowania.');
+        }
+        if (preg_match('/^[a-z]{2}_[A-Z]{2}$/', $locale) !== 1) {
+            throw new RuntimeException('Locale musi mieć format język_KRAJ, np. pl_PL.');
+        }
+        if ($socialImageUrl !== '' && !$this->isSafePublicUrl($socialImageUrl)) {
+            throw new RuntimeException('Obraz społecznościowy musi używać lokalnej ścieżki /... albo adresu HTTPS.');
+        }
+        if (strlen($socialImageUrl) > 500 || strlen($socialImageAlt) > 200) {
+            throw new RuntimeException('Adres lub opis obrazu społecznościowego jest zbyt długi.');
+        }
+        if ($socialImageUrl !== '' && $socialImageAlt === '') {
+            throw new RuntimeException('Niestandardowy obraz społecznościowy wymaga krótkiego opisu.');
+        }
+        if ($twitterSite !== '' && preg_match('/^[A-Za-z0-9_]{1,15}$/', $twitterSite) !== 1) {
+            throw new RuntimeException('Nazwa konta X/Twitter ma nieprawidłowy format.');
+        }
+        foreach ([$googleVerification, $bingVerification] as $verification) {
+            if (strlen($verification) > 255 || ($verification !== ''
+                && preg_match('/^[A-Za-z0-9._=+-]+$/', $verification) !== 1)) {
+                throw new RuntimeException('Token weryfikacyjny zawiera niedozwolone znaki.');
+            }
+        }
+
+        $this->upsertSettings([
+            'public_url' => $publicUrl,
+            'public_default_title' => $defaultTitle,
+            'public_meta_description' => $metaDescription,
+            'public_meta_keywords' => $metaKeywords,
+            'public_meta_author' => $metaAuthor,
+            'public_meta_robots' => $metaRobots,
+            'public_locale' => $locale,
+            'public_social_image_url' => $socialImageUrl,
+            'public_social_image_alt' => $socialImageAlt,
+            'public_twitter_site' => $twitterSite,
+            'public_google_site_verification' => $googleVerification,
+            'public_bing_site_verification' => $bingVerification,
+        ], $actorId);
+    }
+
+    private function isSafePublicUrl(string $url): bool
+    {
+        if (str_starts_with($url, '/') && !str_starts_with($url, '//')) {
+            return !str_contains($url, "\0") && !str_contains($url, '\\');
+        }
+
+        return filter_var($url, FILTER_VALIDATE_URL) !== false && str_starts_with($url, 'https://');
     }
 
     /**

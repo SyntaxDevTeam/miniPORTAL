@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-20 - responsywne zasoby marki i metadane SEO.
+> **Ostatnia aktualizacja:** 2026-06-20 - rozszerzone SEO, dostępność i UX szablonów.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -56,6 +56,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Dopracowanie CSS i animacji |
 | [x] | Wersja 1 strony głównej SyntaxDevTeam.pl |
 | [x] | Logo SyntaxDevTeam, favikony, Apple Touch Icon, manifest i metadane SEO |
+| [x] | Canonical, social cards, JSON-LD oraz zgodność dostępności publicznych layoutów |
 
 ### Krok 3 - odwzorowanie prototypu w PHP
 
@@ -65,6 +66,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `templates/default/theme.php` |
 | [x] | Metody kart, przycisków, alertów, formularzy, tabel i CSRF |
 | [x] | Użycie metod motywu przez integracyjny `index.php` |
+| [x] | Konfigurowalne SEO i semantyczny layout obu aktywnych motywów |
 
 ### Krok 4 - rdzeń systemu
 
@@ -262,6 +264,7 @@ Brak aktywnych blokerów.
 | 2026-06-20 | `projects` 1.1.0 usuwa opis z katalogu, układa karty zależnie od ich liczby i prezentuje powiązane zasoby. `build_explorer` 1.2.0 dodaje hierarchię publicznych widoków, opcjonalny numer Release/Snapshot oraz tokenowy import JSON z CI wraz z commitami. |
 | 2026-06-20 | CI monorepo `PunisherX` zawsze buduje całość, ale publikuje do osobnych projektów `punisherx`, `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge` wyłącznie komponenty dotknięte zmianami. Pliki wspólne Gradle oznaczają wszystkie trzy komponenty. |
 | 2026-06-20 | `core_auth` 1.5.0 wprowadza role Owner, Administrator, Maintainer, Redaktor, Audytor i Support. Owner ma wildcard i ochronę ostatniego aktywnego konta; `system_admin` 1.5.1 usuwa `Wzorce UI`, `/admin/design-system` i przycisk `Admin stylebook`. |
+| 2026-06-20 | `system_admin` 1.6.0 rozdziela Branding od SEO i udostępniania. Motywy generują canonical, robots, pełne social cards i Organization/WebSite JSON-LD oraz wzmacniają fokus, landmarki, cele dotykowe i redukcję ruchu. |
 
 ## Historia sesji
 

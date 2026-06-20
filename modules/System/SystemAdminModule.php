@@ -47,7 +47,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.5.1';
+        return '1.6.0';
     }
 
     public function dependencies(): array
@@ -812,7 +812,12 @@ final class SystemAdminModule implements ModuleInterface
         $app = is_array($this->config['app'] ?? null) ? $this->config['app'] : [];
         $values = $this->settings->themeSettings([
             'theme' => (string) ($app['theme'] ?? 'default'),
+            'public_url' => (string) ($app['public_url'] ?? 'https://syntaxdevteam.pl'),
             'public_name' => (string) ($app['public_name'] ?? 'SyntaxDevTeam'),
+            'public_default_title' => (string) (
+                $app['public_default_title']
+                ?? 'SyntaxDevTeam - software dla serwerów, społeczności i urządzeń'
+            ),
             'public_eyebrow' => (string) ($app['public_eyebrow'] ?? 'Software dla społeczności'),
             'public_meta_description' => (string) (
                 $app['public_meta_description']
@@ -822,10 +827,21 @@ final class SystemAdminModule implements ModuleInterface
                 $app['public_meta_keywords']
                 ?? 'SyntaxDevTeam, miniPORTAL, pluginy Minecraft, boty Discord, aplikacje Android'
             ),
+            'public_meta_author' => (string) ($app['public_meta_author'] ?? 'SyntaxDevTeam'),
+            'public_meta_robots' => (string) (
+                $app['public_meta_robots'] ?? 'index, follow, max-image-preview:large'
+            ),
+            'public_locale' => (string) ($app['public_locale'] ?? 'pl_PL'),
+            'public_social_image_url' => (string) ($app['public_social_image_url'] ?? ''),
+            'public_social_image_alt' => (string) ($app['public_social_image_alt'] ?? 'Logo SyntaxDevTeam'),
+            'public_twitter_site' => (string) ($app['public_twitter_site'] ?? ''),
+            'public_theme_color' => (string) ($app['public_theme_color'] ?? '#080c12'),
+            'public_google_site_verification' => (string) ($app['public_google_site_verification'] ?? ''),
+            'public_bing_site_verification' => (string) ($app['public_bing_site_verification'] ?? ''),
             'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
         ]);
-        $this->theme->start_admin_panel_grid('compact');
-        $this->theme->start_admin_panel('Branding i SEO', 'Publiczne meta');
+        $this->theme->start_admin_panel_grid('balanced');
+        $this->theme->start_admin_panel('Branding', 'Nazwa i wygląd');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
             [
@@ -839,36 +855,144 @@ final class SystemAdminModule implements ModuleInterface
                     'name' => 'public_name',
                     'label' => 'Publiczna nazwa marki',
                     'value' => $values['public_name'],
+                    'required' => true,
+                    'maxlength' => 80,
+                    'autocomplete' => 'organization',
                 ],
                 [
                     'name' => 'public_eyebrow',
                     'label' => 'Domyślny nadtytuł',
                     'value' => $values['public_eyebrow'],
+                    'required' => true,
+                    'maxlength' => 160,
                 ],
                 [
-                    'name' => 'public_meta_description',
-                    'label' => 'Domyślny opis meta',
-                    'type' => 'textarea',
-                    'rows' => 3,
-                    'value' => $values['public_meta_description'],
-                ],
-                [
-                    'name' => 'public_meta_keywords',
-                    'label' => 'Słowa kluczowe meta',
-                    'value' => $values['public_meta_keywords'],
-                    'help' => 'Oddzielaj słowa i frazy przecinkami.',
+                    'name' => 'public_theme_color',
+                    'label' => 'Kolor przeglądarki i urządzenia',
+                    'type' => 'color',
+                    'value' => $values['public_theme_color'],
+                    'required' => true,
                 ],
                 [
                     'name' => 'public_footer_text',
                     'label' => 'Tekst stopki',
                     'value' => $values['public_footer_text'],
+                    'required' => true,
+                    'maxlength' => 160,
                 ],
             ],
-            'Zapisz branding i SEO',
+            'Zapisz branding',
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
 
+        $this->theme->start_admin_panel('SEO i udostępnianie', 'Indeksowanie i social media');
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'seo'],
+                [
+                    'name' => 'public_url',
+                    'label' => 'Bazowy adres kanoniczny',
+                    'type' => 'url',
+                    'value' => $values['public_url'],
+                    'required' => true,
+                    'maxlength' => 255,
+                    'autocomplete' => 'url',
+                    'placeholder' => 'https://syntaxdevteam.pl',
+                ],
+                [
+                    'name' => 'public_default_title',
+                    'label' => 'Domyślny tytuł strony głównej',
+                    'value' => $values['public_default_title'],
+                    'required' => true,
+                    'maxlength' => 120,
+                ],
+                [
+                    'name' => 'public_meta_description',
+                    'label' => 'Domyślny opis wyników wyszukiwania',
+                    'type' => 'textarea',
+                    'rows' => 3,
+                    'value' => $values['public_meta_description'],
+                    'required' => true,
+                    'maxlength' => 320,
+                ],
+                [
+                    'name' => 'public_meta_author',
+                    'label' => 'Autor / wydawca',
+                    'value' => $values['public_meta_author'],
+                    'maxlength' => 80,
+                    'autocomplete' => 'organization',
+                ],
+                [
+                    'name' => 'public_locale',
+                    'label' => 'Język i region',
+                    'value' => $values['public_locale'],
+                    'required' => true,
+                    'maxlength' => 5,
+                    'placeholder' => 'pl_PL',
+                    'help' => 'Format język_KRAJ, np. pl_PL.',
+                ],
+                [
+                    'name' => 'public_meta_robots',
+                    'label' => 'Domyślna polityka indeksowania',
+                    'type' => 'select',
+                    'value' => $values['public_meta_robots'],
+                    'options' => [
+                        'index, follow, max-image-preview:large' => 'Indeksuj i zezwalaj na duże podglądy obrazów',
+                        'index, follow' => 'Indeksuj standardowo',
+                        'noindex, nofollow' => 'Nie indeksuj witryny',
+                    ],
+                ],
+                [
+                    'name' => 'public_social_image_url',
+                    'label' => 'Obraz Open Graph / social media',
+                    'value' => $values['public_social_image_url'],
+                    'maxlength' => 500,
+                    'placeholder' => '/assets/social-cover.jpg lub https://...',
+                    'help' => 'Puste pole użyje logo SyntaxDevTeam. Zalecany obraz ma proporcje 1,91:1.',
+                ],
+                [
+                    'name' => 'public_social_image_alt',
+                    'label' => 'Opis obrazu społecznościowego',
+                    'value' => $values['public_social_image_alt'],
+                    'maxlength' => 200,
+                ],
+                [
+                    'name' => 'public_twitter_site',
+                    'label' => 'Nazwa konta X/Twitter',
+                    'value' => $values['public_twitter_site'],
+                    'maxlength' => 15,
+                    'placeholder' => 'SyntaxDevTeam',
+                    'help' => 'Bez znaku @.',
+                ],
+                [
+                    'name' => 'public_meta_keywords',
+                    'label' => 'Słowa kluczowe meta (zgodność wsteczna)',
+                    'value' => $values['public_meta_keywords'],
+                    'maxlength' => 255,
+                    'help' => 'Google ich nie używa; pole pozostaje dla innych integracji i silników.',
+                ],
+                [
+                    'name' => 'public_google_site_verification',
+                    'label' => 'Token Google Search Console',
+                    'value' => $values['public_google_site_verification'],
+                    'maxlength' => 255,
+                ],
+                [
+                    'name' => 'public_bing_site_verification',
+                    'label' => 'Token Bing Webmaster Tools',
+                    'value' => $values['public_bing_site_verification'],
+                    'maxlength' => 255,
+                ],
+            ],
+            'Zapisz SEO i udostępnianie',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+
+        $this->theme->start_admin_panel_grid('compact');
         $this->theme->start_admin_panel('Szablon', 'Motyw publiczny');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
@@ -1004,13 +1128,30 @@ final class SystemAdminModule implements ModuleInterface
             if ($scope === 'theme') {
                 $this->settings->saveThemeChoice($request->postString('theme'), $this->availableThemes, $actor->id);
             } elseif ($scope === 'branding') {
-                $this->settings->saveBrandingSeoSettings(
+                $this->settings->saveBrandingSettings(
                     [
                         'public_name' => $request->postString('public_name'),
                         'public_eyebrow' => $request->postString('public_eyebrow'),
-                        'public_meta_description' => $request->postString('public_meta_description'),
-                        'public_meta_keywords' => $request->postString('public_meta_keywords'),
+                        'public_theme_color' => $request->postString('public_theme_color'),
                         'public_footer_text' => $request->postString('public_footer_text'),
+                    ],
+                    $actor->id
+                );
+            } elseif ($scope === 'seo') {
+                $this->settings->saveSeoSettings(
+                    [
+                        'public_url' => $request->postString('public_url'),
+                        'public_default_title' => $request->postString('public_default_title'),
+                        'public_meta_description' => $request->postString('public_meta_description'),
+                        'public_meta_author' => $request->postString('public_meta_author'),
+                        'public_locale' => $request->postString('public_locale'),
+                        'public_meta_robots' => $request->postString('public_meta_robots'),
+                        'public_social_image_url' => $request->postString('public_social_image_url'),
+                        'public_social_image_alt' => $request->postString('public_social_image_alt'),
+                        'public_twitter_site' => $request->postString('public_twitter_site'),
+                        'public_meta_keywords' => $request->postString('public_meta_keywords'),
+                        'public_google_site_verification' => $request->postString('public_google_site_verification'),
+                        'public_bing_site_verification' => $request->postString('public_bing_site_verification'),
                     ],
                     $actor->id
                 );

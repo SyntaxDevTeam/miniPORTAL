@@ -1722,3 +1722,30 @@ odwzorowania w PHP o wspólny branding SyntaxDevTeam.
 
 **Weryfikacja:** testy repozytorium, lint zmienionych plików PHP, kontrola JSON,
 regeneracja zasobów, kontrola odpowiedzi HTML i `git diff --check`.
+
+### Sesja: 2026-06-20 - Rozszerzone SEO, dostępność i UX szablonów
+
+**Faza i krok specyfikacji:** Krok 2/3 oraz Krok 5B - rozszerzenie prototypów,
+warstwy Theme i bezpiecznych ustawień systemowych.
+
+**Wykonano:**
+- rozdzielono panel Branding od SEO i udostępniania oraz dodano bazowy URL,
+  domyślny tytuł, autora, robots, locale, obraz social z opisem, konto X/Twitter,
+  kolor urządzenia i tokeny weryfikacyjne Google/Bing,
+- każda wartość ma walidację serwerową, limit oraz odpowiadające atrybuty formularza;
+  pomoc pól jest połączona przez `aria-describedby`,
+- canonical korzysta ze znormalizowanej ścieżki `Request`; błędy publiczne i panel
+  mają `noindex`, a zwykłe strony respektują konfigurowalną politykę robots,
+- oba motywy generują pełne Open Graph i Twitter Card oraz graf Organization i
+  WebSite w JSON-LD,
+- dodano konfigurowalny `lang`, semantyczną nawigację stopki, `aria-current`,
+  fokusowalny cel skip-linku, cele dotykowe 44 px, obsługę forced colors i pełniejsze
+  `prefers-reduced-motion`,
+- podniesiono `system_admin` do 1.6.0; schemat bazy nie wymaga migracji, ponieważ
+  `system_settings` przechowuje dynamiczne klucze w kolumnie tekstowej; wersję
+  zsynchronizowano w manifeście, metodzie runtime i produkcyjnym rejestrze modułów.
+
+**Weryfikacja:** pełne testy repozytorium, lint PHP i JavaScript, kontrola CSS/HTML,
+manifestów, danych JSON-LD oraz `git diff --check`. Produkcyjny smoke test zwrócił
+200 dla `/` z kompletem metadanych oraz 404 z `noindex, nofollow` i bez canonical
+dla nieistniejącej trasy.

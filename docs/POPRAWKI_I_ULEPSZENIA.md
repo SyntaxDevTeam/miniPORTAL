@@ -23,6 +23,13 @@ ICO, Apple Touch Icon, ikony aplikacji 192/512 px, wariant maskowalny, manifest 
 metadane Open Graph, Twitter Card i schema.org. Panel oraz prototypy developerskie
 pozostają wyłączone z indeksowania. (gotowe)
 
+Panel rozdziela teraz prosty branding od pełnych ustawień SEO i udostępniania:
+bazowego URL, domyślnego tytułu, autora, robots, locale, obrazu social media wraz
+z opisem, konta X/Twitter, koloru urządzenia i tokenów weryfikacyjnych. Publiczne
+widoki generują canonical, Open Graph, Twitter Card oraz Organization/WebSite
+JSON-LD, a błędy zawsze mają `noindex`. Szablony mają semantyczną stopkę, aktywną
+pozycję nawigacji, większe cele dotykowe, mocny fokus i redukcję ruchu. (gotowe)
+
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)

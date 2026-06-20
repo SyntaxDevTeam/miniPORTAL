@@ -107,9 +107,20 @@ a {
 }
 
 .nav-link:hover::after,
-.nav-link:focus-visible::after {
+.nav-link:focus-visible::after,
+.nav-link[aria-current="page"]::after {
   transform: scaleX(1);
   transform-origin: left;
+}
+
+.navbar-toggler,
+.nav-link,
+.btn {
+  min-height: 2.75rem;
+}
+
+.navbar-toggler {
+  min-width: 2.75rem;
 }
 
 .skip-link {
@@ -462,8 +473,18 @@ a {
 .form-select:focus-visible,
 .form-check-input:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(var(--mp-primary-rgb), 0.35);
+  outline: 3px solid var(--mp-primary);
   outline-offset: 3px;
+}
+
+main[tabindex="-1"]:focus {
+  outline: 0;
+}
+
+.footer-navigation a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
 }
 
 .form-control,
@@ -783,5 +804,15 @@ code {
   .reveal {
     opacity: 1;
     transform: none;
+  }
+
+  .btn:not(:disabled):hover {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText !important;
   }
 }

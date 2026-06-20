@@ -587,6 +587,13 @@
   border-color: var(--mp-primary);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .managed-card:hover,
+  .contact-item:hover {
+    transform: none;
+  }
+}
+
 .contact-item-person {
   grid-template-columns: auto minmax(0, 1fr);
   background: transparent;
