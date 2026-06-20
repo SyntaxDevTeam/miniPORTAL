@@ -86,6 +86,11 @@ interface ThemeInterface
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void;
 
+    /**
+     * @param list<array{label: string, href: string, meta?: string}> $links
+     */
+    public function render_link_list(array $links): void;
+
     public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void;
 
     /**
@@ -107,6 +112,12 @@ interface ThemeInterface
      * @param list<list<scalar|null>> $rows
      */
     public function render_table(array $headers, array $rows): void;
+
+    /**
+     * @param list<string> $headers
+     * @param list<array{cells: list<scalar|null>, actions: list<array{label: string, href: string, variant?: string}>}> $rows
+     */
+    public function render_action_table(array $headers, array $rows): void;
 
     /**
      * @param list<array{

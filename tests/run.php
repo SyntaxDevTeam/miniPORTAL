@@ -82,6 +82,18 @@ $test('Request normalizes route and input', static function () use ($assert): vo
     $assert($file['error'] === UPLOAD_ERR_OK && $file['size'] === 123);
 });
 
+$test('Request exposes bounded JSON and normalized headers', static function () use ($assert): void {
+    $request = Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'POST',
+        'HTTP_X_BUILD_TOKEN' => 'secret-token',
+        'CONTENT_TYPE' => 'application/json',
+    ], [], '{"id":24,"channel":"DEV"}');
+
+    $assert($request->header('X-Build-Token') === 'secret-token');
+    $assert($request->header('Content-Type') === 'application/json');
+    $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
+});
+
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
     $stream = fopen('php://temp', 'w+b');
     (new AuditCsvExporter())->write($stream, [[
@@ -561,6 +573,18 @@ $test('Public theme renders avatar image component', static function () use ($as
     $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
 });
 
+$test('Public theme renders safe local related links', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_link_list([
+        ['label' => 'Build Explorer', 'href' => '/builds/punisherx', 'meta' => 'DEV'],
+        ['label' => 'Blocked', 'href' => '//attacker.example', 'meta' => ''],
+    ]);
+    $html = (string) ob_get_clean();
+    $assert(str_contains($html, 'href="/builds/punisherx"'));
+    $assert(!str_contains($html, 'attacker.example'));
+});
+
 $test('Public error page is friendly and does not mention dashboard', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -717,7 +741,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $projects = $validator->validate(dirname(__DIR__) . '/modules/Projects');
     $assert($projects->id === 'projects');
-    $assert($projects->version === '1.0.1');
+    $assert($projects->version === '1.1.0');
     $assert($projects->type === 'extension');
     $assert($projects->requiredModules === ['core_auth', 'core_pages', 'wikipedia']);
     $assert($projects->installFile === 'install.sql');
@@ -725,7 +749,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $builds = $validator->validate(dirname(__DIR__) . '/modules/BuildExplorer');
     $assert($builds->id === 'build_explorer');
-    $assert($builds->version === '1.1.1');
+    $assert($builds->version === '1.2.0');
     $assert($builds->type === 'extension');
     $assert($builds->requiredModules === ['core_auth', 'projects']);
     $assert($builds->installFile === 'install.sql');
@@ -837,10 +861,16 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($projectsInstallSql, 'fk_projects_page'));
     $assert(str_contains($projectsInstallSql, 'fk_projects_wiki'));
     $assert(str_contains($projectsInstallSql, "'projects.manage'"));
+    $projectsSummaryMigration = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/Projects/migrations/20260620_remove_required_summary.sql'
+    );
+    $assert(str_contains($projectsSummaryMigration, "DEFAULT ''"));
     $projectsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/ProjectsModule.php');
     $assert(str_contains($projectsSource, "\$router->get('/projects'"));
     $assert(str_contains($projectsSource, "\$router->get('/admin/projects'"));
     $assert(str_contains($projectsSource, "navigation->add('projects.index', 'Projekty', '/projects', 'main'"));
+    $assert(str_contains($projectsSource, 'render_link_list'));
+    $assert(!str_contains($projectsSource, "'name' => 'summary'"));
 
     $buildsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/BuildExplorer/install.sql');
     $assert(str_contains($buildsInstallSql, 'CREATE TABLE project_builds'));
@@ -854,8 +884,17 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsMigrationSql, 'server_type'));
     $assert(str_contains($buildsMigrationSql, 'build_number'));
     $assert(str_contains($buildsMigrationSql, 'storage_key'));
+    $buildsCiMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/BuildExplorer/migrations/20260620_ci_build_history.sql'
+    );
+    $assert(str_contains($buildsCiMigrationSql, 'ci_build_id'));
+    $assert(str_contains($buildsCiMigrationSql, 'commits_json'));
+    $assert(str_contains($buildsCiMigrationSql, 'uq_project_builds_ci'));
     $buildsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/BuildExplorer/BuildExplorerModule.php');
     $assert(str_contains($buildsSource, "\$router->get('/builds'"));
+    $assert(str_contains($buildsSource, "\$router->post('/api/builds/ci/'"));
+    $assert(str_contains($buildsSource, "'/builds/' . \$slug . '/' . \$channel"));
+    $assert(str_contains($buildsSource, "hash_equals(\$this->ciToken"));
     $assert(str_contains($buildsSource, "\$router->get('/admin/builds'"));
     $assert(str_contains($buildsSource, "\$router->get('/builds/download'"));
     $assert(str_contains($buildsSource, "\$request->file('artifact')"));
@@ -871,6 +910,11 @@ $test('Build artifact storage generates names and calculates upload metadata', s
             SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage::filename(
                 'PunisherX', 'Spigot', '1.7.3', 'dev', '14c0e44'
             ) === 'PunisherX-Spigot-1.7.3-DEV-14c0e44.jar'
+        );
+        $assert(
+            SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage::filename(
+                'PunisherX', 'Paper', '1.7.3-R0.1', 'snapshot', ''
+            ) === 'PunisherX-Paper-1.7.3-R0.1-SNAPSHOT.jar'
         );
         $storage = new SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage($directory, 1024);
         $stored = $storage->store([

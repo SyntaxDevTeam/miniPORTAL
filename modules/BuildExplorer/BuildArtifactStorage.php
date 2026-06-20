@@ -28,10 +28,12 @@ final class BuildArtifactStorage
         string $channel,
         string $buildNumber,
     ): string {
-        $segments = array_map(self::segment(...), [$project, $server, $version, strtoupper($channel), $buildNumber]);
+        $segments = array_map(self::segment(...), [$project, $server, $version, strtoupper($channel)]);
         if (in_array('', $segments, true)) {
             throw new RuntimeException('Nie można utworzyć nazwy pliku z podanych danych.');
         }
+        $buildNumber = self::segment($buildNumber);
+        if ($buildNumber !== '') { $segments[] = $buildNumber; }
         return implode('-', $segments) . '.jar';
     }
 

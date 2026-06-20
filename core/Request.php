@@ -13,15 +13,18 @@ final class Request
         private readonly array $post,
         private readonly array $server,
         private readonly array $files,
+        private readonly string $rawBody,
     ) {
     }
 
     public static function fromGlobals(): self
     {
-        return self::fromArrays($_GET, $_POST, $_SERVER, $_FILES);
+        $body = file_get_contents('php://input');
+
+        return self::fromArrays($_GET, $_POST, $_SERVER, $_FILES, $body === false ? '' : $body);
     }
 
-    public static function fromArrays(array $query, array $post, array $server, array $files = []): self
+    public static function fromArrays(array $query, array $post, array $server, array $files = [], string $rawBody = ''): self
     {
         $method = strtoupper((string) ($server['REQUEST_METHOD'] ?? 'GET'));
         $path = self::resolvePath($query, $server);
@@ -33,6 +36,7 @@ final class Request
             self::normalizeArray($post),
             self::normalizeArray($server),
             self::normalizeArray($files),
+            $rawBody,
         );
     }
 
@@ -131,6 +135,32 @@ final class Request
     public function userAgent(): string
     {
         return substr($this->stringValue($this->server, 'HTTP_USER_AGENT'), 0, 512);
+    }
+
+    public function header(string $name, string $default = ''): string
+    {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        if (strtolower($name) === 'content-type') {
+            $key = 'CONTENT_TYPE';
+        }
+
+        return $this->stringValue($this->server, $key, $default);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function json(): ?array
+    {
+        if ($this->rawBody === '' || strlen($this->rawBody) > 1048576) {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($this->rawBody, true, 32, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
+        return is_array($decoded) && !array_is_list($decoded) ? $decoded : null;
     }
 
     /**

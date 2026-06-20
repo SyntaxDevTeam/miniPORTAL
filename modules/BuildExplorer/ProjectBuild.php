@@ -24,6 +24,10 @@ final readonly class ProjectBuild
         public string $changelog,
         public bool $published,
         public ?string $publishedAt,
+        public ?int $ciBuildId,
+        public ?string $ciBuildTime,
+        /** @var list<array{sha: string, time: string, message: string}> */
+        public array $commits,
     ) {
     }
 }

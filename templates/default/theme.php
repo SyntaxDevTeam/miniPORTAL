@@ -208,7 +208,7 @@ final class Theme implements ThemeInterface
 
     public function start_column(string $size = '12'): void
     {
-        $allowedSizes = ['12', 'lg-5', 'lg-6', 'lg-7', 'md-6', 'md-8'];
+        $allowedSizes = ['12', 'lg-4', 'lg-5', 'lg-6', 'lg-7', 'md-6', 'md-8'];
         $size = in_array($size, $allowedSizes, true) ? $size : '12';
         echo '<div class="col-' . $size . '">';
     }
@@ -247,6 +247,24 @@ final class Theme implements ThemeInterface
 
         echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '">';
         echo $this->escape($label) . '</a>';
+    }
+
+    public function render_link_list(array $links): void
+    {
+        echo '<nav class="public-link-list" aria-label="Powiązane zasoby">';
+        foreach ($links as $link) {
+            $href = $this->safeHref((string) ($link['href'] ?? ''));
+            if ($href === '') {
+                continue;
+            }
+            echo '<a class="public-link-item" href="' . $this->escape($href) . '">';
+            echo '<span>' . $this->escape((string) ($link['label'] ?? 'Link')) . '</span>';
+            if (($link['meta'] ?? '') !== '') {
+                echo '<small>' . $this->escape((string) $link['meta']) . '</small>';
+            }
+            echo '<strong aria-hidden="true">&gt;</strong></a>';
+        }
+        echo '</nav>';
     }
 
     public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void
@@ -319,6 +337,25 @@ final class Theme implements ThemeInterface
             echo '</tr>';
         }
 
+        echo '</tbody></table></div>';
+    }
+
+    public function render_action_table(array $headers, array $rows): void
+    {
+        echo '<div class="table-responsive showcase-card p-0"><table class="table table-hover align-middle mb-0"><thead><tr>';
+        foreach ($headers as $header) { echo '<th scope="col">' . $this->escape($header) . '</th>'; }
+        echo '<th scope="col">Akcje</th></tr></thead><tbody>';
+        foreach ($rows as $row) {
+            echo '<tr>';
+            foreach ($row['cells'] as $cell) { echo '<td>' . $this->escape((string) $cell) . '</td>'; }
+            echo '<td><div class="d-flex flex-wrap gap-2">';
+            foreach ($row['actions'] as $action) {
+                $variant = $this->buttonVariant((string) ($action['variant'] ?? 'outline-light'));
+                echo '<a class="btn btn-sm btn-' . $variant . '" href="' . $this->escape($this->safeHref($action['href'])) . '">';
+                echo $this->escape($action['label']) . '</a>';
+            }
+            echo '</div></td></tr>';
+        }
         echo '</tbody></table></div>';
     }
 
@@ -1293,7 +1330,7 @@ final class Theme implements ThemeInterface
     {
         $href = trim($href);
 
-        return preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $href) === 1 ? $href : '';
+        return preg_match('~^(?:https?://|mailto:|#|/(?!/)|index\.php(?:\?|$))~i', $href) === 1 ? $href : '';
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

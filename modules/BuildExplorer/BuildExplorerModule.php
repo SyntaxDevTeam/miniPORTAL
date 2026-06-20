@@ -33,10 +33,11 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly BuildArtifactStorage $storage,
+        private readonly string $ciToken = '',
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '1.1.1'; }
+    public function version(): string { return '1.2.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -53,13 +54,24 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerRoutes(Router $router): void
     {
-        $router->get('/builds', fn () => $this->renderPublic());
+        $router->get('/builds', fn () => $this->renderPublicProjects());
         $router->get('/builds/download', fn (Request $request) => $this->download($request));
-        $router->get('/builds/project', fn (Request $request) => $this->renderPublic($request->queryString('slug')));
-        $slugs = [];
-        foreach ($this->builds->all(true) as $build) { $slugs[$build->projectSlug] = true; }
-        foreach (array_keys($slugs) as $slug) {
-            $router->get('/builds/project/' . $slug, fn () => $this->renderPublic($slug));
+        $router->get('/builds/project', fn (Request $request) => $this->renderPublicChannels($request->queryString('slug')));
+        foreach ($this->builds->projectSlugs() as $slug) {
+            $router->post('/api/builds/ci/' . $slug, fn (Request $request) => $this->importCi($request, $slug));
+            $router->get('/builds/' . $slug, fn () => $this->renderPublicChannels($slug));
+        }
+        $channelRoutes = []; $versionRoutes = [];
+        foreach ($this->builds->all(true) as $build) {
+            $channel = strtolower($build->channel);
+            $channelRoutes[$build->projectSlug . '/' . $channel] = [$build->projectSlug, $channel];
+            $versionRoutes[$build->projectSlug . '/' . $channel . '/' . $build->versionLabel] = [$build->projectSlug, $channel, $build->versionLabel];
+        }
+        foreach ($channelRoutes as [$slug, $channel]) {
+            $router->get('/builds/' . $slug . '/' . $channel, fn () => $this->renderPublicVersions($slug, $channel));
+        }
+        foreach ($versionRoutes as [$slug, $channel, $version]) {
+            $router->get('/builds/' . $slug . '/' . $channel . '/' . rawurlencode($version), fn () => $this->renderPublicHistory($slug, $channel, $version));
         }
         $router->get('/admin/builds', fn (Request $request) => $this->guard($request, 'builds.view', fn () => $this->renderAdmin()));
         $router->get('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderForm()));
@@ -69,37 +81,21 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $router->post('/admin/builds/delete', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->delete($request)));
     }
 
-    private function renderPublic(?string $projectSlug = null): void
+    private function renderPublicProjects(): void
     {
-        $builds = $this->builds->all(true, $projectSlug !== '' ? $projectSlug : null);
-        if ($projectSlug !== null && $projectSlug !== '' && $builds === []) {
-            $this->theme->render_public_error(404, 'Nie znaleziono buildów', 'Ten projekt nie ma publicznych plików do pobrania.', 'Wróć do plików', '/builds');
-            return;
-        }
-        $title = $projectSlug !== null && $builds !== [] ? 'Buildy: ' . $builds[0]->projectName : 'Pliki do pobrania';
-        $this->theme->start_page($title . ' - SyntaxDevTeam', 'Wersje projektów SyntaxDevTeam do pobrania.');
-        $this->theme->start_header($title, 'Release, Snapshot, Dev i WIP w jednym katalogu.', 'SyntaxDevTeam / Build Explorer');
+        $projects = $this->builds->publicProjects();
+        $this->theme->start_page('Build Explorer - SyntaxDevTeam', 'Wersje projektów SyntaxDevTeam do pobrania.');
+        $this->theme->start_header('Build Explorer', 'Wybierz projekt, aby przejść do jego kanałów wydań.', 'SyntaxDevTeam / Build Explorer');
         $this->theme->end_header();
         $this->theme->start_section();
-        if ($builds === []) {
-            $this->theme->render_alert('Nie opublikowano jeszcze żadnych plików.', 'info');
+        if ($projects === []) {
+            $this->theme->render_alert('Nie opublikowano jeszcze żadnych projektów.', 'info');
         } else {
             $this->theme->start_grid();
-            foreach ($builds as $build) {
-                $this->theme->start_column('lg-6');
-                $this->theme->start_card($build->projectName . ' ' . $build->versionLabel, self::CHANNELS[$build->channel]);
-                $this->theme->render_table(['Pole', 'Wartość'], [
-                    ['Plik', $build->filename],
-                    ['Rozmiar', $this->fileSize($build->fileSizeBytes)],
-                    ['SHA-256', $build->checksumSha256 !== '' ? $build->checksumSha256 : 'Nie podano'],
-                    ['Opublikowano', $build->publishedAt ?? 'Brak daty'],
-                ]);
-                if ($build->changelog !== '') { $this->theme->render_text($build->changelog); }
-                $downloadHref = $build->storageKey !== ''
-                    ? 'index.php?route=/builds/download&id=' . $build->id
-                    : $build->downloadUrl;
-                $this->theme->render_button('Pobierz plik', $downloadHref, 'primary');
-                $this->theme->render_button('Projekt', '/projects/' . rawurlencode($build->projectSlug), 'outline-light');
+            foreach ($projects as $project) {
+                $this->theme->start_column(count($projects) === 1 ? '12' : (count($projects) === 2 || count($projects) === 4 ? 'lg-6' : 'lg-4'));
+                $this->theme->start_card($project['name'], $project['build_count'] . ' publicznych buildów');
+                $this->theme->render_link_list([['label' => 'Kanały wydań', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP']]);
                 $this->theme->end_card();
                 $this->theme->end_column();
             }
@@ -107,6 +103,183 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         }
         $this->theme->end_section();
         $this->theme->end_page();
+    }
+
+    private function renderPublicChannels(string $slug): void
+    {
+        $project = $this->builds->projectBySlug($slug);
+        $builds = $this->builds->all(true, $slug);
+        if ($project === null || $builds === []) { $this->publicNotFound(); return; }
+        $available = [];
+        foreach ($builds as $build) { $available[$build->channel] = ($available[$build->channel] ?? 0) + 1; }
+        $this->theme->start_page($project['name'] . ' - Build Explorer', 'Kanały wydań projektu.');
+        $this->theme->start_header($project['name'], 'Wybierz kanał wydań.', 'Build Explorer / Projekt'); $this->theme->end_header();
+        $this->theme->start_section(); $this->theme->start_grid();
+        foreach (self::CHANNELS as $channel => $label) {
+            if (!isset($available[$channel])) { continue; }
+            $this->theme->start_column('lg-6'); $this->theme->start_card($label, $available[$channel] . ' buildów');
+            $this->theme->render_link_list([['label' => 'Pokaż wersje', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel, 'meta' => $label]]);
+            $this->theme->end_card(); $this->theme->end_column();
+        }
+        $this->theme->end_grid(); $this->theme->end_section(); $this->theme->end_page();
+    }
+
+    private function renderPublicVersions(string $slug, string $channel): void
+    {
+        if (!isset(self::CHANNELS[$channel])) { $this->publicNotFound(); return; }
+        $builds = array_values(array_filter($this->builds->all(true, $slug), static fn (ProjectBuild $build): bool => $build->channel === $channel));
+        if ($builds === []) { $this->publicNotFound(); return; }
+        $latest = [];
+        foreach ($builds as $build) { $latest[$build->versionLabel . "\0" . strtolower($build->serverType)] ??= $build; }
+        $this->theme->start_page($builds[0]->projectName . ' ' . self::CHANNELS[$channel], 'Dostępne wersje projektu.');
+        $this->theme->start_header(self::CHANNELS[$channel] . ': ' . $builds[0]->projectName, 'Każdy wiersz wskazuje najnowszy build danej wersji.', 'Build Explorer / Wersje'); $this->theme->end_header();
+        $rows = [];
+        foreach ($latest as $build) {
+            $rows[] = ['cells' => [$build->versionLabel, $build->serverType, $this->fileSize($build->fileSizeBytes), $build->publishedAt ?? 'Brak daty'], 'actions' => [
+                ['label' => 'Pobierz najnowszy', 'href' => $this->downloadHref($build), 'variant' => 'primary'],
+                ['label' => 'Historia buildów', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel . '/' . rawurlencode($build->versionLabel), 'variant' => 'outline-light'],
+            ]];
+        }
+        $this->theme->start_section(); $this->theme->render_action_table(['Wersja', 'Platforma', 'Rozmiar', 'Data'], $rows); $this->theme->end_section(); $this->theme->end_page();
+    }
+
+    private function renderPublicHistory(string $slug, string $channel, string $version): void
+    {
+        $builds = array_values(array_filter($this->builds->all(true, $slug), static fn (ProjectBuild $build): bool => $build->channel === $channel && $build->versionLabel === $version));
+        if ($builds === []) { $this->publicNotFound(); return; }
+        $this->theme->start_page($builds[0]->projectName . ' ' . $version, 'Historia buildów i commitów.');
+        $this->theme->start_header($builds[0]->projectName . ' ' . $version, 'Historia buildów ' . self::CHANNELS[$channel] . '.', 'Build Explorer / Historia'); $this->theme->end_header();
+        $this->theme->start_section();
+        foreach ($builds as $build) {
+            $this->theme->start_card('Build ' . ($build->buildNumber !== '' ? $build->buildNumber : $build->filename), $build->serverType);
+            $this->theme->render_table(['Pole', 'Wartość'], [['Plik', $build->filename], ['Czas CI', $build->ciBuildTime ?? $build->publishedAt ?? 'Brak'], ['SHA-256', $build->checksumSha256 ?: 'Brak'], ['Rozmiar', $this->fileSize($build->fileSizeBytes)]]);
+            if ($build->commits !== []) {
+                $this->theme->render_table(['Commit', 'Czas', 'Wiadomość'], array_map(static fn (array $commit): array => [substr($commit['sha'], 0, 12), $commit['time'], trim($commit['message'])], $build->commits));
+            }
+            $this->theme->render_button('Pobierz', $this->downloadHref($build), 'primary'); $this->theme->end_card();
+        }
+        $this->theme->end_section(); $this->theme->end_page();
+    }
+
+    private function importCi(Request $request, string $projectSlug): void
+    {
+        if (strlen($this->ciToken) < 32) {
+            $this->jsonResponse(503, ['error' => 'CI endpoint is not configured.']); return;
+        }
+        $provided = $request->header('X-Build-Token');
+        $authorization = $request->header('Authorization');
+        if ($provided === '' && preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches) === 1) { $provided = trim($matches[1]); }
+        if ($provided === '' || !hash_equals($this->ciToken, $provided)) {
+            $this->audit->record($request, 'build_ci_import', 'denied', 'project:' . $projectSlug, null);
+            $this->jsonResponse(401, ['error' => 'Invalid build token.']); return;
+        }
+        $project = $this->builds->projectBySlug($projectSlug);
+        $payload = $request->json();
+        if ($project === null || $payload === null) {
+            $this->jsonResponse(400, ['error' => 'Project or JSON payload is invalid.']); return;
+        }
+        try {
+            $buildId = filter_var($payload['id'] ?? null, FILTER_VALIDATE_INT);
+            $channel = strtolower(trim((string) ($payload['channel'] ?? '')));
+            $time = $this->parseTime((string) ($payload['time'] ?? ''));
+            if ($buildId === false || $buildId < 1 || !in_array($channel, ['dev', 'wip'], true)) {
+                throw new \RuntimeException('CI build id and DEV/WIP channel are required.');
+            }
+            $commits = $this->validateCommits($payload['commits'] ?? []);
+            $downloads = $payload['downloads'] ?? null;
+            if (!is_array($downloads) || $downloads === [] || array_is_list($downloads)) {
+                throw new \RuntimeException('At least one named download is required.');
+            }
+            $ids = [];
+            foreach ($downloads as $key => $download) {
+                if (!is_string($key) || !is_array($download)) { throw new \RuntimeException('Invalid download entry.'); }
+                $server = str_contains($key, ':') ? substr($key, strpos($key, ':') + 1) : $key;
+                $server = $this->bounded($server, 80);
+                $filename = basename(trim((string) ($download['name'] ?? '')));
+                $checksum = strtolower(trim((string) (($download['checksums']['sha256'] ?? ''))));
+                $size = filter_var($download['size'] ?? null, FILTER_VALIDATE_INT);
+                $url = $this->normalizeHttpsUrl((string) ($download['url'] ?? ''));
+                $version = $this->versionFromFilename($project['name'], $server, $filename, $channel);
+                if ($server === '' || preg_match('/^[A-Za-z0-9._-]{1,251}\.jar$/i', $filename) !== 1
+                    || preg_match('/^[a-f0-9]{64}$/', $checksum) !== 1 || $size === false || $size < 1 || $url === '' || $version === '') {
+                    throw new \RuntimeException('Download name, version, SHA-256, size or HTTPS URL is invalid.');
+                }
+                $ids[] = $this->builds->upsertCi([
+                    'project_id' => $project['id'], 'server_type' => ucfirst($server), 'version_label' => $version,
+                    'channel' => $channel, 'build_number' => (string) $buildId, 'filename' => $filename,
+                    'storage_key' => null, 'download_url' => $url, 'checksum_sha256' => $checksum,
+                    'file_size_bytes' => (int) $size, 'changelog' => implode("\n", array_column($commits, 'message')),
+                    'is_published' => 1, 'published_at' => $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                    'ci_build_id' => (int) $buildId, 'ci_build_time' => $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                    'commits_json' => json_encode($commits, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                ]);
+            }
+            $this->audit->record($request, 'build_ci_import', 'success', 'project:' . $projectSlug . ':build:' . $buildId, null);
+            $this->jsonResponse(200, ['status' => 'ok', 'build_id' => (int) $buildId, 'records' => $ids]);
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'build_ci_import', 'failed', 'project:' . $projectSlug, null);
+            $this->jsonResponse(422, ['error' => $exception->getMessage()]);
+        }
+    }
+
+    /** @return list<array{sha: string, time: string, message: string}> */
+    private function validateCommits(mixed $value): array
+    {
+        if (!is_array($value) || count($value) > 100) { throw new \RuntimeException('Invalid commits list.'); }
+        $result = [];
+        foreach ($value as $commit) {
+            if (!is_array($commit)) { throw new \RuntimeException('Invalid commit entry.'); }
+            $sha = strtolower(trim((string) ($commit['sha'] ?? '')));
+            $message = $this->bounded((string) ($commit['message'] ?? ''), 2000);
+            $time = $this->parseTime((string) ($commit['time'] ?? ''));
+            if (preg_match('/^[a-f0-9]{40}$/', $sha) !== 1 || $message === '') { throw new \RuntimeException('Invalid commit SHA or message.'); }
+            $result[] = ['sha' => $sha, 'time' => $time->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM), 'message' => $message];
+        }
+        return $result;
+    }
+
+    private function versionFromFilename(string $project, string $server, string $filename, string $channel): string
+    {
+        $base = preg_replace('/\.jar$/i', '', $filename) ?? '';
+        $base = preg_replace('/^' . preg_quote($project, '/') . '-/i', '', $base) ?? $base;
+        $base = preg_replace('/^' . preg_quote($server, '/') . '-/i', '', $base) ?? $base;
+        $base = preg_replace('/-' . preg_quote(strtoupper($channel), '/') . '(?:-[A-Za-z0-9._]+)?$/i', '', $base) ?? $base;
+        return $this->bounded($base, 120);
+    }
+
+    private function parseTime(string $value): \DateTimeImmutable
+    {
+        $value = trim($value);
+        if ($value === '' || preg_match('/^\d{4}-\d{2}-\d{2}T/', $value) !== 1) {
+            throw new \RuntimeException('CI timestamps must use ISO-8601.');
+        }
+        return new \DateTimeImmutable($value);
+    }
+
+    private function normalizeHttpsUrl(string $url): string
+    {
+        $url = trim($url);
+        if (preg_match('/^\[[^]]+\]\((https:\/\/[^)]+)\)$/i', $url, $matches) === 1) { $url = $matches[1]; }
+        return filter_var($url, FILTER_VALIDATE_URL) !== false && str_starts_with(strtolower($url), 'https://') ? $url : '';
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function jsonResponse(int $status, array $payload): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function publicNotFound(): void
+    {
+        $this->theme->render_public_error(404, 'Nie znaleziono buildów', 'Wybrany projekt, kanał albo wersja nie ma publicznych buildów.', 'Wróć do Build Explorera', '/builds');
+    }
+
+    private function downloadHref(ProjectBuild $build): string
+    {
+        return $build->storageKey !== '' ? 'index.php?route=/builds/download&id=' . $build->id : $build->downloadUrl;
     }
 
     private function renderAdmin(string $message = '', string $variant = 'info'): void
@@ -164,8 +337,8 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             ['name' => 'server_type', 'label' => 'Serwer / platforma', 'value' => $build?->serverType ?? '', 'help' => 'Np. Paper, Spigot, Folia.'],
             ['name' => 'version_label', 'label' => 'Wersja', 'value' => $build?->versionLabel ?? ''],
             ['name' => 'channel', 'label' => 'Kanał', 'type' => 'select', 'value' => $build?->channel ?? 'release', 'options' => self::CHANNELS],
-            ['name' => 'build_number', 'label' => 'Numer buildu', 'value' => $build?->buildNumber ?? '', 'help' => 'Np. 1 albo 14c0e44.'],
-            ['name' => 'filename', 'label' => 'Nazwa pliku', 'value' => $build?->filename ?? '', 'help' => 'Puste pole: <projekt>-<serwer>-<wersja>-<typ>-<build>.jar. Możesz wpisać własną nazwę .jar.'],
+            ['name' => 'build_number', 'label' => 'Numer buildu', 'value' => $build?->buildNumber ?? '', 'help' => 'Wymagany dla DEV/WIP; Release i Snapshot mogą pozostać bez numeru.'],
+            ['name' => 'filename', 'label' => 'Nazwa pliku', 'value' => $build?->filename ?? '', 'help' => 'Puste pole wygeneruje nazwę z projektu, serwera, wersji, kanału i opcjonalnego numeru buildu.'],
             ['name' => 'artifact', 'label' => $build === null ? 'Plik JAR' : 'Nowy plik JAR (opcjonalnie)', 'type' => 'file', 'accept' => '.jar,application/java-archive'],
             ['name' => 'changelog', 'label' => 'Opis zmian', 'type' => 'textarea', 'rows' => 7, 'value' => $build?->changelog ?? ''],
             ['name' => 'is_published', 'label' => 'Widoczny publicznie', 'type' => 'checkbox', 'checked' => $build?->published ?? false],
@@ -193,8 +366,9 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $filename = trim($request->postString('filename'));
         $changelog = $this->bounded($request->postString('changelog'), 10000);
         $published = $request->postBool('is_published');
-        if (!isset($projects[$projectId]) || $serverType === '' || $version === '' || $buildNumber === '' || !isset(self::CHANNELS[$channel])) {
-            $this->renderForm($build, 'Uzupełnij projekt, serwer, wersję, kanał i numer buildu.', 'warning'); return;
+        if (!isset($projects[$projectId]) || $serverType === '' || $version === '' || !isset(self::CHANNELS[$channel])
+            || (in_array($channel, ['dev', 'wip'], true) && $buildNumber === '')) {
+            $this->renderForm($build, 'Uzupełnij projekt, serwer, wersję i kanał; DEV/WIP wymagają numeru buildu.', 'warning'); return;
         }
         if ($filename === '') {
             try {

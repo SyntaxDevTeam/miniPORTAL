@@ -153,7 +153,8 @@ return [
             new BuildArtifactStorage(
                 dirname(__DIR__) . '/cache/build-artifacts',
                 (int) ($services['config']['modules']['build_upload_max_bytes'] ?? 20971520)
-            )
+            ),
+            (string) ($services['config']['modules']['build_ci_token'] ?? '')
         ),
     ],
     [

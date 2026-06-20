@@ -36,7 +36,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.0.1'; }
+    public function version(): string { return '1.1.0'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }
@@ -76,12 +76,12 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($projects === []) {
             $this->theme->render_alert('Katalog projektów jest jeszcze pusty.', 'info');
         } else {
+            $columnSize = $this->publicColumnSize(count($projects));
             $this->theme->start_grid();
             foreach ($projects as $project) {
-                $this->theme->start_column('lg-4');
+                $this->theme->start_column($columnSize);
                 $this->theme->start_card($project->name, self::STATUSES[$project->lifecycleStatus]);
-                $this->theme->render_text($project->summary);
-                $this->theme->render_button('Szczegóły projektu', '/projects/' . rawurlencode($project->slug), 'primary');
+                $this->theme->render_link_list($this->publicLinks($project));
                 $this->theme->end_card();
                 $this->theme->end_column();
             }
@@ -98,18 +98,12 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             $this->theme->render_public_error(404, 'Nie znaleziono projektu', 'Ten projekt nie jest dostępny publicznie.', 'Wróć do projektów', '/projects');
             return;
         }
-        $this->theme->start_page($project->name . ' - Projekty', $project->summary);
+        $this->theme->start_page($project->name . ' - Projekty', 'Powiązane zasoby projektu ' . $project->name . '.');
         $this->theme->start_header($project->name, self::STATUSES[$project->lifecycleStatus], 'SyntaxDevTeam / Projekty');
         $this->theme->end_header();
         $this->theme->start_section();
-        $this->theme->start_card('O projekcie', 'Status: ' . self::STATUSES[$project->lifecycleStatus]);
-        $this->theme->render_text($project->summary);
-        if ($project->pageStatus === 'published') {
-            $this->theme->render_button('Pełny opis', '/p/' . rawurlencode($project->pageSlug), 'primary');
-        }
-        if ($project->wikiStatus === 'published') {
-            $this->theme->render_button('Dokumentacja', '/wiki/project/' . rawurlencode($project->wikiSlug), 'outline-light');
-        }
+        $this->theme->start_card('Zasoby projektu', 'Status: ' . self::STATUSES[$project->lifecycleStatus]);
+        $this->theme->render_link_list($this->publicLinks($project));
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();
@@ -159,7 +153,6 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         $fields = [...$fields,
             ['name' => 'name', 'label' => 'Nazwa projektu', 'value' => $project?->name ?? ''],
             ['name' => 'slug', 'label' => 'Slug', 'value' => $project?->slug ?? '', 'help' => 'Puste pole wygeneruje slug z nazwy.'],
-            ['name' => 'summary', 'label' => 'Krótki opis', 'type' => 'textarea', 'rows' => 6, 'value' => $project?->summary ?? ''],
             ['name' => 'lifecycle_status', 'label' => 'Stan projektu', 'type' => 'select', 'value' => $project?->lifecycleStatus ?? 'planned', 'options' => self::STATUSES],
             ['name' => 'page_id', 'label' => 'Powiązana podstrona', 'type' => 'select', 'value' => (string) ($project?->pageId ?? 0), 'options' => $pages],
             ['name' => 'wiki_project_id', 'label' => 'Powiązany projekt Wiki', 'type' => 'select', 'value' => (string) ($project?->wikiProjectId ?? 0), 'options' => $wiki],
@@ -183,17 +176,16 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             $this->renderForm($project, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger'); return;
         }
         $name = $this->bounded($request->postString('name'), 180);
-        $summary = $this->bounded($request->postString('summary'), 500);
         $status = $request->postString('lifecycle_status');
         $slug = $this->slugify($request->postString('slug') ?: $name);
-        if ($name === '' || $summary === '' || $slug === '' || !isset(self::STATUSES[$status])) {
-            $this->renderForm($project, 'Uzupełnij nazwę, slug, opis i poprawny status.', 'warning'); return;
+        if ($name === '' || $slug === '' || !isset(self::STATUSES[$status])) {
+            $this->renderForm($project, 'Uzupełnij nazwę, slug i poprawny status.', 'warning'); return;
         }
         if ($this->projects->slugExists($slug, $project?->id)) {
             $this->renderForm($project, 'Ten slug projektu jest już używany.', 'warning'); return;
         }
         $data = [
-            'name' => $name, 'slug' => $slug, 'summary' => $summary, 'lifecycle_status' => $status,
+            'name' => $name, 'slug' => $slug, 'summary' => '', 'lifecycle_status' => $status,
             'page_id' => ($request->postInt('page_id', 0) ?: null),
             'wiki_project_id' => ($request->postInt('wiki_project_id', 0) ?: null),
             'sort_order' => max(0, $request->postInt('sort_order', 100) ?? 100),
@@ -261,6 +253,30 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         return substr(trim(preg_replace('/[^a-z0-9]+/', '-', $value) ?? '', '-'), 0, 191);
     }
     private function bounded(string $value, int $max): string { return function_exists('mb_substr') ? mb_substr(trim($value), 0, $max) : substr(trim($value), 0, $max); }
+
+    private function publicColumnSize(int $count): string
+    {
+        return match ($count) {
+            1 => '12',
+            2, 4 => 'lg-6',
+            default => 'lg-4',
+        };
+    }
+
+    /** @return list<array{label: string, href: string, meta: string}> */
+    private function publicLinks(Project $project): array
+    {
+        $links = [];
+        if ($project->pageStatus === 'published') {
+            $links[] = ['label' => 'Strona projektu', 'href' => '/p/' . rawurlencode($project->pageSlug), 'meta' => $project->pageTitle];
+        }
+        if ($project->wikiStatus === 'published') {
+            $links[] = ['label' => 'Dokumentacja', 'href' => '/wiki/project/' . rawurlencode($project->wikiSlug), 'meta' => $project->wikiName];
+        }
+        $links[] = ['label' => 'Build Explorer', 'href' => '/builds/' . rawurlencode($project->slug), 'meta' => 'Wersje i pliki do pobrania'];
+
+        return $links;
+    }
     /** @param array<int, string> $options @return array<string, string> */
     private function stringOptions(array $options): array
     {

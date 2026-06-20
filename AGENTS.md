@@ -135,6 +135,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `projects` jako katalog projektów z publicznymi trasami, stanem realizacji oraz powiązaniami do `core_pages` i `wikipedia`. |
 | [x] | `build_explorer` Etap 1: publiczna lista buildów Release/Snapshot/Dev/WIP i panel CRUD metadanych powiązanych z `projects`. |
 | [x] | `build_explorer` Etap 2: bezpośredni upload JAR, automatyczny rozmiar i SHA-256 oraz generowana, edytowalna nazwa pliku. |
+| [x] | `projects` Etap 2: adaptacyjna siatka i powiązane zasoby bez duplikowanego opisu. |
+| [x] | `build_explorer` Etap 3: hierarchia projekt/kanał/wersja/build oraz uwierzytelniony import DEV/WIP z CI. |
 
 ### Krok 6 - system modułów
 
@@ -256,6 +258,7 @@ Brak aktywnych blokerów.
 | 2026-06-19 | `build_explorer` 1.0.1 przechowuje metadane zewnętrznych plików HTTPS w kanałach Release/Snapshot/Dev/WIP i pokazuje je wyłącznie dla opublikowanych projektów oraz buildów; link domyślnie trafia do menu głównego. |
 | 2026-06-19 | `build_explorer` 1.1.0 zapisuje uploady JAR w `cache/build-artifacts`, automatycznie wylicza rozmiar i SHA-256 oraz generuje edytowalną nazwę `<projekt>-<serwer>-<wersja>-<kanał>-<build>.jar`. |
 | 2026-06-20 | `build_explorer` 1.1.1 naprawia sprzątanie starego artefaktu przy tworzeniu pierwszego buildu i nie usuwa nowego pliku po poprawnym zapisie bazy. |
+| 2026-06-20 | `projects` 1.1.0 usuwa opis z katalogu, układa karty zależnie od ich liczby i prezentuje powiązane zasoby. `build_explorer` 1.2.0 dodaje hierarchię publicznych widoków, opcjonalny numer Release/Snapshot oraz tokenowy import JSON z CI wraz z commitami. |
 
 ## Historia sesji
 

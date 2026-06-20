@@ -2,7 +2,7 @@ CREATE TABLE projects (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(180) NOT NULL,
     slug VARCHAR(191) NOT NULL,
-    summary VARCHAR(500) NOT NULL,
+    summary VARCHAR(500) NOT NULL DEFAULT '',
     lifecycle_status ENUM('planned', 'development', 'released', 'paused') NOT NULL DEFAULT 'planned',
     page_id BIGINT UNSIGNED NULL,
     wiki_project_id BIGINT UNSIGNED NULL,

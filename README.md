@@ -78,8 +78,11 @@ podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adres
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.
 `build_explorer` publikuje pliki JAR przypisane do projektów. Upload trafia poza
 publiczny katalog WWW, a rozmiar i SHA-256 są obliczane automatycznie. Domyślna
-nazwa ma postać `<projekt>-<serwer>-<wersja>-<typ>-<build>.jar`, ale administrator
-może ją edytować. Publiczny katalog znajduje się pod `/builds`.
+nazwa ma postać `<projekt>-<serwer>-<wersja>-<typ>[-<build>].jar`, ale administrator
+może ją edytować. Release i Snapshot nie wymagają numeru buildu. Publiczny katalog
+prowadzi przez projekt, kanał, wersję i historię buildów pod `/builds`.
+GitHub Actions może publikować DEV/WIP przez `POST /api/builds/ci/{slug-projektu}`
+z JSON-em oraz sekretem `BUILD_CI_TOKEN` w `X-Build-Token` lub Bearer.
 
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.

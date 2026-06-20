@@ -356,12 +356,13 @@ automatycznie po zgodnym adresie e-mail.
 
 #### 4.7 Moduł katalogu projektów `projects`
 - niezależne rozszerzenie zależne od `core_auth`, `core_pages` i `wikipedia`,
-- przechowuje wyłącznie metadane katalogowe projektu: nazwę, slug, skrót, stan
+- przechowuje wyłącznie metadane katalogowe projektu: nazwę, slug, stan
   lifecycle, kolejność i publikację,
 - opcjonalne klucze obce wiążą projekt z istniejącą podstroną oraz projektem Wiki;
   moduł nie kopiuje ich treści,
-- publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie opublikowane wpisy,
-  a linki do opisu i dokumentacji pojawiają się tylko dla opublikowanych celów,
+- publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie opublikowane wpisy;
+  siatka zależy od liczby projektów, a karty prowadzą do opublikowanej strony,
+  dokumentacji oraz Build Explorera bez duplikowania opisu,
 - `/admin/projects` zapewnia CRUD przez `CrudApp`, `Request`, CSRF, ACL
   `projects.view` / `projects.manage` oraz audit log,
 - moduł deklaruje konfigurowalny link publiczny `Projekty` przez
@@ -370,9 +371,14 @@ automatycznie po zgodnym adresie e-mail.
 #### 4.8 Moduł plików projektów `build_explorer`
 - niezależne rozszerzenie zależne od `core_auth` i `projects`,
 - tabela `project_builds` przechowuje wersję, kanał `release` / `snapshot` / `dev`
-  / `wip`, nazwę pliku, adres HTTPS, opcjonalny rozmiar i SHA-256, changelog oraz
-  publikację,
-- publiczne `/builds` i `/builds/project/{slug}` zwracają tylko opublikowane buildy
+  / `wip`, nazwę pliku, adres HTTPS, opcjonalny rozmiar i SHA-256, changelog,
+  metadane CI, commity oraz publikację,
+- publiczne `/builds` prowadzi przez projekt, kanał, wersję i historię buildów;
+  tabela wersji wskazuje najnowszy plik, a historia DEV/WIP pokazuje commity,
+- `POST /api/builds/ci/{slug}` przyjmuje JSON z CI, uwierzytelnia nagłówkiem
+  `X-Build-Token` lub Bearer i idempotentnie zapisuje artefakty według ID joba,
+- numer buildu jest opcjonalny dla Release i Snapshot; rewizję Snapshot zapisuje
+  wersja, np. `1.7.3-R0.1`,
   należące do opublikowanych projektów,
 - Etap 2 przyjmuje bezpośredni upload JAR do `cache/build-artifacts`, poza publicznym
   routingiem Apache; domyślny limit aplikacji i produkcyjnego PHP wynosi 20 MB,

@@ -213,7 +213,28 @@ czyszczenie. Zmiana treści `core_pages` albo ustawień motywu unieważnia wła�
 
 ```dotenv
 BUILD_UPLOAD_MAX_BYTES=20971520
+BUILD_CI_TOKEN="wygenerowany_losowy_sekret_minimum_32_znaki"
 ```
+
+`BUILD_CI_TOKEN` chroni endpointy `POST /api/builds/ci/{slug}`. W GitHub Actions
+należy zapisać tę samą wartość jako sekret repozytorium i wysyłać ją w nagłówku
+`X-Build-Token` albo `Authorization: Bearer`. Token nie jest przyjmowany w JSON,
+nie jest przechowywany w bazie i nie trafia do audit logu.
+
+Przykładowe wywołanie z GitHub Actions:
+
+```bash
+curl --fail-with-body \
+  -X POST "https://new.syntaxdevteam.pl/api/builds/ci/punisherx" \
+  -H "Content-Type: application/json" \
+  -H "X-Build-Token: ${{ secrets.BUILD_CI_TOKEN }}" \
+  --data-binary @build-info.json
+```
+
+JSON wymaga dodatniego `id`, czasu ISO-8601, kanału `DEV` albo `WIP`, listy
+commitów oraz mapy `downloads`. Każdy plik wymaga nazwy `.jar`, SHA-256, rozmiaru
+w bajtach i adresu HTTPS. Powtórzenie tego samego ID joba aktualizuje rekord dla
+tej samej platformy zamiast tworzyć duplikat.
 
 Pliki JAR trafiają do `cache/build-artifacts`, który pozostaje zablokowany przez
 główny `.htaccess`. Katalog musi należeć do grupy procesu WWW:

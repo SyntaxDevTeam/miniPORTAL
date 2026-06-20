@@ -185,11 +185,19 @@ Domyślna nazwa powstaje jako
 pobieranie przechodzi przez kontrolowaną trasę, która wymaga opublikowanego buildu
 i projektu. Podmiana oraz usunięcie rekordu sprzątają poprzedni artefakt.
 
+Etap 3 gotowy: `/builds` prowadzi kolejno przez projekt, kanał Release/Snapshot/
+Dev/WIP, tabelę wersji i historię buildów. Tabela wersji pobiera zawsze najnowszy
+build, a historia DEV/WIP pokazuje uruchomienia CI i ich commity. Endpoint
+`POST /api/builds/ci/{slug-projektu}` przyjmuje JSON z GitHub Actions, weryfikuje
+sekret z nagłówka i idempotentnie zapisuje artefakty według projektu, kanału,
+platformy oraz ID joba. Release i Snapshot nie wymagają numeru buildu; rewizja
+Snapshot może być częścią wersji, np. `1.7.3-R0.1`.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 
 Etap 1 gotowy: osobny moduł `projects` pełni rolę katalogu agregującego, zamiast
-powielać treści istniejących modułów. Przechowuje nazwę, slug, krótki opis, stan
+powielać treści istniejących modułów. Przechowuje nazwę, slug, stan
 `planowany` / `w trakcie tworzenia` / `wydany` / `wstrzymany`, kolejność i
 publikację. Projekt może wskazywać istniejącą podstronę `core_pages` oraz projekt
 `wikipedia`. Publiczne `/projects` i `/projects/{slug}` pokazują wyłącznie
@@ -197,3 +205,7 @@ opublikowane wpisy, a panel `/admin/projects` udostępnia pełny CRUD z ACL, CSR
 audit logiem.
 Link `Projekty` jest domyślnie widoczny w menu głównym i może zostać przeniesiony,
 powielony w stopce albo ukryty przez ustawienia publicznej nawigacji.
+
+Etap 2 gotowy: publiczny katalog układa jeden projekt na pełnej szerokości, dwa
+i cztery w dwóch kolumnach, a trzy w trzech kolumnach. Karta nie duplikuje opisu;
+prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.

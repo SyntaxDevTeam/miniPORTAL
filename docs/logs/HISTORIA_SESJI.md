@@ -1590,3 +1590,23 @@ listy, ochrony panelu i odpowiedzi 404 dla brakującego pliku.
 
 **Weryfikacja:** pełne testy repozytorium, lint PHP, `git diff --check`, kontrola
 spójności rekordów z magazynem oraz ponowny test zapisu buildu.
+
+### Sesja: 2026-06-20 - Projekty 1.1 i Build Explorer 1.2 z CI
+
+**Faza i krok specyfikacji:** Krok 5C - Etap 2 katalogu projektów i Etap 3
+Build Explorera.
+
+**Wykonano:**
+- publiczna siatka projektów dobiera szerokość dla jednego, dwóch, trzech i czterech
+  wpisów oraz pokazuje zasoby zamiast przycisku szczegółów i opisu,
+- formularz projektu nie przechowuje już wymaganego opisu,
+- `/builds` prowadzi przez projekt, kanał, tabelę wersji i historię buildów,
+- tabela wersji pobiera najnowszy build, a historia pokazuje metadane CI i commity,
+- dodano idempotentny `POST /api/builds/ci/{slug}` dla DEV/WIP, chroniony sekretem
+  środowiskowym w nagłówku i walidujący cały JSON, SHA-256 oraz HTTPS,
+- Release i Snapshot mogą nie mieć numeru buildu; rewizja pozostaje częścią wersji,
+- rozszerzono `Request` o limitowany JSON i nagłówki oraz Theme o ogólne listy
+  odnośników i publiczne tabele akcji.
+
+**Weryfikacja:** testy repozytorium, pełny lint PHP, `git diff --check`, migracje
+obu modułów oraz testy HTTP widoków publicznych i odmowy endpointu bez tokenu.
