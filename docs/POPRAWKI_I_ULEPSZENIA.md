@@ -1,10 +1,21 @@
 # Wynik testów - obserwacje
 
 ## System modułów
-1. ~~Obecnie głownym założeniem modulacji jest separacja pozwalajaca na "wrzuć -> zainstaluj -> używaj". Chciałbym aby moduły "Rozszerzenie" dodawały do sekcji ustawień rozszerzone możliwości ustawień dla linków. W tej chwili taką mozliwość ma wyłacznie "Dokumentacja" w dodatku z wyborem Menu głowne lub stopka (tylko na stronie głównej) bez opcji ustawienia nazwy/etykiety linku anie zaznaczenia obu tych elementów. To trzeba zmienić aby każdy z modułów "Rozszerzenie" posiadał taką implementację oraz w niej bardziej zaaawansowane opcje.~~ (gotowe)
-2. ~~Możliwość eksportu do zip już zainstalowanych modułów "Rozszerzenie"~~ (gotowe)
+1. Usunięto z działającego panelu martwą sekcję `Wzorce UI`, trasę
+   `/admin/design-system` i globalny przycisk `Admin stylebook`; prototypy pozostają
+   materiałem developerskim w `templates/`. (gotowe)
+2. Role systemowe tworzą hierarchię Owner, Administrator, Maintainer, Redaktor,
+   Audytor, Support i Użytkownik z ochroną ostatniego Ownera oraz blokadą eskalacji
+   ról uprzywilejowanych. (gotowe)
+
+3. ~~Obecnie głownym założeniem modulacji jest separacja pozwalajaca na "wrzuć -> zainstaluj -> używaj". Chciałbym aby moduły "Rozszerzenie" dodawały do sekcji ustawień rozszerzone możliwości ustawień dla linków. W tej chwili taką mozliwość ma wyłacznie "Dokumentacja" w dodatku z wyborem Menu głowne lub stopka (tylko na stronie głównej) bez opcji ustawienia nazwy/etykiety linku anie zaznaczenia obu tych elementów. To trzeba zmienić aby każdy z modułów "Rozszerzenie" posiadał taką implementację oraz w niej bardziej zaaawansowane opcje.~~ (gotowe)
+4. ~~Możliwość eksportu do zip już zainstalowanych modułów "Rozszerzenie"~~ (gotowe)
 
 ## Szablony
+
+Publiczny formularz logowania nie pokazuje technicznych nazw zabezpieczeń OAuth
+(`state`, PKCE, rotacja sesji). Mechanizmy pozostają aktywne w Core, natomiast
+interfejs ogranicza się do informacji potrzebnych użytkownikowi. (gotowe)
 
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)

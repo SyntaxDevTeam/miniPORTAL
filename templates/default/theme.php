@@ -830,9 +830,7 @@ final class Theme implements ThemeInterface
             echo '<h2 class="h5">Brak aktywnych dostawców</h2>';
             echo '<p class="text-secondary mb-0">Skonfiguruj adapter OAuth albo świadomie włącz tryb demonstracyjny.</p></div>';
         }
-        echo '</div><div class="security-note mt-4"><span aria-hidden="true">[SEC]</span>';
-        echo '<span>Przepływy zewnętrzne używają state i PKCE, a sesja jest rotowana po zalogowaniu.</span></div>';
-        echo '</section></div></div></main></body></html>';
+        echo '</div></section></div></div></main></body></html>';
     }
 
     public function render_admin_access_state(

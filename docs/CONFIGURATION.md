@@ -278,7 +278,7 @@ Po otrzymaniu Client ID i sekretu uzupełnij `GITHUB_CLIENT_ID` oraz
 `GITHUB_CLIENT_SECRET` w `/etc/miniportal/miniportal.env`, a następnie przeładuj
 Apache. Bez obu wartości przycisk GitHub pozostaje niewidoczny.
 
-## Bootstrap pierwszego administratora
+## Bootstrap pierwszego Ownera
 
 Mechanizm działa wyłącznie, gdy tabela `users` jest pusta. Najpierw sprawdź,
 jakie konto i niezmienny identyfikator GitHub zostaną użyte:
@@ -294,7 +294,7 @@ sudo -u www-data php bin/bootstrap-admin.php LOGIN_GITHUB
 ```
 
 Komenda pobiera numeryczny GitHub `subject`, a następnie w jednej transakcji tworzy
-aktywnego użytkownika, tożsamość GitHub i przypisanie roli `administrator`.
+aktywnego użytkownika, tożsamość GitHub i przypisanie roli `owner`.
 Ponowne uruchomienie po utworzeniu konta jest blokowane.
 
 ## Konfiguracja Discord

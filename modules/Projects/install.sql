@@ -30,3 +30,13 @@ INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT roles.id, permissions.id FROM roles
 JOIN permissions ON permissions.name IN ('projects.view', 'projects.manage')
 WHERE roles.name = 'editor';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id FROM roles
+JOIN permissions ON permissions.name IN ('projects.view', 'projects.manage')
+WHERE roles.name = 'maintainer';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id FROM roles
+JOIN permissions ON permissions.name = 'projects.view'
+WHERE roles.name IN ('auditor', 'support');

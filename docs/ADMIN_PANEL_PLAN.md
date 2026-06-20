@@ -48,8 +48,12 @@ i wspólne komponenty; moduły rejestrują własne pozycje menu, trasy i uprawni
 
 Role startowe:
 
+- `owner`
 - `administrator`
+- `maintainer`
 - `editor`
+- `auditor`
+- `support`
 - `user`
 
 Przykładowe uprawnienia:
@@ -162,8 +166,8 @@ Stan implementacji:
 - `SystemAdminModule` dostarcza dashboard, manager modułów i zasoby systemowe,
 - `CoreAuthModule` jest właścicielem menu i tras użytkowników oraz połączonych tożsamości,
 - układ panelu pokazuje menu przefiltrowane według uprawnień bieżącego użytkownika.
-- sekcja `/admin/design-system` łączy działający panel ze statycznym stylebookiem,
-  prototypem homepage, prototypem panelu i testem warstw Core.
+- statyczne prototypy pozostają materiałem developerskim poza działającym panelem;
+  trasa `/admin/design-system` i przycisk `Admin stylebook` zostały usunięte.
 
 ### 5.3 Moduł `core_auth`
 
@@ -175,7 +179,7 @@ Stan implementacji:
 6. Adapter Google OIDC.
 7. Łączenie i odłączanie dodatkowej tożsamości.
 8. Wylogowanie, blokowanie konta i unieważnianie sesji.
-9. Bootstrap pierwszego administratora.
+9. Bootstrap pierwszego Ownera.
 10. Rejestr zdarzeń bezpieczeństwa.
 
 Opcjonalne logowanie lokalne z Argon2id należy traktować jako konto awaryjne, nie
@@ -227,8 +231,11 @@ Stan implementacji:
 - `/admin/roles` obsługuje role niestandardowe i przypisane uprawnienia,
 - edytor roli grupuje uprawnienia według przestrzeni nazw modułów i pozwala
   zaznaczać pojedyncze prawa lub całą grupę bez używania klawisza Ctrl,
-- role systemowe zachowują stałe identyfikatory, rola administratora zawsze otrzymuje
-  pełny aktualny zestaw uprawnień, a używane role nie mogą zostać usunięte,
+- role systemowe zachowują stałe identyfikatory i presety; Owner otrzymuje wildcard
+  `*`, Administrator pełny bieżący zestaw praw granularnych, a używane role nie
+  mogą zostać usunięte,
+- tylko Owner zarządza rolą i kontami Ownerów; Owner lub Administrator może nadawać
+  role Administrator i Maintainer, a ostatniego aktywnego Ownera nie można zmienić,
 - `/admin/settings` pozwala zmieniać wyłącznie bezpieczne ustawienia motywu i brandingu,
   a konfigurację bazy, sesji i OAuth pokazuje w formie zredagowanej,
 - `/admin/logs` udostępnia paginowany audit log na podstawie `auth_events`; sekrety,

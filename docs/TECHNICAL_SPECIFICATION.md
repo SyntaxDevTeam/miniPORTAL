@@ -142,8 +142,8 @@ Cel tej fazy:
 Stan integracji:
 - aktywna trasa `/` odwzorowuje `templates/default/homepage.html` przez `ThemeInterface`,
 - opublikowane treści `core_pages` pojawiają się dynamicznie na stronie głównej,
-- prototypy pozostają referencyjnymi źródłami wyglądu dostępnymi z panelu pod
-  `/admin/design-system`.
+- prototypy pozostają referencyjnymi plikami developerskimi w `templates/`;
+  nie są częścią działającego panelu administracyjnego.
 
 ### Faza 2: Abstrakcja szablonu do PHP
 
@@ -204,6 +204,14 @@ i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 Nieznana tożsamość tworzy nieaktywne konto `pending` z domyślną rolą `user`.
 Aktywacja jest decyzją lokalnego administratora; system nadal nie łączy kont
 automatycznie po zgodnym adresie e-mail.
+
+Role systemowe mają stałą hierarchię. `owner` posiada wildcard `*`, obejmujący
+także przyszłe uprawnienia, i jako jedyny zarządza kontami Ownerów. `administrator`
+ma pełny bieżący zestaw praw granularnych bez wildcarda. `maintainer` zarządza
+kontami, projektami, buildami i bezpieczną konfiguracją bez Managera SQL oraz
+instalacji/usuwania modułów. `editor`, `auditor` i `support` odpowiadają kolejno za
+treści publiczne, przekrojowy odczyt/audyt oraz dokumentację i kolejki zgłoszeń.
+Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej randze.
 
 #### 4.2 Moduł stron statycznych
 - CRUD dla stron przez `CrudApp`

@@ -47,7 +47,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.5.0';
+        return '1.5.1';
     }
 
     public function dependencies(): array
@@ -71,7 +71,6 @@ final class SystemAdminModule implements ModuleInterface
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
         $menu->add('System', 'Ustawienia', '/admin/settings', 'ST', 'settings.manage', 55);
         $menu->add('System', 'Dziennik zdarzeń', '/admin/logs', 'LG', 'logs.view', 60);
-        $menu->add('System', 'Wzorce UI', '/admin/design-system', 'UI', 'admin.access', 70);
     }
 
     public function registerRoutes(Router $router): void
@@ -126,11 +125,6 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'modules.install',
             fn () => $this->exportModuleArchive($request)
-        ));
-        $router->get('/admin/design-system', fn (Request $request) => $this->guard(
-            $request,
-            'admin.access',
-            fn () => $this->renderResources()
         ));
         $router->get('/admin/settings', fn (Request $request) => $this->guard(
             $request,
@@ -799,49 +793,6 @@ final class SystemAdminModule implements ModuleInterface
         return $origin . ' / ' . $signature;
     }
 
-    private function renderResources(): void
-    {
-        $user = $this->auth->user();
-
-        if ($user === null) {
-            return;
-        }
-
-        $this->theme->render_admin_resources(
-            [
-                [
-                    'label' => 'Strona główna - prototyp',
-                    'href' => 'templates/default/homepage.html',
-                    'description' => 'Pierwotne źródło wyglądu dynamicznej strony głównej.',
-                ],
-                [
-                    'label' => 'Stylebook publiczny',
-                    'href' => 'templates/default/stylebook.html',
-                    'description' => 'Karty, formularze, tabele, alerty i typografia motywu.',
-                ],
-                [
-                    'label' => 'Stylebook panelu',
-                    'href' => 'templates/default/admin-stylebook.html',
-                    'description' => 'Dashboard, sidebar, formularze i stany panelu administracyjnego.',
-                ],
-                [
-                    'label' => 'Test Security / Request',
-                    'href' => 'index.php?route=/security-demo',
-                    'description' => 'Dynamiczny test CSRF, normalizacji wejścia i warstwy Theme.',
-                ],
-            ],
-            $this->menu->visibleFor($user->permissions),
-            [
-                'name' => $user->displayName,
-                'role' => ucfirst($user->primaryRole()),
-                'initials' => $user->initials(),
-                'avatar_url' => $user->avatarUrl ?? '',
-                'logout_action' => 'index.php?route=/admin/logout',
-                'logout_token' => $this->security->csrfToken(),
-            ]
-        );
-    }
-
     private function renderSettings(string $message = '', string $variant = 'info'): void
     {
         $this->startPage(
@@ -1398,8 +1349,7 @@ final class SystemAdminModule implements ModuleInterface
             [
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => $title, 'href' => ''],
-            ],
-            ['label' => 'Admin stylebook', 'href' => 'templates/default/admin-stylebook.html']
+            ]
         );
     }
 

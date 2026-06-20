@@ -35,4 +35,9 @@ WHERE roles.name = 'administrator' AND permissions.name LIKE 'builds.%';
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT roles.id, permissions.id FROM roles
 JOIN permissions ON permissions.name IN ('builds.view', 'builds.manage')
-WHERE roles.name = 'editor';
+WHERE roles.name = 'maintainer';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id FROM roles
+JOIN permissions ON permissions.name = 'builds.view'
+WHERE roles.name IN ('auditor', 'support');

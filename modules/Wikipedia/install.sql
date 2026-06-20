@@ -59,5 +59,17 @@ JOIN permissions ON permissions.name IN (
 )
 WHERE roles.name = 'editor';
 
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name = 'wikipedia.view'
+WHERE roles.name = 'auditor';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name IN ('wikipedia.view', 'wikipedia.create', 'wikipedia.edit')
+WHERE roles.name = 'support';
+
 INSERT INTO wiki_projects (name, slug, summary, status, sort_order) VALUES
     ('miniPORTAL', 'miniportal', 'Dokumentacja wdrożenia, modułów i decyzji architektonicznych miniPORTAL.', 'published', 10);

@@ -25,3 +25,9 @@ SELECT roles.id, permissions.id
 FROM roles
 JOIN permissions ON permissions.name = 'team.manage'
 WHERE roles.name = 'administrator';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name = 'team.manage'
+WHERE roles.name IN ('maintainer', 'editor');

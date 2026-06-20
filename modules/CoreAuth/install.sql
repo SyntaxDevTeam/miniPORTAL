@@ -94,11 +94,16 @@ CREATE TABLE auth_events_archive (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO roles (name, label, is_system) VALUES
+    ('owner', 'Owner', 1),
     ('administrator', 'Administrator', 1),
+    ('maintainer', 'Maintainer', 1),
     ('editor', 'Redaktor', 1),
+    ('auditor', 'Audytor', 1),
+    ('support', 'Support', 1),
     ('user', 'Użytkownik', 1);
 
 INSERT INTO permissions (name, label) VALUES
+    ('*', 'Pełny dostęp właściciela'),
     ('admin.access', 'Dostęp do panelu'),
     ('pages.view', 'Podgląd stron'),
     ('pages.create', 'Tworzenie stron'),
@@ -125,8 +130,14 @@ INSERT INTO permissions (name, label) VALUES
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT roles.id, permissions.id
 FROM roles
+JOIN permissions ON permissions.name = '*'
+WHERE roles.name = 'owner';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
 CROSS JOIN permissions
-WHERE roles.name = 'administrator';
+WHERE roles.name = 'administrator' AND permissions.name <> '*';
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT roles.id, permissions.id
@@ -143,3 +154,29 @@ JOIN permissions ON permissions.name IN (
     'articles.publish'
 )
 WHERE roles.name = 'editor';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name IN (
+    'admin.access', 'users.view', 'users.manage', 'roles.view', 'logs.view',
+    'modules.view', 'modules.toggle', 'database.view', 'settings.manage'
+)
+WHERE roles.name = 'maintainer';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name IN (
+    'admin.access', 'pages.view', 'articles.view', 'users.view', 'roles.view',
+    'logs.view', 'modules.view', 'database.view'
+)
+WHERE roles.name = 'auditor';
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT roles.id, permissions.id
+FROM roles
+JOIN permissions ON permissions.name IN (
+    'admin.access', 'pages.view', 'articles.view', 'users.view'
+)
+WHERE roles.name = 'support';

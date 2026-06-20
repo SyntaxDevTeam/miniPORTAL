@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.1';
+        return '1.5.0';
     }
 
     public function dependencies(): array
@@ -191,6 +191,9 @@ final class CoreAuthModule implements ModuleInterface
 
         $canManage = in_array('*', $user->permissions, true)
             || in_array('users.manage', $user->permissions, true);
+        $canManageOwner = $this->isOwner($user);
+        $canManagePrivileged = $canManageOwner || in_array('administrator', $user->roles, true);
+        $assignableRoles = $this->assignableRoles($user);
         if ($canManage) {
             $this->theme->start_admin_panel('Dodaj użytkownika', 'Konto lokalne do późniejszego połączenia z OAuth');
             $this->theme->render_form(
@@ -227,7 +230,7 @@ final class CoreAuthModule implements ModuleInterface
                         'label' => 'Role',
                         'type' => 'multiselect',
                         'values' => ['user'],
-                        'options' => $this->userAdministration->roles(),
+                        'options' => $assignableRoles,
                         'help' => 'Możesz zaznaczyć kilka pozycji klawiszem Ctrl lub Cmd.',
                     ],
                 ],
@@ -241,7 +244,7 @@ final class CoreAuthModule implements ModuleInterface
         $this->theme->render_admin_action_table(
             ['Użytkownik', 'Status', 'Role', 'Tożsamości', 'Ostatnie logowanie'],
             array_map(
-                static fn (UserAdminRecord $record): array => [
+                fn (UserAdminRecord $record): array => [
                     'cells' => [
                         $record->displayName . ($record->email !== null ? ' (' . $record->email . ')' : ''),
                         match ($record->status) {
@@ -253,7 +256,10 @@ final class CoreAuthModule implements ModuleInterface
                         $record->providers !== [] ? implode(', ', $record->providers) : 'Brak',
                         $record->lastLoginAt ?? 'Nigdy',
                     ],
-                    'actions' => $canManage ? array_values(array_filter([
+                    'actions' => $canManage
+                        && ($canManageOwner || !in_array('owner', $record->roles, true))
+                        && ($canManagePrivileged || array_intersect(['administrator', 'maintainer'], $record->roles) === [])
+                        ? array_values(array_filter([
                         [
                             'label' => 'Edytuj',
                             'href' => 'index.php?route=/admin/users/edit&id=' . $record->id,
@@ -300,6 +306,30 @@ final class CoreAuthModule implements ModuleInterface
             );
             return;
         }
+        $actor = $this->auth->user();
+        if (in_array('owner', $record->roles, true) && !$this->isOwner($actor)) {
+            http_response_code(403);
+            $this->theme->render_admin_access_state(
+                403,
+                'Konto Ownera jest chronione',
+                'Tylko Owner może zarządzać innym kontem Ownera.',
+                'index.php?route=/admin/users',
+                'Wróć do użytkowników'
+            );
+            return;
+        }
+        if (array_intersect(['administrator', 'maintainer'], $record->roles) !== []
+            && ($actor === null || (!$this->isOwner($actor) && !in_array('administrator', $actor->roles, true)))) {
+            http_response_code(403);
+            $this->theme->render_admin_access_state(
+                403,
+                'Konto uprzywilejowane jest chronione',
+                'Tylko Owner lub Administrator może zarządzać tym kontem.',
+                'index.php?route=/admin/users',
+                'Wróć do użytkowników'
+            );
+            return;
+        }
 
         $this->startAdminPage(
             'Edytuj użytkownika',
@@ -330,7 +360,7 @@ final class CoreAuthModule implements ModuleInterface
                     'label' => 'Role',
                     'type' => 'multiselect',
                     'values' => $record->roles,
-                    'options' => $this->userAdministration->roles(),
+                    'options' => $this->assignableRoles($actor),
                     'help' => 'Użytkownik może mieć wiele ról; uprawnienia są ich sumą.',
                 ],
             ],
@@ -391,7 +421,8 @@ final class CoreAuthModule implements ModuleInterface
                 $request->postString('status'),
                 $request->postStringList('roles'),
                 $request->postString('provider'),
-                $request->postString('provider_subject')
+                $request->postString('provider_subject'),
+                $actor->id
             );
             $this->audit->record($request, 'user_create', 'success', null, $actor->id);
             $this->renderUsers("Użytkownik ID {$userId} został dodany.", 'success');
@@ -457,7 +488,7 @@ final class CoreAuthModule implements ModuleInterface
                         $role->usersCount,
                         $role->permissions !== [] ? implode(', ', $role->permissions) : 'Brak',
                     ],
-                    'actions' => $canManage ? array_values(array_filter([
+                    'actions' => $canManage && !$role->system ? array_values(array_filter([
                         [
                             'label' => 'Edytuj',
                             'href' => 'index.php?route=/admin/roles/edit&name=' . rawurlencode($role->name),
@@ -508,6 +539,17 @@ final class CoreAuthModule implements ModuleInterface
             );
             return;
         }
+        if ($role?->system === true) {
+            http_response_code(403);
+            $this->theme->render_admin_access_state(
+                403,
+                'Rola systemowa jest chroniona',
+                'Preset tej roli jest utrzymywany przez migracje Core i nie podlega ręcznej edycji.',
+                'index.php?route=/admin/roles',
+                'Wróć do ról'
+            );
+            return;
+        }
         $this->startAdminPage(
             $role === null ? 'Dodaj rolę' : 'Edytuj rolę',
             '/admin/roles',
@@ -534,9 +576,7 @@ final class CoreAuthModule implements ModuleInterface
                     'type' => 'checkbox_groups',
                     'values' => $role?->permissions ?? [],
                     'groups' => $this->permissionGroups(),
-                    'help' => $role?->name === 'administrator'
-                        ? 'Administrator zawsze zachowuje komplet dostępnych uprawnień.'
-                        : 'Uprawnienia są pogrupowane według obszaru systemu. Możesz zaznaczać je pojedynczo albo całymi grupami.',
+                    'help' => 'Uprawnienia są pogrupowane według obszaru systemu. Możesz zaznaczać je pojedynczo albo całymi grupami.',
                 ],
             ],
             $role === null ? 'Utwórz rolę' : 'Zapisz rolę',
@@ -592,12 +632,33 @@ final class CoreAuthModule implements ModuleInterface
         ];
         $groups = [];
         foreach ($this->userAdministration->permissions() as $name => $label) {
+            if ($name === '*') {
+                continue;
+            }
             $namespace = explode('.', $name, 2)[0];
             $groupLabel = $labels[$namespace] ?? ucfirst(str_replace('_', ' ', $namespace));
             $groups[$groupLabel][$name] = $label;
         }
 
         return $groups;
+    }
+
+    private function isOwner(?User $user): bool
+    {
+        return $user !== null && (in_array('owner', $user->roles, true) || in_array('*', $user->permissions, true));
+    }
+
+    /** @return array<string, string> */
+    private function assignableRoles(?User $actor): array
+    {
+        $roles = $this->userAdministration?->roles() ?? [];
+        if (!$this->isOwner($actor)) {
+            unset($roles['owner']);
+        }
+        if ($actor === null || (!in_array('administrator', $actor->roles, true) && !$this->isOwner($actor))) {
+            unset($roles['administrator'], $roles['maintainer']);
+        }
+        return $roles;
     }
 
     private function deleteRole(Request $request): void

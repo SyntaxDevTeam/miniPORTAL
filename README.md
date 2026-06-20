@@ -73,6 +73,10 @@ zarządza widocznością, opisem, rolą i kolejnością profili.
 trasy `/admin/profile*` dla podglądu i edycji danych, ustawień avatara oraz stanu
 bezpieczeństwa. Łączenie i odłączanie kont OAuth pozostaje w chronionym `core_auth`,
 do którego moduł profilu prowadzi bez kopiowania logiki uwierzytelniania.
+Role systemowe tworzą hierarchię `Owner` → `Administrator` → `Maintainer` →
+`Redaktor` / `Audytor` / `Support`. Owner jako jedyny ma wildcard obejmujący
+przyszłe moduły i może zarządzać innymi kontami Ownerów; ostatniego aktywnego
+Ownera nie można zablokować ani zdegradować.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.

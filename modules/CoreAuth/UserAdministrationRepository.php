@@ -37,7 +37,8 @@ final class UserAdministrationRepository
                 $this->values(
                     'SELECT roles.name FROM user_roles '
                     . 'JOIN roles ON roles.id = user_roles.role_id '
-                    . 'WHERE user_roles.user_id = :user_id ORDER BY roles.id',
+                    . 'WHERE user_roles.user_id = :user_id ORDER BY '
+                    . $this->roleOrderSql() . ', roles.id',
                     (int) $row['id']
                 ),
                 $this->values(
@@ -66,6 +67,11 @@ final class UserAdministrationRepository
         foreach ($rows as $row) {
             $roles[(string) $row['name']] = (string) $row['label'];
         }
+        uksort($roles, fn (string $left, string $right): int => [
+            $this->rolePriority($left), $left,
+        ] <=> [
+            $this->rolePriority($right), $right,
+        ]);
 
         return $roles;
     }
@@ -98,7 +104,7 @@ final class UserAdministrationRepository
             . 'COUNT(DISTINCT user_roles.user_id) AS users_count '
             . 'FROM roles LEFT JOIN user_roles ON user_roles.role_id = roles.id '
             . 'GROUP BY roles.id, roles.name, roles.label, roles.is_system '
-            . 'ORDER BY roles.is_system DESC, roles.id ASC'
+            . 'ORDER BY ' . $this->roleOrderSql() . ', roles.is_system DESC, roles.id ASC'
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać ról.');
@@ -138,6 +144,7 @@ final class UserAdministrationRepository
         array $roles,
         string $provider = '',
         string $providerSubject = '',
+        ?int $actorId = null,
     ): int {
         $displayName = trim($displayName);
         $email = $email !== null ? trim($email) : null;
@@ -149,6 +156,7 @@ final class UserAdministrationRepository
         }
         $this->assertStatus($status);
         $roleIds = $this->roleIds($roles);
+        $this->assertActorMayAssignRoles($actorId, $roles);
         $provider = strtolower(trim($provider));
         $providerSubject = trim($providerSubject);
         if (($provider === '') !== ($providerSubject === '')) {
@@ -210,15 +218,35 @@ final class UserAdministrationRepository
             throw new RuntimeException('Nie znaleziono użytkownika.');
         }
         $roleIds = $this->roleIds($roles);
-        $isAdministrator = in_array('administrator', $roles, true);
-        if ($userId === $actorId && ($status !== 'active' || !$isAdministrator)) {
-            throw new RuntimeException('Nie można zablokować własnego konta ani odebrać sobie roli administratora.');
+        $targetIsOwner = $this->hasRole($userId, 'owner');
+        $actorIsOwner = $this->hasRole($actorId, 'owner');
+        $actorIsAdministrator = $this->hasRole($actorId, 'administrator');
+        $wantsOwner = in_array('owner', $roles, true);
+        $targetIsAdministrator = $this->hasRole($userId, 'administrator');
+        $wantsAdministrator = in_array('administrator', $roles, true);
+        $targetIsMaintainer = $this->hasRole($userId, 'maintainer');
+        $wantsMaintainer = in_array('maintainer', $roles, true);
+        if (($targetIsOwner || $wantsOwner) && !$actorIsOwner) {
+            throw new RuntimeException('Tylko Owner może zarządzać kontem lub rolą Owner.');
+        }
+        if (($targetIsAdministrator || $wantsAdministrator || $targetIsMaintainer || $wantsMaintainer)
+            && !$actorIsOwner && !$actorIsAdministrator) {
+            throw new RuntimeException('Tylko Owner lub Administrator może zarządzać rolami Administrator i Maintainer.');
+        }
+        if ($userId === $actorId && $status !== 'active') {
+            throw new RuntimeException('Nie można zablokować własnego konta.');
+        }
+        if ($userId === $actorId && $targetIsOwner && !$wantsOwner) {
+            throw new RuntimeException('Owner nie może odebrać sobie roli Owner.');
+        }
+        if ($userId === $actorId && $targetIsAdministrator && !$wantsAdministrator) {
+            throw new RuntimeException('Administrator nie może odebrać sobie roli administratora.');
         }
         if (
-            ($status !== 'active' || !$isAdministrator)
-            && $this->isLastActiveAdministrator($userId)
+            ($status !== 'active' || !$wantsOwner)
+            && $this->isLastActiveOwner($userId)
         ) {
-            throw new RuntimeException('Nie można zmienić ostatniego aktywnego administratora.');
+            throw new RuntimeException('Nie można zmienić ostatniego aktywnego Ownera.');
         }
 
         $pdo = $this->database->connection()->pdo;
@@ -253,16 +281,14 @@ final class UserAdministrationRepository
         if ($label === '' || strlen($label) > 120) {
             throw new RuntimeException('Etykieta roli jest wymagana i może mieć maksymalnie 120 znaków.');
         }
-        $permissionIds = $this->permissionIds($permissions);
-        if ($name === 'administrator') {
-            $permissions = array_keys($this->permissions());
-            $permissionIds = $this->permissionIds($permissions);
-        }
-
         $existing = $originalName !== '' ? $this->findRole($originalName) : null;
-        if ($existing?->system === true && $name !== $originalName) {
-            throw new RuntimeException('Nie można zmienić identyfikatora roli systemowej.');
+        if ($existing?->system === true) {
+            throw new RuntimeException('Definicje ról systemowych są zarządzane przez migracje Core.');
         }
+        if (in_array('*', $permissions, true)) {
+            throw new RuntimeException('Pełny dostęp jest zarezerwowany dla systemowej roli Owner.');
+        }
+        $permissionIds = $this->permissionIds($permissions);
         if ($existing === null && $this->findRole($name) !== null) {
             throw new RuntimeException('Rola o takim identyfikatorze już istnieje.');
         }
@@ -321,16 +347,16 @@ final class UserAdministrationRepository
         $this->database->delete('roles', ['id' => $role->id]);
     }
 
-    private function isLastActiveAdministrator(int $userId): bool
+    private function isLastActiveOwner(int $userId): bool
     {
-        $isAdministrator = (int) $this->database->query(
+        $isOwner = (int) $this->database->query(
             'SELECT COUNT(*) FROM user_roles '
             . 'JOIN roles ON roles.id = user_roles.role_id '
             . 'JOIN users ON users.id = user_roles.user_id '
             . 'WHERE users.id = :user_id AND users.status = :status AND roles.name = :role',
-            [':user_id' => $userId, ':status' => 'active', ':role' => 'administrator']
+            [':user_id' => $userId, ':status' => 'active', ':role' => 'owner']
         )?->fetchColumn() === 1;
-        if (!$isAdministrator) {
+        if (!$isOwner) {
             return false;
         }
 
@@ -339,8 +365,32 @@ final class UserAdministrationRepository
             . 'JOIN user_roles ON user_roles.user_id = users.id '
             . 'JOIN roles ON roles.id = user_roles.role_id '
             . 'WHERE users.status = :status AND roles.name = :role',
-            [':status' => 'active', ':role' => 'administrator']
+            [':status' => 'active', ':role' => 'owner']
         )?->fetchColumn() <= 1;
+    }
+
+    private function hasRole(int $userId, string $role): bool
+    {
+        return (int) $this->database->query(
+            'SELECT COUNT(*) FROM user_roles '
+            . 'JOIN roles ON roles.id = user_roles.role_id '
+            . 'WHERE user_roles.user_id = :user_id AND roles.name = :role',
+            [':user_id' => $userId, ':role' => $role]
+        )?->fetchColumn() > 0;
+    }
+
+    /** @param list<string> $roles */
+    private function assertActorMayAssignRoles(?int $actorId, array $roles): void
+    {
+        $isOwner = $actorId !== null && $this->hasRole($actorId, 'owner');
+        $isAdministrator = $actorId !== null && $this->hasRole($actorId, 'administrator');
+        if (in_array('owner', $roles, true) && !$isOwner) {
+            throw new RuntimeException('Tylko Owner może nadać rolę Owner.');
+        }
+        if ((in_array('administrator', $roles, true) || in_array('maintainer', $roles, true))
+            && !$isOwner && !$isAdministrator) {
+            throw new RuntimeException('Tylko Owner lub Administrator może nadać rolę Administrator lub Maintainer.');
+        }
     }
 
     private function assertStatus(string $status): void
@@ -436,5 +486,22 @@ final class UserAdministrationRepository
         $statement = $this->database->query($sql, [':user_id' => $userId]);
 
         return array_map('strval', $statement?->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
+
+    private function roleOrderSql(): string
+    {
+        return "CASE roles.name WHEN 'owner' THEN 1 WHEN 'administrator' THEN 2 "
+            . "WHEN 'maintainer' THEN 3 WHEN 'editor' THEN 4 WHEN 'auditor' THEN 5 "
+            . "WHEN 'support' THEN 6 WHEN 'user' THEN 7 ELSE 100 END";
+    }
+
+    private function rolePriority(string $role): int
+    {
+        $position = array_search(
+            $role,
+            ['owner', 'administrator', 'maintainer', 'editor', 'auditor', 'support', 'user'],
+            true
+        );
+        return $position === false ? 100 : $position + 1;
     }
 }

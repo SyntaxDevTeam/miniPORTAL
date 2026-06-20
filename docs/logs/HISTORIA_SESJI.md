@@ -1657,3 +1657,49 @@ Build Explorera z jednym repozytorium źródłowym.
 `dependency-submission` sukcesem. Dla zmiany wyłącznie workflow trzy publikacje
 zostały prawidłowo pominięte. Endpointy obu mostków zaakceptowały token i odrzuciły
 celowo niepełny JSON kodem 422 bez utworzenia rekordów.
+
+### Sesja: 2026-06-20 - Uproszczenie formularza logowania
+
+**Faza i krok specyfikacji:** Krok 5A/5B - dopracowanie publicznego wejścia do
+uwierzytelniania bez zmian w zabezpieczeniach Core.
+
+**Wykonano:**
+- usunięto z formularza logowania techniczną notatkę `[SEC]` opisującą `state`,
+  PKCE i rotację sesji,
+- zsynchronizowano oba motywy oraz statyczne prototypy panelu,
+- usunięto nieużywaną klasę CSS `security-note`,
+- mechanizmy OAuth i bezpieczeństwa sesji pozostały bez zmian,
+- dodano test regresji HTML formularza logowania.
+
+**Weryfikacja:** testy repozytorium, lint zmienionych plików PHP, `git diff --check`
+oraz kontrola odpowiedzi HTTP `/admin/login`.
+
+### Sesja: 2026-06-20 - Hierarchia ról i usunięcie Admin stylebook
+
+**Faza i krok specyfikacji:** Krok 5A/5B i Krok 6 - uporządkowanie działającego
+panelu oraz stabilizacja systemowych ról i ACL.
+
+**Wykonano:**
+- usunięto z panelu pozycję `Wzorce UI`, trasę `/admin/design-system`, widok zasobów
+  developerskich i globalny przycisk `Admin stylebook`,
+- podniesiono `system_admin` do 1.5.1 oraz `core_auth` do 1.5.0,
+- dodano systemowe role Owner, Administrator, Maintainer, Redaktor, Audytor,
+  Support i Użytkownik z trwałymi presetami uprawnień,
+- Owner jako jedyny otrzymuje wildcard `*`, obejmujący przyszłe moduły,
+- Administrator zachowuje wszystkie bieżące prawa granularne bez wildcarda,
+- Maintainer zarządza kontami, projektami, buildami i bezpieczną konfiguracją bez
+  Managera SQL oraz instalacji/usuwania modułów,
+- Redaktor zarządza treściami publicznymi, Audytor ma przekrojowy odczyt i logi,
+  a Support pracuje z dokumentacją oraz kolejką tłumaczeń,
+- zablokowano nadawanie Ownera przez niższe role, eskalację Maintainer →
+  Administrator/Maintainer i wildcard w rolach niestandardowych,
+- konta Ownerów mogą być zarządzane wyłącznie przez Ownera; ostatni aktywny Owner
+  nie może zostać zablokowany ani zdegradowany,
+- definicje ról systemowych są tylko do odczytu i zmieniane wyłącznie migracjami,
+- bootstrap pustej instalacji tworzy pierwszego Ownera zamiast Administratora,
+- migracja awansowała najstarszego aktywnego administratora (`WieszczY`) do Ownera;
+  `DomiKserQ` pozostał Administratorem.
+
+**Weryfikacja:** pełne testy repozytorium, pełny lint PHP, `git diff --check`,
+migracja produkcyjna, kontrola wildcarda i liczby praw każdej roli, kontrola
+przypisań użytkowników oraz odpowiedź 404 usuniętej trasy design systemu.

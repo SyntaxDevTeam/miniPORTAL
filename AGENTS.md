@@ -105,7 +105,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Tworzenie i akceptacja kont oczekujących |
 | [x] | Wiele ról użytkownika oraz edytor uprawnień ról |
 | [x] | Grupowany wybór uprawnień bez klawisza Ctrl |
-| [x] | Bootstrap pierwszego administratora |
+| [x] | Bootstrap pierwszego Ownera oraz hierarchia chronionych ról systemowych |
 | [x] | Audit log logowań i operacji administracyjnych |
 | [x] | Chroniony widok audit logu z paginacją |
 | [x] | Kontrolowany eksport wyfiltrowanego audit logu do CSV |
@@ -196,12 +196,12 @@ Brak aktywnych blokerów.
 | 2026-06-13 | Google OIDC waliduje podpis RS256, `iss`, `aud`, `exp`, `iat`, `nonce` i PKCE. |
 | 2026-06-13 | Łączenie tożsamości wymaga aktywnej sesji tego samego konta i nie pozwala usunąć ostatniego providera. |
 | 2026-06-13 | Audit log zapisuje wyniki logowania, callbacków, wylogowania, ACL, bootstrapu oraz zmian tożsamości; nie zapisuje tokenów. |
-| 2026-06-13 | Pierwszy użytkownik jest aktywny, ma tożsamość GitHub i lokalną rolę `administrator`; bootstrap nie jest już dostępny. |
+| 2026-06-13 | Pierwszy użytkownik jest aktywny, ma tożsamość GitHub; po migracji hierarchii pełni chronioną rolę `owner`, a bootstrap nie jest już dostępny. |
 | 2026-06-13 | GitHub, Discord i Google są aktywne w środowisku, a `AUTH_AUDIT_HASH_KEY` pseudonimizuje IP przez HMAC. |
 | 2026-06-13 | `core_pages` używa `CrudApp`, unikalnego slugu, stanów `draft/published`, CSRF i uprawnień `pages.*`. |
 | 2026-06-13 | Publiczna trasa `/page?slug=...` pokazuje wyłącznie strony opublikowane i koduje treść przed HTML. |
 | 2026-06-13 | Trasa `/` renderuje dynamiczną wersję prototypu homepage i automatycznie pokazuje opublikowane strony z `core_pages`. |
-| 2026-06-13 | Prototypy HTML pozostają źródłami wyglądu; administrator otwiera je przez chronioną sekcję `/admin/design-system`. |
+| 2026-06-13 | Prototypy HTML pozostają developerskimi źródłami wyglądu w `templates/`; od 2026-06-20 nie są eksponowane w działającym panelu. |
 | 2026-06-13 | Główny `.htaccess` blokuje `.git`, kod Core/Modules, SQL, konfigurację i dokumentację techniczną; assety i prototypy pozostają publiczne. |
 | 2026-06-13 | Callbacki OAuth są pomijane w access logu Apache, a historyczne wartości `code` i `state` zostały zredagowane. |
 | 2026-06-13 | `core_pages` składa panel z ogólnych komponentów Theme; kontrakt nie zawiera już metod nazwanych według modułu. |
@@ -260,6 +260,7 @@ Brak aktywnych blokerów.
 | 2026-06-20 | `build_explorer` 1.1.1 naprawia sprzątanie starego artefaktu przy tworzeniu pierwszego buildu i nie usuwa nowego pliku po poprawnym zapisie bazy. |
 | 2026-06-20 | `projects` 1.1.0 usuwa opis z katalogu, układa karty zależnie od ich liczby i prezentuje powiązane zasoby. `build_explorer` 1.2.0 dodaje hierarchię publicznych widoków, opcjonalny numer Release/Snapshot oraz tokenowy import JSON z CI wraz z commitami. |
 | 2026-06-20 | CI monorepo `PunisherX` zawsze buduje całość, ale publikuje do osobnych projektów `punisherx`, `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge` wyłącznie komponenty dotknięte zmianami. Pliki wspólne Gradle oznaczają wszystkie trzy komponenty. |
+| 2026-06-20 | `core_auth` 1.5.0 wprowadza role Owner, Administrator, Maintainer, Redaktor, Audytor i Support. Owner ma wildcard i ochronę ostatniego aktywnego konta; `system_admin` 1.5.1 usuwa `Wzorce UI`, `/admin/design-system` i przycisk `Admin stylebook`. |
 
 ## Historia sesji
 

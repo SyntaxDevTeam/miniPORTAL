@@ -24,7 +24,7 @@ final class FirstAdminBootstrapper
 
         $lock = $this->database->query(
             'SELECT GET_LOCK(:name, 10)',
-            [':name' => 'miniportal:first-admin-bootstrap']
+            [':name' => 'miniportal:first-owner-bootstrap']
         )?->fetchColumn();
 
         if ((int) $lock !== 1) {
@@ -36,20 +36,20 @@ final class FirstAdminBootstrapper
                 throw new RuntimeException('Bootstrap jest dostępny wyłącznie dla pustej tabeli users.');
             }
 
-            $administratorRole = $this->database->query(
+            $ownerRole = $this->database->query(
                 'SELECT id FROM roles WHERE name = :name LIMIT 1',
-                [':name' => 'administrator']
+                [':name' => 'owner']
             )?->fetchColumn();
 
-            if ($administratorRole === false || $administratorRole === null) {
-                throw new RuntimeException('Migracja nie zawiera roli administrator.');
+            if ($ownerRole === false || $ownerRole === null) {
+                throw new RuntimeException('Migracja nie zawiera roli Owner.');
             }
 
             $userId = null;
             $this->database->action(function ($database) use (
                 $identity,
                 $displayName,
-                $administratorRole,
+                $ownerRole,
                 &$userId
             ): void {
                 $database->insert('users', [
@@ -70,7 +70,7 @@ final class FirstAdminBootstrapper
                 ]);
                 $database->insert('user_roles', [
                     'user_id' => $userId,
-                    'role_id' => (int) $administratorRole,
+                    'role_id' => (int) $ownerRole,
                 ]);
                 $database->insert('auth_events', [
                     'user_id' => $userId,
@@ -81,20 +81,20 @@ final class FirstAdminBootstrapper
             });
 
             if (!is_int($userId) || $userId < 1) {
-                throw new RuntimeException('Nie udało się utworzyć pierwszego administratora.');
+                throw new RuntimeException('Nie udało się utworzyć pierwszego Ownera.');
             }
 
             $user = (new CrudAppUserRepository($this->database))->findById($userId);
 
             if ($user === null) {
-                throw new RuntimeException('Utworzone konto administratora nie może zostać odczytane.');
+                throw new RuntimeException('Utworzone konto Ownera nie może zostać odczytane.');
             }
 
             return $user;
         } finally {
             $this->database->query(
                 'SELECT RELEASE_LOCK(:name)',
-                [':name' => 'miniportal:first-admin-bootstrap']
+                [':name' => 'miniportal:first-owner-bootstrap']
             );
         }
     }

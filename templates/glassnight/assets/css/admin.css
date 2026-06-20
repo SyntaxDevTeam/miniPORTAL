@@ -199,17 +199,6 @@ body.admin-stylebook {
   color: var(--mp-muted);
 }
 
-.security-note {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  color: var(--mp-muted);
-  background: rgba(var(--mp-primary-rgb), 0.055);
-  border: 1px solid rgba(var(--mp-primary-rgb), 0.15);
-  border-radius: 0.75rem;
-  font-size: 0.82rem;
-}
-
 .admin-preview {
   min-height: 54rem;
   overflow: hidden;

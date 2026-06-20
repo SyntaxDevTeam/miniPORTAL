@@ -181,7 +181,10 @@ final class CrudAppUserRepository implements UserRepositoryInterface
             $this->columnList(
                 'SELECT roles.name FROM user_roles '
                 . 'JOIN roles ON roles.id = user_roles.role_id '
-                . 'WHERE user_roles.user_id = :user_id ORDER BY roles.id',
+                . "WHERE user_roles.user_id = :user_id ORDER BY CASE roles.name "
+                . "WHEN 'owner' THEN 1 WHEN 'administrator' THEN 2 WHEN 'maintainer' THEN 3 "
+                . "WHEN 'editor' THEN 4 WHEN 'auditor' THEN 5 WHEN 'support' THEN 6 "
+                . "WHEN 'user' THEN 7 ELSE 100 END, roles.id",
                 $userId
             ),
             $this->columnList(

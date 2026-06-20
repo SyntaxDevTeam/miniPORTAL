@@ -423,10 +423,12 @@ $test('Authorization rejects missing permission and blocked account', static fun
     $authorization = new AuthorizationService();
     $active = new User(1, 'Active', null, null, 'active', ['editor'], ['pages.view']);
     $blocked = new User(2, 'Blocked', null, null, 'blocked', ['administrator'], ['*']);
+    $owner = new User(3, 'Owner', null, null, 'active', ['owner'], ['*']);
 
     $assert($authorization->allows($active, 'pages.view'));
     $assert(!$authorization->allows($active, 'users.manage'));
     $assert(!$authorization->allows($blocked, 'pages.view'));
+    $assert($authorization->allows($owner, 'future_module.manage'));
 });
 
 $test('Module registry boots each module once', static function () use ($assert): void {
@@ -585,6 +587,24 @@ $test('Public theme renders safe local related links', static function () use ($
     $assert(!str_contains($html, 'attacker.example'));
 });
 
+$test('Admin login hides implementation details of OAuth security', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_admin_login('/admin/login', [[
+        'provider' => 'github',
+        'subject' => '',
+        'label' => 'GitHub',
+        'description' => 'Zaloguj się kontem GitHub',
+        'href' => '/admin/auth/github',
+    ]], 'csrf-token');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'Zaloguj się do panelu'));
+    $assert(!str_contains($html, '[SEC]'));
+    $assert(!str_contains($html, 'PKCE'));
+    $assert(!str_contains($html, 'state'));
+});
+
 $test('Public error page is friendly and does not mention dashboard', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -712,8 +732,13 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.5.0');
+    $assert($system->version === '1.5.1');
     $assert($system->protected);
+
+    $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
+    $assert($coreAuth->id === 'core_auth');
+    $assert($coreAuth->version === '1.5.0');
+    $assert($coreAuth->protected);
 
     $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
     $assert($database->id === 'database_manager');
@@ -794,6 +819,24 @@ $test('CoreAuth declares database explorer permission', static function () use (
 
     $assert(str_contains($installSql, "'database.view'"));
     $assert(str_contains($migrationSql, "'database.view'"));
+
+    $rolesMigrationSql = (string) file_get_contents(
+        dirname(__DIR__) . '/modules/CoreAuth/migrations/20260620_owner_and_operational_roles.sql'
+    );
+    foreach (['owner', 'administrator', 'maintainer', 'editor', 'auditor', 'support'] as $role) {
+        $assert(str_contains($rolesMigrationSql, "'{$role}'"));
+    }
+    $assert(str_contains($rolesMigrationSql, "permissions.name = '*'"));
+    $assert(str_contains($rolesMigrationSql, "roles.name = 'administrator' AND permissions.name <> '*'"));
+    $assert(str_contains($rolesMigrationSql, 'ORDER BY users.created_at ASC, users.id ASC'));
+
+    $authSource = (string) file_get_contents(dirname(__DIR__) . '/modules/CoreAuth/UserAdministrationRepository.php');
+    $assert(str_contains($authSource, 'Tylko Owner może zarządzać kontem lub rolą Owner.'));
+    $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
+
+    $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
+    $assert(!str_contains($systemSource, "'/admin/design-system'"));
+    $assert(!str_contains($systemSource, 'Admin stylebook'));
 
     $databaseInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/DatabaseManager/install.sql');
     $databaseMigrationSql = (string) file_get_contents(
