@@ -259,6 +259,7 @@ Brak aktywnych blokerów.
 | 2026-06-19 | `build_explorer` 1.1.0 zapisuje uploady JAR w `cache/build-artifacts`, automatycznie wylicza rozmiar i SHA-256 oraz generuje edytowalną nazwę `<projekt>-<serwer>-<wersja>-<kanał>-<build>.jar`. |
 | 2026-06-20 | `build_explorer` 1.1.1 naprawia sprzątanie starego artefaktu przy tworzeniu pierwszego buildu i nie usuwa nowego pliku po poprawnym zapisie bazy. |
 | 2026-06-20 | `projects` 1.1.0 usuwa opis z katalogu, układa karty zależnie od ich liczby i prezentuje powiązane zasoby. `build_explorer` 1.2.0 dodaje hierarchię publicznych widoków, opcjonalny numer Release/Snapshot oraz tokenowy import JSON z CI wraz z commitami. |
+| 2026-06-20 | CI monorepo `PunisherX` zawsze buduje całość, ale publikuje do osobnych projektów `punisherx`, `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge` wyłącznie komponenty dotknięte zmianami. Pliki wspólne Gradle oznaczają wszystkie trzy komponenty. |
 
 ## Historia sesji
 

@@ -1632,3 +1632,28 @@ Build Explorer 1.2.
 **Ograniczenie środowiska:** konektor GitHub nie zarządza repo secrets, a `gh` nie
 jest zainstalowane. Sekret `BUILD_CI_TOKEN` trzeba dodać w ustawieniach repozytorium
 PunisherX z wartością zgodną z konfiguracją miniPORTAL.
+
+### Sesja: 2026-06-20 - Selektywna publikacja monorepo PunisherX
+
+**Faza i krok specyfikacji:** Krok 5C - integracja trzech niezależnych projektów
+Build Explorera z jednym repozytorium źródłowym.
+
+**Wykonano:**
+- potwierdzono slugi `punisherx`, `punisherx-bungeecord-bridge` oraz
+  `punisherx-velocity-bridge`,
+- workflow nadal zawsze buduje i testuje cały projekt Gradle,
+- zmiany w `src/`, `bungee-bridge/` i `velocity-bridge/` niezależnie sterują
+  uploadem artefaktu oraz publikacją odpowiedniego projektu,
+- zmiany wspólnych plików Gradle oznaczają wszystkie trzy komponenty, a zmiany
+  dokumentacji i samego workflow nie tworzą sztucznych buildów,
+- każdy payload zawiera wyłącznie commity dotyczące katalogu komponentu albo
+  wspólnych plików buildu,
+- główny JAR trafia do `punisherx`, BungeeCord do `punisherx-bungeecord-bridge`,
+  a Velocity do `punisherx-velocity-bridge`,
+- finalny workflow zapisano w repozytorium PunisherX w commicie
+  `44f530f0227b1e435bb9ba354d760848bd47c7c5`.
+
+**Weryfikacja:** GitHub Actions run `27860806406` zakończył joby `build` i
+`dependency-submission` sukcesem. Dla zmiany wyłącznie workflow trzy publikacje
+zostały prawidłowo pominięte. Endpointy obu mostków zaakceptowały token i odrzuciły
+celowo niepełny JSON kodem 422 bez utworzenia rekordów.
