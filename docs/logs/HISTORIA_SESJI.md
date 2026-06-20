@@ -1610,3 +1610,25 @@ Build Explorera.
 
 **Weryfikacja:** testy repozytorium, pełny lint PHP, `git diff --check`, migracje
 obu modułów oraz testy HTTP widoków publicznych i odmowy endpointu bez tokenu.
+
+### Sesja: 2026-06-20 - Integracja CI projektu PunisherX
+
+**Faza i krok specyfikacji:** Krok 5C - integracja producenta danych z endpointem
+Build Explorer 1.2.
+
+**Wykonano:**
+- zmodyfikowano `.github/workflows/gradle.yml` w `SyntaxDevTeam/PunisherX` na
+  gałęzi `main`, commit `6346bdc90b1d1e3fac567d1649f43f479e7b15d4`,
+- workflow normalizuje właściwe pliki Shadow JAR i publikuje je bez dodatkowego
+  archiwum ZIP przez `actions/upload-artifact@v7`,
+- dla push generuje JSON z numerem runu, czasem, commitami, nazwą, SHA-256,
+  rozmiarem i adresem artefaktu Paper,
+- JSON trafia do `/api/builds/ci/punisherx` z `BUILD_CI_TOKEN`; pull requesty nie
+  publikują buildów do portalu,
+- mostki BungeeCord i Velocity pozostają artefaktami GitHub, ale nie są błędnie
+  zgłaszane jako kanał DEV, ponieważ mają osobną wersję Snapshot,
+- dependency submission ograniczono do push na `main`.
+
+**Ograniczenie środowiska:** konektor GitHub nie zarządza repo secrets, a `gh` nie
+jest zainstalowane. Sekret `BUILD_CI_TOKEN` trzeba dodać w ustawieniach repozytorium
+PunisherX z wartością zgodną z konfiguracją miniPORTAL.
