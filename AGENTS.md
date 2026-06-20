@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-16 - przyjazne publiczne adresy modułów.
+> **Ostatnia aktualizacja:** 2026-06-20 - responsywne zasoby marki i metadane SEO.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -55,6 +55,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Navbar, cards, tables, forms, buttons, alerts i footer |
 | [x] | Dopracowanie CSS i animacji |
 | [x] | Wersja 1 strony głównej SyntaxDevTeam.pl |
+| [x] | Logo SyntaxDevTeam, favikony, Apple Touch Icon, manifest i metadane SEO |
 
 ### Krok 3 - odwzorowanie prototypu w PHP
 

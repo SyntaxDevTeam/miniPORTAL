@@ -120,14 +120,10 @@ body.admin-stylebook {
   color: var(--mp-text);
 }
 
-.admin-brand-mark {
-  display: grid;
+.admin-brand-logo {
   width: 2.6rem;
   height: 2.6rem;
-  place-items: center;
-  color: #06120c;
-  background: var(--mp-primary);
-  border-radius: 0.8rem;
+  object-fit: contain;
   box-shadow: 0 0 1.5rem rgba(var(--mp-primary-rgb), 0.2);
 }
 

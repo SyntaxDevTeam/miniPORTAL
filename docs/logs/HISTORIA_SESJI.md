@@ -1703,3 +1703,22 @@ panelu oraz stabilizacja systemowych ról i ACL.
 **Weryfikacja:** pełne testy repozytorium, pełny lint PHP, `git diff --check`,
 migracja produkcyjna, kontrola wildcarda i liczby praw każdej roli, kontrola
 przypisań użytkowników oraz odpowiedź 404 usuniętej trasy design systemu.
+
+### Sesja: 2026-06-20 - Logo, ikony urządzeń i metadane marki
+
+**Faza i krok specyfikacji:** Krok 2/3 - uzupełnienie prototypów wizualnych i ich
+odwzorowania w PHP o wspólny branding SyntaxDevTeam.
+
+**Wykonano:**
+- zastąpiono tekstowy znak `</>` właściwym logo w publicznej nawigacji, panelu,
+  logowaniu i połączonych kontach obu motywów,
+- wygenerowano favikony 16/32/48 px, ICO, Apple Touch Icon, ikony 192/512 px oraz
+  bezpieczny wariant maskowalny z pliku `theme/ico/SyntaxDevTeam_logo.png`,
+- dodano manifesty aplikacji, Open Graph, Twitter Card i dane Organization
+  schema.org; kanoniczny host pochodzi z `SITE_URL`,
+- widoki administracyjne i statyczne stylebooki otrzymały `noindex, nofollow`,
+- dodano bez zależności zewnętrznych generator `tools/generate-brand-assets.mjs`,
+  aby warianty można było odtworzyć po zmianie pliku źródłowego.
+
+**Weryfikacja:** testy repozytorium, lint zmienionych plików PHP, kontrola JSON,
+regeneracja zasobów, kontrola odpowiedzi HTML i `git diff --check`.

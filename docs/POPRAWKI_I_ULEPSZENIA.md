@@ -17,6 +17,12 @@ Publiczny formularz logowania nie pokazuje technicznych nazw zabezpieczeń OAuth
 (`state`, PKCE, rotacja sesji). Mechanizmy pozostają aktywne w Core, natomiast
 interfejs ogranicza się do informacji potrzebnych użytkownikowi. (gotowe)
 
+Branding SyntaxDevTeam korzysta z właściwego sygnetu w publicznej nawigacji,
+panelu i formularzu logowania. Oba motywy mają favikony 16/32/48 px, wielorozmiarowe
+ICO, Apple Touch Icon, ikony aplikacji 192/512 px, wariant maskowalny, manifest oraz
+metadane Open Graph, Twitter Card i schema.org. Panel oraz prototypy developerskie
+pozostają wyłączone z indeksowania. (gotowe)
+
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)

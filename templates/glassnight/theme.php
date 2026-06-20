@@ -20,12 +20,17 @@ final class Theme implements ThemeInterface
 
     private readonly string $publicFooterText;
 
+    private readonly string $publicUrl;
+
     private array $publicNavigation = [];
 
     private bool $publicAuthenticated = false;
 
     public function __construct(array $config = [])
     {
+        $publicUrl = rtrim(trim((string) ($config['public_url'] ?? '')), '/');
+        $this->publicUrl = filter_var($publicUrl, FILTER_VALIDATE_URL) !== false
+            && str_starts_with($publicUrl, 'https://') ? $publicUrl : '';
         $this->publicName = trim((string) ($config['public_name'] ?? 'SyntaxDevTeam')) ?: 'SyntaxDevTeam';
         $this->publicEyebrow = trim((string) ($config['public_eyebrow'] ?? 'Software dla społeczności'));
         $this->publicMetaDescription = trim((string) (
@@ -47,14 +52,15 @@ final class Theme implements ThemeInterface
 
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
     {
+        $pageTitle = $this->publicName . ' - ' . $this->publicEyebrow;
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $this->escape($this->publicMetaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
             echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
         }
-        echo '<meta name="theme-color" content="#080c12"><title>' . $this->escape($this->publicName);
-        echo ' - ' . $this->escape($this->publicEyebrow) . '</title>';
+        echo '<meta name="theme-color" content="#080c12"><title>' . $this->escape($pageTitle) . '</title>';
+        $this->renderBrandHead($pageTitle, $this->publicMetaDescription);
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
@@ -83,7 +89,7 @@ final class Theme implements ThemeInterface
     private function renderPublicNavbar(array $pages, bool $authenticated, array $sections = [], bool $fixed = false): void
     {
         echo '<nav class="navbar navbar-expand-lg border-bottom' . ($fixed ? ' fixed-top' : '') . '" data-site-nav aria-label="Główna nawigacja"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="/"><span aria-hidden="true">&lt;/&gt;</span> ';
+        echo '<a class="navbar-brand fw-bold" href="/">' . $this->brandLogo('site-brand-logo');
         echo $this->escape($this->publicName) . '</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
@@ -140,16 +146,17 @@ final class Theme implements ThemeInterface
 
     public function start_page(string $title, string $description = ''): void
     {
-        $title = $this->escape($title);
-        $description = $this->escape($description !== '' ? $description : $this->publicMetaDescription);
+        $pageTitle = $title;
+        $metaDescription = $description !== '' ? $description : $this->publicMetaDescription;
 
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-        echo '<meta name="description" content="' . $description . '">';
+        echo '<meta name="description" content="' . $this->escape($metaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
             echo '<meta name="keywords" content="' . $this->escape($this->publicMetaKeywords) . '">';
         }
-        echo '<title>' . $title . '</title>';
+        echo '<meta name="theme-color" content="#030c1d"><title>' . $this->escape($pageTitle) . '</title>';
+        $this->renderBrandHead($pageTitle, $metaDescription);
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
@@ -527,6 +534,7 @@ final class Theme implements ThemeInterface
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="Panel administracyjny miniPORTAL">';
+        $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape($title) . ' - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
@@ -544,7 +552,7 @@ final class Theme implements ThemeInterface
         echo '<div class="admin-preview rounded-0 border-0"><div class="admin-shell">';
         echo '<aside class="admin-sidebar" aria-label="Nawigacja panelu"><div class="admin-sidebar-header">';
         echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin">';
-        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL</span></a></div>';
+        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL</span></a></div>';
         $this->renderAdminMenu($menuItems, $activePath);
         echo '</aside>';
         echo '<div class="admin-workspace"><header class="admin-topbar">';
@@ -782,6 +790,7 @@ final class Theme implements ThemeInterface
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="Logowanie do panelu miniPORTAL">';
+        $this->renderBrandHead('', '', false);
         echo '<title>Logowanie - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
@@ -791,7 +800,7 @@ final class Theme implements ThemeInterface
         echo '<main class="min-vh-100 d-grid align-items-center py-4"><div class="container">';
         echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
         echo '<a class="admin-brand text-decoration-none" href="index.php">';
-        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
+        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL Admin</span></a>';
         echo '<p class="showcase-label mt-5 mb-2">Bezpieczny dostęp</p>';
         echo '<h1 class="h2 fw-bold">Zaloguj się do panelu</h1>';
         echo '<p class="text-secondary">Konto i uprawnienia pozostają lokalne, niezależnie od wybranego dostawcy tożsamości.</p>';
@@ -842,6 +851,7 @@ final class Theme implements ThemeInterface
     ): void {
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape((string) $status) . ' - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
@@ -865,13 +875,14 @@ final class Theme implements ThemeInterface
     ): void {
         echo '<!doctype html><html lang="pl" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        $this->renderBrandHead('', '', false);
         echo '<title>Połączone konta - miniPORTAL Admin</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><main class="container py-5">';
         echo '<a class="admin-brand text-decoration-none mb-4" href="index.php?route=/admin">';
-        echo '<span class="admin-brand-mark" aria-hidden="true">&lt;/&gt;</span><span>miniPORTAL Admin</span></a>';
+        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL Admin</span></a>';
         echo '<section class="admin-panel mt-4"><div class="admin-panel-header">';
         echo '<div><p class="showcase-label mb-1">Profil</p><h1 class="h3 mb-1">Połączone tożsamości</h1>';
         echo '<p class="text-secondary mb-0">' . $this->escape($user['name']) . ' · ' . $this->escape($user['role']) . '</p></div>';
@@ -1410,6 +1421,51 @@ final class Theme implements ThemeInterface
     private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function brandLogo(string $class): string
+    {
+        return '<img class="' . $class . '" src="' . $this->asset('img/brand/syntaxdevteam-logo.png')
+            . '" width="512" height="512" alt="" aria-hidden="true">';
+    }
+
+    private function renderBrandHead(string $title, string $description, bool $indexable = true): void
+    {
+        echo '<meta name="application-name" content="' . $this->escape($this->publicName) . '">';
+        echo '<meta name="mobile-web-app-capable" content="yes">';
+        echo '<meta name="apple-mobile-web-app-capable" content="yes">';
+        echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
+        echo '<meta name="apple-mobile-web-app-title" content="' . $this->escape($this->publicName) . '">';
+        echo '<link rel="icon" href="' . $this->asset('img/brand/favicon.ico') . '" sizes="any">';
+        echo '<link rel="icon" type="image/png" sizes="32x32" href="' . $this->asset('img/brand/favicon-32x32.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="16x16" href="' . $this->asset('img/brand/favicon-16x16.png') . '">';
+        echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->asset('img/brand/apple-touch-icon.png') . '">';
+        echo '<link rel="manifest" href="' . $this->asset('site.webmanifest') . '">';
+        if (!$indexable) {
+            echo '<meta name="robots" content="noindex, nofollow">';
+            return;
+        }
+
+        echo '<meta property="og:type" content="website">';
+        echo '<meta property="og:site_name" content="' . $this->escape($this->publicName) . '">';
+        echo '<meta property="og:title" content="' . $this->escape($title) . '">';
+        echo '<meta property="og:description" content="' . $this->escape($description) . '">';
+        $logoPath = (string) parse_url($this->asset('img/brand/syntaxdevteam-logo.png'), PHP_URL_PATH);
+        $logoUrl = $this->publicUrl !== '' ? $this->publicUrl . $logoPath : $logoPath;
+        echo '<meta property="og:image" content="' . $this->escape($logoUrl) . '">';
+        echo '<meta property="og:image:width" content="512"><meta property="og:image:height" content="512">';
+        echo '<meta name="twitter:card" content="summary">';
+
+        if ($this->publicUrl !== '') {
+            $structuredData = json_encode([
+                '@context' => 'https://schema.org',
+                '@type' => 'Organization',
+                'name' => $this->publicName,
+                'url' => $this->publicUrl,
+                'logo' => $logoUrl,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+            echo '<script type="application/ld+json">' . $structuredData . '</script>';
+        }
     }
 
     private function asset(string $relativePath): string

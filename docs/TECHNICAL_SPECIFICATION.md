@@ -230,6 +230,8 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
 - renderowanie sekcji przez `ThemeInterface`, bez HTML i klas CSS w module `core_pages`
 - wspólny renderer bezpiecznej treści dla sekcji homepage, kart, podstron i artykułów
 - wspólny publiczny branding motywu oraz edytowalne nadtytuły podstron
+- zestaw ikon marki dla przeglądarek, Apple i instalacji mobilnej, manifest oraz
+  metadane Open Graph i schema.org generowane w warstwie motywu
 - układ kontaktowy homepage z deklaratywnymi kanałami, osobami i ikonami
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
 - autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia
@@ -577,11 +579,13 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
    - alerts
    - footers
 3. Dopracowanie CSS i animacji.
+4. Przygotowanie responsywnych zasobów marki i ikon urządzeń.
 
 ### Krok 3: odwzorowanie prototypu w PHP
 1. Utworzenie ThemeInterface.
 2. Implementacja klasy Theme w templates/default/theme.php.
 3. Weryfikacja, że moduły mogą korzystać z abstrakcyjnych metod bez zależności od konkretnego HTML.
+4. Wspólne metadane favicon, manifestu i SEO generowane przez aktywny motyw.
 
 ### Krok 4: implementacja rdzenia systemu
 1. Autoloader

@@ -55,6 +55,7 @@ return [
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'theme' => (string) $env('APP_THEME', 'default'),
+        'public_url' => (string) $env('SITE_URL', 'https://syntaxdevteam.pl'),
         'public_name' => (string) $env('SITE_NAME', 'SyntaxDevTeam'),
         'public_eyebrow' => (string) $env('SITE_EYEBROW', 'Software dla społeczności'),
         'public_meta_description' => (string) $env(

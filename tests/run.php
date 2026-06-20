@@ -561,6 +561,28 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
 });
 
+$test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_url' => 'https://syntaxdevteam.pl',
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Opis testowy',
+    ]);
+
+    ob_start();
+    $theme->start_page('Test', 'Opis');
+    $theme->end_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'img/brand/favicon.ico'));
+    $assert(str_contains($html, 'apple-touch-icon'));
+    $assert(str_contains($html, 'apple-mobile-web-app-capable'));
+    $assert(str_contains($html, 'site.webmanifest'));
+    $assert(str_contains($html, 'class="site-brand-logo"'));
+    $assert(str_contains($html, 'property="og:image" content="https://syntaxdevteam.pl/templates/default/assets/img/brand/syntaxdevteam-logo.png"'));
+    $assert(str_contains($html, 'application/ld+json'));
+    $assert(!str_contains($html, '<span aria-hidden="true">&lt;/&gt;</span>'));
+});
+
 $test('Public theme renders avatar image component', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -690,6 +712,8 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, 'index.php?route=/admin/profile/identities'));
     $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
     $assert(str_contains($html, '>Wyloguj</button>'));
+    $assert(str_contains($html, 'class="admin-brand-logo"'));
+    $assert(str_contains($html, 'name="robots" content="noindex, nofollow"'));
     $assert(!str_contains($html, 'admin-sidebar-footer'));
 });
 

@@ -72,6 +72,18 @@ a {
   color: var(--mp-primary);
 }
 
+.navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.site-brand-logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
 .nav-link:hover,
 .nav-link:focus {
   color: var(--mp-primary);

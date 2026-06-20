@@ -46,6 +46,7 @@ APP_NAME="miniPORTAL"
 APP_DEBUG=false
 APP_TIMEZONE="Europe/Warsaw"
 APP_THEME="default"
+SITE_URL="https://syntaxdevteam.pl"
 SITE_NAME="SyntaxDevTeam"
 SITE_EYEBROW="Software dla społeczności"
 SESSION_NAME="MINIPORTALSESSID"
@@ -118,6 +119,7 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_DEBUG` | Szczegóły błędów diagnostycznych |
 | `APP_TIMEZONE` | Strefa czasowa PHP |
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
+| `SITE_URL` | Kanoniczny publiczny adres HTTPS używany w metadanych SEO i Open Graph |
 | `SITE_NAME` | Publiczna nazwa marki używana w logo, tytułach i stopce |
 | `SITE_EYEBROW` | Domyślny nadtytuł publicznych widoków bez własnej wartości |
 | `SESSION_NAME` | Nazwa bezpiecznego cookie sesji |
