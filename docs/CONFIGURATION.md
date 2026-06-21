@@ -311,6 +311,12 @@ Apache. Bez obu wartości przycisk GitHub pozostaje niewidoczny.
 
 ## Bootstrap pierwszego Ownera
 
+Gotowa dystrybucja `install/cms` wykonuje te czynności automatycznie przez
+`install.php` i zapisuje konfigurację w `config/installed.env`. Jawna zmienna
+`MINIPORTAL_ENV_FILE` ma najwyższy priorytet; bez niej aplikacja wybiera lokalny
+plik instalacji, a dopiero następnie `/etc/miniportal/miniportal.env`. Pozwala to
+utrzymywać kilka niezależnych instalacji na jednym serwerze.
+
 Mechanizm działa wyłącznie, gdy tabela `users` jest pusta. Najpierw sprawdź,
 jakie konto i niezmienny identyfikator GitHub zostaną użyte:
 

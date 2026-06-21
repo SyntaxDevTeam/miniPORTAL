@@ -7,12 +7,24 @@ Autorski mini-CMS w systemie modularnym
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
 - [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
+- [Czysta dystrybucja z kreatorem](install/cms/INSTALL.md)
+
+## Dystrybucja instalacyjna
+
+Folder `install/cms` jest gotową, pozbawioną lokalnych danych kopią miniPORTAL.
+Po wgraniu na serwer wystarczy otworzyć `install.php`; kreator sprawdza środowisko,
+tworzy schemat pustej bazy, instaluje wybrane moduły i zakłada pierwszego Ownera.
+Pakiet można odtworzyć po każdej zmianie poleceniem:
+
+```bash
+php bin/build-cms-distribution.php
+```
 
 ## Weryfikacja
 
 ```bash
 php tests/run.php
-find core modules templates config tests bin install/mod -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+find core modules templates config tests bin install/mod install/cms-source install/cms -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 php bin/migrate-core.php
 ```
 
@@ -29,6 +41,8 @@ top-level katalog modułu z `info.json`.
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.
 Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne wpisy.
+Sekcja strony głównej typu `hero` w układzie `split` może opcjonalnie wyświetlać
+pionowy akrostych: wyrazy są ustawiane w panelu, a motyw wyróżnia ich pierwsze litery.
 Moduły `wikipedia` i `articles` dodają publiczne sekcje dokumentacji oraz artykułów.
 Aktywne moduły mogą deklarować publiczne linki, którym administrator nadaje etykietę
 i niezależnie przypina je do głównego menu, stopki albo obu obszarów w `/admin/settings`.
@@ -79,6 +93,9 @@ Role systemowe tworzą hierarchię `Owner` → `Administrator` → `Maintainer` 
 `Redaktor` / `Audytor` / `Support`. Owner jako jedyny ma wildcard obejmujący
 przyszłe moduły i może zarządzać innymi kontami Ownerów; ostatniego aktywnego
 Ownera nie można zablokować ani zdegradować.
+Panel ma indeks wyszukiwania respektujący ACL; aktywne moduły mogą zgłaszać własne
+akcje i słowa kluczowe. Ten sam kontrakt rozszerzeń pozwala modułom dodawać
+konfigurowalne metryki oraz panele do Dashboardu.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.

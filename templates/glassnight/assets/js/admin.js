@@ -31,6 +31,59 @@ document.querySelectorAll("[data-admin-nav-target]").forEach((link) => {
   });
 });
 
+const adminSearch = document.querySelector("[data-admin-search]");
+const adminSearchInput = adminSearch?.querySelector("[data-admin-search-input]");
+const adminSearchResults = adminSearch?.querySelector("[data-admin-search-results]");
+const adminSearchItems = [...(adminSearch?.querySelectorAll("[data-admin-search-item]") || [])];
+const adminSearchEmpty = adminSearch?.querySelector("[data-admin-search-empty]");
+let adminSearchActive = -1;
+
+const closeAdminSearch = () => {
+  if (!adminSearchInput || !adminSearchResults) return;
+  adminSearchResults.hidden = true;
+  adminSearchInput.setAttribute("aria-expanded", "false");
+  adminSearchActive = -1;
+  adminSearchItems.forEach((item) => item.classList.remove("is-active"));
+};
+
+const filterAdminSearch = () => {
+  if (!adminSearchInput || !adminSearchResults) return;
+  const query = adminSearchInput.value.trim().toLocaleLowerCase("pl-PL");
+  let matches = 0;
+  adminSearchItems.forEach((item) => {
+    const visible = query.length >= 2 && matches < 8 && (item.dataset.search || "").includes(query);
+    item.hidden = !visible;
+    if (visible) matches += 1;
+    item.classList.remove("is-active");
+  });
+  if (adminSearchEmpty) adminSearchEmpty.hidden = query.length < 2 || matches !== 0;
+  adminSearchResults.hidden = query.length < 2;
+  adminSearchInput.setAttribute("aria-expanded", query.length >= 2 ? "true" : "false");
+  adminSearchActive = -1;
+};
+
+adminSearchInput?.addEventListener("input", filterAdminSearch);
+adminSearchInput?.addEventListener("keydown", (event) => {
+  const visible = adminSearchItems.filter((item) => !item.hidden);
+  if (event.key === "Escape") {
+    closeAdminSearch();
+    return;
+  }
+  if (!["ArrowDown", "ArrowUp", "Enter"].includes(event.key) || visible.length === 0) return;
+  event.preventDefault();
+  if (event.key === "Enter" && adminSearchActive >= 0) {
+    visible[adminSearchActive].click();
+    return;
+  }
+  const step = event.key === "ArrowUp" ? -1 : 1;
+  adminSearchActive = (adminSearchActive + step + visible.length) % visible.length;
+  visible.forEach((item, index) => item.classList.toggle("is-active", index === adminSearchActive));
+  visible[adminSearchActive].scrollIntoView({ block: "nearest" });
+});
+document.addEventListener("click", (event) => {
+  if (adminSearch && !adminSearch.contains(event.target)) closeAdminSearch();
+});
+
 const contentSearch = document.querySelector("[data-content-search]");
 const contentStatus = document.querySelector("[data-content-status]");
 const contentRows = [...document.querySelectorAll("[data-content-row]")];

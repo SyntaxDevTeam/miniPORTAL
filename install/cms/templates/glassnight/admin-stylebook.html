@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="pl-PL" data-bs-theme="dark">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prototyp panelu administracyjnego miniPORTAL">
+  <meta name="theme-color" content="#080c12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SyntaxDevTeam">
+  <meta name="robots" content="noindex, nofollow">
+  <title>miniPORTAL - admin stylebook</title>
+  <link rel="icon" href="assets/img/brand/favicon.ico" sizes="16x16 32x32 48x48 64x64 128x128 256x256">
+  <link rel="icon" type="image/png" sizes="256x256" href="assets/img/brand/favicon-256x256.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/brand/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/img/brand/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/stylebook.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+</head>
+
+<body class="admin-stylebook">
+  <div class="site-grid" aria-hidden="true"></div>
+  <a class="visually-hidden-focusable skip-link" href="#admin-content">Przejdź do prototypu panelu</a>
+
+  <nav class="navbar admin-demo-nav border-bottom sticky-top" data-site-nav aria-label="Nawigacja prototypu panelu">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#top"><img class="site-brand-logo" src="assets/img/brand/syntaxdevteam-logo.png" width="512" height="512" alt="" aria-hidden="true">miniPORTAL Admin</a>
+      <div class="d-flex align-items-center gap-2">
+        <div class="nav nav-pills d-none d-md-flex" aria-label="Sekcje prototypu">
+          <a class="nav-link" href="#login">Logowanie</a>
+          <a class="nav-link" href="#dashboard">Dashboard</a>
+          <a class="nav-link" href="#components">Komponenty</a>
+          <a class="nav-link" href="#states">Stany</a>
+        </div>
+        <a class="btn btn-sm btn-outline-light" href="stylebook.html">Stylebook strony</a>
+      </div>
+    </div>
+  </nav>
+
+  <header id="top" class="stylebook-hero border-bottom">
+    <div class="container py-5">
+      <p class="eyebrow mb-2">Krok 5A / Outside-In</p>
+      <h1 class="display-3 fw-bold">Panel administracyjny jako kontrakt wizualny</h1>
+      <p class="lead text-secondary col-lg-9 mb-0">
+        Ekrany i komponenty, które później zostaną odwzorowane w warstwie Theme, ACL oraz modułach panelu.
+        Wszystkie akcje w tym dokumencie są demonstracyjne.
+      </p>
+    </div>
+  </header>
+
+  <main id="admin-content" tabindex="-1">
+    <section id="login" class="admin-demo-section">
+      <div class="container">
+        <div class="admin-demo-heading reveal">
+          <p class="eyebrow">01 / Uwierzytelnianie</p>
+          <h2 class="fw-bold">Jedno konto. Wiele bezpiecznych tożsamości.</h2>
+          <p class="lead text-secondary">
+            Dostawca potwierdza tożsamość, ale role i dostęp pozostają lokalną decyzją miniPORTAL.
+          </p>
+        </div>
+
+        <div class="login-stage reveal">
+          <article class="login-panel">
+            <a class="admin-brand text-decoration-none" href="#top">
+              <img class="admin-brand-logo" src="assets/img/brand/admin-logo.png" width="256" height="256" alt="" aria-hidden="true">
+              <span>miniPORTAL Admin</span>
+            </a>
+            <p class="showcase-label mt-5 mb-2">Panel zarządzania</p>
+            <h3 class="h2 fw-bold">Zaloguj się do przestrzeni roboczej</h3>
+            <p class="text-secondary mb-4">
+              Wybierz konto, które zostało wcześniej przypisane do użytkownika miniPORTAL.
+            </p>
+
+            <div class="provider-list">
+              <button class="provider-button" type="button" data-provider-demo="GitHub">
+                <span class="provider-icon provider-icon-github" aria-hidden="true">GH</span>
+                <span>Kontynuuj z GitHub</span>
+                <span class="provider-arrow" aria-hidden="true">-&gt;</span>
+              </button>
+              <button class="provider-button" type="button" data-provider-demo="Discord">
+                <span class="provider-icon provider-icon-discord" aria-hidden="true">DS</span>
+                <span>Kontynuuj z Discord</span>
+                <span class="provider-arrow" aria-hidden="true">-&gt;</span>
+              </button>
+              <button class="provider-button" type="button" data-provider-demo="Google">
+                <span class="provider-icon provider-icon-google" aria-hidden="true">G</span>
+                <span>Kontynuuj z Google</span>
+                <span class="provider-arrow" aria-hidden="true">-&gt;</span>
+              </button>
+            </div>
+
+            <div class="alert alert-info mt-3 mb-0" role="status" data-login-status hidden></div>
+
+            <p class="small text-secondary text-center mt-4 mb-0">
+              Dostęp mają wyłącznie aktywne konta przypisane przez administratora.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="admin-demo-section">
+      <div class="container-fluid px-3 px-xl-5">
+        <div class="admin-demo-heading reveal">
+          <p class="eyebrow">02 / Układ aplikacji</p>
+          <h2 class="fw-bold">Dashboard, który skaluje się razem z modułami.</h2>
+          <p class="lead text-secondary">
+            Sidebar prezentuje funkcje zarejestrowane przez moduły i widoczne dla aktualnych uprawnień.
+          </p>
+        </div>
+
+        <div class="admin-preview reveal">
+          <div class="admin-shell">
+            <aside class="admin-sidebar" aria-label="Nawigacja panelu">
+              <div class="admin-sidebar-header">
+                <a class="admin-brand text-decoration-none" href="#dashboard">
+                  <img class="admin-brand-logo" src="assets/img/brand/admin-logo.png" width="256" height="256" alt="" aria-hidden="true">
+                  <span>miniPORTAL</span>
+                </a>
+              </div>
+              <nav class="admin-nav">
+                <span class="admin-nav-label">Przestrzeń robocza</span>
+                <a class="admin-nav-link active" href="#dashboard" data-admin-nav-target aria-current="page">
+                  <span class="admin-nav-icon" aria-hidden="true">DB</span> Dashboard
+                </a>
+                <a class="admin-nav-link" href="#components" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">PG</span> Strony
+                </a>
+                <a class="admin-nav-link" href="#components" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">AR</span> Artykuły
+                </a>
+                <span class="admin-nav-label">System</span>
+                <a class="admin-nav-link" href="#states" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">US</span> Użytkownicy
+                </a>
+                <a class="admin-nav-link" href="#states" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">MD</span> Moduły
+                </a>
+                <a class="admin-nav-link" href="#states" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">LG</span> Audit log
+                </a>
+                <a class="admin-nav-link" href="#states" data-admin-nav-target>
+                  <span class="admin-nav-icon" aria-hidden="true">ST</span> Ustawienia
+                </a>
+              </nav>
+              <div class="admin-sidebar-footer">
+                <div class="admin-user">
+                  <span class="admin-avatar" aria-hidden="true">WY</span>
+                  <span class="admin-user-copy">
+                    <strong>WieszczY</strong>
+                    <span>Administrator</span>
+                  </span>
+                </div>
+              </div>
+            </aside>
+
+            <div class="admin-workspace">
+              <header class="admin-topbar">
+                <button class="admin-icon-button d-lg-none" type="button" data-admin-sidebar-toggle
+                  aria-label="Otwórz nawigację panelu">MN</button>
+                <div class="admin-search">
+                  <span class="admin-search-mark" aria-hidden="true">SZ</span>
+                  <label class="visually-hidden" for="global-search">Szukaj w panelu</label>
+                  <input class="form-control" id="global-search" type="search"
+                    placeholder="Szukaj stron, użytkowników, modułów...">
+                </div>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                  <button class="admin-icon-button" type="button" aria-label="Powiadomienia">
+                    NT<span class="notification-dot" aria-hidden="true"></span>
+                  </button>
+                  <button class="admin-icon-button" type="button" aria-label="Pomoc">?</button>
+                  <span class="admin-avatar d-none d-sm-grid" aria-hidden="true">WY</span>
+                </div>
+              </header>
+
+              <div class="admin-content">
+                <nav aria-label="Breadcrumb">
+                  <ol class="breadcrumb admin-breadcrumb">
+                    <li class="breadcrumb-item"><a href="#dashboard">Panel</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+                  </ol>
+                </nav>
+
+                <div class="admin-page-heading">
+                  <div>
+                    <h3>Witaj ponownie, WieszczY</h3>
+                    <p class="text-secondary mb-0">System działa prawidłowo. Masz 3 zadania wymagające uwagi.</p>
+                  </div>
+                  <a class="btn btn-primary" href="#components">Dodaj stronę</a>
+                </div>
+
+                <div class="metric-grid mb-4">
+                  <article class="metric-card" data-symbol="P">
+                    <span class="metric-label">Opublikowane strony</span>
+                    <strong class="metric-value">12</strong>
+                    <span class="metric-change">+2 w tym miesiącu</span>
+                  </article>
+                  <article class="metric-card" data-symbol="A">
+                    <span class="metric-label">Artykuły</span>
+                    <strong class="metric-value">28</strong>
+                    <span class="metric-change">5 szkiców</span>
+                  </article>
+                  <article class="metric-card" data-symbol="U">
+                    <span class="metric-label">Użytkownicy</span>
+                    <strong class="metric-value">7</strong>
+                    <span class="metric-change">3 administratorów</span>
+                  </article>
+                  <article class="metric-card" data-symbol="M">
+                    <span class="metric-label">Aktywne moduły</span>
+                    <strong class="metric-value">4</strong>
+                    <span class="metric-change">Wszystkie aktualne</span>
+                  </article>
+                </div>
+
+                <div class="row g-4">
+                  <div class="col-xl-7">
+                    <section class="admin-panel h-100" aria-labelledby="activity-title">
+                      <div class="admin-panel-header">
+                        <h4 id="activity-title">Ostatnia aktywność</h4>
+                        <a class="small" href="#states">Pełny audit log</a>
+                      </div>
+                      <div class="admin-panel-body">
+                        <div class="activity-list">
+                          <div class="activity-item">
+                            <span class="activity-mark" aria-hidden="true">PG</span>
+                            <span class="activity-copy"><strong>Opublikowano stronę „O projekcie”</strong><span>WieszczY
+                                / core_pages</span></span>
+                            <time class="activity-time">12 min</time>
+                          </div>
+                          <div class="activity-item">
+                            <span class="activity-mark" aria-hidden="true">US</span>
+                            <span class="activity-copy"><strong>Połączono konto GitHub</strong><span>Administrator /
+                                core_auth</span></span>
+                            <time class="activity-time">1 godz.</time>
+                          </div>
+                          <div class="activity-item">
+                            <span class="activity-mark" aria-hidden="true">MD</span>
+                            <span class="activity-copy"><strong>Zaktualizowano moduł Articles</strong><span>System /
+                                module_manager</span></span>
+                            <time class="activity-time">wczoraj</time>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                  <div class="col-xl-5">
+                    <section class="admin-panel h-100" aria-labelledby="modules-title">
+                      <div class="admin-panel-header">
+                        <h4 id="modules-title">Stan modułów</h4>
+                        <span class="status-badge status-badge-published">Online</span>
+                      </div>
+                      <div class="admin-panel-body">
+                        <div class="module-status">
+                          <div class="module-status-row"><span>Core Auth</span><span
+                              class="status-badge status-badge-published">Stały</span></div>
+                          <div class="module-status-row"><span>Core Pages</span><span
+                              class="status-badge status-badge-published">Aktywny</span></div>
+                          <div class="module-status-row"><span>Articles</span><span
+                              class="status-badge status-badge-draft">Aktualizacja</span></div>
+                          <div class="module-status-row"><span>Cache</span><span
+                              class="status-badge status-badge-published">Gotowy</span></div>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="components" class="admin-demo-section">
+      <div class="container">
+        <div class="admin-demo-heading reveal">
+          <p class="eyebrow">03 / Zarządzanie treścią</p>
+          <h2 class="fw-bold">Tabela, filtry i formularz redakcyjny.</h2>
+          <p class="lead text-secondary">Komponenty bazowe dla modułów `core_pages` i `articles`.</p>
+        </div>
+
+        <div class="admin-component-block reveal">
+          <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+            <div>
+              <p class="showcase-label mb-1">Lista treści</p>
+              <h3 class="h2 mb-0">Strony</h3>
+            </div>
+            <button class="btn btn-primary" type="button">Nowa strona</button>
+          </div>
+
+          <div class="admin-filterbar">
+            <div class="admin-filter-search">
+              <label class="form-label" for="content-search">Szukaj</label>
+              <input class="form-control" id="content-search" type="search" placeholder="Tytuł, slug lub autor"
+                data-content-search>
+            </div>
+            <div class="admin-filter-select">
+              <label class="form-label" for="content-status">Status</label>
+              <select class="form-select" id="content-status" data-content-status>
+                <option value="all">Wszystkie</option>
+                <option value="published">Opublikowane</option>
+                <option value="draft">Szkice</option>
+                <option value="archived">Archiwalne</option>
+              </select>
+            </div>
+            <button class="btn btn-outline-light" type="button">Filtry</button>
+          </div>
+
+          <div class="table-responsive admin-panel rounded-top-0">
+            <table class="table table-hover align-middle admin-data-table">
+              <caption class="visually-hidden">Przykładowa lista stron panelu miniPORTAL</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Strona</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Autor</th>
+                  <th scope="col">Aktualizacja</th>
+                  <th scope="col" class="text-end">Akcje</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-content-row data-status="published">
+                  <td><span class="content-title-cell"><span class="content-icon"
+                        aria-hidden="true">PG</span><span><strong>Strona główna</strong><br><small
+                          class="text-secondary">/</small></span></span></td>
+                  <td><span class="status-badge status-badge-published">Opublikowana</span></td>
+                  <td>WieszczY</td>
+                  <td>12 czerwca 2026</td>
+                  <td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td>
+                </tr>
+                <tr data-content-row data-status="published">
+                  <td><span class="content-title-cell"><span class="content-icon"
+                        aria-hidden="true">PG</span><span><strong>O projekcie</strong><br><small
+                          class="text-secondary">/o-projekcie</small></span></span></td>
+                  <td><span class="status-badge status-badge-published">Opublikowana</span></td>
+                  <td>Redaktor</td>
+                  <td>11 czerwca 2026</td>
+                  <td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td>
+                </tr>
+                <tr data-content-row data-status="draft">
+                  <td><span class="content-title-cell"><span class="content-icon"
+                        aria-hidden="true">PG</span><span><strong>Dokumentacja</strong><br><small
+                          class="text-secondary">/dokumentacja</small></span></span></td>
+                  <td><span class="status-badge status-badge-draft">Szkic</span></td>
+                  <td>WieszczY</td>
+                  <td>10 czerwca 2026</td>
+                  <td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td>
+                </tr>
+                <tr data-content-row data-status="archived">
+                  <td><span class="content-title-cell"><span class="content-icon"
+                        aria-hidden="true">PG</span><span><strong>Stara oferta</strong><br><small
+                          class="text-secondary">/oferta-2025</small></span></span></td>
+                  <td><span class="status-badge status-badge-archived">Archiwalna</span></td>
+                  <td>Administrator</td>
+                  <td>3 stycznia 2026</td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal"
+                      data-bs-target="#deleteModal">Usuń</button>
+                  </td>
+                </tr>
+                <tr data-filter-empty hidden>
+                  <td colspan="5" class="py-5 text-center text-secondary">Brak stron spełniających wybrane kryteria.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <nav class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mt-3"
+            aria-label="Paginacja stron">
+            <span class="small text-secondary">Wyświetlono 1-4 z 12 stron</span>
+            <ul class="pagination admin-pagination mb-0">
+              <li class="page-item disabled"><span class="page-link">Poprzednia</span></li>
+              <li class="page-item active" aria-current="page"><span class="page-link">1</span></li>
+              <li class="page-item"><a class="page-link" href="#components">2</a></li>
+              <li class="page-item"><a class="page-link" href="#components">3</a></li>
+              <li class="page-item"><a class="page-link" href="#components">Następna</a></li>
+            </ul>
+          </nav>
+        </div>
+
+        <div class="admin-component-block reveal">
+          <p class="showcase-label">Formularz edycji</p>
+          <form class="admin-panel" action="#components" method="post" data-admin-demo-form>
+            <div class="admin-panel-header">
+              <div>
+                <h3 class="h5 mb-1">Edytuj stronę</h3>
+                <span class="small text-secondary">Wersja robocza zapisana 2 minuty temu</span>
+              </div>
+              <span class="status-badge status-badge-draft">Szkic</span>
+            </div>
+            <div class="admin-panel-body">
+              <div class="row g-4">
+                <div class="col-lg-8">
+                  <label class="form-label" for="admin-page-title">Tytuł</label>
+                  <input class="form-control" id="admin-page-title" name="title" type="text"
+                    value="Dokumentacja miniPORTAL">
+                </div>
+                <div class="col-lg-4">
+                  <label class="form-label" for="admin-page-status">Status</label>
+                  <select class="form-select" id="admin-page-status" name="status">
+                    <option selected>Szkic</option>
+                    <option>Opublikowana</option>
+                    <option>Archiwalna</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="admin-page-slug">Slug</label>
+                  <div class="input-group">
+                    <span class="input-group-text">/</span>
+                    <input class="form-control" id="admin-page-slug" name="slug" type="text" value="dokumentacja">
+                  </div>
+                </div>
+                <div class="col-12">
+                  <span class="form-label d-block">Treść</span>
+                  <div class="editor-toolbar" role="toolbar" aria-label="Narzędzia edytora">
+                    <button class="editor-tool" type="button" aria-label="Pogrubienie">B</button>
+                    <button class="editor-tool" type="button" aria-label="Kursywa"><em>I</em></button>
+                    <button class="editor-tool" type="button" aria-label="Nagłówek">H</button>
+                    <button class="editor-tool" type="button" aria-label="Lista">L</button>
+                    <button class="editor-tool" type="button" aria-label="Link">URL</button>
+                  </div>
+                  <div class="editor-placeholder" id="admin-page-content" role="textbox" aria-label="Treść strony"
+                    contenteditable="true">
+                    Dokumentacja opisuje sposób tworzenia modułów, korzystania z ThemeInterface oraz bezpiecznej warstwy
+                    CrudApp.
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" id="page-menu" name="show_in_menu" type="checkbox" checked>
+                    <label class="form-check-label" for="page-menu">Pokaż w menu głównym</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" id="page-featured" name="featured" type="checkbox">
+                    <label class="form-check-label" for="page-featured">Wyróżnij na stronie głównej</label>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mt-4 pt-4 border-top">
+                <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal"
+                  data-bs-target="#deleteModal">Usuń stronę</button>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                  <button class="btn btn-outline-light" type="button">Podgląd</button>
+                  <button class="btn btn-primary" type="submit">Zapisz zmiany</button>
+                </div>
+              </div>
+              <div class="alert mt-3 mb-0" role="status" data-save-status hidden></div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="states" class="admin-demo-section">
+      <div class="container">
+        <div class="admin-demo-heading reveal">
+          <p class="eyebrow">04 / Stany systemowe</p>
+          <h2 class="fw-bold">Interfejs komunikuje, co właśnie się wydarzyło.</h2>
+          <p class="lead text-secondary">Zestaw obowiązkowych stanów dla panelu i modułów.</p>
+        </div>
+
+        <div class="state-grid">
+          <article class="state-card reveal">
+            <span class="state-icon" aria-hidden="true">OK</span>
+            <h3 class="h5">Operacja zakończona</h3>
+            <p class="text-secondary">Strona została opublikowana, a cache odświeżony.</p>
+            <button class="btn btn-sm btn-outline-light" type="button">Zobacz stronę</button>
+          </article>
+          <article class="state-card reveal reveal-delay-1">
+            <span class="state-icon" aria-hidden="true">ER</span>
+            <h3 class="h5">Nie udało się zapisać</h3>
+            <p class="text-secondary">Sprawdź zaznaczone pola i spróbuj ponownie.</p>
+            <button class="btn btn-sm btn-outline-danger" type="button">Pokaż błędy</button>
+          </article>
+          <article class="state-card reveal reveal-delay-2">
+            <span class="state-code">403</span>
+            <h3 class="h5">Brak uprawnienia</h3>
+            <p class="text-secondary">Twoja rola nie posiada wymaganego uprawnienia `pages.delete`.</p>
+            <button class="btn btn-sm btn-outline-light" type="button">Wróć</button>
+          </article>
+          <article class="state-card reveal">
+            <span class="state-code">404</span>
+            <h3 class="h5">Nie znaleziono widoku</h3>
+            <p class="text-secondary">Moduł lub trasa nie są obecnie dostępne.</p>
+            <button class="btn btn-sm btn-outline-light" type="button">Dashboard</button>
+          </article>
+          <article class="state-card reveal reveal-delay-1">
+            <span class="state-icon" aria-hidden="true">0</span>
+            <h3 class="h5">Brak treści</h3>
+            <p class="text-secondary">Nie utworzono jeszcze żadnej strony w tym module.</p>
+            <button class="btn btn-sm btn-primary" type="button">Utwórz pierwszą</button>
+          </article>
+          <article class="state-card reveal reveal-delay-2" aria-label="Stan ładowania">
+            <span class="showcase-label mb-3">Ładowanie danych</span>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line skeleton-line-short"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line skeleton-line-short"></div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-top py-4">
+    <div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">
+      <span>miniPORTAL admin stylebook / Krok 5A</span>
+      <span>Prototyp bez aktywnego OAuth i CRUD</span>
+    </div>
+  </footer>
+
+  <div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="adminMobileSidebar"
+    aria-labelledby="adminMobileSidebarLabel">
+    <div class="offcanvas-header border-bottom">
+      <h2 class="offcanvas-title h5" id="adminMobileSidebarLabel">miniPORTAL Admin</h2>
+      <button class="btn-close btn-close-white" type="button" data-bs-dismiss="offcanvas" aria-label="Zamknij"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <nav class="admin-nav" aria-label="Mobilna nawigacja panelu">
+        <a class="admin-nav-link active" href="#dashboard" data-bs-dismiss="offcanvas"><span
+            class="admin-nav-icon">DB</span> Dashboard</a>
+        <a class="admin-nav-link" href="#components" data-bs-dismiss="offcanvas"><span class="admin-nav-icon">PG</span>
+          Strony</a>
+        <a class="admin-nav-link" href="#components" data-bs-dismiss="offcanvas"><span class="admin-nav-icon">AR</span>
+          Artykuły</a>
+        <a class="admin-nav-link" href="#states" data-bs-dismiss="offcanvas"><span class="admin-nav-icon">US</span>
+          Użytkownicy</a>
+        <a class="admin-nav-link" href="#states" data-bs-dismiss="offcanvas"><span class="admin-nav-icon">MD</span>
+          Moduły</a>
+        <a class="admin-nav-link" href="#states" data-bs-dismiss="offcanvas"><span class="admin-nav-icon">ST</span>
+          Ustawienia</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="modal fade admin-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="deleteModalLabel">Usunąć stronę?</h2>
+          <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+        </div>
+        <div class="modal-body">
+          <p>Ta operacja przeniesie stronę do kosza. Trwałe usunięcie danych będzie wymagało osobnego potwierdzenia.</p>
+          <div class="alert alert-warning mb-0" role="alert">Akcja zostanie zapisana w audit logu.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-light" type="button" data-bs-dismiss="modal">Anuluj</button>
+          <button class="btn btn-danger" type="button" data-bs-dismiss="modal">Przenieś do kosza</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
+  <script src="assets/js/site.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+
+</html>

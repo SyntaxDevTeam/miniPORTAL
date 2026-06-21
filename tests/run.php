@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
+use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
+use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
@@ -31,12 +33,14 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
+use SyntaxDevTeam\Cms\Installer\Installer;
 
 require_once dirname(__DIR__) . '/core/Autoloader.php';
 
 Autoloader::register();
 
 require_once dirname(__DIR__) . '/templates/default/theme.php';
+require_once dirname(__DIR__) . '/install/cms-source/Installer.php';
 
 $failures = [];
 $test = static function (string $name, callable $callback) use (&$failures): void {
@@ -521,8 +525,12 @@ $test('Admin menu keeps entries from the same section together', static function
 $test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
     $navigation = new PublicNavigationRegistry();
     $navigation->add('module.docs', 'Dokumentacja', '/wiki', 'none', 10);
+    $navigation->add('module.projects', 'Projekty', '/projects', 'none', 20);
 
-    $legacy = $navigation->items(['module.docs' => 'footer'])[0];
+    $legacy = array_values(array_filter(
+        $navigation->items(['module.docs' => 'footer']),
+        static fn (array $item): bool => $item['id'] === 'module.docs'
+    ))[0];
     $assert($legacy['label'] === 'Dokumentacja');
     $assert($legacy['area'] === 'footer');
     $assert(!$legacy['show_main']);
@@ -533,13 +541,44 @@ $test('Public navigation supports custom labels and multiple placements', static
             'label' => 'Baza wiedzy',
             'main' => true,
             'footer' => true,
+            'order' => 90,
         ],
-    ])[0];
+        'module.projects' => ['label' => 'Projekty', 'main' => true, 'footer' => false, 'order' => 5],
+    ]);
+    $assert($configured[0]['id'] === 'module.projects');
+    $configured = $configured[1];
     $assert($configured['default_label'] === 'Dokumentacja');
     $assert($configured['label'] === 'Baza wiedzy');
     $assert($configured['area'] === 'main');
     $assert($configured['show_main']);
     $assert($configured['show_footer']);
+    $assert($configured['order'] === 90);
+});
+
+$test('Admin search index filters entries by ACL and imports menu keywords', static function () use ($assert): void {
+    $menu = new AdminMenuRegistry();
+    $menu->add('Treść', 'Zespół', '/admin/team', 'TM', 'team.manage', 40);
+    $search = new AdminSearchRegistry();
+    $search->add('team.create', 'Dodaj członka', 'Nowy profil zespołu', '/admin/team/create', ['team'], 'team.manage');
+    $search->importMenu($menu->items());
+
+    $assert($search->visibleFor([]) === []);
+    $items = $search->visibleFor(['team.manage']);
+    $assert(count($items) === 2);
+    $assert(str_contains(implode(' ', array_column($items, 'keywords')), 'team'));
+});
+
+$test('Dashboard registry exposes configurable module metrics', static function () use ($assert): void {
+    $dashboard = new DashboardRegistry();
+    $dashboard->addMetric('team.members', 'Zespół', 'Profile', 'TM', static fn (): array => [
+        'value' => 3,
+        'detail' => '2 widoczne',
+    ], 'team.manage');
+
+    $assert($dashboard->metrics([], []) === []);
+    $metrics = $dashboard->metrics(['team.manage'], []);
+    $assert($metrics[0]['value'] === '3');
+    $assert($dashboard->metrics(['team.manage'], ['team.members' => false]) === []);
 });
 
 $test('Articles module exposes a configurable public navigation link', static function () use ($assert): void {
@@ -578,6 +617,7 @@ $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews
         'public_theme_color' => '#112233',
         'public_google_site_verification' => 'google-token_123',
         'public_bing_site_verification' => 'bing-token_123',
+        'public_footer_text' => 'Powered by miniPORTAL by SyntaxDevTeam',
     ]);
     $theme->set_public_navigation([[
         'title' => 'Projekty',
@@ -611,6 +651,10 @@ $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews
     $assert(str_contains($html, 'name="google-site-verification" content="google-token_123"'));
     $assert(str_contains($html, 'name="msvalidate.01" content="bing-token_123"'));
     $assert(str_contains($html, 'href="/projects" aria-current="page"'));
+    $assert(str_contains($html, '&copy; ' . date('Y') . ' Powered by '));
+    $assert(str_contains($html, 'href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>'));
+    $assert(str_contains($html, 'href="https://syntaxdevteam.pl">SyntaxDevTeam</a>'));
+    $assert(!str_contains($html, '<span>Powered by miniPORTAL by SyntaxDevTeam</span>'));
     $assert(str_contains($html, '<main id="content" tabindex="-1">'));
     $assert(str_contains($html, 'application/ld+json'));
     $assert(str_contains($html, '"@type":"WebSite"'));
@@ -630,6 +674,36 @@ $test('Public error metadata prevents indexing', static function () use ($assert
 
     $assert(str_contains($html, 'name="robots" content="noindex, nofollow"'));
     $assert(!str_contains($html, 'rel="canonical"'));
+});
+
+$test('Hero split renders a vertical acrostic from configured words', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_homepage([[
+        'key' => 'top',
+        'type' => 'hero',
+        'eyebrow' => 'Software',
+        'acrostic_words' => "SYSTEM\nYIELDING\nNEXT-GEN\nTOOLS\nAPPS\nX-PLATFORM",
+        'title' => 'SyntaxDevTeam',
+        'content_html' => '<p>Opis.</p>',
+        'content_format' => 'html',
+        'layout' => 'split',
+        'button_label' => '',
+        'button_url' => '',
+        'items' => [],
+    ]], [], false);
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '<h1 class="hero-acrostic" aria-label="SYSTEM YIELDING NEXT-GEN TOOLS APPS X-PLATFORM">'));
+    $assert(str_contains($html, '<strong class="hero-acrostic-initial">S</strong><span>YSTEM</span>'));
+    $assert(str_contains($html, '<strong class="hero-acrostic-initial">X</strong><span>-PLATFORM</span>'));
+    $assert(str_contains($html, 'class="terminal"'));
+    $assert(!str_contains($html, '<h1 class="home-title fw-bold">SyntaxDevTeam</h1>'));
+    $css = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/css/homepage.css');
+    $assert(str_contains($css, '.hero-acrostic-word'));
+    $assert(str_contains($css, 'white-space: nowrap'));
+    $assert(!str_contains($css, '.hero-acrostic::before'));
+    $assert(!str_contains($css, 'flex: 0 0 0.95em'));
 });
 
 $test('Theme form controls expose browser validation and accessible help', static function () use ($assert): void {
@@ -734,6 +808,25 @@ $test('Admin panel grid renders compact responsive layout wrappers', static func
     $assert(substr_count($html, 'class="admin-panel"') === 2);
 });
 
+$test('Admin settings grid renders balanced panel columns', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->start_admin_panel_grid('settings');
+    $theme->start_admin_panel_column();
+    $theme->start_admin_panel('Branding');
+    $theme->end_admin_panel();
+    $theme->end_admin_panel_column();
+    $theme->start_admin_panel_column();
+    $theme->start_admin_panel('SEO');
+    $theme->end_admin_panel();
+    $theme->end_admin_panel_column();
+    $theme->end_admin_panel_grid();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'admin-panel-grid admin-panel-grid-settings'));
+    $assert(substr_count($html, 'class="admin-panel-column"') === 2);
+});
+
 $test('Admin content renders module actions in a full-width toolbar', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_name' => 'SyntaxDevTeam',
@@ -763,6 +856,15 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
         'public_name' => 'SyntaxDevTeam',
         'public_meta_description' => 'Opis testowy',
     ]);
+    $theme->set_admin_search_items([[
+        'id' => 'team.create',
+        'label' => 'Dodaj członka zespołu',
+        'description' => 'Nowy profil zespołu',
+        'href' => 'index.php?route=/admin/team/create',
+        'section' => 'Treść',
+        'keywords' => 'team profil użytkownik',
+        'order' => 40,
+    ]]);
 
     ob_start();
     $theme->start_admin_page('Panel', [], '/admin', [
@@ -788,7 +890,56 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, 'class="admin-brand-logo"'));
     $assert(str_contains($html, 'img/brand/admin-logo.png'));
     $assert(str_contains($html, 'name="robots" content="noindex, nofollow"'));
+    $assert(str_contains($html, 'data-admin-search-input'));
+    $assert(str_contains($html, 'data-admin-search-item'));
+    $assert(str_contains($html, 'Dodaj członka zespołu'));
     $assert(!str_contains($html, 'admin-sidebar-footer'));
+});
+
+$test('Admin action table aligns links and forms in one action group', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_admin_action_table(['Nazwa'], [[
+        'cells' => ['Test'],
+        'actions' => [
+            ['label' => 'Edytuj', 'href' => '/edit', 'variant' => 'primary'],
+            ['label' => 'Usuń', 'action' => '/delete', 'variant' => 'danger'],
+        ],
+    ]], 'csrf-token');
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, 'class="admin-table-actions"'));
+    $assert(str_contains($html, 'class="admin-table-action-form"'));
+    $assert(!str_contains($html, ' me-1'));
+});
+
+$test('Installer exposes a complete installable module catalog', static function () use ($assert): void {
+    $installer = new Installer(dirname(__DIR__));
+    $modules = $installer->moduleOptions();
+    $ids = array_column($modules, 'id');
+
+    $assert($modules !== []);
+    $assert(in_array('core_auth', $ids, true));
+    $assert(in_array('core_pages', $ids, true));
+    $assert(in_array('system_admin', $ids, true));
+    $required = array_column(array_filter(
+        $modules,
+        static fn (array $module): bool => $module['required']
+    ), 'id');
+    $assert($required === ['core_auth', 'core_pages', 'system_admin']);
+});
+
+$test('CMS distribution contains installer and excludes local state', static function () use ($assert): void {
+    $distribution = dirname(__DIR__) . '/install/cms';
+
+    foreach (['index.php', 'install.php', 'installer/Installer.php', 'INSTALL.md', '.htaccess'] as $file) {
+        $assert(is_file($distribution . '/' . $file), 'Brak pliku dystrybucji: ' . $file);
+    }
+    $assert(!file_exists($distribution . '/config/installed.env'));
+    $assert(!file_exists($distribution . '/config/installed.lock'));
+    $assert(!file_exists($distribution . '/tests'));
+    $assert(!file_exists($distribution . '/docs'));
+    $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
 });
 
 $test('Connected identities page returns to profile', static function () use ($assert): void {
@@ -830,7 +981,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.6.0');
+    $assert($system->version === '1.7.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -856,7 +1007,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $team = $validator->validate(dirname(__DIR__) . '/modules/Team');
     $assert($team->id === 'team');
-    $assert($team->version === '1.0.0');
+    $assert($team->version === '1.1.0');
     $assert($team->type === 'extension');
     $assert($team->installFile === 'install.sql');
     $assert($team->uninstallFile === 'uninstall.sql');
@@ -864,7 +1015,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $projects = $validator->validate(dirname(__DIR__) . '/modules/Projects');
     $assert($projects->id === 'projects');
-    $assert($projects->version === '1.1.0');
+    $assert($projects->version === '1.2.0');
     $assert($projects->type === 'extension');
     $assert($projects->requiredModules === ['core_auth', 'core_pages', 'wikipedia']);
     $assert($projects->installFile === 'install.sql');
@@ -872,7 +1023,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $builds = $validator->validate(dirname(__DIR__) . '/modules/BuildExplorer');
     $assert($builds->id === 'build_explorer');
-    $assert($builds->version === '1.2.0');
+    $assert($builds->version === '1.3.0');
     $assert($builds->type === 'extension');
     $assert($builds->requiredModules === ['core_auth', 'projects']);
     $assert($builds->installFile === 'install.sql');
@@ -933,7 +1084,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '1.6.0';"));
+    $assert(str_contains($systemSource, "return '1.7.0';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 

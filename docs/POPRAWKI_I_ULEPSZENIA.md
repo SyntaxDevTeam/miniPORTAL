@@ -35,6 +35,54 @@ powstają z uproszczonego wariantu znaku, używają wygładzania wielopróbkoweg
 dostępne jako PNG 16-256 px oraz wielowarstwowe ICO. Logo publicznej strony
 głównej pozostaje bez zmian. (gotowe)
 
+Treść przycisków w publicznej nawigacji i tabelach panelu jest wyśrodkowana w obu
+osiach. Linki i formularze akcji korzystają ze wspólnego kontenera flex, dzięki
+czemu zachowują równą wysokość i linię bazową również po zwiększeniu celów
+dotykowych do 44 px. (gotowe)
+
+Czysta dystrybucja znajduje się w `install/cms`. Kreator `install.php` sprawdza
+środowisko, konfiguruje stronę i OAuth, instaluje wybrane moduły w pustej bazie,
+tworzy pierwszego Ownera oraz generuje lokalne sekrety bez ręcznej edycji plików.
+Pakiet jest odtwarzany przez `bin/build-cms-distribution.php`. (gotowe)
+
+Sekcja strony głównej `Hero / Split` ma opcjonalne pole akrostychu. Wartość może
+być wpisana ze spacjami lub po jednym wyrazie w linii; zapis normalizuje ją do
+osobnych wierszy, a oba motywy subtelnie podświetlają pierwsze litery. Przykład
+`SYSTEM YIELDING NEXT-GEN TOOLS APPS X-PLATFORM` tworzy pionowe `SYNTAX`. (gotowe)
+
+Publiczna podstrona `/p/miniportal` opisuje funkcje, architekturę, bezpieczeństwo,
+moduły, instalację i technologie miniPORTAL w formacie stron projektowych.
+Podpis stopki linkuje `miniPORTAL` do tej podstrony, a `SyntaxDevTeam` do strony
+głównej zespołu, bez powtarzania identycznego tekstu konfigurowalnej stopki. (gotowe)
+
+Panel Ustawienia nie zestawia już krótkiego Brandingu bezpośrednio z wysokim SEO,
+co tworzyło dużą pustą przestrzeń. Branding, Szablon i Cache są ułożone w lewym
+stosie, SEO w prawej kolumnie, a publiczna nawigacja zajmuje pełną szerokość niżej.
+Na węższym ekranie całość przechodzi do jednej kolumny. (gotowe)
+
+Globalna wyszukiwarka panelu korzysta z indeksu Core, automatycznie obejmuje menu,
+respektuje ACL oraz pozwala modułom zgłaszać dodatkowe akcje i słowa kluczowe.
+Wyniki pojawiają się od dwóch znaków i obsługują klawiaturę. (gotowe)
+
+Publiczna nawigacja modułów ma edytowalną kolejność; niższa liczba przesuwa link
+wcześniej zarówno w menu głównym, jak i stopce. (gotowe)
+
+Dashboard nie pokazuje już developerskiego panelu `Stan architektury`. Nowy
+`DashboardRegistry` pozwala modułom dodawać metryki i tabele z ACL, obsługą błędu
+danych i konfigurowalną widocznością. Projekty, Build Explorer i Team zgłaszają
+pierwsze statystyki. (gotowe)
+
+Formularz `/admin/team/create` został sprawdzony w sesji Ownera i zwraca 200.
+Pobieranie listy użytkowników jest osłonięte, więc błąd repozytorium pokazuje stan
+w panelu zamiast nieobsłużonego HTTP 500. (gotowe)
+
+Korekta akrostychu: w Hero / Split zastępuje on główny nagłówek po lewej, pozostaje
+semantycznym `h1`, a terminal `workspace status` po prawej jest zachowany. (gotowe)
+
+Typografia akrostychu nie rezerwuje osobnej kolumny dla pierwszych liter. Litera
+wyróżniona kolorem pozostaje bezpośrednią częścią wyrazu, a ograniczona skala i
+nierozdzielanie słów utrzymują stabilny układ hero obok terminala. (gotowe)
+
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)

@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-20 - przezroczysty sygnet panelu i favicony HD.
+> **Ostatnia aktualizacja:** 2026-06-21 - czysta dystrybucja i kreator instalacji.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -141,6 +141,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `build_explorer` Etap 2: bezpośredni upload JAR, automatyczny rozmiar i SHA-256 oraz generowana, edytowalna nazwa pliku. |
 | [x] | `projects` Etap 2: adaptacyjna siatka i powiązane zasoby bez duplikowanego opisu. |
 | [x] | `build_explorer` Etap 3: hierarchia projekt/kanał/wersja/build oraz uwierzytelniony import DEV/WIP z CI. |
+| [x] | `core_pages` 1.1.0: opcjonalny pionowy akrostych dla sekcji Hero / Split. |
+| [x] | `core_pages` 1.2.0: publiczna podstrona projektu miniPORTAL i linkowany podpis stopki. |
 
 ### Krok 6 - system modułów
 
@@ -166,6 +168,21 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
 | [x] | Kontrolowane zatwierdzanie podpisanego pakietu z kwarantanny do `modules/` bez instalacji i wykonania kodu |
 | [x] | Polityka retencji i archiwizacji audit logu |
+
+### Krok 7 - dystrybucja i kreator instalacji
+
+| Status | Zadanie |
+|--------|---------|
+| [x] | Wyrównane przyciski i grupy akcji obu motywów |
+| [x] | Czysty pakiet runtime w `install/cms` bez lokalnych danych i sekretów |
+| [x] | Kreator wymagań, strony, MySQL, OAuth, modułów i pierwszego Ownera |
+| [x] | Atomowy zapis konfiguracji i blokada ponownej instalacji |
+| [x] | Integracyjna instalacja wszystkich modułów na czystej bazie |
+| [x] | Zbalansowany, responsywny układ paneli strony Ustawienia |
+| [x] | Rozszerzalny indeks wyszukiwania panelu z ACL i słowami kluczowymi modułów |
+| [x] | Kolejność linków publicznej nawigacji modułów |
+| [x] | DashboardRegistry z konfigurowalnymi metrykami i panelami modułów |
+| [x] | Obsłużony stan błędu formularza Team bez HTTP 500 |
 
 ## Następne kroki
 
@@ -266,6 +283,12 @@ Brak aktywnych blokerów.
 | 2026-06-20 | CI monorepo `PunisherX` zawsze buduje całość, ale publikuje do osobnych projektów `punisherx`, `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge` wyłącznie komponenty dotknięte zmianami. Pliki wspólne Gradle oznaczają wszystkie trzy komponenty. |
 | 2026-06-20 | `core_auth` 1.5.0 wprowadza role Owner, Administrator, Maintainer, Redaktor, Audytor i Support. Owner ma wildcard i ochronę ostatniego aktywnego konta; `system_admin` 1.5.1 usuwa `Wzorce UI`, `/admin/design-system` i przycisk `Admin stylebook`. |
 | 2026-06-20 | `system_admin` 1.6.0 rozdziela Branding od SEO i udostępniania. Motywy generują canonical, robots, pełne social cards i Organization/WebSite JSON-LD oraz wzmacniają fokus, landmarki, cele dotykowe i redukcję ruchu. |
+| 2026-06-21 | `install/cms` jest czystą dystrybucją odtwarzaną przez generator. Kreator instaluje schemat i moduły na pustej bazie, tworzy pierwszego Ownera GitHub, generuje sekrety i zapisuje lokalną konfigurację bez ręcznej edycji. |
+| 2026-06-21 | `core_pages` 1.1.0 dodaje tekstowy akrostych sekcji Hero / Split. Core normalizuje maksymalnie 12 wyrazów, a oba motywy renderują je pionowo z wyróżnionymi pierwszymi literami. |
+| 2026-06-21 | `core_pages` 1.2.0 publikuje `/p/miniportal` jako opis systemu SyntaxDevTeam. Stopka linkuje nazwę miniPORTAL do tej strony, a SyntaxDevTeam do strony głównej zespołu. |
+| 2026-06-21 | `system_admin` 1.6.1 układa Branding, Szablon i Cache w lewej kolumnie ustawień, SEO w prawej, a nawigację w pełnym rzędzie; Theme udostępnia ogólny komponent kolumn paneli. |
+| 2026-06-21 | `system_admin` 1.7.0 dodaje indeks wyszukiwania panelu, kolejność nawigacji i konfigurowalne hooki Dashboardu. `team` 1.1.0, `projects` 1.2.0 i `build_explorer` 1.3.0 zgłaszają akcje lub statystyki. |
+| 2026-06-21 | Akrostych Hero / Split zastępuje nagłówek po lewej jako `h1`; terminal statusu po prawej pozostaje bez zmian. |
 
 ## Historia sesji
 

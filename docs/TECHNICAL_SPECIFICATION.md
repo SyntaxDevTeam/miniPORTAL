@@ -630,6 +630,9 @@ Stan Kroku 5:
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
 - elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
   pozostają wyłączną odpowiedzialnością aktywnego motywu,
+- sekcja `hero` z układem `split` może przechowywać opcjonalną listę wyrazów
+  akrostychu; Core normalizuje tekst, a motyw układa wyrazy pionowo i wyróżnia
+  pierwsze litery bez zapisywania HTML w module,
 - oba rejestrują menu i trasy przez `ModuleRegistry`,
 - oba składają panel z ogólnych komponentów `ThemeInterface`,
 - oba przechowują źródłową treść wraz z formatem `html` albo `markdown`,
@@ -653,14 +656,38 @@ Stan fundamentu Kroku 6:
 - rozszerzenia mogą być uruchamiane bez modyfikacji konfiguracji Core przez
   zwracający `callable` plik fabryki wskazany w zweryfikowanym `info.json`,
 - Front Controller otrzymuje gotowy rejestr bez znajomości konstruktorów modułów,
+- `AdminSearchRegistry` indeksuje menu i akcje zgłaszane przez
+  `AdminSearchProviderInterface`, filtrując wyniki według ACL użytkownika,
+- `DashboardRegistry` przyjmuje bezpieczne metryki i tabele od
+  `DashboardProviderInterface`; widoczność każdego elementu modułu jest zapisywana
+  w ustawieniach bez przechowywania wykonywalnego kodu w bazie,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
 - `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
   migracji, aktualizacji, aktywacji i odinstalowania, eksport audytu oraz diagnostykę
   cache i kluczy wydawców,
+- widok ustawień używa ogólnych kolumn paneli Theme: krótsze formularze Branding,
+  Szablon i Cache tworzą lewy stos, wysokie SEO prawą kolumnę, a nawigacja zajmuje
+  osobny pełny rząd; poniżej 1200 px układ przechodzi do jednej kolumny,
+- ustawienia publicznej nawigacji przechowują etykietę, niezależną widoczność w
+  menu i stopce oraz kolejność 0-65535 nadpisującą domyślną kolejność modułu,
 - `install/mod/LearningModule` dokumentuje pełny kontrakt modułu, fabrykę, CRUD przez
   `CrudApp`, ACL, CSRF, migrację i oba warianty odinstalowania,
 - `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;
   zmiana statusu i roli jest wykonywana atomowo przez repozytorium `CrudApp`.
+
+### Krok 7: dystrybucja i instalacja zerowej konfiguracji
+
+1. Generator tworzy w `install/cms` wyłącznie pliki runtime, migracje i assety.
+2. Kreator WWW sprawdza PHP, rozszerzenia i zapis do wymaganych katalogów.
+3. Instalacja wymaga pustej bazy, uruchamia schemat Core oraz wybranych modułów
+   w kolejności zależności i zapisuje ich stan bazowy wraz z SHA-256 migracji.
+4. Pierwszy Owner jest wiązany ze stałym numerycznym ID konta GitHub.
+5. Sekrety trafiają do lokalnego `config/installed.env`, a ponowne użycie kreatora
+   blokuje `config/installed.lock`; oba pliki pozostają poza dystrybucją.
+6. Błąd instalacji sprząta tabele utworzone w początkowo pustej bazie.
+
+Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
+MariaDB przez instalację wszystkich 11 modułów i utworzenie jednego Ownera.
 
 ---
 

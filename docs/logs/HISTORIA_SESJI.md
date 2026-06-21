@@ -1770,3 +1770,126 @@ oraz kontrola konfiguracji produkcyjnej.
 
 **Weryfikacja:** parser INI zaakceptował 50 kluczy, strona po naprawie zwraca 200,
 generator odtwarza komplet ikon, testy repozytorium i lint PHP/JS przechodzą.
+
+### Sesja: 2026-06-21 - Wyrównanie przycisków i dystrybucja instalacyjna
+
+**Faza i krok specyfikacji:** Krok 2/3 oraz Krok 7 - korekta komponentów obu
+motywów i przygotowanie instalacji zerowej konfiguracji.
+
+**Wykonano:**
+- przyciski obu motywów wyśrodkowano przez `inline-flex`, wspólną wysokość, linię
+  tekstu i kontenery akcji tabel łączące linki z formularzami,
+- dodano powtarzalny generator `bin/build-cms-distribution.php` oraz czysty folder
+  `install/cms` bez produkcyjnego środowiska, blokady i danych cache,
+- kreator WWW sprawdza PHP i rozszerzenia, przyjmuje ustawienia strony, MySQL,
+  GitHub OAuth, opcjonalnych providerów oraz wybór modułów,
+- instalator odtwarza aktualne schematy w kolejności zależności, zapisuje SHA-256
+  stanu migracji, tworzy pierwszego Ownera na podstawie numerycznego ID GitHub,
+  zapisuje konfigurację atomowo i blokuje ponowną instalację,
+- lokalny `config/installed.env` ma pierwszeństwo przed globalnym plikiem `/etc`,
+  natomiast jawny `MINIPORTAL_ENV_FILE` nadal ma najwyższy priorytet,
+- dodano test katalogu modułów, kompletności dystrybucji oraz integracyjny test
+  instalatora na odseparowanej bazie.
+
+**Weryfikacja:** pełne testy repozytorium; integracyjna instalacja 11 modułów i
+jednego Ownera na czystej MariaDB; smoke test HTTP kreatora z kodem 200, CSP,
+CSRF i `noindex`; pełny lint PHP oraz kontrola `git diff --check`.
+
+### Sesja: 2026-06-21 - Akrostych Hero / Split
+
+**Faza i krok specyfikacji:** Krok 5C - rozszerzenie danych sekcji strony głównej
+i ich prezentacji przez oba aktywne motywy.
+
+**Wykonano:**
+- dodano opcjonalne pole `Akrostych hero`, przyjmujące wyrazy rozdzielone spacją
+  albo nową linią i normalizujące je do jednego wyrazu na wiersz,
+- ograniczono wartość do 12 wyrazów, 60 znaków na wyraz i 500 znaków łącznie,
+- dla `hero` w układzie `split` oba motywy pokazują wyrazy pionowo jako główny
+  nagłówek `h1`, z subtelnie podświetloną pierwszą literą; terminal pozostaje obok,
+- dodano migrację `20260621_homepage_hero_acrostic.sql`, zaktualizowano pełny
+  `install.sql` i podniesiono `core_pages` z 1.0.0 do 1.1.0,
+- migrację wykonano na produkcyjnej bazie, a schemat świeżej dystrybucji pozostaje
+  zgodny z aktualnym stanem modułu.
+
+**Weryfikacja:** test regresji HTML potwierdza pionowe `SYNTAX`, pełne testy i lint
+PHP przechodzą, migracja produkcyjna utworzyła `acrostic_words VARCHAR(500)`.
+
+### Sesja: 2026-06-21 - Podpis Powered by w stopce
+
+**Faza i krok specyfikacji:** Krok 2/3 - spójność brandingu obu aktywnych motywów.
+
+**Wykonano:** podpis stopki zmieniono na dynamiczne
+`© {rok} Powered by miniPORTAL by {nazwa strony}` w obu motywach i prototypach.
+
+**Weryfikacja:** test regresji HTML, lint PHP i przebudowa czystej dystrybucji.
+
+### Sesja: 2026-06-21 - Podstrona projektu miniPORTAL i linki stopki
+
+**Faza i krok specyfikacji:** Krok 3/5C - publiczna treść projektowa i wspólny
+layout obu aktywnych motywów.
+
+**Wykonano:**
+- opublikowano `/p/miniportal` jako dokument projektowy Markdown z opisem funkcji,
+  architektury, zabezpieczeń, modułów, instalatora i technologii,
+- dodano opis SEO, podsumowanie, nadtytuł oraz odnośniki do repozytorium i zespołu,
+- `miniPORTAL` w stopce prowadzi do `https://syntaxdevteam.pl/p/miniportal`, a
+  `SyntaxDevTeam` do `https://syntaxdevteam.pl` w obu motywach i prototypach,
+- identyczny konfigurowalny tekst `Powered by miniPORTAL by SyntaxDevTeam` jest
+  pomijany, aby podpis nie był zdublowany; inne teksty stopki pozostają widoczne,
+- dodano idempotentną migrację danych i podniesiono `core_pages` do 1.2.0.
+
+**Weryfikacja:** migracja produkcyjna, HTTP 200 dla `/p/miniportal`, poprawny
+canonical i opis SEO, testy linków stopki, pełny lint oraz przebudowa dystrybucji.
+
+### Sesja: 2026-06-21 - Zbalansowany układ Ustawień
+
+**Faza i krok specyfikacji:** Krok 3/5A - rozszerzenie ogólnych komponentów Theme
+i uporządkowanie responsywnego widoku administracyjnego.
+
+**Wykonano:**
+- dodano do `ThemeInterface` ogólny komponent kolumny paneli i zaimplementowano
+  go w obu aktywnych motywach,
+- Branding, Szablon i Cache tworzą lewy stos, a wysokie SEO prawą kolumnę,
+- publiczna nawigacja modułów zajmuje pełną szerokość w kolejnym rzędzie,
+- pojedynczy panel siatki automatycznie rozciąga się na wszystkie kolumny,
+- poniżej 1200 px układ ustawień przechodzi do jednej kolumny,
+- podniesiono `system_admin` do 1.6.1 bez migracji schematu bazy.
+
+**Weryfikacja:** test HTML dwóch kolumn paneli, pełne testy repozytorium, lint PHP,
+kontrola CSS obu motywów i przebudowa czystej dystrybucji.
+
+### Sesja: 2026-06-21 - Wyszukiwanie, nawigacja i hooki Dashboardu
+
+**Faza i krok specyfikacji:** Krok 5A/5B i Krok 6 - funkcjonalny panel oraz
+rozszerzalne kontrakty modułów bez zależności od HTML.
+
+**Wykonano:**
+- dodano `AdminSearchRegistry` i `AdminSearchProviderInterface`; menu jest
+  indeksowane automatycznie, moduły dopisują akcje i słowa kluczowe, a ACL filtruje
+  wpisy przed przekazaniem ich do motywu,
+- oba motywy renderują dostępne wyniki topbara, a JavaScript obsługuje filtrowanie,
+  pusty wynik, limit, Escape, strzałki i Enter,
+- publiczna nawigacja zapisuje i stosuje kolejność obok etykiety oraz miejsc,
+- dodano `DashboardRegistry` i `DashboardProviderInterface` dla metryk oraz tabel;
+  widoczność zgłoszeń konfiguruje się w Ustawieniach,
+- usunięto `Stan architektury`; Team, Projekty i Build Explorer dodają statystyki,
+- `/admin/team/create` potwierdzono kodem 200 w rzeczywistej sesji Ownera, a wyjątek
+  listy użytkowników jest prezentowany jako kontrolowany stan panelu,
+- poprawiono akrostych: zastępuje `h1` hero po lewej i nie usuwa terminala statusu,
+- wersje: `system_admin` 1.7.0, `team` 1.1.0, `projects` 1.2.0,
+  `build_explorer` 1.3.0.
+
+**Weryfikacja:** testy rejestrów, kolejności, ACL i HTML; smoke testy Ownera dla
+Dashboardu, Ustawień i Team zwracają 200; pełny lint, walidacja CSS/JS i świeża
+instalacja dystrybucji.
+
+### Sesja: 2026-06-21 - Korekta typografii akrostychu
+
+**Faza i krok specyfikacji:** Krok 2/3 i 5C - responsywna prezentacja danych Hero.
+
+**Wykonano:** usunięto osobną szerokość pierwszej litery i dekoracyjną linię,
+zmniejszono responsywną skalę nagłówka oraz zabezpieczono każdy wyraz przed
+łamaniem. Wyróżniona litera tworzy teraz ciągły wyraz z pozostałą częścią.
+
+**Weryfikacja:** parser CSS obu motywów, test HTML Hero, kontrola publicznej strony
+z akrostychem i terminalem oraz pełne testy repozytorium.
