@@ -43,6 +43,8 @@ Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagam
 Zmiany stron, artykułów, sekcji i motywu automatycznie unieważniają zależne wpisy.
 Sekcja strony głównej typu `hero` w układzie `split` może opcjonalnie wyświetlać
 pionowy akrostych: wyrazy są ustawiane w panelu, a motyw wyróżnia ich pierwsze litery.
+Nagłówki sekcji przyjmują do czterech ręcznych wierszy; Enter określa zamierzone
+miejsce podziału, a etykiety nawigacji pozostają jednoliniowe.
 Moduły `wikipedia` i `articles` dodają publiczne sekcje dokumentacji oraz artykułów.
 Aktywne moduły mogą deklarować publiczne linki, którym administrator nadaje etykietę
 i niezależnie przypina je do głównego menu, stopki albo obu obszarów w `/admin/settings`.
@@ -107,8 +109,19 @@ prowadzi przez projekt, kanał, wersję i historię buildów pod `/builds`.
 GitHub Actions może publikować DEV/WIP przez `POST /api/builds/ci/{slug-projektu}`
 z JSON-em oraz sekretem `BUILD_CI_TOKEN` w `X-Build-Token` lub Bearer.
 
+`econify` jest dedykowanym, wieloserwerowym centrum bota ekonomicznego Discord.
+Rozdziela właściciela platformy, administrację konkretnego serwera i gracza,
+zapewnia ustawienia ekonomii, podatki, VIP daily, plany Freemium/Premium, sklep,
+transakcyjny portfel, historię oraz giełdę. Idempotentny endpoint bota aktualizuje
+saldo i postęp bez powierzania klientowi dostępu do bazy.
+
 Projekt deklaruje PHP 8.4 lub nowszy jako wymaganie runtime; PHP 8.5 nie jest już
 wymagane do uruchomienia produkcyjnego handlera.
+
+Warstwa prezentacji zawiera trzy wymienne motywy: `default`, `glassnight` oraz
+`future`. Motyw `future` przenosi neonowy, grafitowy wygląd wcześniejszego projektu
+edukacyjnego SyntaxDevTeam na aktualny `ThemeInterface`, bez przejmowania kodu ani
+zależności starego CMS-a. Motyw wybiera się w panelu `/admin/settings`.
 
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez

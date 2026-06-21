@@ -83,6 +83,17 @@ Typografia akrostychu nie rezerwuje osobnej kolumny dla pierwszych liter. Litera
 wyróżniona kolorem pozostaje bezpośrednią częścią wyrazu, a ograniczona skala i
 nierozdzielanie słów utrzymują stabilny układ hero obok terminala. (gotowe)
 
+Nagłówki sekcji strony głównej można ręcznie dzielić Enterem w maksymalnie czterech
+wierszach. Wszystkie motywy renderują podział jako kontrolowane `<br>`, nadal
+kodują treść przed HTML i pozostawiają etykiety menu w jednej linii. (gotowe)
+
+Alternatywny motyw `Future` przenosi lubiany wygląd z
+`inspiration_sources/oldcms`: grafitową siatkę, cyan/lime/magenta, neonowe linie,
+zwarte panele, duży hero i proste karty. Implementacja korzysta z aktualnego
+`ThemeInterface`, więc obejmuje stronę główną, podstrony, moduły, logowanie i panel,
+bez uruchamiania jakiegokolwiek kodu starego CMS-a. Motyw jest dostępny w
+Ustawieniach oraz kreatorze czystej instalacji. (gotowe)
+
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)
@@ -286,6 +297,18 @@ powielony w stopce albo ukryty przez ustawienia publicznej nawigacji.
 Etap 2 gotowy: publiczny katalog układa jeden projekt na pełnej szerokości, dwa
 i cztery w dwóch kolumnach, a trzy w trzech kolumnach. Karta nie duplikuje opisu;
 prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
+
+### Econify
+
+Etap 1 gotowy: dodano najbardziej rozbudowany moduł dedykowany projektu bota
+ekonomicznego. `econify` 1.0.0 obsługuje wiele serwerów Discord jako izolowane
+tenanty. Owner miniPORTAL ustawia globalne funkcje, język PL, wartości startowe
+ekonomii i limit Freemium; właściciel serwera konfiguruje walutę, podatek,
+VIP daily, użytkowników, sklep i rynek; gracz widzi wyłącznie własny portfel,
+postęp i historię. Sklep rozlicza zakup, stan magazynowy, zamówienie i historię
+w jednej transakcji. Giełda przechowuje aktywa, notowania i udziały oraz rozlicza
+kupno/sprzedaż z tym samym portfelem. Integracja bota używa osobnego tokenu i
+idempotentnych identyfikatorów zdarzeń.
 
 ### Ustawienia systemowe
 

@@ -58,6 +58,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Logo SyntaxDevTeam, favikony, Apple Touch Icon, manifest i metadane SEO |
 | [x] | Osobny przezroczysty sygnet panelu i wygładzone favicony 16-256 px |
 | [x] | Canonical, social cards, JSON-LD oraz zgodność dostępności publicznych layoutów |
+| [x] | Alternatywny motyw `future` inspirowany warstwą HTML/CSS dawnego CMS-a |
 
 ### Krok 3 - odwzorowanie prototypu w PHP
 
@@ -127,6 +128,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Nawigacja główna/stopka, kolejność i publiczne adresy `/p/slug` |
 | [x] | Powiązanie kart strony głównej z opublikowanymi podstronami |
 | [x] | Sekcje strony głównej: typ, nagłówki, treść, układ, kolejność i widoczność |
+| [x] | Kontrolowane ręczne łamanie nagłówków sekcji strony głównej |
 | [x] | Elementy sekcji kolumnowych: karty, CTA, wariant, szerokość i kolejność |
 | [x] | Kontrolowany WYSIWYG strony głównej z sanitizacją po stronie serwera |
 | [x] | Rozszerzenie WYSIWYG na zwykłe podstrony `core_pages` |
@@ -183,6 +185,18 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Kolejność linków publicznej nawigacji modułów |
 | [x] | DashboardRegistry z konfigurowalnymi metrykami i panelami modułów |
 | [x] | Obsłużony stan błędu formularza Team bez HTTP 500 |
+
+### Krok 8 - moduł dedykowany Econify
+
+| Status | Zadanie |
+|--------|---------|
+| [x] | Wieloserwerowy model tenantów Discord i trzy poziomy dostępu |
+| [x] | Globalne flagi funkcji, język PL i domyślna ekonomia bota |
+| [x] | Ustawienia waluty, podatku i VIP daily właściciela serwera |
+| [x] | Pulpit gracza z saldem, EXP, poziomem i historią |
+| [x] | Sklep Freemium/Premium z transakcyjnymi zamówieniami |
+| [x] | Giełda z notowaniami, portfelem oraz kupnem i sprzedażą |
+| [x] | Idempotentny endpoint synchronizacji zdarzeń bota |
 
 ## Następne kroki
 
@@ -290,6 +304,9 @@ Brak aktywnych blokerów.
 | 2026-06-21 | `system_admin` 1.7.0 dodaje indeks wyszukiwania panelu, kolejność nawigacji i konfigurowalne hooki Dashboardu. `team` 1.1.0, `projects` 1.2.0 i `build_explorer` 1.3.0 zgłaszają akcje lub statystyki. |
 | 2026-06-21 | Akrostych Hero / Split zastępuje nagłówek po lewej jako `h1`; terminal statusu po prawej pozostaje bez zmian. |
 | 2026-06-21 | `system_admin` 1.8.0 rozszerza diagnostykę cache i dodaje generator favicon z PNG do bezpiecznego `uploads/branding`. |
+| 2026-06-21 | Motyw `future` przenosi wygląd starego projektu edukacyjnego na pełny `ThemeInterface`; nie korzysta z dawnej logiki CMS. |
+| 2026-06-21 | `core_pages` 1.3.0 pozwala dzielić nagłówki sekcji Enterem; trzy motywy bezpiecznie renderują kontrolowane `<br>`. |
+| 2026-06-21 | `econify` 1.0.0 jest dedykowanym modułem innej instalacji miniPORTAL. Izoluje tenanty Discord, rozdziela Ownera platformy, administratora serwera i gracza oraz łączy ekonomię, sklep i giełdę przez transakcyjny portfel. Endpoint bota wymaga `ECONIFY_API_TOKEN` i idempotentnego `event_id`. |
 
 ## Historia sesji
 

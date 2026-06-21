@@ -1913,3 +1913,66 @@ cache szablonów i bezpieczne zasoby publiczne.
 **Weryfikacja:** lint PHP, pełne testy, rzeczywiste generowanie wariantów 16-512
 px, przebudowa dystrybucji i anonimowy smoke test HTTP 200. Po rozgrzaniu cache
 raportował 1 wpis oraz 18 048 B.
+
+### Sesja: 2026-06-21 - Alternatywny motyw Future
+
+**Faza i krok specyfikacji:** Krok 2/3 - prototyp wizualny i pełne odwzorowanie
+wymiennego motywu w `ThemeInterface`.
+
+**Wykonano:**
+- przeanalizowano wyłącznie publiczny HTML oraz CSS starego projektu z
+  `inspiration_sources/oldcms`; jego PHP, bazę, autoryzację i zależności odrzucono,
+- dodano kompletny `templates/future` obsługujący aktualną stronę główną,
+  podstrony, formularze, tabele, błędy, logowanie i panel administracyjny,
+- odtworzono grafitową siatkę, paletę cyan/lime/magenta, duży hero, neonowe linie,
+  zwarte panele, proste karty i gradientowe obramowania,
+- zachowano aktualne SEO, favicony, publiczną nawigację, responsywność, dostępność,
+  redukcję ruchu oraz wszystkie komponenty modułów,
+- motyw `Future` dodano do kreatora instalacji; silnik wykrywa go automatycznie
+  także na istniejącej instalacji.
+
+**Weryfikacja:** lint PHP i JavaScript, kontrola składni i bilansu CSS, test
+wykrywania oraz renderowania własnych assetów Future, pełne testy repozytorium i
+przebudowa czystej dystrybucji.
+
+### Sesja: 2026-06-21 - Dedykowany moduł Econify Control Center
+
+**Faza i krok specyfikacji:** Krok 6A - samodzielny moduł rozszerzenia z pełnym
+podziałem Core -> Module -> Theme i izolacją tenantów Discord.
+
+**Wykonano:**
+- dodano `econify` 1.0.0 z 11 tabelami domenowymi: funkcje, ustawienia platformy,
+  serwery, członkostwa, portfele, transakcje, sklep, zamówienia, aktywa, notowania
+  i udziały graczy,
+- Owner platformy zarządza funkcjami, językiem PL, domyślnym `/daily` i `/work`,
+  limitem Freemium, planami oraz tenantami,
+- właściciel lub administrator serwera konfiguruje walutę, podatek, VIP daily,
+  członków, sklep i rynek wyłącznie w tenantcie wynikającym z członkostwa,
+- gracz otrzymał pulpit salda, EXP, poziomu i historii, sklep z atomowym zakupem
+  oraz giełdę z dostępnym wykresem SVG, notowaniami, udziałami i atomowym
+  kupnem/sprzedażą; ogólny wykres działa przez `ThemeInterface` we wszystkich
+  trzech motywach bez biblioteki JavaScript,
+- plan Freemium egzekwuje konfigurowalny limit katalogu, a Premium nie ma limitu,
+- endpoint `/api/econify/events` wymaga osobnego tokenu nagłówka, waliduje JSON,
+  mapuje Discord Guild/User ID na lokalne konto i używa `event_id` do idempotencji,
+- dodano README integracji bota, konfigurację `ECONIFY_API_TOKEN`, testy manifestu,
+  schematu i zabezpieczeń oraz moduł do czystej dystrybucji instalacyjnej.
+
+**Weryfikacja:** pełne testy repozytorium, lint PHP, walidacja JSON, `git diff
+--check`, przebudowa dystrybucji, instalacja wszystkich 12 modułów na pustej
+MariaDB oraz smoke test repozytorium potwierdzający idempotencję i atomowe saldo
+po zakupie sklepowym i transakcji giełdowej.
+
+### Sesja: 2026-06-21 - Ręczne łamanie nagłówków sekcji
+
+**Faza i krok specyfikacji:** Krok 3/5C - bezpieczne dane prezentacyjne sekcji
+strony głównej i ich renderowanie przez wymienne motywy.
+
+**Wykonano:** pole nagłówka sekcji jest teraz trzywierszowym `textarea`. Enter
+wyznacza kontrolowany podział wiersza, zapis normalizuje odstępy i dopuszcza
+maksymalnie cztery niepuste linie. `default`, `glassnight` i `future` kodują każdą
+linię przed połączeniem przez `<br>`, a etykieta menu usuwa podziały. Moduł
+`core_pages` podniesiono do 1.3.0 bez zmiany schematu bazy.
+
+**Weryfikacja:** test zamierzonego podziału i kodowania potencjalnego HTML, test
+manifestu, pełne testy repozytorium, lint PHP i przebudowa dystrybucji.

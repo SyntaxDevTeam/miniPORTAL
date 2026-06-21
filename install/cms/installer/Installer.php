@@ -474,6 +474,7 @@ final class Installer
             'DB_LOGGING' => 'false',
             'BUILD_UPLOAD_MAX_BYTES' => '20971520',
             'BUILD_CI_TOKEN' => bin2hex(random_bytes(32)),
+            'ECONIFY_API_TOKEN' => bin2hex(random_bytes(32)),
         ];
         $lines = ['# Wygenerowano przez kreator miniPORTAL.'];
         foreach ($values as $key => $value) {

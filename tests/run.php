@@ -22,6 +22,7 @@ use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
+use SyntaxDevTeam\Cms\Core\ThemeEngine;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
@@ -708,6 +709,27 @@ $test('Theme uses generated favicon set with cache version', static function () 
     $assert(str_contains($html, '/uploads/branding/site.webmanifest?v=123456'));
 });
 
+$test('Future theme is discoverable and renders its own assets', static function () use ($assert): void {
+    $engine = new ThemeEngine(dirname(__DIR__) . '/templates');
+    $available = $engine->available();
+    $assert(($available['future'] ?? '') === 'Future');
+
+    $theme = $engine->load('future', [
+        'public_name' => 'SyntaxDevTeam',
+        'public_meta_description' => 'Motyw Future',
+    ]);
+    ob_start();
+    $theme->start_page('Future', 'Motyw alternatywny');
+    $theme->start_header('Future', 'Układ inspirowany starszym projektem.', 'Alternatywny motyw');
+    $theme->end_header();
+    $theme->end_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '/templates/future/assets/css/stylebook.css'));
+    $assert(str_contains($html, 'class="stylebook-hero border-bottom"'));
+    $assert(str_contains($html, 'Alternatywny motyw'));
+});
+
 $test('Public error metadata prevents indexing', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_url' => 'https://syntaxdevteam.pl',
@@ -751,6 +773,29 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(!str_contains($css, 'flex: 0 0 0.95em'));
 });
 
+$test('Homepage headings preserve intentional line breaks safely', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    ob_start();
+    $theme->render_homepage([[
+        'key' => 'minecraft',
+        'type' => 'content',
+        'eyebrow' => '',
+        'acrostic_words' => '',
+        'title' => "Minecraft plugins?\nThe highest <standard> of quality.",
+        'content_html' => '<p>Opis.</p>',
+        'content_format' => 'html',
+        'layout' => 'full',
+        'button_label' => '',
+        'button_url' => '',
+        'items' => [],
+    ]], [], false);
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '<h2 class="fw-bold">Minecraft plugins?<br>The highest &lt;standard&gt; of quality.</h2>'));
+    $assert(str_contains($html, '>Minecraft plugins? The highest &lt;standard&gt; of quality.</a>'));
+    $assert(!str_contains($html, '<standard>'));
+});
+
 $test('Theme form controls expose browser validation and accessible help', static function () use ($assert): void {
     $theme = new DefaultTheme();
     ob_start();
@@ -773,6 +818,19 @@ $test('Theme form controls expose browser validation and accessible help', stati
     $assert(str_contains($html, 'autocomplete="url"'));
     $assert(str_contains($html, 'aria-describedby="site_url-help"'));
     $assert(str_contains($html, 'id="site_url-help"'));
+});
+
+$test('Theme renders an accessible data-only line chart', static function () use ($assert): void {
+    $theme = new DefaultTheme(['public_name' => 'Test']);
+    ob_start();
+    $theme->render_line_chart([
+        ['label' => '2026-06-20', 'value' => 100],
+        ['label' => '2026-06-21', 'value' => 140],
+    ], 'Historia ceny ECO');
+    $html = (string) ob_get_clean();
+    $assert(str_contains($html, '<polyline points="'));
+    $assert(str_contains($html, '<title id="line-chart-title-'));
+    $assert(str_contains($html, 'Historia ceny ECO'));
 });
 
 $test('Public theme renders avatar image component', static function () use ($assert): void {
@@ -1024,6 +1082,11 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($wiki->uninstallFile === 'uninstall.sql');
     $assert($wiki->requiredModules === ['core_auth']);
 
+    $corePages = $validator->validate(dirname(__DIR__) . '/modules/CorePages');
+    $assert($corePages->id === 'core_pages');
+    $assert($corePages->version === '1.3.0');
+    $assert($corePages->protected);
+
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
     $assert($system->version === '1.8.0');
@@ -1081,6 +1144,14 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($profile->requiredModules === ['core_auth']);
     $assert($profile->installFile === 'install.sql');
     $assert($profile->uninstallFile === 'uninstall.sql');
+
+    $econify = $validator->validate(dirname(__DIR__) . '/modules/Econify');
+    $assert($econify->id === 'econify');
+    $assert($econify->version === '1.0.0');
+    $assert($econify->type === 'extension');
+    $assert($econify->requiredModules === ['core_auth']);
+    $assert($econify->installFile === 'install.sql');
+    $assert($econify->uninstallFile === 'uninstall.sql');
 
     $profileSource = (string) file_get_contents(
         dirname(__DIR__) . '/modules/UserProfile/UserProfileModule.php'
@@ -1193,6 +1264,19 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($teamInstallSql, 'CREATE TABLE team_members'));
     $assert(str_contains($teamInstallSql, 'fk_team_members_user'));
     $assert(str_contains($teamInstallSql, "'team.manage'"));
+
+    $econifyInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/install.sql');
+    $econifySource = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/EconifyModule.php');
+    $econifyRepository = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/EconifyRepository.php');
+    foreach (['econify_platform_settings', 'econify_guilds', 'econify_memberships', 'econify_wallets', 'econify_transactions', 'econify_shop_items', 'econify_shop_orders', 'econify_market_assets', 'econify_market_quotes', 'econify_market_holdings'] as $table) {
+        $assert(str_contains($econifyInstallSql, 'CREATE TABLE ' . $table), 'Brak tabeli Econify: ' . $table);
+    }
+    $assert(str_contains($econifyInstallSql, "'econify.platform.manage'"));
+    $assert(str_contains($econifySource, "'/api/econify/events'"));
+    $assert(str_contains($econifySource, "hash_equals(\$this->apiToken"));
+    $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
+    $assert(str_contains($econifyRepository, 'FOR UPDATE'));
+    $assert(str_contains($econifyRepository, 'external_reference'));
 
     $projectsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/install.sql');
     $assert(str_contains($projectsInstallSql, 'CREATE TABLE projects'));

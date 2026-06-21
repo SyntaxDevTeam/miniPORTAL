@@ -18,6 +18,8 @@ use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
+use SyntaxDevTeam\Cms\Modules\Econify\EconifyModule;
+use SyntaxDevTeam\Cms\Modules\Econify\EconifyRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
@@ -169,6 +171,20 @@ return [
             new PluginTranslatorYaml(),
             new MinecraftFormatPreview(),
             $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
+        ),
+    ],
+    [
+        'directory' => 'Econify',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): EconifyModule => new EconifyModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new EconifyRepository($services['database']),
+            $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit'],
+            (string) ($services['config']['modules']['econify_api_token'] ?? '')
         ),
     ],
     [

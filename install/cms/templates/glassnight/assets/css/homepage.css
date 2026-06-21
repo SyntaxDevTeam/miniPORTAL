@@ -752,3 +752,10 @@
 .managed-card::before {
   background: linear-gradient(135deg, rgba(88, 183, 255, 0.26), rgba(123, 16, 33, 0.12), transparent 68%);
 }
+
+.line-chart { margin: 1rem 0; }
+.line-chart svg { display: block; width: 100%; height: auto; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--mp-radius); background: rgba(4, 10, 24, 0.45); }
+.line-chart-axis { stroke: currentColor; stroke-opacity: 0.3; stroke-width: 1; }
+.line-chart-series { fill: none; stroke: var(--mp-cyan); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.line-chart figcaption { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.5rem; font-size: 0.78rem; color: var(--mp-muted); }
+.line-chart figcaption strong { color: var(--mp-text); text-align: center; }

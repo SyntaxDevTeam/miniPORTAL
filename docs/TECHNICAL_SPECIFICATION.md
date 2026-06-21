@@ -144,6 +144,9 @@ Stan integracji:
 - opublikowane treści `core_pages` pojawiają się dynamicznie na stronie głównej,
 - prototypy pozostają referencyjnymi plikami developerskimi w `templates/`;
   nie są częścią działającego panelu administracyjnego.
+- alternatywny `templates/future` implementuje pełny kontrakt motywu i zachowuje
+  wyłącznie język wizualny dawnego projektu edukacyjnego: ciemną siatkę, paletę
+  cyan/lime/magenta, zwarte panele i duży hero; stara logika CMS nie jest ładowana.
 
 ### Faza 2: Abstrakcja szablonu do PHP
 
@@ -222,6 +225,8 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
 - publiczne adresy `/p/slug` i katalog `/pages`
 - opcjonalne powiązanie karty strony głównej z konkretną podstroną
 - edytowalne sekcje strony głównej: typ, nagłówki, treść, układ, widoczność i kolejność
+- nagłówki sekcji pozwalają wskazać do czterech bezpiecznych podziałów wiersza
+  przez Enter; motyw koduje tekst i wstawia wyłącznie kontrolowane `<br>`
 - sekcje kolumnowe składają się z niezależnych elementów/kart z etykietą, opisem,
   CTA, wariantem wizualnym i szerokością
 - lokalny edytor z przełącznikiem WYSIWYG / Markdown i jawnym formatem źródłowym rekordu
@@ -674,6 +679,29 @@ Stan fundamentu Kroku 6:
   `CrudApp`, ACL, CSRF, migrację i oba warianty odinstalowania,
 - `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;
   zmiana statusu i roli jest wykonywana atomowo przez repozytorium `CrudApp`.
+
+### Krok 6A: dedykowany moduł Econify
+
+Moduł `econify` jest rozszerzeniem przeznaczonym dla osobnej instalacji
+miniPORTAL obsługującej projekt bota ekonomicznego Discord. Zachowuje trzy
+granice autoryzacji: globalne ACL platformy, członkostwo w konkretnym tenantcie
+Discord oraz własność portfela gracza. Samo uprawnienie CMS nie zastępuje
+kontroli `guild_id` i aktywnego członkostwa.
+
+Stan 1.0.0:
+- Owner platformy zarządza flagami funkcji, polskim językiem, domyślnymi
+  wartościami `/daily` i `/work`, limitem Freemium, planami i tenantami,
+- właściciel serwera zarządza walutą, podatkiem w punktach bazowych, VIP daily,
+  użytkownikami, sklepem, aktywami i notowaniami wyłącznie swojego serwera,
+- gracz otrzymuje pulpit salda, EXP, poziomu i historii oraz transakcyjne zakupy,
+  portfel rynku, dostępny wykres notowań i operacje kupna/sprzedaży,
+- limit katalogu Freemium jest egzekwowany po stronie serwera; Premium nie ma
+  limitu liczby pozycji,
+- endpoint zdarzeń bota wymaga osobnego sekretu nagłówka i `event_id` jako klucza
+  idempotencji; nie przyjmuje sekretu w ciele JSON,
+- sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
+- tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
+  w jednym module i jednej transakcji z portfelem.
 
 ### Krok 7: dystrybucja i instalacja zerowej konfiguracji
 

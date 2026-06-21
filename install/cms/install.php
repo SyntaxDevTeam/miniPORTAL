@@ -136,7 +136,7 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
           <label>Nazwa strony <input name="site_name" required maxlength="80" value="<?= $escape($old('site_name', 'miniPORTAL')) ?>"></label>
           <label>Strefa czasowa <input name="timezone" required value="<?= $escape($old('timezone', 'Europe/Warsaw')) ?>"></label>
           <label>Język i region <input name="locale" required maxlength="5" value="<?= $escape($old('locale', 'pl_PL')) ?>"></label>
-          <label>Motyw <select name="theme"><option value="default"<?= $old('theme', 'default') === 'default' ? ' selected' : '' ?>>Default</option><option value="glassnight"<?= $old('theme') === 'glassnight' ? ' selected' : '' ?>>Glassnight</option></select></label>
+          <label>Motyw <select name="theme"><option value="default"<?= $old('theme', 'default') === 'default' ? ' selected' : '' ?>>Default</option><option value="future"<?= $old('theme') === 'future' ? ' selected' : '' ?>>Future</option><option value="glassnight"<?= $old('theme') === 'glassnight' ? ' selected' : '' ?>>Glassnight</option></select></label>
         </section>
 
         <section class="panel">

@@ -40,7 +40,7 @@ final class CorePagesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.2.0';
+        return '1.3.0';
     }
 
     public function dependencies(): array
@@ -386,8 +386,13 @@ final class CorePagesModule implements ModuleInterface
                 [
                     'name' => 'title',
                     'label' => 'Nagłówek',
+                    'type' => 'textarea',
+                    'rows' => 3,
+                    'maxlength' => 220,
+                    'required' => true,
                     'value' => $value('title'),
-                    'help' => 'Główny nagłówek sekcji.',
+                    'placeholder' => "Minecraft plugins?\nThe highest standard of quality.",
+                    'help' => 'Główny nagłówek sekcji. Użyj Enter, aby wymusić podział wiersza w wybranym miejscu.',
                 ],
                 [
                     'name' => 'section_key',
@@ -558,7 +563,11 @@ final class CorePagesModule implements ModuleInterface
      */
     private function validatedHomepageInput(Request $request, ?int $exceptId = null): array
     {
-        $title = $request->postString('title');
+        $titleLines = array_values(array_filter(array_map(
+            static fn (string $line): string => trim(preg_replace('/[ \t]+/u', ' ', $line) ?? $line),
+            preg_split('/\R/u', trim($request->postString('title'))) ?: []
+        ), static fn (string $line): bool => $line !== ''));
+        $title = implode("\n", $titleLines);
         $sectionKey = $this->normalizeSlug($request->postString('section_key') ?: $title);
         $sectionType = $request->postString('section_type');
         $layout = $request->postString('layout');
@@ -590,6 +599,9 @@ final class CorePagesModule implements ModuleInterface
 
         if ($title === '' || strlen($title) > 220) {
             return [$data, 'Nagłówek jest wymagany i może mieć maksymalnie 220 znaków.'];
+        }
+        if (count($titleLines) > 4) {
+            return [$data, 'Nagłówek może zawierać maksymalnie cztery ręcznie rozdzielone wiersze.'];
         }
         if ($sectionKey === '' || strlen($sectionKey) > 64) {
             return [$data, 'Kotwica URL jest nieprawidłowa lub zbyt długa.'];

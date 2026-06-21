@@ -118,6 +118,11 @@ interface ThemeInterface
     public function render_table(array $headers, array $rows): void;
 
     /**
+     * @param list<array{label: string, value: int|float}> $points
+     */
+    public function render_line_chart(array $points, string $label): void;
+
+    /**
      * @param list<string> $headers
      * @param list<array{cells: list<scalar|null>, actions: list<array{label: string, href: string, variant?: string}>}> $rows
      */

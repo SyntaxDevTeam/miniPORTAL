@@ -432,6 +432,19 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div>';
     }
 
+    public function render_line_chart(array $points, string $label): void
+    {
+        $points = array_values(array_filter($points, static fn (mixed $point): bool => is_array($point) && isset($point['label']) && is_numeric($point['value'] ?? null)));
+        if ($points === []) { $this->render_alert('Brak danych do narysowania wykresu.', 'info'); return; }
+        $values = array_map(static fn (array $point): float => (float) $point['value'], $points);
+        $min = min($values); $max = max($values); $range = max(1.0, $max - $min); $count = count($points);
+        $coordinates = [];
+        foreach ($values as $index => $value) { $coordinates[] = round(24 + ($count === 1 ? 296 : $index * 592 / ($count - 1)), 2) . ',' . round(196 - (($value - $min) / $range) * 172, 2); }
+        echo '<figure class="line-chart" role="group" aria-label="' . $this->escape($label) . '"><svg viewBox="0 0 640 220" role="img" aria-labelledby="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">';
+        echo '<title id="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">' . $this->escape($label) . '</title><line x1="24" y1="196" x2="616" y2="196" class="line-chart-axis"/><polyline points="' . implode(' ', $coordinates) . '" class="line-chart-series"/></svg>';
+        echo '<figcaption><span>' . $this->escape((string) $points[0]['label']) . '</span><strong>' . $this->escape($label) . ' (' . $this->escape((string) $min) . '-' . $this->escape((string) $max) . ')</strong><span>' . $this->escape((string) $points[array_key_last($points)]['label']) . '</span></figcaption></figure>';
+    }
+
     public function render_action_table(array $headers, array $rows): void
     {
         echo '<div class="table-responsive showcase-card p-0"><table class="table table-hover align-middle mb-0"><thead><tr>';
@@ -1183,7 +1196,7 @@ final class Theme implements ThemeInterface
         if ($section['layout'] === 'split' && trim($acrosticWords) !== '') {
             $this->renderHomepageAcrostic($acrosticWords);
         } else {
-            echo '<h1 class="home-title fw-bold">' . $this->escape($section['title']) . '</h1>';
+            echo '<h1 class="home-title fw-bold">' . $this->homepageHeading($section['title']) . '</h1>';
         }
         echo '<div class="home-lead managed-home-content mt-4">' . $content . '</div>';
         echo '<div class="hero-actions mt-4">';
@@ -1268,7 +1281,7 @@ final class Theme implements ThemeInterface
             if ($section['eyebrow'] !== '') {
                 echo '<p class="eyebrow mb-2">' . $this->escape($section['eyebrow']) . '</p>';
             }
-            echo '<h2 class="h1 fw-bold">' . $this->escape($section['title']) . '</h2>';
+            echo '<h2 class="h1 fw-bold">' . $this->homepageHeading($section['title']) . '</h2>';
             echo '<div class="managed-home-content text-secondary mb-0">' . $content . '</div></div>';
             if ($section['button_label'] !== '' && $href !== '') {
                 echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($href) . '">';
@@ -1283,7 +1296,7 @@ final class Theme implements ThemeInterface
             if ($section['eyebrow'] !== '') {
                 echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
             }
-            echo '<h2 class="fw-bold">' . $this->escape($section['title']) . '</h2>';
+            echo '<h2 class="fw-bold">' . $this->homepageHeading($section['title']) . '</h2>';
             if ($content !== '') {
                 echo '<div class="managed-home-content mt-3">' . $content . '</div>';
             }
@@ -1323,7 +1336,7 @@ final class Theme implements ThemeInterface
         if ($section['eyebrow'] !== '') {
             echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
         }
-        echo '<h2 class="fw-bold">' . $this->escape($section['title']) . '</h2></div>';
+        echo '<h2 class="fw-bold">' . $this->homepageHeading($section['title']) . '</h2></div>';
         echo '<div class="managed-home-content">' . $content;
         if ($section['button_label'] !== '' && $href !== '') {
             echo '<p class="mt-4 mb-0"><a class="btn btn-outline-light" href="' . $this->escape($href) . '">';
@@ -1365,7 +1378,7 @@ final class Theme implements ThemeInterface
         if ($section['eyebrow'] !== '') {
             echo '<p class="contact-kicker">' . $this->escape($section['eyebrow']) . '</p>';
         }
-        echo '<h2>' . $this->escape($section['title']) . '</h2>';
+        echo '<h2>' . $this->homepageHeading($section['title']) . '</h2>';
         if ($content !== '') {
             echo '<div class="contact-intro managed-home-content">' . $content . '</div>';
         }
@@ -1445,7 +1458,17 @@ final class Theme implements ThemeInterface
     {
         $label = preg_replace('/^\s*\d+\s*\/\s*/', '', $section['eyebrow']) ?? '';
 
-        return $label !== '' ? $label : $section['title'];
+        return $label !== '' ? $label : (preg_replace('/\s+/u', ' ', trim($section['title'])) ?? $section['title']);
+    }
+
+    private function homepageHeading(string $title): string
+    {
+        $lines = array_values(array_filter(array_map(
+            static fn (string $line): string => trim($line),
+            preg_split('/\R/u', trim($title)) ?: []
+        ), static fn (string $line): bool => $line !== ''));
+
+        return implode('<br>', array_map($this->escape(...), array_slice($lines, 0, 4)));
     }
 
     private function navigationHref(array $item): string
