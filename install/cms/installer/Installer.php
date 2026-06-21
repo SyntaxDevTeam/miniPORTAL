@@ -120,6 +120,9 @@ final class Installer
             $owner = (new FirstAdminBootstrapper($database))->bootstrap($identity, $identity->login);
             $this->saveSiteSettings($pdo, $owner->id, $data);
             $this->writeEnvironment($environment);
+            if (in_array('econify', $data['selected_modules'], true)) {
+                $this->writeEconifyEnvironment($this->econifyEnvironmentContent($data));
+            }
             $this->writeLock();
 
             return [
@@ -474,7 +477,6 @@ final class Installer
             'DB_LOGGING' => 'false',
             'BUILD_UPLOAD_MAX_BYTES' => '20971520',
             'BUILD_CI_TOKEN' => bin2hex(random_bytes(32)),
-            'ECONIFY_API_TOKEN' => bin2hex(random_bytes(32)),
         ];
         $lines = ['# Wygenerowano przez kreator miniPORTAL.'];
         foreach ($values as $key => $value) {
@@ -503,6 +505,38 @@ final class Installer
         if (!is_array(parse_ini_file($temporary, false, INI_SCANNER_RAW)) || !rename($temporary, $file)) {
             @unlink($temporary);
             throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska.');
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function econifyEnvironmentContent(array $data): string
+    {
+        $values = [
+            'ECONIFY_API_TOKEN' => bin2hex(random_bytes(32)),
+            'ECONIFY_DISCORD_CLIENT_ID' => '',
+            'ECONIFY_DISCORD_CLIENT_SECRET' => '',
+            'ECONIFY_DISCORD_BOT_TOKEN' => '',
+            'ECONIFY_DISCORD_CALLBACK_URL' => $data['site_url'] . '/index.php?route=/econify/discord/callback',
+            'ECONIFY_DISCORD_BOT_PERMISSIONS' => '0',
+        ];
+        $lines = ['# Wygenerowano dla modułu Econify. Plik nie należy do konfiguracji miniPORTAL.'];
+        foreach ($values as $key => $value) {
+            $lines[] = $key . '=' . $this->quoteEnvironmentValue((string) $value);
+        }
+        return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private function writeEconifyEnvironment(string $content): void
+    {
+        $file = $this->root . '/modules/Econify/.env';
+        $temporary = $file . '.tmp-' . bin2hex(random_bytes(4));
+        if (!is_dir(dirname($file)) || file_put_contents($temporary, $content, LOCK_EX) === false) {
+            throw new RuntimeException('Nie można zapisać konfiguracji środowiska Econify.');
+        }
+        chmod($temporary, 0600);
+        if (!is_array(parse_ini_file($temporary, false, INI_SCANNER_RAW)) || !rename($temporary, $file)) {
+            @unlink($temporary);
+            throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska Econify.');
         }
     }
 

@@ -35,7 +35,7 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         private readonly AdminAccessGate $access,
         private readonly Security $security,
         private readonly AuditLogService $audit,
-        private readonly string $apiToken,
+        private readonly EconifyConfig $config,
     ) {
     }
 
@@ -106,6 +106,15 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $this->theme->render_admin_metric('Gracze', (string) $stats['players'], 'GR', 'powiązane konta');
         $this->theme->render_admin_metric('Zamówienia', (string) $stats['orders'], 'SH', 'cała platforma');
         $this->theme->end_admin_metrics();
+
+        $this->theme->start_admin_panel('Konfiguracja integracji', 'Wartości sekretne nie są wyświetlane');
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Plik modułu', 'value' => $this->config->environmentReadable ? 'Odczytany' : 'Brak', 'detail' => 'modules/Econify/.env lub ECONIFY_ENV_FILE'],
+            ['label' => 'Token API', 'value' => $this->config->apiConfigured() ? 'Skonfigurowany' : 'Brak lub za krótki'],
+            ['label' => 'Aplikacja Discord', 'value' => $this->config->discordApplicationConfigured() ? 'Skonfigurowana' : 'Niekompletna'],
+            ['label' => 'Token bota', 'value' => $this->config->botTokenConfigured() ? 'Skonfigurowany' : 'Brak'],
+        ]);
+        $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel_grid();
         $this->theme->start_admin_panel_column();
@@ -431,7 +440,7 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
 
     private function syncEvent(Request $request): void
     {
-        if ($this->apiToken === '' || !hash_equals($this->apiToken, $request->header('X-Econify-Token'))) { $this->jsonResponse(401, ['ok' => false, 'error' => 'unauthorized']); return; }
+        if (!$this->config->apiConfigured() || !hash_equals($this->config->apiToken, $request->header('X-Econify-Token'))) { $this->jsonResponse(401, ['ok' => false, 'error' => 'unauthorized']); return; }
         if (!$this->econify->featureEnabled('economy')) { $this->jsonResponse(503, ['ok' => false, 'error' => 'economy_disabled']); return; }
         $data = $request->json(); $type = is_array($data) ? (string) ($data['type'] ?? '') : '';
         $guild = is_array($data) ? (string) ($data['guild_id'] ?? '') : ''; $discordUser = is_array($data) ? (string) ($data['user_id'] ?? '') : '';

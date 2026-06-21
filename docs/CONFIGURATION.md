@@ -254,7 +254,6 @@ Generator ikon w sekcji Branding wymaga Node.js i PNG od 512 x 512 do
 ```dotenv
 BUILD_UPLOAD_MAX_BYTES=20971520
 BUILD_CI_TOKEN="wygenerowany_losowy_sekret_minimum_32_znaki"
-ECONIFY_API_TOKEN="osobny_losowy_sekret_minimum_32_znaki"
 ```
 
 `BUILD_CI_TOKEN` chroni endpointy `POST /api/builds/ci/{slug}`. W GitHub Actions
@@ -262,10 +261,11 @@ należy zapisać tę samą wartość jako sekret repozytorium i wysyłać ją w 
 `X-Build-Token` albo `Authorization: Bearer`. Token nie jest przyjmowany w JSON,
 nie jest przechowywany w bazie i nie trafia do audit logu.
 
-`ECONIFY_API_TOKEN` chroni `POST /api/econify/events` niezależnym sekretem.
-Bot przekazuje go wyłącznie w nagłówku `X-Econify-Token`. Zdarzenie zawiera
-unikalne `event_id`, numeryczne Discord Guild/User ID, typ operacji, zmianę salda,
-EXP i poziom. Szczegółowy kontrakt znajduje się w `modules/Econify/README.md`.
+Econify nie korzysta z powyższego pliku. Wszystkie jego sekrety znajdują się w
+`modules/Econify/.env`, tworzonym przez instalator z prawami `0600`. Szablon
+`modules/Econify/.env.example` opisuje token API, token bota, Client ID, Client
+Secret, callback i maskę uprawnień. Testy mogą wskazać osobny plik przez
+`ECONIFY_ENV_FILE`. Szczegółowy kontrakt znajduje się w README modułu.
 
 Przykładowe wywołanie z GitHub Actions:
 

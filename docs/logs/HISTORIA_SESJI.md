@@ -1963,6 +1963,26 @@ podziałem Core -> Module -> Theme i izolacją tenantów Discord.
 MariaDB oraz smoke test repozytorium potwierdzający idempotencję i atomowe saldo
 po zakupie sklepowym i transakcji giełdowej.
 
+### Sesja: 2026-06-21 - Izolowane środowisko modułu Econify
+
+**Faza i krok specyfikacji:** Krok 6A/7 - konfiguracja przenośnego rozszerzenia
+i jej bezpieczne tworzenie w czystej dystrybucji.
+
+**Wykonano:**
+- wydzielono sekrety Econify z globalnego środowiska miniPORTAL do
+  `modules/Econify/.env`, ignorowanego przez Git i blokowanego publicznie,
+- dodano `EconifyConfig` z priorytetem `ECONIFY_ENV_FILE` -> lokalny `.env` ->
+  zmienne procesu dla zgodności wstecznej,
+- szablon modułu obejmuje token endpointu, token bota, Client ID, Client Secret,
+  callback instalacji oraz minimalną maskę uprawnień Discord,
+- panel Ownera raportuje wyłącznie stan konfiguracji bez ujawniania sekretów,
+- instalator tworzy osobny plik Econify atomowo z prawami `0600`, tylko gdy moduł
+  został wybrany; czysta dystrybucja zawiera wyłącznie `.env.example`.
+
+**Weryfikacja:** test izolowanego pliku wskazanego przez `ECONIFY_ENV_FILE`, test
+braku sekretów w dystrybucji, integracyjna kontrola wygenerowanego tokenu i praw
+`0600`, lint PHP, pełne testy oraz `git diff --check`.
+
 ### Sesja: 2026-06-21 - Ręczne łamanie nagłówków sekcji
 
 **Faza i krok specyfikacji:** Krok 3/5C - bezpieczne dane prezentacyjne sekcji

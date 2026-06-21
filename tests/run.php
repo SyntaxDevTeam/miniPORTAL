@@ -32,6 +32,7 @@ use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
+use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
@@ -98,6 +99,30 @@ $test('Request exposes bounded JSON and normalized headers', static function () 
     $assert($request->header('X-Build-Token') === 'secret-token');
     $assert($request->header('Content-Type') === 'application/json');
     $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
+});
+
+$test('Econify loads an isolated module environment file', static function () use ($assert): void {
+    $file = sys_get_temp_dir() . '/econify-env-' . bin2hex(random_bytes(6));
+    file_put_contents($file, implode(PHP_EOL, [
+        'ECONIFY_API_TOKEN="' . str_repeat('a', 64) . '"',
+        'ECONIFY_DISCORD_CLIENT_ID="client-test"',
+        'ECONIFY_DISCORD_CLIENT_SECRET="secret-test"',
+        'ECONIFY_DISCORD_BOT_TOKEN="bot-test"',
+        'ECONIFY_DISCORD_CALLBACK_URL="https://econify.example.test/callback"',
+        'ECONIFY_DISCORD_BOT_PERMISSIONS=32',
+    ]));
+    putenv('ECONIFY_ENV_FILE=' . $file);
+    try {
+        $config = EconifyConfig::load(dirname(__DIR__) . '/modules/Econify');
+        $assert($config->apiConfigured());
+        $assert($config->discordApplicationConfigured());
+        $assert($config->botTokenConfigured());
+        $assert($config->discordBotPermissions === 32);
+        $assert($config->environmentFile === $file);
+    } finally {
+        putenv('ECONIFY_ENV_FILE');
+        unlink($file);
+    }
 });
 
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
@@ -1043,6 +1068,8 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert(!file_exists($distribution . '/tests'));
     $assert(!file_exists($distribution . '/docs'));
     $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
+    $assert(!file_exists($distribution . '/modules/Econify/.env'));
+    $assert(is_file($distribution . '/modules/Econify/.env.example'));
 });
 
 $test('Connected identities page returns to profile', static function () use ($assert): void {
@@ -1273,7 +1300,8 @@ $test('CoreAuth declares database explorer permission', static function () use (
     }
     $assert(str_contains($econifyInstallSql, "'econify.platform.manage'"));
     $assert(str_contains($econifySource, "'/api/econify/events'"));
-    $assert(str_contains($econifySource, "hash_equals(\$this->apiToken"));
+    $assert(str_contains($econifySource, "hash_equals(\$this->config->apiToken"));
+    $assert(str_contains($econifySource, "\$this->config->apiConfigured()"));
     $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
     $assert(str_contains($econifyRepository, 'FOR UPDATE'));
     $assert(str_contains($econifyRepository, 'external_reference'));

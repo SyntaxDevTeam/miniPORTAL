@@ -197,6 +197,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Sklep Freemium/Premium z transakcyjnymi zamówieniami |
 | [x] | Giełda z notowaniami, portfelem oraz kupnem i sprzedażą |
 | [x] | Idempotentny endpoint synchronizacji zdarzeń bota |
+| [x] | Dedykowany `.env` modułu z niezależnymi danymi Discord i API |
 
 ## Następne kroki
 
@@ -307,6 +308,7 @@ Brak aktywnych blokerów.
 | 2026-06-21 | Motyw `future` przenosi wygląd starego projektu edukacyjnego na pełny `ThemeInterface`; nie korzysta z dawnej logiki CMS. |
 | 2026-06-21 | `core_pages` 1.3.0 pozwala dzielić nagłówki sekcji Enterem; trzy motywy bezpiecznie renderują kontrolowane `<br>`. |
 | 2026-06-21 | `econify` 1.0.0 jest dedykowanym modułem innej instalacji miniPORTAL. Izoluje tenanty Discord, rozdziela Ownera platformy, administratora serwera i gracza oraz łączy ekonomię, sklep i giełdę przez transakcyjny portfel. Endpoint bota wymaga `ECONIFY_API_TOKEN` i idempotentnego `event_id`. |
+| 2026-06-21 | Sekrety Econify należą do `modules/Econify/.env`, nie do środowiska miniPORTAL. `ECONIFY_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
 
 ## Historia sesji
 

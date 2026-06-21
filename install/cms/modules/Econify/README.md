@@ -12,8 +12,24 @@ Wersja 1.0.0 obejmuje trzy niezależne poziomy dostępu:
 
 ## Integracja bota
 
-Token endpointu należy ustawić poza repozytorium jako `ECONIFY_API_TOKEN`, a w
-`config/config.php` odwzorować go na `modules.econify_api_token`. Bot wysyła:
+Moduł czyta własny plik `modules/Econify/.env`, niezależny od
+`config/installed.env` i `/etc/miniportal/miniportal.env`. Zacznij od
+`.env.example`, zapisz wynik jako `.env` i ustaw prawa `0600`. W testach lub CI
+możesz wskazać inną lokalizację zmienną procesu `ECONIFY_ENV_FILE`; ma ona
+najwyższy priorytet. Jeśli lokalny plik nie istnieje, loader zachowuje zgodność
+wsteczną i odczytuje zmienne procesu.
+
+Plik zawiera:
+
+- `ECONIFY_API_TOKEN` - sekret endpointu zdarzeń,
+- `ECONIFY_DISCORD_CLIENT_ID` i `ECONIFY_DISCORD_CLIENT_SECRET` - dedykowaną
+  aplikację Discord używaną przez przyszły onboarding serwerów,
+- `ECONIFY_DISCORD_BOT_TOKEN` - opcjonalny token runtime bota; portal nie
+  wyświetla go ani nie zapisuje w bazie,
+- `ECONIFY_DISCORD_CALLBACK_URL` - callback instalacji Econify,
+- `ECONIFY_DISCORD_BOT_PERMISSIONS` - minimalną liczbową maskę uprawnień.
+
+Bot wysyła:
 
 ```http
 POST /api/econify/events
@@ -37,6 +53,9 @@ Content-Type: application/json
 `event_id` jest kluczem idempotencji. Powtórne wysłanie tego samego zdarzenia nie
 zmienia salda drugi raz. Obsługiwane typy to `daily`, `work`, `vip_daily`,
 `transfer_in`, `transfer_out` i `adjustment`.
+
+Panel Ownera pokazuje jedynie stan kompletności ustawień. Nie zwraca wartości
+tokenów, sekretu klienta ani ścieżki wskazanej dla środowiska testowego.
 
 Sekretnych kodów sklepu nie należy przechowywać w miniPORTAL. Pole referencji
 wskazuje identyfikator roli albo bezpieczny klucz rekordu należącego do bota.

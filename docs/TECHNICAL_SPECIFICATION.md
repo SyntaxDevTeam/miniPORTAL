@@ -699,6 +699,8 @@ Stan 1.0.0:
   limitu liczby pozycji,
 - endpoint zdarzeń bota wymaga osobnego sekretu nagłówka i `event_id` jako klucza
   idempotencji; nie przyjmuje sekretu w ciele JSON,
+- sekrety modułu są izolowane w `modules/Econify/.env`; testy mogą wskazać inny
+  plik przez `ECONIFY_ENV_FILE`, a panel raportuje tylko kompletność konfiguracji,
 - sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
 - tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
   w jednym module i jednej transakcji z portfelem.
