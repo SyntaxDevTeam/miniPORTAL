@@ -2,27 +2,43 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { deflateSync, inflateSync } from 'node:zlib';
 
 const sourcePath = new URL('../theme/ico/SyntaxDevTeam_logo.png', import.meta.url);
+const transparentSourcePath = new URL('../theme/ico/SyntaxDevTeam_logo.no_bg.png', import.meta.url);
 const outputRoots = ['default', 'glassnight'].map(
   (theme) => new URL(`../templates/${theme}/assets/img/brand/`, import.meta.url),
 );
 
 const source = decodePng(readFileSync(sourcePath));
 const bounds = alphaBounds(source);
+const transparentSource = decodePng(readFileSync(transparentSourcePath));
+const transparentMarkBounds = alphaBounds(transparentSource, {
+  left: 350,
+  top: 0,
+  right: 930,
+  bottom: 415,
+});
 const variants = new Map([
-  ['favicon-16x16.png', renderSquare(source, bounds, 16, 0.9, null)],
-  ['favicon-32x32.png', renderSquare(source, bounds, 32, 0.9, null)],
-  ['favicon-48x48.png', renderSquare(source, bounds, 48, 0.9, null)],
-  ['apple-touch-icon.png', renderSquare(source, bounds, 180, 0.82, [8, 12, 18, 255])],
-  ['icon-192.png', renderSquare(source, bounds, 192, 0.82, [8, 12, 18, 255])],
-  ['icon-512.png', renderSquare(source, bounds, 512, 0.82, [8, 12, 18, 255])],
-  ['icon-maskable-512.png', renderSquare(source, bounds, 512, 0.66, [8, 12, 18, 255])],
-  ['syntaxdevteam-logo.png', renderSquare(source, bounds, 512, 0.9, null)],
+  ['favicon-16x16.png', renderSquare(transparentSource, transparentMarkBounds, 16, 0.9, null)],
+  ['favicon-32x32.png', renderSquare(transparentSource, transparentMarkBounds, 32, 0.9, null)],
+  ['favicon-48x48.png', renderSquare(transparentSource, transparentMarkBounds, 48, 0.9, null)],
+  ['favicon-64x64.png', renderSquare(transparentSource, transparentMarkBounds, 64, 0.9, null)],
+  ['favicon-96x96.png', renderSquare(transparentSource, transparentMarkBounds, 96, 0.9, null)],
+  ['favicon-128x128.png', renderSquare(transparentSource, transparentMarkBounds, 128, 0.9, null)],
+  ['favicon-256x256.png', renderSquare(transparentSource, transparentMarkBounds, 256, 0.9, null)],
+  ['apple-touch-icon.png', renderSquare(transparentSource, transparentMarkBounds, 180, 0.82, [8, 12, 18, 255])],
+  ['icon-192.png', renderSquare(transparentSource, transparentMarkBounds, 192, 0.82, [8, 12, 18, 255])],
+  ['icon-512.png', renderSquare(transparentSource, transparentMarkBounds, 512, 0.82, [8, 12, 18, 255])],
+  ['icon-maskable-512.png', renderSquare(transparentSource, transparentMarkBounds, 512, 0.66, [8, 12, 18, 255])],
+  ['admin-logo.png', renderSquare(transparentSource, transparentMarkBounds, 256, 0.94, null)],
+  ['syntaxdevteam-logo.png', renderSquare(source, bounds, 512, 0.9, null, 1)],
 ]);
 
 const favicon = encodeIco([
   [16, variants.get('favicon-16x16.png')],
   [32, variants.get('favicon-32x32.png')],
   [48, variants.get('favicon-48x48.png')],
+  [64, variants.get('favicon-64x64.png')],
+  [128, variants.get('favicon-128x128.png')],
+  [256, variants.get('favicon-256x256.png')],
 ]);
 
 for (const outputRoot of outputRoots) {
@@ -101,13 +117,17 @@ function decodePng(data) {
   return { width, height, pixels };
 }
 
-function alphaBounds(image) {
-  let left = image.width;
-  let top = image.height;
+function alphaBounds(image, region = {}) {
+  const scanLeft = Math.max(0, region.left ?? 0);
+  const scanTop = Math.max(0, region.top ?? 0);
+  const scanRight = Math.min(image.width - 1, region.right ?? image.width - 1);
+  const scanBottom = Math.min(image.height - 1, region.bottom ?? image.height - 1);
+  let left = scanRight + 1;
+  let top = scanBottom + 1;
   let right = -1;
   let bottom = -1;
-  for (let y = 0; y < image.height; y += 1) {
-    for (let x = 0; x < image.width; x += 1) {
+  for (let y = scanTop; y <= scanBottom; y += 1) {
+    for (let x = scanLeft; x <= scanRight; x += 1) {
       if (image.pixels[(y * image.width + x) * 4 + 3] === 0) continue;
       left = Math.min(left, x);
       top = Math.min(top, y);
@@ -119,7 +139,7 @@ function alphaBounds(image) {
   return { left, top, width: right - left + 1, height: bottom - top + 1 };
 }
 
-function renderSquare(image, bounds, size, fillRatio, background) {
+function renderSquare(image, bounds, size, fillRatio, background, forcedSamples = null) {
   const pixels = Buffer.alloc(size * size * 4);
   if (background) {
     for (let i = 0; i < size * size; i += 1) pixels.set(background, i * 4);
@@ -130,11 +150,16 @@ function renderSquare(image, bounds, size, fillRatio, background) {
   const targetHeight = bounds.height * scale;
   const offsetX = (size - targetWidth) / 2;
   const offsetY = (size - targetHeight) / 2;
+  const samples = forcedSamples ?? (scale < 0.25 ? 4 : scale < 0.75 ? 2 : 1);
   for (let y = Math.max(0, Math.floor(offsetY)); y < Math.min(size, Math.ceil(offsetY + targetHeight)); y += 1) {
     for (let x = Math.max(0, Math.floor(offsetX)); x < Math.min(size, Math.ceil(offsetX + targetWidth)); x += 1) {
-      const sourceX = bounds.left + (x + 0.5 - offsetX) / scale - 0.5;
-      const sourceY = bounds.top + (y + 0.5 - offsetY) / scale - 0.5;
-      const color = sampleBilinear(image, sourceX, sourceY);
+      const color = forcedSamples === 1
+        ? sampleBilinear(
+          image,
+          bounds.left + (x + 0.5 - offsetX) / scale - 0.5,
+          bounds.top + (y + 0.5 - offsetY) / scale - 0.5,
+        )
+        : samplePixel(image, bounds, x, y, offsetX, offsetY, scale, samples);
       const destination = (y * size + x) * 4;
       if (!background) {
         pixels.set(color, destination);
@@ -148,6 +173,29 @@ function renderSquare(image, bounds, size, fillRatio, background) {
     }
   }
   return encodePng(size, size, pixels);
+}
+
+function samplePixel(image, bounds, x, y, offsetX, offsetY, scale, samples) {
+  let alphaSum = 0;
+  const premultiplied = [0, 0, 0];
+  for (let sampleY = 0; sampleY < samples; sampleY += 1) {
+    for (let sampleX = 0; sampleX < samples; sampleX += 1) {
+      const sourceX = bounds.left + (x + (sampleX + 0.5) / samples - offsetX) / scale - 0.5;
+      const sourceY = bounds.top + (y + (sampleY + 0.5) / samples - offsetY) / scale - 0.5;
+      const color = sampleBilinear(image, sourceX, sourceY);
+      const alpha = color[3] / 255;
+      alphaSum += alpha;
+      for (let channel = 0; channel < 3; channel += 1) premultiplied[channel] += color[channel] * alpha;
+    }
+  }
+
+  const sampleCount = samples * samples;
+  const output = Buffer.alloc(4);
+  if (alphaSum > 0) {
+    for (let channel = 0; channel < 3; channel += 1) output[channel] = Math.round(premultiplied[channel] / alphaSum);
+  }
+  output[3] = Math.round(alphaSum / sampleCount * 255);
+  return output;
 }
 
 function sampleBilinear(image, x, y) {

@@ -595,6 +595,7 @@ $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews
     $html = (string) ob_get_clean();
 
     $assert(str_contains($html, 'img/brand/favicon.ico'));
+    $assert(str_contains($html, 'img/brand/favicon-256x256.png'));
     $assert(str_contains($html, 'apple-touch-icon'));
     $assert(str_contains($html, 'apple-mobile-web-app-capable'));
     $assert(str_contains($html, 'site.webmanifest'));
@@ -785,6 +786,7 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(str_contains($html, '<img src="https://example.test/avatar.png" alt="" loading="lazy">'));
     $assert(str_contains($html, '>Wyloguj</button>'));
     $assert(str_contains($html, 'class="admin-brand-logo"'));
+    $assert(str_contains($html, 'img/brand/admin-logo.png'));
     $assert(str_contains($html, 'name="robots" content="noindex, nofollow"'));
     $assert(!str_contains($html, 'admin-sidebar-footer'));
 });

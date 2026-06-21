@@ -631,7 +631,7 @@ final class Theme implements ThemeInterface
         echo '<div class="admin-preview rounded-0 border-0"><div class="admin-shell">';
         echo '<aside class="admin-sidebar" aria-label="Nawigacja panelu"><div class="admin-sidebar-header">';
         echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin">';
-        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL</span></a></div>';
+        echo $this->brandLogo('admin-brand-logo', 'admin-logo.png') . '<span>miniPORTAL</span></a></div>';
         $this->renderAdminMenu($menuItems, $activePath);
         echo '</aside>';
         echo '<div class="admin-workspace"><header class="admin-topbar">';
@@ -879,7 +879,7 @@ final class Theme implements ThemeInterface
         echo '<main class="min-vh-100 d-grid align-items-center py-4"><div class="container">';
         echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
         echo '<a class="admin-brand text-decoration-none" href="index.php">';
-        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL Admin</span></a>';
+        echo $this->brandLogo('admin-brand-logo', 'admin-logo.png') . '<span>miniPORTAL Admin</span></a>';
         echo '<p class="showcase-label mt-5 mb-2">Bezpieczny dostęp</p>';
         echo '<h1 class="h2 fw-bold">Zaloguj się do panelu</h1>';
         echo '<p class="text-secondary">Konto i uprawnienia pozostają lokalne, niezależnie od wybranego dostawcy tożsamości.</p>';
@@ -961,7 +961,7 @@ final class Theme implements ThemeInterface
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook"><main class="container py-5">';
         echo '<a class="admin-brand text-decoration-none mb-4" href="index.php?route=/admin">';
-        echo $this->brandLogo('admin-brand-logo') . '<span>miniPORTAL Admin</span></a>';
+        echo $this->brandLogo('admin-brand-logo', 'admin-logo.png') . '<span>miniPORTAL Admin</span></a>';
         echo '<section class="admin-panel mt-4"><div class="admin-panel-header">';
         echo '<div><p class="showcase-label mb-1">Profil</p><h1 class="h3 mb-1">Połączone tożsamości</h1>';
         echo '<p class="text-secondary mb-0">' . $this->escape($user['name']) . ' · ' . $this->escape($user['role']) . '</p></div>';
@@ -1502,9 +1502,9 @@ final class Theme implements ThemeInterface
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private function brandLogo(string $class): string
+    private function brandLogo(string $class, string $filename = 'syntaxdevteam-logo.png'): string
     {
-        return '<img class="' . $class . '" src="' . $this->asset('img/brand/syntaxdevteam-logo.png')
+        return '<img class="' . $class . '" src="' . $this->asset('img/brand/' . $filename)
             . '" width="512" height="512" alt="" aria-hidden="true">';
     }
 
@@ -1517,7 +1517,10 @@ final class Theme implements ThemeInterface
         echo '<meta name="apple-mobile-web-app-capable" content="yes">';
         echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
         echo '<meta name="apple-mobile-web-app-title" content="' . $this->escape($this->publicName) . '">';
-        echo '<link rel="icon" href="' . $this->asset('img/brand/favicon.ico') . '" sizes="any">';
+        echo '<link rel="icon" href="' . $this->asset('img/brand/favicon.ico') . '" sizes="16x16 32x32 48x48 64x64 128x128 256x256">';
+        echo '<link rel="icon" type="image/png" sizes="256x256" href="' . $this->asset('img/brand/favicon-256x256.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="96x96" href="' . $this->asset('img/brand/favicon-96x96.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="48x48" href="' . $this->asset('img/brand/favicon-48x48.png') . '">';
         echo '<link rel="icon" type="image/png" sizes="32x32" href="' . $this->asset('img/brand/favicon-32x32.png') . '">';
         echo '<link rel="icon" type="image/png" sizes="16x16" href="' . $this->asset('img/brand/favicon-16x16.png') . '">';
         echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->asset('img/brand/apple-touch-icon.png') . '">';

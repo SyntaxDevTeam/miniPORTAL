@@ -124,7 +124,7 @@ body.admin-stylebook {
   width: 2.6rem;
   height: 2.6rem;
   object-fit: contain;
-  box-shadow: 0 0 1.5rem rgba(var(--mp-primary-rgb), 0.2);
+  filter: drop-shadow(0 0 0.55rem rgba(var(--mp-primary-rgb), 0.16));
 }
 
 .provider-list {
@@ -1227,7 +1227,6 @@ body.admin-stylebook,
   backdrop-filter: blur(22px) saturate(130%);
 }
 
-.admin-brand-logo,
 .admin-demo-nav .nav-pills {
   box-shadow: 0 0 2rem rgba(88, 183, 255, 0.16);
 }

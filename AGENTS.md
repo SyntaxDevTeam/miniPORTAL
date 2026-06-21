@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-20 - rozszerzone SEO, dostępność i UX szablonów.
+> **Ostatnia aktualizacja:** 2026-06-20 - przezroczysty sygnet panelu i favicony HD.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -56,6 +56,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Dopracowanie CSS i animacji |
 | [x] | Wersja 1 strony głównej SyntaxDevTeam.pl |
 | [x] | Logo SyntaxDevTeam, favikony, Apple Touch Icon, manifest i metadane SEO |
+| [x] | Osobny przezroczysty sygnet panelu i wygładzone favicony 16-256 px |
 | [x] | Canonical, social cards, JSON-LD oraz zgodność dostępności publicznych layoutów |
 
 ### Krok 3 - odwzorowanie prototypu w PHP

@@ -41,6 +41,10 @@ sudo systemctl reload apache2
 
 ## Pełny przykład
 
+Każda wartość pliku INI musi mieścić się w jednej linii. Cudzysłów wewnątrz
+wartości zapisuj jako `\"`; nie przenoś opisu ani tytułu do kolejnego wiersza,
+ponieważ PHP odrzuci wtedy cały plik środowiskowy.
+
 ```dotenv
 APP_NAME="miniPORTAL"
 APP_DEBUG=false

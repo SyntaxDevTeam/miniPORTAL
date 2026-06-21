@@ -30,6 +30,11 @@ widoki generują canonical, Open Graph, Twitter Card oraz Organization/WebSite
 JSON-LD, a błędy zawsze mają `noindex`. Szablony mają semantyczną stopkę, aktywną
 pozycję nawigacji, większe cele dotykowe, mocny fokus i redukcję ruchu. (gotowe)
 
+Panel korzysta z osobnego, przezroczystego sygnetu bez kwadratowego tła. Favikony
+powstają z uproszczonego wariantu znaku, używają wygładzania wielopróbkowego i są
+dostępne jako PNG 16-256 px oraz wielowarstwowe ICO. Logo publicznej strony
+głównej pozostaje bez zmian. (gotowe)
+
 Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki zarówno dla menu i stopki co jest zgodne z założeniami i samą kwestią zawartości, jednakże pewne elelmenty powinny być współne:
 1. ~~Nazwa strony~~ (gotowe)
 2. ~~Stopka~~ (gotowe)

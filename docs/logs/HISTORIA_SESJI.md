@@ -1749,3 +1749,24 @@ warstwy Theme i bezpiecznych ustawień systemowych.
 manifestów, danych JSON-LD oraz `git diff --check`. Produkcyjny smoke test zwrócił
 200 dla `/` z kompletem metadanych oraz 404 z `noindex, nofollow` i bez canonical
 dla nieistniejącej trasy.
+
+### Sesja: 2026-06-20 - Przezroczyste logo panelu, favicony HD i naprawa 500
+
+**Faza i krok specyfikacji:** Krok 2/3 - dopracowanie zasobów marki obu motywów
+oraz kontrola konfiguracji produkcyjnej.
+
+**Wykonano:**
+- ustalono, że kod 500 powodował błędny INI: nieucieczony cudzysłów w
+  `SITE_DEFAULT_TITLE` i wieloliniowy `SITE_META_DESCRIPTION`,
+- naprawiono plik atomowo po walidacji w pamięci; kopię zapisano jako
+  `/etc/miniportal/miniportal.env.bak-20260620-093012`,
+- panel i logowanie korzystają z osobnego `admin-logo.png`, wyciętego z
+  `SyntaxDevTeam_logo.no_bg.png`, bez kwadratowego tła,
+- publiczne logo strony głównej pozostało niezmienione,
+- favicony są generowane z czystszego sygnetu w rozmiarach 16, 32, 48, 64, 96,
+  128 i 256 px z wielopróbkowym filtrowaniem; ICO zawiera sześć rozdzielczości,
+- dokumentacja konfiguracji ostrzega przed wieloliniowymi wartościami INI i
+  opisuje uciekanie wewnętrznych cudzysłowów.
+
+**Weryfikacja:** parser INI zaakceptował 50 kluczy, strona po naprawie zwraca 200,
+generator odtwarza komplet ikon, testy repozytorium i lint PHP/JS przechodzą.

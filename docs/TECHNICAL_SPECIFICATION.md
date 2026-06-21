@@ -236,6 +236,8 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   Open Graph/Twitter Card, konfigurowalne robots/locale oraz Organization i WebSite JSON-LD
 - publiczne layouty mają landmarki, link pomijający nawigację, widoczny fokus,
   aktywną pozycję menu, cele dotykowe i obsługę `prefers-reduced-motion`
+- panel używa przezroczystego wariantu sygnetu niezależnego od publicznego logo,
+  a favicony 16-256 px i wielowarstwowe ICO są generowane z filtrowaniem redukcyjnym
 - układ kontaktowy homepage z deklaratywnymi kanałami, osobami i ikonami
 - podgląd roboczy obejmujący również ukryte sekcje i elementy
 - autozapis formularzy treści do `localStorage`, oferowany do ręcznego przywrócenia
