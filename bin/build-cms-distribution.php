@@ -51,7 +51,7 @@ $copyDirectory = static function (string $from, string $to): void {
 
 try {
     mkdir($temporary, 0775, true);
-    foreach (['bin', 'config', 'core', 'modules', 'templates'] as $directory) {
+    foreach (['bin', 'config', 'core', 'modules', 'templates', 'tools'] as $directory) {
         $copyDirectory($root . '/' . $directory, $temporary . '/' . $directory);
     }
     @unlink($temporary . '/bin/build-cms-distribution.php');
@@ -75,6 +75,11 @@ try {
         $path = $temporary . '/cache/' . $directory;
         mkdir($path, 0775, true);
         file_put_contents($path . '/.gitkeep', '');
+    }
+    mkdir($temporary . '/uploads/branding', 0775, true);
+    file_put_contents($temporary . '/uploads/branding/.gitkeep', '');
+    if (!copy($root . '/uploads/.htaccess', $temporary . '/uploads/.htaccess')) {
+        throw new RuntimeException('Nie można dołączyć ochrony katalogu uploads.');
     }
     @unlink($temporary . '/config/installed.env');
     @unlink($temporary . '/config/installed.lock');

@@ -705,6 +705,12 @@ body.admin-stylebook {
   padding: 1.15rem;
 }
 
+.form-action-only {
+  display: inline-flex;
+  margin-top: 1rem;
+  padding: 0.75rem;
+}
+
 .permission-groups {
   display: grid;
   gap: 1rem;

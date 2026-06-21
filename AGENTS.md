@@ -289,6 +289,7 @@ Brak aktywnych blokerów.
 | 2026-06-21 | `system_admin` 1.6.1 układa Branding, Szablon i Cache w lewej kolumnie ustawień, SEO w prawej, a nawigację w pełnym rzędzie; Theme udostępnia ogólny komponent kolumn paneli. |
 | 2026-06-21 | `system_admin` 1.7.0 dodaje indeks wyszukiwania panelu, kolejność nawigacji i konfigurowalne hooki Dashboardu. `team` 1.1.0, `projects` 1.2.0 i `build_explorer` 1.3.0 zgłaszają akcje lub statystyki. |
 | 2026-06-21 | Akrostych Hero / Split zastępuje nagłówek po lewej jako `h1`; terminal statusu po prawej pozostaje bez zmian. |
+| 2026-06-21 | `system_admin` 1.8.0 rozszerza diagnostykę cache i dodaje generator favicon z PNG do bezpiecznego `uploads/branding`. |
 
 ## Historia sesji
 

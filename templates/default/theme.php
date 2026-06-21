@@ -42,6 +42,10 @@ final class Theme implements ThemeInterface
 
     private readonly string $publicFooterText;
 
+    private readonly string $publicFaviconPath;
+
+    private readonly string $publicFaviconVersion;
+
     private readonly string $publicUrl;
 
     private readonly string $publicPath;
@@ -97,6 +101,12 @@ final class Theme implements ThemeInterface
             $config['public_footer_text']
             ?? 'Projektowane modułowo. Rozwijane świadomie.'
         )) ?: 'Projektowane modułowo. Rozwijane świadomie.';
+        $faviconPath = rtrim(trim((string) ($config['public_favicon_path'] ?? '')), '/');
+        $this->publicFaviconPath = preg_match('#^/[A-Za-z0-9/_-]+$#', $faviconPath) === 1
+            ? $faviconPath
+            : '';
+        $faviconVersion = trim((string) ($config['public_favicon_version'] ?? ''));
+        $this->publicFaviconVersion = ctype_digit($faviconVersion) ? $faviconVersion : '';
     }
 
     public function set_public_navigation(array $items, bool $authenticated): void
@@ -450,7 +460,8 @@ final class Theme implements ThemeInterface
     ): void {
         $method = strtolower($method) === 'get' ? 'get' : 'post';
         $hasFile = array_any($fields, static fn (array $field): bool => ($field['type'] ?? '') === 'file');
-        echo '<form class="showcase-card" action="' . $this->escape($action) . '" method="' . $method . '"';
+        $formClass = $fields === [] ? 'showcase-card form-action-only' : 'showcase-card';
+        echo '<form class="' . $formClass . '" action="' . $this->escape($action) . '" method="' . $method . '"';
         echo $hasFile ? ' enctype="multipart/form-data"' : '';
         echo '>';
 
@@ -596,7 +607,7 @@ final class Theme implements ThemeInterface
             } elseif ($type === 'file') {
                 $accept = isset($field['accept']) ? ' accept="' . $this->escape((string) $field['accept']) . '"' : '';
                 echo '<div class="file-dropzone">';
-                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . '>';
+                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . $controlAttributes . '>';
                 echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'color'];
@@ -1572,14 +1583,14 @@ final class Theme implements ThemeInterface
         echo '<meta name="apple-mobile-web-app-capable" content="yes">';
         echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">';
         echo '<meta name="apple-mobile-web-app-title" content="' . $this->escape($this->publicName) . '">';
-        echo '<link rel="icon" href="' . $this->asset('img/brand/favicon.ico') . '" sizes="16x16 32x32 48x48 64x64 128x128 256x256">';
-        echo '<link rel="icon" type="image/png" sizes="256x256" href="' . $this->asset('img/brand/favicon-256x256.png') . '">';
-        echo '<link rel="icon" type="image/png" sizes="96x96" href="' . $this->asset('img/brand/favicon-96x96.png') . '">';
-        echo '<link rel="icon" type="image/png" sizes="48x48" href="' . $this->asset('img/brand/favicon-48x48.png') . '">';
-        echo '<link rel="icon" type="image/png" sizes="32x32" href="' . $this->asset('img/brand/favicon-32x32.png') . '">';
-        echo '<link rel="icon" type="image/png" sizes="16x16" href="' . $this->asset('img/brand/favicon-16x16.png') . '">';
-        echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->asset('img/brand/apple-touch-icon.png') . '">';
-        echo '<link rel="manifest" href="' . $this->asset('site.webmanifest') . '">';
+        echo '<link rel="icon" href="' . $this->faviconAsset('favicon.ico') . '" sizes="16x16 32x32 48x48 64x64 128x128 256x256">';
+        echo '<link rel="icon" type="image/png" sizes="256x256" href="' . $this->faviconAsset('favicon-256x256.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="96x96" href="' . $this->faviconAsset('favicon-96x96.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="48x48" href="' . $this->faviconAsset('favicon-48x48.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="32x32" href="' . $this->faviconAsset('favicon-32x32.png') . '">';
+        echo '<link rel="icon" type="image/png" sizes="16x16" href="' . $this->faviconAsset('favicon-16x16.png') . '">';
+        echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->faviconAsset('apple-touch-icon.png') . '">';
+        echo '<link rel="manifest" href="' . $this->faviconAsset('site.webmanifest') . '">';
         if (!$indexable) {
             echo '<meta name="robots" content="noindex, nofollow">';
             return;
@@ -1662,6 +1673,17 @@ final class Theme implements ThemeInterface
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
             echo '<script type="application/ld+json">' . $structuredData . '</script>';
         }
+    }
+
+    private function faviconAsset(string $name): string
+    {
+        $url = $this->publicFaviconPath !== ''
+            ? $this->publicFaviconPath . '/' . $name
+            : ($name === 'site.webmanifest' ? $this->asset($name) : $this->asset('img/brand/' . $name));
+
+        return $this->publicFaviconVersion !== ''
+            ? $url . (str_contains($url, '?') ? '&amp;' : '?') . 'v=' . $this->publicFaviconVersion
+            : $url;
     }
 
     private function isSafePublicAssetUrl(string $url): bool

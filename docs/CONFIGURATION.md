@@ -240,6 +240,15 @@ Pliki trafiają do `cache/templates`, który musi być zapisywalny dla użytkown
 serwera WWW. Panel `/admin/settings` pokazuje statystyki i udostępnia audytowane
 czyszczenie. Zmiana treści `core_pages` albo ustawień motywu unieważnia właściwe tagi.
 
+Cache jest zapełniany wyłącznie przez anonimowe wejścia na obsługiwane widoki
+publiczne. Zalogowany administrator zawsze go omija, więc samo otwarcie panelu nie
+zwiększa licznika. Statystyki pokazują ważne i wygasłe wpisy, rozmiar HTML, TTL
+oraz możliwość zapisu.
+
+Generator ikon w sekcji Branding wymaga Node.js i PNG od 512 x 512 do
+4096 x 4096 px, maksymalnie 8 MiB. PHP musi mieć prawo zapisu do
+`uploads/branding`; katalog `uploads/` blokuje wykonanie plików skryptowych.
+
 ## Pliki Build Explorer
 
 ```dotenv

@@ -6,6 +6,7 @@ use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
+use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
@@ -132,6 +133,7 @@ $moduleArchiveImporter = new ModuleArchiveImporter(
     $manifestValidator,
     (int) ($config['modules']['archive_max_bytes'] ?? 10485760)
 );
+$brandIconGenerator = new BrandIconGenerator(__DIR__, __DIR__ . '/uploads/branding');
 $moduleBootstrapper = new ModuleBootstrapper(
     __DIR__ . '/modules',
     $manifestValidator,
@@ -157,6 +159,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'trusted_module_publishers' => $trustedModulePublishers,
     'public_navigation' => $publicNavigation,
     'dashboard' => $dashboard,
+    'brand_icon_generator' => $brandIconGenerator,
 ], $modules);
 $modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard);
 $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));

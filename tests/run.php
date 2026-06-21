@@ -5,6 +5,7 @@ declare(strict_types=1);
 use SyntaxDevTeam\Cms\Core\Autoloader;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
+use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
@@ -288,8 +289,37 @@ $test('Template cache remembers output and invalidates matching tags', static fu
     $assert($cache->invalidateTags(['articles']) === 0);
     $assert($cache->invalidateTags(['homepage']) === 1);
     $assert($cache->remember('public', 'homepage', $renderer, ['homepage']) === 'render-2');
-    $assert($cache->stats()['entries'] === 1);
+    $stats = $cache->stats();
+    $assert($stats['entries'] === 1);
+    $assert($stats['expired'] === 0);
+    $assert($stats['bytes'] > 0 && $stats['ttl'] === 60 && $stats['writable']);
     $cache->clear();
+    @rmdir($directory);
+});
+
+$test('Brand icon generator creates browser and mobile variants', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-brand-icons-' . bin2hex(random_bytes(6));
+    $source = dirname(__DIR__) . '/theme/ico/SyntaxDevTeam_logo.no_bg.png';
+    $generator = new BrandIconGenerator(dirname(__DIR__), $directory);
+    $generator->generate([
+        'name' => 'brand.png',
+        'type' => 'image/png',
+        'tmp_name' => $source,
+        'error' => UPLOAD_ERR_OK,
+        'size' => filesize($source),
+    ], 'Portal testowy', '#123456');
+
+    foreach (['favicon.ico', 'favicon-16x16.png', 'favicon-256x256.png', 'apple-touch-icon.png', 'icon-512.png', 'site.webmanifest'] as $file) {
+        $assert(is_file($directory . '/' . $file) && filesize($directory . '/' . $file) > 0, 'Brak wariantu: ' . $file);
+    }
+    $iconSize = getimagesize($directory . '/icon-512.png');
+    $assert(is_array($iconSize) && $iconSize[0] === 512 && $iconSize[1] === 512);
+    $manifest = json_decode((string) file_get_contents($directory . '/site.webmanifest'), true);
+    $assert(($manifest['name'] ?? '') === 'Portal testowy');
+    $assert(($manifest['theme_color'] ?? '') === '#123456');
+    foreach (glob($directory . '/*') ?: [] as $file) {
+        @unlink($file);
+    }
     @rmdir($directory);
 });
 
@@ -663,6 +693,21 @@ $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews
     $assert(!str_contains($html, '<span aria-hidden="true">&lt;/&gt;</span>'));
 });
 
+$test('Theme uses generated favicon set with cache version', static function () use ($assert): void {
+    $theme = new DefaultTheme([
+        'public_favicon_path' => '/uploads/branding',
+        'public_favicon_version' => '123456',
+    ]);
+    ob_start();
+    $theme->start_page('Ikony', 'Test ikon');
+    $theme->end_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '/uploads/branding/favicon.ico?v=123456'));
+    $assert(str_contains($html, '/uploads/branding/apple-touch-icon.png?v=123456'));
+    $assert(str_contains($html, '/uploads/branding/site.webmanifest?v=123456'));
+});
+
 $test('Public error metadata prevents indexing', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_url' => 'https://syntaxdevteam.pl',
@@ -981,7 +1026,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.7.0');
+    $assert($system->version === '1.8.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -1084,7 +1129,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '1.7.0';"));
+    $assert(str_contains($systemSource, "return '1.8.0';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 

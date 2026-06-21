@@ -41,6 +41,8 @@ final class SystemSettingsRepository
                 'public_google_site_verification',
                 'public_bing_site_verification',
                 'public_footer_text',
+                'public_favicon_path',
+                'public_favicon_version',
             ]]
         ) ?? [];
         foreach ($rows as $row) {
@@ -107,6 +109,18 @@ final class SystemSettingsRepository
             'public_eyebrow' => $publicEyebrow,
             'public_theme_color' => $themeColor,
             'public_footer_text' => $footerText,
+        ], $actorId);
+    }
+
+    public function saveFaviconSettings(string $path, string $version, int $actorId): void
+    {
+        if (preg_match('#^/[A-Za-z0-9/_-]+$#', $path) !== 1 || !ctype_digit($version)) {
+            throw new RuntimeException('Nieprawidłowa konfiguracja ikon strony.');
+        }
+
+        $this->upsertSettings([
+            'public_favicon_path' => rtrim($path, '/'),
+            'public_favicon_version' => $version,
         ], $actorId);
     }
 

@@ -178,6 +178,8 @@ final class Bootstrap
                     'public_google_site_verification',
                     'public_bing_site_verification',
                     'public_footer_text',
+                    'public_favicon_path',
+                    'public_favicon_version',
                 ]]
             ) ?? [];
         } catch (Throwable) {
@@ -205,6 +207,8 @@ final class Bootstrap
                 'public_google_site_verification',
                 'public_bing_site_verification',
                 'public_footer_text',
+                'public_favicon_path',
+                'public_favicon_version',
             ], true)) {
                 $settings[$key] = (string) ($row['setting_value'] ?? '');
             }

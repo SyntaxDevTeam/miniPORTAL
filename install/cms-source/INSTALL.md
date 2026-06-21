@@ -3,6 +3,7 @@
 ## Wymagania
 
 - PHP 8.4 lub nowszy z rozszerzeniami `pdo_mysql`, `json`, `openssl`, `session` i `fileinfo`.
+- Node.js dostępny dla opcjonalnego generatora favicon w panelu Branding.
 - MySQL lub MariaDB oraz pusta baza danych.
 - HTTPS w środowisku produkcyjnym.
 - aplikacja OAuth GitHub dla logowania pierwszego Ownera.
@@ -10,14 +11,14 @@
 ## Uruchomienie
 
 1. Skopiuj zawartość tego katalogu do katalogu publicznego domeny.
-2. Nadaj użytkownikowi PHP prawo zapisu do katalogów `config/` i `cache/`.
+2. Nadaj użytkownikowi PHP prawo zapisu do katalogów `config/`, `cache/` i `uploads/branding/`.
    Na Debianie/Ubuntu, gdzie PHP-FPM lub Apache działa w grupie `www-data`, wykonaj
    poniższe polecenia z głównego katalogu miniPORTAL:
 
    ```bash
-   sudo chgrp -R www-data config cache
-   sudo find config cache -type d -exec chmod 2770 {} \;
-   sudo find config cache -type f -exec chmod 0660 {} \;
+   sudo chgrp -R www-data config cache uploads/branding
+   sudo find config cache uploads/branding -type d -exec chmod 2770 {} \;
+   sudo find config cache uploads/branding -type f -exec chmod 0660 {} \;
    ```
 
    Bit `2` w prawach katalogów powoduje dziedziczenie grupy `www-data` przez nowe

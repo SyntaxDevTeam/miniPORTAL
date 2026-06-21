@@ -104,19 +104,32 @@ final class FileTemplateCache implements TemplateCacheInterface
     public function stats(): array
     {
         $entries = 0;
+        $expired = 0;
         $bytes = 0;
-        foreach (glob($this->directory . '/*.cache') ?: [] as $file) {
-            if (!is_file($file) || is_link($file)) {
+        foreach (glob($this->directory . '/*.json') ?: [] as $metadataFile) {
+            if (!is_file($metadataFile) || is_link($metadataFile)) {
                 continue;
             }
-            $entries++;
-            $bytes += (int) filesize($file);
+            $metadata = $this->metadata($metadataFile);
+            $contentFile = $this->directory . '/' . basename($metadataFile, '.json') . '.cache';
+            if ($metadata === null || !is_file($contentFile) || is_link($contentFile)) {
+                continue;
+            }
+            $bytes += (int) filesize($contentFile);
+            if ((int) ($metadata['expires_at'] ?? 0) < time()) {
+                $expired++;
+            } else {
+                $entries++;
+            }
         }
 
         return [
             'enabled' => $this->usable(),
             'entries' => $entries,
+            'expired' => $expired,
             'bytes' => $bytes,
+            'ttl' => max(1, $this->ttl),
+            'writable' => is_dir($this->directory) && is_writable($this->directory),
             'directory' => $this->directory,
         ];
     }

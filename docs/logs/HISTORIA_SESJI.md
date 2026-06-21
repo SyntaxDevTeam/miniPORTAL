@@ -1893,3 +1893,23 @@ zmniejszono responsywną skalę nagłówka oraz zabezpieczono każdy wyraz przed
 
 **Weryfikacja:** parser CSS obu motywów, test HTML Hero, kontrola publicznej strony
 z akrostychem i terminalem oraz pełne testy repozytorium.
+
+### Sesja: 2026-06-21 - Diagnostyka cache i generator favicon
+
+**Faza i krok specyfikacji:** Krok 3/5A oraz Krok 6 - ustawienia prezentacji,
+cache szablonów i bezpieczne zasoby publiczne.
+
+**Wykonano:**
+- ustalono, że zerowy licznik wynikał z omijania cache przez zalogowaną sesję,
+  unieważniania wpisów i braku późniejszego anonimowego żądania,
+- statystyki pokazują ważne i wygasłe wpisy, rozmiar HTML, TTL, możliwość zapisu
+  i katalog; zapis ustawień Dashboardu nie czyści już publicznych szablonów,
+- Branding generuje z PNG komplet favicon, Apple Touch Icon, ikony aplikacji,
+  ICO i manifest w chronionym `uploads/branding`,
+- oba motywy używają wspólnego zestawu z wersją unieważniającą cache przeglądarki,
+- dystrybucja zawiera generator i instrukcję praw zapisu; produkcyjny
+  `system_admin` podniesiono do 1.8.0.
+
+**Weryfikacja:** lint PHP, pełne testy, rzeczywiste generowanie wariantów 16-512
+px, przebudowa dystrybucji i anonimowy smoke test HTTP 200. Po rozgrzaniu cache
+raportował 1 wpis oraz 18 048 B.

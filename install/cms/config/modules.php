@@ -205,6 +205,7 @@ return [
             $services['trusted_module_publishers'],
             $services['public_navigation'],
             $services['dashboard'],
+            $services['brand_icon_generator'],
         ),
     ],
 ];

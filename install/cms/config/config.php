@@ -87,6 +87,8 @@ return [
         'public_google_site_verification' => (string) $env('SITE_GOOGLE_VERIFICATION', ''),
         'public_bing_site_verification' => (string) $env('SITE_BING_VERIFICATION', ''),
         'public_footer_text' => (string) $env('SITE_FOOTER_TEXT', 'Projektowane modułowo. Rozwijane świadomie.'),
+        'public_favicon_path' => '',
+        'public_favicon_version' => '',
     ],
     'session' => [
         'name' => (string) $env('SESSION_NAME', 'MINIPORTALSESSID'),

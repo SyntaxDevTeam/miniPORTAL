@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\System;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
+use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
@@ -39,6 +40,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly array $trustedModulePublishers,
         private readonly PublicNavigationRegistry $publicNavigation,
         private readonly DashboardRegistry $dashboard,
+        private readonly BrandIconGenerator $brandIconGenerator,
     ) {
     }
 
@@ -49,7 +51,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.7.0';
+        return '1.8.0';
     }
 
     public function dependencies(): array
@@ -845,6 +847,8 @@ final class SystemAdminModule implements ModuleInterface
             'public_google_site_verification' => (string) ($app['public_google_site_verification'] ?? ''),
             'public_bing_site_verification' => (string) ($app['public_bing_site_verification'] ?? ''),
             'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
+            'public_favicon_path' => (string) ($app['public_favicon_path'] ?? ''),
+            'public_favicon_version' => (string) ($app['public_favicon_version'] ?? ''),
         ]);
         $cache = $this->templateCache->stats();
         $this->theme->start_admin_panel_grid('settings');
@@ -892,6 +896,26 @@ final class SystemAdminModule implements ModuleInterface
             'Zapisz branding',
             $this->security->csrfToken()
         );
+        $this->theme->render_alert(
+            'Generator przygotuje favicony 16-256 px, Apple Touch Icon 180 px, ikony aplikacji 192/512 px, plik ICO i manifest. Najlepszy efekt daje kwadratowy PNG z przezroczystym tłem.',
+            'info'
+        );
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'favicon'],
+                [
+                    'name' => 'favicon',
+                    'label' => 'Ikona strony w wysokiej rozdzielczości',
+                    'type' => 'file',
+                    'accept' => '.png,image/png',
+                    'required' => true,
+                    'help' => 'PNG od 512 x 512 do 4096 x 4096 px, maksymalnie 8 MiB.',
+                ],
+            ],
+            $values['public_favicon_path'] !== '' ? 'Wygeneruj favicony ponownie' : 'Wygeneruj favicony',
+            $this->security->csrfToken()
+        );
         $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel('Szablon', 'Motyw publiczny');
@@ -919,14 +943,17 @@ final class SystemAdminModule implements ModuleInterface
         $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel('Cache szablonów', $cache['enabled'] ? 'Aktywny' : 'Wyłączony');
-        $this->theme->render_admin_table(
-            ['Parametr', 'Wartość'],
-            [
-                ['Liczba wpisów', (string) $cache['entries']],
-                ['Rozmiar', (string) $cache['bytes'] . ' B'],
-                ['Katalog', $cache['directory']],
-            ]
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Ważne wpisy', 'value' => (string) $cache['entries'], 'detail' => 'Anonimowe odpowiedzi'],
+            ['label' => 'Wygasłe', 'value' => (string) $cache['expired'], 'detail' => 'Zostaną nadpisane'],
+            ['label' => 'Rozmiar', 'value' => $this->formatBytes((int) $cache['bytes']), 'detail' => 'Pliki HTML'],
+            ['label' => 'TTL', 'value' => (string) $cache['ttl'] . ' s', 'detail' => $cache['writable'] ? 'Katalog zapisywalny' : 'Brak prawa zapisu'],
+        ]);
+        $this->theme->render_alert(
+            'Cache obejmuje anonimowe wejścia na stronę główną oraz obsługiwane podstrony. Zalogowany administrator zawsze otrzymuje świeży widok, dlatego jego wejścia nie zwiększają licznika.',
+            'info'
         );
+        $this->theme->render_admin_table(['Katalog cache'], [[$cache['directory']]]);
         $this->theme->render_form(
             'index.php?route=/admin/cache/clear',
             [],
@@ -1182,6 +1209,22 @@ final class SystemAdminModule implements ModuleInterface
                     ],
                     $actor->id
                 );
+            } elseif ($scope === 'favicon') {
+                $file = $request->file('favicon');
+                if ($file === null) {
+                    throw new \RuntimeException('Wybierz plik PNG z ikoną strony.');
+                }
+                $app = is_array($this->config['app'] ?? null) ? $this->config['app'] : [];
+                $values = $this->settings->themeSettings([
+                    'public_name' => (string) ($app['public_name'] ?? 'miniPORTAL'),
+                    'public_theme_color' => (string) ($app['public_theme_color'] ?? '#080c12'),
+                ]);
+                $this->brandIconGenerator->generate(
+                    $file,
+                    $values['public_name'],
+                    $values['public_theme_color']
+                );
+                $this->settings->saveFaviconSettings('/uploads/branding', (string) time(), $actor->id);
             } elseif ($scope === 'seo') {
                 $this->settings->saveSeoSettings(
                     [
@@ -1229,7 +1272,9 @@ final class SystemAdminModule implements ModuleInterface
             } else {
                 throw new \RuntimeException('Nieznany zakres ustawień.');
             }
-            $this->templateCache->invalidateTags(['theme', 'homepage']);
+            if (in_array($scope, ['theme', 'branding', 'seo', 'navigation', 'favicon'], true)) {
+                $this->templateCache->invalidateTags(['theme', 'homepage']);
+            }
             $this->audit->record($request, 'system_settings_update', 'success', null, $actor->id);
             header('Location: index.php?route=/admin/settings', true, 303);
         } catch (\Throwable $exception) {
@@ -1241,6 +1286,18 @@ final class SystemAdminModule implements ModuleInterface
     private function publicNavigationFieldKey(string $id): string
     {
         return preg_replace('/[^a-zA-Z0-9_]/', '_', $id) ?? $id;
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+        if ($bytes < 1024 * 1024) {
+            return number_format($bytes / 1024, 1, ',', ' ') . ' KiB';
+        }
+
+        return number_format($bytes / 1024 / 1024, 1, ',', ' ') . ' MiB';
     }
 
     private function clearTemplateCache(Request $request): void

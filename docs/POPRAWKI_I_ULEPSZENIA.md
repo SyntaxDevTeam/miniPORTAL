@@ -286,3 +286,15 @@ powielony w stopce albo ukryty przez ustawienia publicznej nawigacji.
 Etap 2 gotowy: publiczny katalog układa jeden projekt na pełnej szerokości, dwa
 i cztery w dwóch kolumnach, a trzy w trzech kolumnach. Karta nie duplikuje opisu;
 prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
+
+### Ustawienia systemowe
+
+Etap diagnostyki cache i favicon gotowy: licznik cache rozróżnia ważne i wygasłe
+wpisy, pokazuje rozmiar, TTL i możliwość zapisu. Panel wyjaśnia, że cache powstaje
+tylko przy anonimowych wejściach na obsługiwane publiczne widoki; sesja
+administratora celowo go omija. Zapis ustawień Dashboardu nie czyści już cache.
+
+Branding przyjmuje źródłowy PNG 512-4096 px i generuje favicony 16-256 px,
+Apple Touch Icon, ikony aplikacji 192/512 px, wariant maskowalny, wielorozmiarowy
+plik ICO oraz manifest. Pliki trafiają do chronionego przed wykonywaniem skryptów
+`uploads/branding` i są współdzielone przez oba motywy.

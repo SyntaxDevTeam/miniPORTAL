@@ -20,7 +20,7 @@ interface TemplateCacheInterface
     public function clear(): int;
 
     /**
-     * @return array{enabled: bool, entries: int, bytes: int, directory: string}
+     * @return array{enabled: bool, entries: int, expired: int, bytes: int, ttl: int, writable: bool, directory: string}
      */
     public function stats(): array;
 }
