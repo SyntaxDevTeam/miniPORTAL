@@ -91,23 +91,33 @@
           </div>
         </div>
         <div class="col-lg-5 reveal is-visible">
-          <div class="terminal" aria-label="Status przykładowych projektów">
+          <div class="terminal" data-home-terminal data-authenticated="false" aria-label="Interaktywny terminal strony">
             <div class="terminal-bar">
               <i class="terminal-dot" aria-hidden="true"></i>
               <i class="terminal-dot" aria-hidden="true"></i>
               <i class="terminal-dot" aria-hidden="true"></i>
               <span>syntaxdevteam.pl/build</span>
             </div>
-            <pre><code>$ ./workspace status
+            <div class="terminal-screen" data-terminal-output role="log" aria-live="polite" aria-label="Wynik terminala">
+              <pre><code>Uruchamianie SyntaxDevTerminal...</code></pre>
+              <pre><code>CoreAuth        <span class="terminal-status">READY</span>
+CorePages       <span class="terminal-status">READY</span>
+ThemeEngine     <span class="terminal-status">ONLINE</span>
+SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>
 
-PunisherX    READY
-SyntaxCore   PUBLISHED
-Econify      ONLINE
-MedStock     STAGED
-
-architecture: MODULAR
-channel:      DEVELOPMENT
-status:       READY_TO_BUILD</code></pre>
+architecture:   <span class="terminal-status">MODULAR</span>
+security:       <span class="terminal-status">ENABLED</span>
+status:         <span class="terminal-status">READY_TO_USE</span></code></pre>
+              <pre class="terminal-welcome"><code>Witaj w  SyntaxDevTerminal 0.1.5 .
+Wpisz help i naciśnij Enter aby zobaczyć dostępne komendy.</code></pre>
+            </div>
+            <form class="terminal-command" data-terminal-form action="#" autocomplete="off">
+              <label class="visually-hidden" for="homepage-terminal-command">Komenda terminala</label>
+              <span aria-hidden="true">visitor@syntax:~$</span>
+              <input id="homepage-terminal-command" data-terminal-input name="command" type="text" inputmode="text" autocapitalize="none" spellcheck="false" maxlength="80" aria-describedby="terminal-command-hint">
+              <button type="submit" class="visually-hidden">Wykonaj</button>
+            </form>
+            <p id="terminal-command-hint" class="visually-hidden">Wpisz help i naciśnij Enter. Historia komend jest dostępna strzałkami.</p>
           </div>
         </div>
       </div>

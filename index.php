@@ -160,6 +160,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'public_navigation' => $publicNavigation,
     'dashboard' => $dashboard,
     'brand_icon_generator' => $brandIconGenerator,
+    'http_client' => $httpClient,
 ], $modules);
 $modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard);
 $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));

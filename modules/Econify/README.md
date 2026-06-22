@@ -1,7 +1,7 @@
 # Econify Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econify.
-Wersja 1.0.0 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.1.0 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
@@ -14,7 +14,9 @@ Wersja 1.0.0 obejmuje trzy niezależne poziomy dostępu:
 
 Moduł czyta własny plik `modules/Econify/.env`, niezależny od
 `config/installed.env` i `/etc/miniportal/miniportal.env`. Zacznij od
-`.env.example`, zapisz wynik jako `.env` i ustaw prawa `0600`. W testach lub CI
+`.env.example`, zapisz wynik jako `.env` i ustaw prawa `0600`, gdy plik należy do
+procesu WWW, albo `0640` z grupą serwera WWW w instalacji zarządzanej przez
+administratora systemu. W testach lub CI
 możesz wskazać inną lokalizację zmienną procesu `ECONIFY_ENV_FILE`; ma ona
 najwyższy priorytet. Jeśli lokalny plik nie istnieje, loader zachowuje zgodność
 wsteczną i odczytuje zmienne procesu.
@@ -56,6 +58,22 @@ zmienia salda drugi raz. Obsługiwane typy to `daily`, `work`, `vip_daily`,
 
 Panel Ownera pokazuje jedynie stan kompletności ustawień. Nie zwraca wartości
 tokenów, sekretu klienta ani ścieżki wskazanej dla środowiska testowego.
+
+## Onboarding serwera Discord
+
+Panel nie przyjmuje już ręcznie Guild ID. `Pobierz moje serwery Discord` uruchamia
+osobny Authorization Code + PKCE z zakresami `identify guilds`. Moduł pobiera
+profil i listę `/users/@me/guilds`, zachowuje tylko serwery z Owner,
+Administrator albo Manage Guild, a token użytkownika natychmiast odrzuca.
+
+Lista jest przechowywana w sesji przez 10 minut. Wybrany serwer można aktywować
+w planie Freemium, co tworzy tenant i przypisuje zweryfikowane konto jako
+`guild_owner` albo `guild_admin`. Przycisk zaproszenia używa oficjalnego flow
+Discord `bot applications.commands`, blokuje wybór do zweryfikowanego Guild ID
+i prosi wyłącznie o maskę `ECONIFY_DISCORD_BOT_PERMISSIONS`.
+
+W Discord Developer Portal trzeba dodać dokładną wartość
+`ECONIFY_DISCORD_CALLBACK_URL` do Redirects aplikacji Econify.
 
 Sekretnych kodów sklepu nie należy przechowywać w miniPORTAL. Pole referencji
 wskazuje identyfikator roli albo bezpieczny klucz rekordu należącego do bota.

@@ -20,6 +20,7 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
 use SyntaxDevTeam\Cms\Modules\Econify\EconifyModule;
 use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
+use SyntaxDevTeam\Cms\Modules\Econify\EconifyDiscordGateway;
 use SyntaxDevTeam\Cms\Modules\Econify\EconifyRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
@@ -177,16 +178,21 @@ return [
     [
         'directory' => 'Econify',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): EconifyModule => new EconifyModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new EconifyRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            EconifyConfig::load(dirname(__DIR__) . '/modules/Econify')
-        ),
+        'factory' => static function (array $services): EconifyModule {
+            $config = EconifyConfig::load(dirname(__DIR__) . '/modules/Econify');
+            return new EconifyModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new EconifyRepository($services['database']),
+                $services['auth'],
+                $services['access'],
+                $services['security'],
+                $services['audit'],
+                $config,
+                new EconifyDiscordGateway($services['http_client'], new OAuthStateStore(), $config),
+                new OAuthAttemptLimiter(600, 10, 20),
+            );
+        },
     ],
     [
         'directory' => 'Team',

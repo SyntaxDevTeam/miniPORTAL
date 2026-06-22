@@ -344,6 +344,8 @@ body.admin-stylebook {
 }
 
 .admin-topbar {
+  position: relative;
+  z-index: 1100;
   min-height: var(--admin-topbar-height);
   display: flex;
   align-items: center;
@@ -434,6 +436,8 @@ body.admin-stylebook {
 }
 
 .admin-user-menu {
+  position: relative;
+  z-index: 1110;
   flex: 0 0 auto;
 }
 
@@ -536,6 +540,16 @@ body.admin-stylebook {
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--mp-border);
   border-radius: 0.85rem;
+}
+
+.profile-fact-success {
+  background: rgba(100, 244, 172, 0.055);
+  border-color: rgba(100, 244, 172, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(100, 244, 172, 0.06);
+}
+
+.profile-fact-warning {
+  border-color: rgba(255, 190, 92, 0.32);
 }
 
 .profile-fact span,

@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\Econify;
 
 use JsonException;
 use RuntimeException;
+use Throwable;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\AdminSearchProviderInterface;
 use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
@@ -21,6 +22,7 @@ use SyntaxDevTeam\Cms\Core\ThemeInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
 final class EconifyModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface
@@ -36,11 +38,13 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly EconifyConfig $config,
+        private readonly EconifyDiscordGateway $discord,
+        private readonly OAuthAttemptLimiter $oauthLimiter,
     ) {
     }
 
     public function id(): string { return 'econify'; }
-    public function version(): string { return '1.0.0'; }
+    public function version(): string { return '1.1.0'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econify.view', 'econify.platform.manage']; }
@@ -78,7 +82,11 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $router->get('/admin/econify', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->renderPlatform()));
         $router->post('/admin/econify/feature', fn (Request $request) => $this->guard($request, 'econify.platform.manage', fn () => $this->saveFeature($request)));
         $router->post('/admin/econify/settings', fn (Request $request) => $this->guard($request, 'econify.platform.manage', fn () => $this->savePlatformSettings($request)));
-        $router->post('/admin/econify/guild', fn (Request $request) => $this->guard($request, 'econify.platform.manage', fn () => $this->createGuild($request)));
+        $router->get('/admin/econify/discord/connect', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->startDiscordDiscovery($request)));
+        $router->get('/admin/econify/discord/callback', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->completeDiscordDiscovery($request)));
+        $router->get('/econify/discord/callback', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->completeDiscordDiscovery($request)));
+        $router->get('/admin/econify/discord/server', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->renderDiscordGuild($request)));
+        $router->post('/admin/econify/discord/activate', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->activateDiscordGuild($request)));
         $router->get('/econify', fn (Request $request) => $this->renderDashboard($request));
         $router->get('/econify/server', fn (Request $request) => $this->renderServer($request));
         $router->post('/econify/server/settings', fn (Request $request) => $this->saveServer($request));
@@ -107,14 +115,58 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $this->theme->render_admin_metric('Zamówienia', (string) $stats['orders'], 'SH', 'cała platforma');
         $this->theme->end_admin_metrics();
 
-        $this->theme->start_admin_panel('Konfiguracja integracji', 'Wartości sekretne nie są wyświetlane');
-        $this->theme->render_admin_fact_grid([
-            ['label' => 'Plik modułu', 'value' => $this->config->environmentReadable ? 'Odczytany' : 'Brak', 'detail' => 'modules/Econify/.env lub ECONIFY_ENV_FILE'],
-            ['label' => 'Token API', 'value' => $this->config->apiConfigured() ? 'Skonfigurowany' : 'Brak lub za krótki'],
-            ['label' => 'Aplikacja Discord', 'value' => $this->config->discordApplicationConfigured() ? 'Skonfigurowana' : 'Niekompletna'],
-            ['label' => 'Token bota', 'value' => $this->config->botTokenConfigured() ? 'Skonfigurowany' : 'Brak'],
-        ]);
+        $integration = [
+            ['label' => 'Plik modułu', 'ok' => $this->config->environmentReadable, 'value' => $this->config->environmentReadable ? 'Odczytany' : 'Brak', 'detail' => 'modules/Econify/.env lub ECONIFY_ENV_FILE'],
+            ['label' => 'Token API', 'ok' => $this->config->apiConfigured(), 'value' => $this->config->apiConfigured() ? 'Skonfigurowany' : 'Brak lub za krótki', 'detail' => 'Nagłówek X-Econify-Token'],
+            ['label' => 'Aplikacja Discord', 'ok' => $this->config->discordApplicationConfigured(), 'value' => $this->config->discordApplicationConfigured() ? 'Skonfigurowana' : 'Niekompletna', 'detail' => 'Client ID, Client Secret i callback'],
+            ['label' => 'Token bota', 'ok' => $this->config->botTokenConfigured(), 'value' => $this->config->botTokenConfigured() ? 'Skonfigurowany' : 'Brak', 'detail' => 'Weryfikacja obecności bota'],
+        ];
+        if (count(array_filter($integration, static fn (array $item): bool => $item['ok'])) === count($integration)) {
+            $this->theme->render_alert('Integracja Econify działa poprawnie. Wszystkie wymagane elementy są skonfigurowane.', 'success');
+        } else {
+            $this->theme->start_admin_panel('Konfiguracja integracji', 'Wartości sekretne nie są wyświetlane');
+            $this->theme->render_admin_fact_grid(array_map(static fn (array $item): array => [
+                'label' => $item['label'], 'value' => $item['value'], 'detail' => $item['detail'],
+                'variant' => $item['ok'] ? 'success' : 'warning',
+            ], $integration));
+            $this->theme->end_admin_panel();
+        }
+
+        $this->theme->start_admin_panel_grid();
+        $this->theme->start_admin_panel_column();
+        $guildRows = array_map(static fn (array $guild): array => [
+            'cells' => [(string) $guild['name'], (string) $guild['owner_name'], strtoupper((string) $guild['plan']), (int) $guild['member_count'], (int) $guild['is_active'] === 1 ? 'Aktywny' : 'Wyłączony'],
+            'actions' => [['label' => 'Ustawienia', 'href' => 'index.php?route=/econify/server&guild_id=' . (int) $guild['id'], 'variant' => 'outline-light']],
+        ], $this->econify->guilds());
+        $this->theme->start_admin_panel('Serwery Econify', count($guildRows) . ' aktywowanych tenantów');
+        $this->theme->render_admin_action_table(['Serwer', 'Właściciel', 'Plan', 'Członkowie', 'Stan'], $guildRows, $this->security->csrfToken());
         $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_column();
+
+        $this->theme->start_admin_panel_column();
+        $discordGuilds = $this->discord->guilds($user->id);
+        $this->theme->start_admin_panel('Twoje serwery Discord', 'Tylko serwery z uprawnieniem Owner, Administrator lub Zarządzanie serwerem');
+        if (!$this->config->discordApplicationConfigured()) {
+            $this->theme->render_alert('Uzupełnij dedykowane Client ID, Client Secret i callback Econify, aby pobrać listę serwerów.', 'warning');
+        } elseif ($discordGuilds === []) {
+            $this->theme->render_alert('Połącz Discord, aby jednorazowo pobrać serwery, którymi możesz zarządzać. Token użytkownika nie jest zapisywany.', 'info');
+            $this->theme->render_admin_panel_actions([['label' => 'Pobierz moje serwery Discord', 'href' => 'index.php?route=/admin/econify/discord/connect', 'variant' => 'primary']]);
+        } else {
+            $this->theme->render_admin_panel_actions([['label' => 'Odśwież listę z Discord', 'href' => 'index.php?route=/admin/econify/discord/connect', 'variant' => 'outline-light']]);
+            foreach ($discordGuilds as $guild) {
+                $registered = $this->econify->guildByDiscordId($guild['id']);
+                $this->theme->start_admin_panel((string) $guild['name'], $guild['access'] . ($registered !== null ? ' / Econify aktywne' : ' / Bot nieaktywny'));
+                $this->theme->render_admin_fact_grid([
+                    ['label' => 'Discord Guild ID', 'value' => $guild['id']],
+                    ['label' => 'Status Econify', 'value' => $registered !== null ? 'Aktywny' : 'Nieaktywowany', 'variant' => $registered !== null ? 'success' : 'warning'],
+                ]);
+                $this->theme->render_admin_panel_actions([['label' => 'Otwórz serwer', 'href' => 'index.php?route=/admin/econify/discord/server&guild_id=' . rawurlencode($guild['id']), 'variant' => 'primary']]);
+                $this->theme->end_admin_panel();
+            }
+        }
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_column();
+        $this->theme->end_admin_panel_grid();
 
         $this->theme->start_admin_panel_grid();
         $this->theme->start_admin_panel_column();
@@ -144,27 +196,10 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
                 ['name' => 'freemium_shop_limit', 'label' => 'Limit sklepu Freemium', 'type' => 'number', 'value' => (string) $settings['freemium_shop_limit']],
             ], 'Zapisz ustawienia główne', $this->security->csrfToken());
             $this->theme->end_admin_panel();
-            $options = [];
-            foreach ($this->econify->users() as $account) { $options[(string) $account['id']] = $account['label']; }
-            $this->theme->start_admin_panel('Dodaj serwer Discord', 'Tenant i plan właściciela bota');
-            $this->theme->render_form('index.php?route=/admin/econify/guild', [
-                ['name' => 'discord_guild_id', 'label' => 'Discord Guild ID', 'help' => 'Numeryczny identyfikator serwera.'],
-                ['name' => 'name', 'label' => 'Nazwa serwera'],
-                ['name' => 'owner_user_id', 'label' => 'Lokalne konto właściciela', 'type' => 'select', 'options' => $options],
-                ['name' => 'plan', 'label' => 'Plan', 'type' => 'select', 'value' => 'freemium', 'options' => ['freemium' => 'Freemium (5 pozycji sklepu)', 'premium' => 'Premium (bez limitu)']],
-            ], 'Utwórz serwer', $this->security->csrfToken());
-            $this->theme->end_admin_panel();
         }
         $this->theme->end_admin_panel_column();
         $this->theme->end_admin_panel_grid();
 
-        $guildRows = array_map(static fn (array $guild): array => [
-            (string) $guild['name'], (string) $guild['discord_guild_id'], (string) $guild['owner_name'],
-            strtoupper((string) $guild['plan']), (int) $guild['member_count'], (int) $guild['is_active'] === 1 ? 'Aktywny' : 'Wyłączony',
-        ], $this->econify->guilds());
-        $this->theme->start_admin_panel('Serwery Econify', count($guildRows) . ' tenantów');
-        $this->theme->render_admin_table(['Serwer', 'Guild ID', 'Właściciel', 'Plan', 'Członkowie', 'Stan'], $guildRows);
-        $this->theme->end_admin_panel();
         $this->theme->end_admin_content();
         $this->theme->end_admin_page();
     }
@@ -340,18 +375,89 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $this->renderPlatform('Ustawienia główne Econify zostały zapisane.', 'success');
     }
 
-    private function createGuild(Request $request): void
+    private function startDiscordDiscovery(Request $request): void
     {
-        if (!$this->csrf($request, 'econify_guild_create')) { return; }
-        $discord = $request->postString('discord_guild_id'); $name = $request->postString('name');
-        $owner = $request->postInt('owner_user_id', 0) ?? 0; $plan = $request->postString('plan');
-        if (preg_match('/^[0-9]{6,32}$/', $discord) !== 1 || $name === '' || strlen($name) > 120 || $owner < 1 || !in_array($plan, ['freemium', 'premium'], true)) {
-            $this->renderPlatform('Nieprawidłowe dane serwera.', 'danger'); return;
+        $user = $this->auth->user();
+        if ($user === null) { return; }
+        if (!$this->oauthLimiter->allowStart('econify_discord')) {
+            $this->audit->record($request, 'econify_discord_oauth_start', 'rate_limited', 'discord', $user->id);
+            http_response_code(429); $this->renderPlatform('Zbyt wiele prób połączenia z Discord. Spróbuj ponownie później.', 'warning'); return;
         }
-        try { $id = $this->econify->createGuild($discord, $name, $owner, $plan); }
-        catch (\Throwable) { $this->renderPlatform('Nie udało się utworzyć serwera. Sprawdź unikalność Guild ID.', 'danger'); return; }
-        $this->audit->record($request, 'econify_guild_create', 'success', 'guild:' . $id, $this->auth->user()?->id);
-        $this->renderPlatform('Serwer Econify został utworzony.', 'success');
+        try { $url = $this->discord->discoveryUrl($user->id); }
+        catch (Throwable) { $this->audit->record($request, 'econify_discord_oauth_start', 'not_configured', 'discord', $user->id); $this->renderPlatform('Dedykowana aplikacja Discord Econify nie jest jeszcze kompletna.', 'danger'); return; }
+        $this->audit->record($request, 'econify_discord_oauth_start', 'success', 'discord', $user->id);
+        header('Location: ' . $url, true, 302);
+    }
+
+    private function completeDiscordDiscovery(Request $request): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) { return; }
+        if (!$this->oauthLimiter->allowCallback('econify_discord')) {
+            $this->audit->record($request, 'econify_discord_oauth_callback', 'rate_limited', 'discord', $user->id);
+            http_response_code(429); $this->renderPlatform('Przekroczono limit odpowiedzi OAuth Discord.', 'warning'); return;
+        }
+        if ($request->queryString('error') !== '') {
+            $this->audit->record($request, 'econify_discord_oauth_callback', 'provider_denied', 'discord', $user->id);
+            $this->renderPlatform('Pobieranie listy serwerów zostało anulowane.', 'warning'); return;
+        }
+        try { $guilds = $this->discord->complete($request->queryString('state'), $request->queryString('code'), $user->id); }
+        catch (Throwable $exception) {
+            error_log('Econify Discord OAuth failed: ' . $exception::class);
+            $this->audit->record($request, 'econify_discord_oauth_callback', 'provider_error', 'discord', $user->id);
+            http_response_code(502); $this->renderPlatform('Nie udało się bezpiecznie pobrać listy serwerów Discord.', 'danger'); return;
+        }
+        $this->audit->record($request, 'econify_discord_oauth_callback', 'success', 'discord', $user->id);
+        $this->renderPlatform('Pobrano ' . count($guilds) . ' serwerów, którymi możesz zarządzać.', 'success');
+    }
+
+    private function renderDiscordGuild(Request $request, string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) { return; }
+        $guildId = $request->queryString('guild_id', $request->postString('guild_id'));
+        $guild = $this->discord->guild($user->id, $guildId);
+        if ($guild === null) { $this->renderPlatform('Serwer nie znajduje się w aktualnej, zweryfikowanej liście Discord. Odśwież listę.', 'warning'); return; }
+        $registered = $this->econify->guildByDiscordId($guildId);
+        try { $botPresent = $this->discord->botPresent($guildId); } catch (Throwable) { $botPresent = false; }
+        $this->startAdmin($user);
+        if ($message !== '') { $this->theme->render_alert($message, $variant); }
+        $this->theme->start_admin_panel((string) $guild['name'], 'Zweryfikowany dostęp: ' . $guild['access']);
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Discord Guild ID', 'value' => $guildId],
+            ['label' => 'Tenant Econify', 'value' => $registered !== null ? 'Aktywny' : 'Nieutworzony', 'variant' => $registered !== null ? 'success' : 'warning'],
+            ['label' => 'Bot na serwerze', 'value' => $botPresent ? 'Połączony' : 'Niepotwierdzony', 'variant' => $botPresent ? 'success' : 'warning'],
+            ['label' => 'Plan', 'value' => $registered !== null ? strtoupper((string) $registered['plan']) : 'FREEMIUM po aktywacji'],
+        ]);
+        $this->theme->render_admin_panel_actions([
+            ['label' => $botPresent ? 'Ponów autoryzację bota' : 'Zaproś bota Econify', 'href' => $this->discord->installationUrl($guildId), 'variant' => 'primary'],
+            ['label' => 'Odśwież listę Discord', 'href' => 'index.php?route=/admin/econify/discord/connect', 'variant' => 'outline-light'],
+        ]);
+        if ($registered === null) {
+            $this->theme->render_form('index.php?route=/admin/econify/discord/activate', [
+                ['name' => 'guild_id', 'label' => 'Serwer Discord', 'type' => 'hidden', 'value' => $guildId],
+            ], 'Aktywuj plan Freemium', $this->security->csrfToken());
+        } else {
+            $this->theme->render_admin_panel_actions([['label' => 'Ustawienia ekonomii serwera', 'href' => 'index.php?route=/econify/server&guild_id=' . (int) $registered['id'], 'variant' => 'outline-light']]);
+        }
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_content(); $this->theme->end_admin_page();
+    }
+
+    private function activateDiscordGuild(Request $request): void
+    {
+        if (!$this->csrf($request, 'econify_discord_activate')) { return; }
+        $user = $this->auth->user();
+        if ($user === null) { return; }
+        $guildId = $request->postString('guild_id'); $guild = $this->discord->guild($user->id, $guildId); $discordUserId = $this->discord->discordUserId($user->id);
+        if ($guild === null || $discordUserId === null) { http_response_code(403); $this->renderPlatform('Nie można aktywować serwera bez świeżej weryfikacji Discord.', 'danger'); return; }
+        $registered = $this->econify->guildByDiscordId($guildId);
+        try {
+            $id = $registered !== null ? (int) $registered['id'] : $this->econify->createGuild($guildId, (string) $guild['name'], $user->id, 'freemium');
+            $this->econify->addMembership($id, $user->id, $discordUserId, $guild['owner'] ? 'guild_owner' : 'guild_admin');
+        } catch (Throwable) { $this->renderDiscordGuild($request, 'Nie udało się aktywować serwera Econify.', 'danger'); return; }
+        $this->audit->record($request, 'econify_discord_activate', 'success', 'guild:' . $id, $user->id);
+        $this->renderDiscordGuild($request, 'Serwer został aktywowany w planie Freemium.', 'success');
     }
 
     private function saveServer(Request $request): void
@@ -501,7 +607,9 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
     private function guard(Request $request, string $permission, callable $handler): void
     {
         $decision = $this->access->check($permission); if ($decision === AdminAccessGate::ALLOWED) { $handler(); return; }
-        $this->audit->record($request, 'econify_acl', $decision, null, $this->auth->user()?->id); http_response_code($decision === AdminAccessGate::UNAUTHENTICATED ? 401 : 403);
+        $result = $decision === AdminAccessGate::UNAUTHENTICATED ? 'unauthenticated' : 'forbidden';
+        $this->audit->record($request, 'econify_acl', $result, null, $this->auth->user()?->id);
+        http_response_code($decision === AdminAccessGate::UNAUTHENTICATED ? 401 : 403);
         $this->theme->render_admin_access_state(http_response_code(), 'Brak dostępu', 'Ta sekcja wymaga uprawnienia Econify.', 'index.php?route=/admin', 'Wróć do panelu');
     }
 

@@ -807,7 +807,8 @@ final class Theme implements ThemeInterface
     {
         echo '<div class="profile-fact-grid">';
         foreach ($facts as $fact) {
-            echo '<article class="profile-fact">';
+            $variant = in_array(($fact['variant'] ?? ''), ['success', 'warning'], true) ? ' profile-fact-' . $fact['variant'] : '';
+            echo '<article class="profile-fact' . $variant . '">';
             echo '<span>' . $this->escape($fact['label']) . '</span>';
             echo '<strong>' . $this->escape($fact['value']) . '</strong>';
             if (($fact['detail'] ?? '') !== '') {
@@ -1207,13 +1208,28 @@ final class Theme implements ThemeInterface
         echo '<a class="btn btn-outline-light btn-lg" href="index.php?route=' . ($authenticated ? '/admin' : '/admin/login') . '">';
         echo $authenticated ? 'Przejdź do panelu' : 'Panel administracyjny';
         echo '</a></div></div><div class="col-lg-5 reveal is-visible">';
-        echo '<div class="terminal" aria-label="Status systemu"><div class="terminal-bar">';
+        echo '<div class="terminal" data-home-terminal data-authenticated="' . ($authenticated ? 'true' : 'false') . '"';
+        echo ' aria-label="Interaktywny terminal strony"><div class="terminal-bar">';
         echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';
         echo '<i class="terminal-dot" aria-hidden="true"></i><span>syntaxdevteam.pl/build</span></div>';
-        echo '<pre><code>$ ./workspace status' . "\n\n";
-        echo 'CoreAuth     READY' . "\n" . 'CorePages    EDITABLE' . "\n" . 'ThemeEngine  ONLINE' . "\n";
-        echo 'CrudApp      CONNECTED' . "\n\n" . 'architecture: MODULAR' . "\n";
-        echo 'security:     ENABLED' . "\n" . 'status:       READY_TO_BUILD</code></pre></div>';
+        echo '<div class="terminal-screen" data-terminal-output role="log" aria-live="polite" aria-label="Wynik terminala">';
+        echo '<pre><code>Uruchamianie SyntaxDevTerminal...</code></pre><pre><code>';
+        echo 'CoreAuth        <span class="terminal-status">READY</span>' . "\n";
+        echo 'CorePages       <span class="terminal-status">READY</span>' . "\n";
+        echo 'ThemeEngine     <span class="terminal-status">ONLINE</span>' . "\n";
+        echo 'SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>' . "\n\n";
+        echo 'architecture:   <span class="terminal-status">MODULAR</span>' . "\n";
+        echo 'security:       <span class="terminal-status">ENABLED</span>' . "\n";
+        echo 'status:         <span class="terminal-status">READY_TO_USE</span></code></pre>';
+        echo '<pre class="terminal-welcome"><code>Witaj w  SyntaxDevTerminal 0.1.5 .' . "\n";
+        echo 'Wpisz help i naciśnij Enter aby zobaczyć dostępne komendy.</code></pre></div>';
+        echo '<form class="terminal-command" data-terminal-form action="#" autocomplete="off">';
+        echo '<label class="visually-hidden" for="homepage-terminal-command">Komenda terminala</label>';
+        echo '<span aria-hidden="true">visitor@syntax:~$</span>';
+        echo '<input id="homepage-terminal-command" data-terminal-input name="command" type="text"';
+        echo ' inputmode="text" autocapitalize="none" spellcheck="false" maxlength="80" aria-describedby="terminal-command-hint">';
+        echo '<button type="submit" class="visually-hidden">Wykonaj</button></form>';
+        echo '<p id="terminal-command-hint" class="visually-hidden">Wpisz help i naciśnij Enter. Historia komend jest dostępna strzałkami.</p></div>';
         echo '</div></div></div></header>';
     }
 

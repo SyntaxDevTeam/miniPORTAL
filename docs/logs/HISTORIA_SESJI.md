@@ -1983,6 +1983,82 @@ i jej bezpieczne tworzenie w czystej dystrybucji.
 braku sekretów w dystrybucji, integracyjna kontrola wygenerowanego tokenu i praw
 `0600`, lint PHP, pełne testy oraz `git diff --check`.
 
+### Sesja: 2026-06-22 - Kontrolowany dostęp niezalogowany do Econify
+
+**Faza i krok specyfikacji:** Krok 5B/6A - ACL, audit log i odporność modułu na
+niezalogowane żądania panelowe.
+
+**Wykonano:** naprawiono `guard()` modułu Econify, który przekazywał liczbową
+decyzję HTTP `401`/`403` do tekstowego pola wyniku `AuditLogService`, powodując
+`TypeError` i odpowiedź 500. Decyzje są teraz mapowane na `unauthenticated` albo
+`forbidden`, natomiast kod HTTP pozostaje odpowiednio 401 lub 403.
+
+**Weryfikacja:** test regresji źródła, lint PHP, pełne testy repozytorium,
+przebudowa dystrybucji oraz anonimowy smoke test rzeczywistej trasy Econify.
+
+### Sesja: 2026-06-22 - Warstwa menu profilu panelu
+
+**Faza i krok specyfikacji:** Krok 3/5A - ogólny layout panelu i działanie
+nawigacji użytkownika we wszystkich motywach.
+
+**Wykonano:** jawnie ustawiono stacking context topbara i menu użytkownika ponad
+treścią panelu. Naprawia to karty Dashboardu przykrywające dolną część dropdownu,
+w tym przycisk `Wyloguj`, bez zmiany struktury HTML ani priorytetów kart.
+
+**Weryfikacja:** test regresji CSS dla motywów Default, Glassnight i Future,
+kontrola bilansu CSS, pełne testy repozytorium, przebudowa dystrybucji oraz
+kontrola działającego panelu.
+
+Podczas weryfikacji test dystrybucji wykrył, że generator kopiował ignorowany
+przez Git lokalny `modules/Econify/.env`. Generator pomija teraz `.env` oraz
+warianty `.env.*` z wyjątkiem publicznego `.env.example`; dystrybucję odtworzono,
+usuwając z niej lokalny sekret.
+
+### Sesja: 2026-06-22 - OAuth serwerów i instalacja bota Econify
+
+**Faza i krok specyfikacji:** Krok 6A - rozwinięcie bezpiecznego onboardingu
+dedykowanego modułu bez ręcznego zaufania do danych użytkownika.
+
+**Wykonano:**
+- `Konfiguracja integracji` wyróżnia poprawne elementy zieloną ramką, a po
+  skompletowaniu wszystkich ustawień zwija się do subtelnego komunikatu sukcesu,
+- serwery aktywne w Econify znajdują się w lewej kolumnie, a prawa pokazuje
+  kafelki serwerów Discord zarządzanych przez bieżącego użytkownika,
+- usunięto mylący formularz ręcznego tworzenia serwera na podstawie Guild ID,
+- dodano osobny Authorization Code + PKCE z `identify guilds`, filtrowanie bitów
+  Owner/Administrator/Manage Guild oraz 10-minutowy cache listy w sesji,
+- token użytkownika Discord jest używany wyłącznie do profilu i listy guildów;
+  nie trafia do bazy, konfiguracji ani sesji,
+- szczegóły zweryfikowanego serwera pozwalają utworzyć tenant Freemium, przypisać
+  lokalne konto jako `guild_owner`/`guild_admin`, sprawdzić obecność bota i użyć
+  przypiętego zaproszenia `bot applications.commands`,
+- podniesiono `econify` do 1.1.0 bez zmiany schematu bazy.
+- lokalny plik developerski ma tryb `0640` i grupę `www-data`, ponieważ jego
+  właścicielem jest administrator; instalator zachowuje `0600`, gdy zapisuje go
+  bezpośrednio jako użytkownik procesu WWW.
+
+**Weryfikacja:** test symulowanego OAuth Discord z odrzuceniem zwykłego członka,
+kontrola braku tokenu Bearer w sesji, test URL instalacji, test wariantów Theme,
+lint PHP, pełne testy repozytorium, przebudowa dystrybucji i `git diff --check`.
+
+### Sesja: 2026-06-22 - Interaktywny terminal strony głównej
+
+**Faza i krok specyfikacji:** Krok 2/3 - rozwinięcie prototypu Hero i jego
+odwzorowania w wymiennych motywach.
+
+**Wykonano:** statyczny podgląd `./workspace status` zastąpiono bezpiecznym
+symulatorem terminala w motywach Default, Glassnight i Future. Sekwencja startowa
+pokazuje stan CoreAuth, CorePages, ThemeEngine i SyntaxCrudApp, a prompt obsługuje
+pomoc, status, listę obszarów, historię klawiszami oraz kontrolowaną nawigację do
+logowania, projektów, buildów, Wiki, zespołu i strony miniPORTAL. Symulator działa
+wyłącznie w JavaScript i nie wykonuje poleceń ani procesów na serwerze. Korekta
+prezentacji usuwa prefiksy `[ OK ]`, wyróżnia na zielono wyłącznie wartości stanu,
+nieznacznie zwiększa wysokość terminala i pokazuje powitanie
+`SyntaxDevTerminal 0.1.5`.
+
+**Weryfikacja:** test renderowania kontraktu terminala, lint PHP i JavaScript,
+pełne testy repozytorium, przebudowa czystej dystrybucji oraz `git diff --check`.
+
 ### Sesja: 2026-06-21 - Ręczne łamanie nagłówków sekcji
 
 **Faza i krok specyfikacji:** Krok 3/5C - bezpieczne dane prezentacyjne sekcji

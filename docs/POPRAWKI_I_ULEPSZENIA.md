@@ -79,6 +79,14 @@ w panelu zamiast nieobsłużonego HTTP 500. (gotowe)
 Korekta akrostychu: w Hero / Split zastępuje on główny nagłówek po lewej, pozostaje
 semantycznym `h1`, a terminal `workspace status` po prawej jest zachowany. (gotowe)
 
+Terminal Hero symuluje uruchomienie miniPORTAL i udostępnia prompt obsługiwany
+klawiaturą. Komendy `help`, `status`, `ls`, `cd`, `login`, `projects`, `download`,
+`wiki`, `team`, `about`, `whoami` i `clear` pokazują informacje albo prowadzą do
+istniejących publicznych tras. Symulator działa wyłącznie w przeglądarce i nie ma
+dostępu do powłoki ani systemu plików serwera. Wyniki startowe są wyróżnione
+zielenią bez technicznego prefiksu `[ OK ]`, okno jest nieznacznie wyższe, a
+powitanie identyfikuje `SyntaxDevTerminal 0.1.5`. (gotowe)
+
 Typografia akrostychu nie rezerwuje osobnej kolumny dla pierwszych liter. Litera
 wyróżniona kolorem pozostaje bezpośrednią częścią wyrazu, a ograniczona skala i
 nierozdzielanie słów utrzymują stabilny układ hero obok terminala. (gotowe)
@@ -309,6 +317,13 @@ postęp i historię. Sklep rozlicza zakup, stan magazynowy, zamówienie i histor
 w jednej transakcji. Giełda przechowuje aktywa, notowania i udziały oraz rozlicza
 kupno/sprzedaż z tym samym portfelem. Integracja bota używa osobnego tokenu i
 idempotentnych identyfikatorów zdarzeń.
+
+Etap 2 gotowy: panel nie tworzy już tenantów przez ręcznie wpisany Guild ID.
+Osobny OAuth Discord pobiera serwery zarządzane przez bieżącego użytkownika,
+odrzuca token po odpowiedzi i pokazuje kafelki Owner/Administrator/Manage Guild.
+Szczegóły serwera udostępniają aktywację Freemium, kontrolę obecności bota oraz
+przypięty link instalacji `bot applications.commands`. Diagnostyka konfiguracji
+wyróżnia poprawne elementy zieloną ramką, a przy komplecie zwija się do paska.
 
 ### Ustawienia systemowe
 

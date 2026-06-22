@@ -100,6 +100,12 @@ final class EconifyRepository
         return $this->row('SELECT * FROM econify_guilds WHERE id = :id', [':id' => $guildId]);
     }
 
+    /** @return array<string, mixed>|null */
+    public function guildByDiscordId(string $discordGuildId): ?array
+    {
+        return $this->row('SELECT * FROM econify_guilds WHERE discord_guild_id = :discord_guild_id', [':discord_guild_id' => $discordGuildId]);
+    }
+
     /** @return list<array<string, mixed>> */
     public function memberships(int $userId): array
     {

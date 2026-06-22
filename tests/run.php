@@ -24,6 +24,8 @@ use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeEngine;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpClientInterface;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpResponse;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
@@ -33,6 +35,7 @@ use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
 use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
+use SyntaxDevTeam\Cms\Modules\Econify\EconifyDiscordGateway;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
@@ -123,6 +126,37 @@ $test('Econify loads an isolated module environment file', static function () us
         putenv('ECONIFY_ENV_FILE');
         unlink($file);
     }
+});
+
+$test('Econify discovers only manageable Discord guilds without storing token', static function () use ($assert): void {
+    $http = new class implements HttpClientInterface {
+        public function request(string $method, string $url, array $headers = [], array $form = []): HttpResponse
+        {
+            if (str_ends_with($url, '/oauth2/token')) { return new HttpResponse(200, '{"access_token":"access-test"}'); }
+            if (str_ends_with($url, '/users/@me/guilds')) {
+                return new HttpResponse(200, json_encode([
+                    ['id' => '1000001', 'name' => 'Owner Guild', 'owner' => true, 'permissions' => '0', 'icon' => null],
+                    ['id' => '1000002', 'name' => 'Managed Guild', 'owner' => false, 'permissions' => '32', 'icon' => 'iconhash'],
+                    ['id' => '1000003', 'name' => 'Member Guild', 'owner' => false, 'permissions' => '0', 'icon' => null],
+                ], JSON_THROW_ON_ERROR));
+            }
+            if (str_ends_with($url, '/users/@me')) { return new HttpResponse(200, '{"id":"9000001"}'); }
+            return new HttpResponse(404, '{}');
+        }
+    };
+    $config = new EconifyConfig(str_repeat('a', 64), 'bot-token', 'client-id', 'client-secret', 'https://portal.example.test/index.php?route=/econify/discord/callback', 32, '/tmp/econify-test', true);
+    $gateway = new EconifyDiscordGateway($http, new OAuthStateStore(), $config);
+    $authorizationUrl = $gateway->discoveryUrl(42);
+    parse_str((string) parse_url($authorizationUrl, PHP_URL_QUERY), $query);
+    $guilds = $gateway->complete((string) ($query['state'] ?? ''), 'discord-code', 42);
+    $assert(count($guilds) === 2);
+    $assert(array_column($guilds, 'id') === ['1000002', '1000001']);
+    $assert($gateway->discordUserId(42) === '9000001');
+    $installUrl = $gateway->installationUrl('1000001');
+    $assert(str_contains($installUrl, 'scope=bot%20applications.commands'));
+    $assert(str_contains($installUrl, 'guild_id=1000001'));
+    $assert(!str_contains(serialize($_SESSION), 'access-test'));
+    unset($_SESSION['_econify_discord_guilds']);
 });
 
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
@@ -790,9 +824,23 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(str_contains($html, '<strong class="hero-acrostic-initial">S</strong><span>YSTEM</span>'));
     $assert(str_contains($html, '<strong class="hero-acrostic-initial">X</strong><span>-PLATFORM</span>'));
     $assert(str_contains($html, 'class="terminal"'));
+    $assert(str_contains($html, 'data-home-terminal data-authenticated="false"'));
+    $assert(str_contains($html, 'data-terminal-output role="log" aria-live="polite"'));
+    $assert(str_contains($html, 'SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>'));
+    $assert(str_contains($html, 'status:         <span class="terminal-status">READY_TO_USE</span>'));
+    $assert(str_contains($html, 'Witaj w  SyntaxDevTerminal 0.1.5 .'));
+    $assert(!str_contains($html, '[ OK ]'));
+    $assert(str_contains($html, 'data-terminal-form'));
+    $assert(str_contains($html, 'data-terminal-input'));
     $assert(!str_contains($html, '<h1 class="home-title fw-bold">SyntaxDevTeam</h1>'));
     $css = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/css/homepage.css');
+    $js = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/js/site.js');
     $assert(str_contains($css, '.hero-acrostic-word'));
+    $assert(str_contains($css, '.terminal-command:focus-within'));
+    $assert(str_contains($css, '.terminal-screen .terminal-status'));
+    $assert(str_contains($js, '"help"'));
+    $assert(str_contains($js, 'window.location.assign(route)'));
+    $assert(str_contains($js, 'event.key !== "ArrowUp"'));
     $assert(str_contains($css, 'white-space: nowrap'));
     $assert(!str_contains($css, '.hero-acrostic::before'));
     $assert(!str_contains($css, 'flex: 0 0 0.95em'));
@@ -936,6 +984,18 @@ $test('Admin panel grid renders compact responsive layout wrappers', static func
     $assert(substr_count($html, 'class="admin-panel"') === 2);
 });
 
+$test('Admin fact grid marks healthy integration states', static function () use ($assert): void {
+    $theme = new DefaultTheme(['public_name' => 'Test']);
+    ob_start();
+    $theme->render_admin_fact_grid([
+        ['label' => 'Token API', 'value' => 'Skonfigurowany', 'variant' => 'success'],
+        ['label' => 'Aplikacja Discord', 'value' => 'Niekompletna', 'variant' => 'warning'],
+    ]);
+    $html = (string) ob_get_clean();
+    $assert(str_contains($html, 'profile-fact-success'));
+    $assert(str_contains($html, 'profile-fact-warning'));
+});
+
 $test('Admin settings grid renders balanced panel columns', static function () use ($assert): void {
     $theme = new DefaultTheme();
     ob_start();
@@ -1024,6 +1084,14 @@ $test('Admin topbar exposes profile dropdown actions', static function () use ($
     $assert(!str_contains($html, 'admin-sidebar-footer'));
 });
 
+$test('Admin profile dropdown stays above dashboard content', static function () use ($assert): void {
+    foreach (['default', 'glassnight', 'future'] as $theme) {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/templates/' . $theme . '/assets/css/admin.css');
+        $assert(preg_match('/\.admin-topbar\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1100;/s', $css) === 1, 'Topbar bez warstwy w motywie ' . $theme);
+        $assert(preg_match('/\.admin-user-menu\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1110;/s', $css) === 1, 'Menu profilu bez warstwy w motywie ' . $theme);
+    }
+});
+
 $test('Admin action table aligns links and forms in one action group', static function () use ($assert): void {
     $theme = new DefaultTheme();
     ob_start();
@@ -1070,6 +1138,9 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
     $assert(!file_exists($distribution . '/modules/Econify/.env'));
     $assert(is_file($distribution . '/modules/Econify/.env.example'));
+    $distributionBuilder = (string) file_get_contents(dirname(__DIR__) . '/bin/build-cms-distribution.php');
+    $assert(str_contains($distributionBuilder, "\$basename === '.env'"));
+    $assert(str_contains($distributionBuilder, "\$basename !== '.env.example'"));
 });
 
 $test('Connected identities page returns to profile', static function () use ($assert): void {
@@ -1174,7 +1245,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econify = $validator->validate(dirname(__DIR__) . '/modules/Econify');
     $assert($econify->id === 'econify');
-    $assert($econify->version === '1.0.0');
+    $assert($econify->version === '1.1.0');
     $assert($econify->type === 'extension');
     $assert($econify->requiredModules === ['core_auth']);
     $assert($econify->installFile === 'install.sql');
@@ -1302,7 +1373,12 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($econifySource, "'/api/econify/events'"));
     $assert(str_contains($econifySource, "hash_equals(\$this->config->apiToken"));
     $assert(str_contains($econifySource, "\$this->config->apiConfigured()"));
+    $assert(str_contains($econifySource, "? 'unauthenticated' : 'forbidden'"));
+    $assert(!str_contains($econifySource, "'econify_acl', \$decision"));
     $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
+    $assert(!str_contains($econifySource, 'Dodaj serwer Discord'));
+    $assert(str_contains($econifySource, 'Twoje serwery Discord'));
+    $assert(str_contains($econifySource, '/admin/econify/discord/connect'));
     $assert(str_contains($econifyRepository, 'FOR UPDATE'));
     $assert(str_contains($econifyRepository, 'external_reference'));
 

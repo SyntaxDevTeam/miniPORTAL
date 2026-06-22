@@ -59,6 +59,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Osobny przezroczysty sygnet panelu i wygładzone favicony 16-256 px |
 | [x] | Canonical, social cards, JSON-LD oraz zgodność dostępności publicznych layoutów |
 | [x] | Alternatywny motyw `future` inspirowany warstwą HTML/CSS dawnego CMS-a |
+| [x] | Interaktywny, bezpieczny symulator terminala Hero z komendami nawigacyjnymi |
 
 ### Krok 3 - odwzorowanie prototypu w PHP
 
@@ -198,6 +199,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Giełda z notowaniami, portfelem oraz kupnem i sprzedażą |
 | [x] | Idempotentny endpoint synchronizacji zdarzeń bota |
 | [x] | Dedykowany `.env` modułu z niezależnymi danymi Discord i API |
+| [x] | OAuth listy zarządzanych serwerów i przypięta instalacja bota |
 
 ## Następne kroki
 
@@ -309,6 +311,8 @@ Brak aktywnych blokerów.
 | 2026-06-21 | `core_pages` 1.3.0 pozwala dzielić nagłówki sekcji Enterem; trzy motywy bezpiecznie renderują kontrolowane `<br>`. |
 | 2026-06-21 | `econify` 1.0.0 jest dedykowanym modułem innej instalacji miniPORTAL. Izoluje tenanty Discord, rozdziela Ownera platformy, administratora serwera i gracza oraz łączy ekonomię, sklep i giełdę przez transakcyjny portfel. Endpoint bota wymaga `ECONIFY_API_TOKEN` i idempotentnego `event_id`. |
 | 2026-06-21 | Sekrety Econify należą do `modules/Econify/.env`, nie do środowiska miniPORTAL. `ECONIFY_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
+| 2026-06-22 | `econify` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
+| 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
 
 ## Historia sesji
 

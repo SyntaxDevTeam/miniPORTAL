@@ -141,6 +141,9 @@ Cel tej fazy:
 
 Stan integracji:
 - aktywna trasa `/` odwzorowuje `templates/default/homepage.html` przez `ThemeInterface`,
+- terminal Hero jest bezpiecznym symulatorem po stronie przeglądarki: pokazuje
+  sekwencję startową, przyjmuje ograniczony zestaw komend nawigacyjnych i nie
+  uruchamia procesów, powłoki ani poleceń systemu operacyjnego na serwerze,
 - opublikowane treści `core_pages` pojawiają się dynamicznie na stronie głównej,
 - prototypy pozostają referencyjnymi plikami developerskimi w `templates/`;
   nie są częścią działającego panelu administracyjnego.
@@ -701,6 +704,10 @@ Stan 1.0.0:
   idempotencji; nie przyjmuje sekretu w ciele JSON,
 - sekrety modułu są izolowane w `modules/Econify/.env`; testy mogą wskazać inny
   plik przez `ECONIFY_ENV_FILE`, a panel raportuje tylko kompletność konfiguracji,
+- onboarding Discord korzysta z osobnego Authorization Code + PKCE i zakresów
+  `identify guilds`; pokazuje wyłącznie serwery Owner/Administrator/Manage Guild,
+  nie przechowuje tokenu użytkownika i przypina instalację bota do zweryfikowanego
+  Guild ID przez `bot applications.commands`,
 - sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
 - tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
   w jednym module i jednej transakcji z portfelem.

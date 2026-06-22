@@ -37,6 +37,13 @@ $copyDirectory = static function (string $from, string $to): void {
         if ($item->isLink()) {
             throw new RuntimeException('Dystrybucja nie może zawierać dowiązań symbolicznych.');
         }
+        $basename = $item->getBasename();
+        if ($item->isFile() && (
+            $basename === '.env'
+            || (str_starts_with($basename, '.env.') && $basename !== '.env.example')
+        )) {
+            continue;
+        }
         $relative = substr($item->getPathname(), strlen($from) + 1);
         $destination = $to . '/' . $relative;
         if ($item->isDir()) {

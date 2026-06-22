@@ -209,7 +209,7 @@ interface ThemeInterface
     public function end_admin_panel(): void;
 
     /**
-     * @param list<array{label: string, value: string, detail?: string}> $facts
+     * @param list<array{label: string, value: string, detail?: string, variant?: string}> $facts
      */
     public function render_admin_fact_grid(array $facts): void;
 
