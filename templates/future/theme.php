@@ -1205,9 +1205,7 @@ final class Theme implements ThemeInterface
             echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($this->safeHref($section['button_url'])) . '">';
             echo $this->escape($section['button_label']) . '</a>';
         }
-        echo '<a class="btn btn-outline-light btn-lg" href="index.php?route=' . ($authenticated ? '/admin' : '/admin/login') . '">';
-        echo $authenticated ? 'Przejdź do panelu' : 'Panel administracyjny';
-        echo '</a></div></div><div class="col-lg-5 reveal is-visible">';
+        echo '</div></div><div class="col-lg-5 reveal is-visible">';
         echo '<div class="terminal" data-home-terminal data-authenticated="' . ($authenticated ? 'true' : 'false') . '"';
         echo ' aria-label="Interaktywny terminal strony"><div class="terminal-bar">';
         echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';

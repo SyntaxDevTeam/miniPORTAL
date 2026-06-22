@@ -903,6 +903,8 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(str_contains($html, 'SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>'));
     $assert(str_contains($html, 'status:         <span class="terminal-status">READY_TO_USE</span>'));
     $assert(str_contains($html, 'Witaj w  SyntaxDevTerminal 0.1.5 .'));
+    $assert(!str_contains($html, '>Panel administracyjny</a>'));
+    $assert(!str_contains($html, '>Przejdź do panelu</a>'));
     $assert(!str_contains($html, '[ OK ]'));
     $assert(str_contains($html, 'data-terminal-form'));
     $assert(str_contains($html, 'data-terminal-input'));

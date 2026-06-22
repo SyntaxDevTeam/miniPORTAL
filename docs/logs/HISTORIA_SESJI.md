@@ -2147,3 +2147,16 @@ które znalazły się w tym samym historycznym commicie, ale nie należą do i18
 
 **Weryfikacja:** pełne testy repozytorium, lint PHP, przebudowa czystej
 dystrybucji, wyszukiwanie pozostałości i18n oraz `git diff --check`.
+
+### Sesja: 2026-06-22 - Usunięcie dodatkowego przycisku panelu z Hero
+
+**Faza i krok specyfikacji:** Krok 2/3 - korekta prototypu strony głównej i jego
+odwzorowania przez wymienne motywy.
+
+**Wykonano:** usunięto z Hero dodatkowy przycisk `Panel administracyjny` /
+`Przejdź do panelu` we wszystkich aktywnych motywach. Pozostawiono główny,
+konfigurowalny przycisk sekcji oraz standardowe wejście do logowania lub panelu
+w nawigacji publicznej.
+
+**Weryfikacja:** test regresji renderowania Hero, lint PHP, pełne testy,
+przebudowa dystrybucji i `git diff --check`.
