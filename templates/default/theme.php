@@ -143,6 +143,10 @@ final class Theme implements ThemeInterface
         echo $this->escape($this->tr('public.skip_to_content')) . '</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
         echo '<main id="content" tabindex="-1">';
+        if ($sections === []) {
+            echo '<section class="section"><div class="container"><div class="alert alert-info">';
+            echo $this->escape($this->tr('homepage.empty')) . '</div></div></section>';
+        }
         $heroRendered = false;
         foreach ($sections as $section) {
             if ($section['type'] === 'hero' && !$heroRendered) {
@@ -1336,7 +1340,7 @@ final class Theme implements ThemeInterface
                     : 'neutral';
                 $width = $item['width'] === 'wide' ? 'wide' : 'standard';
                 $itemHref = $item['page_slug'] !== ''
-                    ? '/p/' . rawurlencode($item['page_slug'])
+                    ? $this->safeHref('/p/' . rawurlencode($item['page_slug']))
                     : $this->safeHref($item['button_url']);
                 echo '<article class="showcase-card managed-card managed-card-' . $width . ' reveal" ';
                 echo 'data-variant="' . $variant . '" data-number="';
@@ -1444,7 +1448,7 @@ final class Theme implements ThemeInterface
     private function renderContactItem(array $item, bool $person): void
     {
         $href = $item['page_slug'] !== ''
-            ? '/p/' . rawurlencode($item['page_slug'])
+            ? $this->safeHref('/p/' . rawurlencode($item['page_slug']))
             : $this->safeHref($item['button_url']);
         $description = (new ContentRenderer())->render($item['content'], $item['content_format']);
         $icon = $item['icon_key'] !== '' ? $item['icon_key'] : ($person ? 'person' : 'web');
@@ -1536,7 +1540,9 @@ final class Theme implements ThemeInterface
     {
         $href = trim($href);
 
-        return preg_match('~^(?:https?://|mailto:|#|/(?!/)|index\.php(?:\?|$))~i', $href) === 1 ? $href : '';
+        return preg_match('~^(?:https?://|mailto:|#|/(?!/)|index\.php(?:\?|$))~i', $href) === 1
+            ? $this->localizedPublicHref($href)
+            : '';
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

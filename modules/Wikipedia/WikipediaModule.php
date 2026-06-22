@@ -73,15 +73,11 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $router->get('/wiki', fn () => $this->renderPublicIndex());
         $router->get('/wiki/project', fn (Request $request) => $this->renderPublicProject($request));
         $router->get('/wiki/page', fn (Request $request) => $this->renderPublicPage($request));
-        foreach ($this->wiki->publishedProjects() as $project) {
-            $router->get('/wiki/project/' . $project->slug, fn () => $this->renderPublicProjectSlug($project->slug));
-            foreach ($this->wiki->publishedPages($project->id) as $page) {
-                $router->get(
-                    '/wiki/page/' . $page->projectSlug . '/' . $page->slug,
-                    fn () => $this->renderPublicPageSlug($page->projectSlug, $page->slug)
-                );
-            }
-        }
+        $router->get('/wiki/project/{slug}', fn (Request $request) => $this->renderPublicProjectSlug($request->routeString('slug')));
+        $router->get('/wiki/page/{project}/{slug}', fn (Request $request) => $this->renderPublicPageSlug(
+            $request->routeString('project'),
+            $request->routeString('slug')
+        ));
         $router->get('/admin/wikipedia', fn (Request $request) => $this->guard(
             $request,
             'wikipedia.view',

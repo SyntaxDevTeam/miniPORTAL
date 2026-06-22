@@ -52,6 +52,8 @@ Ten sam widok rozdziela branding od SEO i udostępniania: zarządza tytułem, op
 canonical, robots, locale, podglądem social media oraz tokenami weryfikacji wyszukiwarek.
 Publiczne linki generowane przez motywy używają przyjaznych adresów, np. `/wiki`
 i `/wiki/project/punisherx`, zamiast technicznych parametrów `index.php?route=...`.
+Router obsługuje parametry segmentów, np. `/article/{slug}`, więc moduły nie budują
+już przy starcie osobnej trasy z każdego rekordu bazy.
 `database_manager` jest osobnym modułem rozszerzenia panelu dla Managera SQL i
 przechowuje własną historię operacji. Moduł rozdziela podgląd `database.view` od
 operacji zapisowych `database.manage`, obsługuje eksport/import SQL, operacje tabel
@@ -98,6 +100,10 @@ Ownera nie można zablokować ani zdegradować.
 Panel ma indeks wyszukiwania respektujący ACL; aktywne moduły mogą zgłaszać własne
 akcje i słowa kluczowe. Ten sam kontrakt rozszerzeń pozwala modułom dodawać
 konfigurowalne metryki oraz panele do Dashboardu.
+Aktywne moduły mogą również implementować `HookProviderInterface`: akcje i filtry
+`HookRegistry` są wykonywane według priorytetu bez modyfikowania modułu-konsumenta.
+Pierwszy filtr `homepage.sections` pozwala przyszłemu modułowi widgetów dostarczać
+strukturalne dane sekcji, które nadal renderuje wyłącznie aktywny motyw.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.
@@ -126,8 +132,10 @@ zależności starego CMS-a. Motyw wybiera się w panelu `/admin/settings`.
 Publiczna warstwa i18n obsługuje języki polski, angielski i niemiecki pod
 prefiksami `/pl`, `/en` i `/de`. Core rozstrzyga locale przed Routerem, motywy
 generują przełącznik oraz `hreflang`, a `core_pages` i `articles` przechowują
-niezależne szkice i publikacje EN/DE. Opcjonalny Google Cloud Translation tworzy
-wyłącznie wersje robocze wymagające ręcznej publikacji.
+niezależne szkice i publikacje EN/DE. Ten sam przepływ obejmuje ręcznie wpisywane
+sekcje i elementy strony głównej; ich układ, adresy i powiązania pozostają wspólne
+dla języków. Opcjonalny Google Cloud Translation tworzy wyłącznie wersje robocze
+wymagające ręcznej publikacji.
 
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez

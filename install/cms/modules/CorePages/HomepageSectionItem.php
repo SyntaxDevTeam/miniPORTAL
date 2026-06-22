@@ -23,6 +23,8 @@ final readonly class HomepageSectionItem
         public string $width,
         public int $sortOrder,
         public bool $isVisible,
+        public string $createdAt,
+        public string $updatedAt,
     ) {
     }
 

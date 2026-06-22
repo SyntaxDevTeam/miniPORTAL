@@ -73,9 +73,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     {
         $router->get('/projects', fn () => $this->renderPublicList());
         $router->get('/projects/project', fn (Request $request) => $this->renderPublicDetail($request->queryString('slug')));
-        foreach ($this->projects->all(true) as $project) {
-            $router->get('/projects/' . $project->slug, fn () => $this->renderPublicDetail($project->slug));
-        }
+        $router->get('/projects/{slug}', fn (Request $request) => $this->renderPublicDetail($request->routeString('slug')));
         $router->get('/admin/projects', fn (Request $request) => $this->guard($request, 'projects.view', fn () => $this->renderAdminList()));
         $router->get('/admin/projects/create', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->renderForm()));
         $router->post('/admin/projects/create', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->save($request)));

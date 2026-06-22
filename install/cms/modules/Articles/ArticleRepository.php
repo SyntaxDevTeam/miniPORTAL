@@ -160,11 +160,11 @@ final class ArticleRepository
             'status' => 'draft',
         ];
         if ($this->translation($articleId, $locale) === null) {
-            return (int) $this->database->create('article_translations', [
+            return $this->database->insert('article_translations', [
                 'article_id' => $articleId,
                 'locale' => $locale,
                 ...$values,
-            ]) > 0;
+            ]) !== null;
         }
 
         return $this->database->update('article_translations', $values, [

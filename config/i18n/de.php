@@ -18,6 +18,7 @@ return [
     'public.back_home' => 'Zurück zur Startseite',
     'public.published' => 'Veröffentlicht: {date}',
     'public.page_empty' => 'Diese Seite hat noch keinen Inhalt.',
+    'homepage.empty' => 'In dieser Sprache wurden noch keine Inhalte der Startseite veröffentlicht.',
     'public.page_type.project' => 'Projekt',
     'public.page_type.legal' => 'Rechtsdokument',
     'public.page_type.standard' => 'Informationen',

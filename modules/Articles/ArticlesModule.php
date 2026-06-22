@@ -78,9 +78,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
     {
         $router->get('/articles', fn (Request $request) => $this->renderPublicList($request));
         $router->get('/article', fn (Request $request) => $this->renderPublicArticle($request));
-        foreach ($this->articles->publishedForLocale($this->locale->locale) as $article) {
-            $router->get('/article/' . $article->slug, fn () => $this->renderPublicArticleSlug($article->slug));
-        }
+        $router->get('/article/{slug}', fn (Request $request) => $this->renderPublicArticleSlug($request->routeString('slug')));
         $router->get('/admin/articles', fn (Request $request) => $this->guard(
             $request,
             'articles.view',

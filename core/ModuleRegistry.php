@@ -47,6 +47,7 @@ final class ModuleRegistry
         ?PublicNavigationRegistry $publicNavigation = null,
         ?AdminSearchRegistry $adminSearch = null,
         ?DashboardRegistry $dashboard = null,
+        ?HookRegistry $hooks = null,
     ): void
     {
         foreach ($this->orderedModules() as $module) {
@@ -60,6 +61,9 @@ final class ModuleRegistry
             }
             if ($dashboard !== null && $module instanceof DashboardProviderInterface) {
                 $module->registerDashboard($dashboard);
+            }
+            if ($hooks !== null && $module instanceof HookProviderInterface) {
+                $module->registerHooks($hooks);
             }
         }
         if ($adminSearch !== null) {

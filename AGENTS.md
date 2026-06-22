@@ -166,6 +166,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Pochodzenie i podpisy RSA-SHA256 zewnętrznych pakietów |
 | [x] | Rotacja, okres ważności i unieważnianie kluczy wydawców |
 | [x] | Tagowy kontrakt unieważniania cache szablonów |
+| [x] | Hooks API z akcjami, filtrami i providerami aktywnych modułów |
+| [x] | Parametryczny Slug Router bez budowania tras z rekordów bazy |
 | [x] | Projekt zadeklarowany jako PHP 8.4 lub wyższy bez wymogu PHP 8.5 |
 | [x] | Cache publicznych podstron i artykułów z granularnymi tagami |
 | [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
@@ -210,12 +212,12 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Niezależne szkice i publikacje tłumaczeń `core_pages` |
 | [x] | Niezależne szkice i publikacje tłumaczeń `articles` |
 | [x] | Opcjonalne generowanie szkiców przez Google Cloud Translation |
-| [ ] | Tłumaczenia sekcji i elementów strony głównej |
+| [x] | Tłumaczenia sekcji i elementów strony głównej |
 | [ ] | Katalogi tekstów publicznych pozostałych modułów |
 
 ## Następne kroki
 
-1. Rozszerzyć i18n na sekcje strony głównej i pozostałe moduły publiczne.
+1. Rozszerzyć katalogi i18n na pozostałe moduły publiczne.
 2. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
 3. Rozważyć osobny widok przeglądania `auth_events_archive`.
 4. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
@@ -327,6 +329,7 @@ Brak aktywnych blokerów.
 | 2026-06-22 | `econify` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
 | 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
 | 2026-06-22 | Core i18n obsługuje `/pl`, `/en`, `/de`, fallback katalogów, przełącznik Theme i `hreflang`. `core_pages` 1.4.0 oraz `articles` 1.1.0 przechowują publikowane tłumaczenia EN/DE, a Google Cloud Translation tworzy wyłącznie szkice. |
+| 2026-06-22 | `core_pages` 1.5.0 dodaje niezależne szkice i publikacje EN/DE dla sekcji oraz elementów strony głównej. Pola układu, adresów i relacji pozostają wspólne, a nieprzetłumaczone treści nie mieszają się z polskim źródłem. |
 
 ## Historia sesji
 

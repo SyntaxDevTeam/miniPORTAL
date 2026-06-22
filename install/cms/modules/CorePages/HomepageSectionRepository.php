@@ -35,6 +35,25 @@ final class HomepageSectionRepository
         );
     }
 
+    /** @return list<HomepageSection> */
+    public function visibleForLocale(string $locale): array
+    {
+        if ($locale === 'pl') {
+            return $this->visible();
+        }
+
+        return $this->fetch(
+            'SELECT s.id, s.section_key, s.section_type, t.eyebrow, t.acrostic_words, '
+            . 't.title, t.content_html, t.content_format, s.layout, t.button_label, '
+            . 's.button_url, s.sort_order, s.is_visible, s.author_id, s.created_at, t.updated_at '
+            . 'FROM homepage_sections s '
+            . 'JOIN homepage_section_translations t ON t.section_id = s.id '
+            . 'WHERE s.is_visible = 1 AND t.locale = :locale AND t.status = :status '
+            . 'ORDER BY s.sort_order ASC, s.id ASC',
+            [':locale' => $locale, ':status' => 'published']
+        );
+    }
+
     public function find(int $id): ?HomepageSection
     {
         $statement = $this->database->query(
@@ -44,6 +63,59 @@ final class HomepageSectionRepository
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
 
         return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function translation(int $sectionId, string $locale): ?HomepageSectionTranslation
+    {
+        $statement = $this->database->query(
+            'SELECT * FROM homepage_section_translations '
+            . 'WHERE section_id = :section_id AND locale = :locale LIMIT 1',
+            [':section_id' => $sectionId, ':locale' => $locale]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $this->hydrateTranslation($row) : null;
+    }
+
+    /** @param array<string, string> $data */
+    public function saveTranslation(int $sectionId, string $locale, array $data, string $origin = 'manual'): bool
+    {
+        $values = [
+            'eyebrow' => $data['eyebrow'],
+            'acrostic_words' => $data['acrostic_words'],
+            'title' => $data['title'],
+            'content_html' => $data['content_html'],
+            'content_format' => $data['content_format'],
+            'button_label' => $data['button_label'],
+            'status' => 'draft',
+            'origin' => $origin,
+            'source_updated_at' => $data['source_updated_at'],
+        ];
+        if ($this->translation($sectionId, $locale) === null) {
+            return $this->database->insert('homepage_section_translations', [
+                'section_id' => $sectionId,
+                'locale' => $locale,
+                ...$values,
+            ]) !== null;
+        }
+
+        return $this->database->update('homepage_section_translations', $values, [
+            'section_id' => $sectionId,
+            'locale' => $locale,
+        ]) !== null;
+    }
+
+    public function setTranslationStatus(int $sectionId, string $locale, string $status): bool
+    {
+        if (!in_array($status, ['draft', 'published'], true)) {
+            return false;
+        }
+        $statement = $this->database->update('homepage_section_translations', ['status' => $status], [
+            'section_id' => $sectionId,
+            'locale' => $locale,
+        ]);
+
+        return $statement !== null && $statement->rowCount() === 1;
     }
 
     public function keyExists(string $sectionKey, ?int $exceptId = null): bool
@@ -179,9 +251,9 @@ final class HomepageSectionRepository
     /**
      * @return list<HomepageSection>
      */
-    private function fetch(string $sql): array
+    private function fetch(string $sql, array $parameters = []): array
     {
-        $statement = $this->database->query($sql);
+        $statement = $this->database->query($sql, $parameters);
 
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać sekcji strony głównej.');
@@ -211,6 +283,24 @@ final class HomepageSectionRepository
             (bool) $row['is_visible'],
             (int) $row['author_id'],
             (string) $row['created_at'],
+            (string) $row['updated_at'],
+        );
+    }
+
+    private function hydrateTranslation(array $row): HomepageSectionTranslation
+    {
+        return new HomepageSectionTranslation(
+            (int) $row['section_id'],
+            (string) $row['locale'],
+            (string) ($row['eyebrow'] ?? ''),
+            (string) ($row['acrostic_words'] ?? ''),
+            (string) $row['title'],
+            (string) $row['content_html'],
+            (string) ($row['content_format'] ?? 'html'),
+            (string) ($row['button_label'] ?? ''),
+            (string) $row['status'],
+            (string) ($row['origin'] ?? 'manual'),
+            $row['source_updated_at'] !== null ? (string) $row['source_updated_at'] : null,
             (string) $row['updated_at'],
         );
     }

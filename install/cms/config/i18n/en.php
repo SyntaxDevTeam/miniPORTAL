@@ -18,6 +18,7 @@ return [
     'public.back_home' => 'Back to homepage',
     'public.published' => 'Published: {date}',
     'public.page_empty' => 'This page does not have any content yet.',
+    'homepage.empty' => 'Homepage content has not been published in this language yet.',
     'public.page_type.project' => 'Project',
     'public.page_type.legal' => 'Legal document',
     'public.page_type.standard' => 'Information',

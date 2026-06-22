@@ -2096,3 +2096,39 @@ modułów treści bez naruszania granic Core -> Modules -> Templates.
 `ModuleInstaller` z kontrolą SHA-256, transakcyjny test zapisu/publikacji strony i
 artykułu, integracyjna instalacja wszystkich 12 modułów na pustej bazie, smoke
 testy `/pl`, `/en`, `/de`, lint PHP, przebudowa dystrybucji i `git diff --check`.
+
+### Sesja: 2026-06-22 - Hooks API i parametryczny Slug Router
+
+**Faza i krok specyfikacji:** punkt 5.3 oraz Krok 4/6 - rozszerzalny Core i trasy
+aktywnych modułów bez zależności między ich źródłami.
+
+**Wykonano:** dodano `HookRegistry` z akcjami, filtrami, priorytetami i stabilną
+kolejnością oraz opcjonalny `HookProviderInterface` uruchamiany przez
+`ModuleRegistry`. Pierwszy filtr `homepage.sections` pozwala modułowi widgetów
+dostarczyć strukturalne dane sekcji przed renderowaniem przez aktywny Theme; hook
+nie przenosi HTML do modułu. Router obsługuje teraz parametry `{slug}` przekazywane
+przez filtrowany `Request`, zachowuje pierwszeństwo tras statycznych, 405 i odrzuca
+zakodowane separatory. Core Pages, Articles, Wikipedia, Team, Projects i Build
+Explorer nie generują już tras na podstawie list pobieranych z bazy przy starcie.
+
+**Weryfikacja:** lint zmienionych plików PHP oraz testy akcji, filtrów, rejestracji
+providera, priorytetów, parametrów URL, dekodowania, pierwszeństwa tras i 405.
+
+### Sesja: 2026-06-22 - Tłumaczenia sekcji strony głównej
+
+**Faza i krok specyfikacji:** Krok 8.2 - internacjonalizacja ręcznie zarządzanej
+treści homepage przy zachowaniu granic Core -> Modules -> Templates.
+
+**Wykonano:** `core_pages` 1.5.0 dodaje tabele tłumaczeń sekcji oraz ich elementów,
+formularze EN/DE, niezależne szkice i publikacje, wykrywanie zmiany polskiego
+źródła oraz opcjonalne generowanie szkicu przez Google Cloud Translation. Pola
+tekstowe są lokalizowane, natomiast typy, układ, warianty, kolejność, adresy i
+powiązania pozostają wspólne. Publiczny odczyt wybiera wyłącznie opublikowane
+rekordy danego locale, lokalizuje wewnętrzne linki i pokazuje przetłumaczony stan
+pusty, gdy wersja językowa nie ma jeszcze sekcji. Poprawiono też zapis wszystkich
+tłumaczeń z kluczem złożonym: wynik `INSERT` nie zależy już od `lastInsertId()`.
+
+**Weryfikacja:** aktualizacja produkcyjna przez `ModuleInstaller`, transakcyjny
+cykl zapisu, publikacji i odczytu sekcji oraz karty, lint PHP, pełne testy
+repozytorium, integracyjna instalacja na pustej bazie, przebudowa dystrybucji,
+smoke testy PL/EN/DE i `git diff --check`.

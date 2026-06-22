@@ -103,9 +103,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
     {
         $router->get('/team', fn () => $this->renderPublicList());
         $router->get('/team/member', fn (Request $request) => $this->renderPublicProfile($request->queryString('slug')));
-        foreach ($this->team->visible() as $member) {
-            $router->get('/team/member/' . $member->slug, fn () => $this->renderPublicProfile($member->slug));
-        }
+        $router->get('/team/member/{slug}', fn (Request $request) => $this->renderPublicProfile($request->routeString('slug')));
 
         $router->get('/admin/team', fn (Request $request) => $this->guard(
             $request,

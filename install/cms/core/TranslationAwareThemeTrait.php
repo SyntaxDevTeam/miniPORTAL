@@ -42,6 +42,20 @@ trait TranslationAwareThemeTrait
         return '/' . $this->currentLocale;
     }
 
+    private function localizedPublicHref(string $href): string
+    {
+        if (
+            !str_starts_with($href, '/')
+            || str_starts_with($href, '//')
+            || preg_match('#^/(?:admin|api|templates|uploads)(?:/|$)#', $href) === 1
+            || preg_match('#^/(?:pl|en|de)(?:/|$)#', $href) === 1
+        ) {
+            return $href;
+        }
+
+        return '/' . $this->currentLocale . ($href === '/' ? '' : $href);
+    }
+
     private function renderLanguageSwitcher(): void
     {
         echo '<li class="nav-item dropdown"><button class="nav-link dropdown-toggle" type="button" ';

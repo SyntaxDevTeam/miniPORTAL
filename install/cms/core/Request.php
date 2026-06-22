@@ -14,6 +14,7 @@ final class Request
         private readonly array $server,
         private readonly array $files,
         private readonly string $rawBody,
+        private readonly array $routeParameters = [],
     ) {
     }
 
@@ -37,6 +38,7 @@ final class Request
             self::normalizeArray($server),
             self::normalizeArray($files),
             $rawBody,
+            [],
         );
     }
 
@@ -60,7 +62,30 @@ final class Request
             $this->server,
             $this->files,
             $this->rawBody,
+            $this->routeParameters,
         );
+    }
+
+    /** @param array<string, string> $parameters */
+    public function withRouteParameters(array $parameters): self
+    {
+        return new self(
+            $this->method,
+            $this->path,
+            $this->query,
+            $this->post,
+            $this->server,
+            $this->files,
+            $this->rawBody,
+            $parameters,
+        );
+    }
+
+    public function routeString(string $key, string $default = ''): string
+    {
+        $value = $this->routeParameters[$key] ?? null;
+
+        return is_string($value) ? $value : $default;
     }
 
     public function queryString(string $key, string $default = ''): string

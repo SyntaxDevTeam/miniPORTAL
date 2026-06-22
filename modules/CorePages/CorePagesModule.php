@@ -46,7 +46,7 @@ final class CorePagesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.0';
+        return '1.5.0';
     }
 
     public function dependencies(): array
@@ -74,9 +74,7 @@ final class CorePagesModule implements ModuleInterface
     {
         $router->get('/page', fn (Request $request) => $this->renderPublicPage($request));
         $router->get('/pages', fn () => $this->renderPublicPages());
-        foreach ($this->pages->publishedForLocale($this->locale->locale) as $page) {
-            $router->get('/p/' . $page->slug, fn () => $this->renderPage($page));
-        }
+        $router->get('/p/{slug}', fn (Request $request) => $this->renderPublicPage($request));
         $router->get('/admin/pages', fn (Request $request) => $this->guard(
             $request,
             'pages.view',
@@ -177,6 +175,26 @@ final class CorePagesModule implements ModuleInterface
             'pages.delete',
             fn () => $this->deleteHomepageSection($request)
         ));
+        $router->get('/admin/homepage/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->renderHomepageTranslationForm($request)
+        ));
+        $router->post('/admin/homepage/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->saveHomepageTranslation($request)
+        ));
+        $router->post('/admin/homepage/translations/generate', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->generateHomepageTranslation($request)
+        ));
+        $router->post('/admin/homepage/translations/publish', fn (Request $request) => $this->guard(
+            $request,
+            'pages.publish',
+            fn () => $this->publishHomepageTranslation($request)
+        ));
         $router->get('/admin/homepage/items', fn (Request $request) => $this->guard(
             $request,
             'pages.view',
@@ -216,6 +234,26 @@ final class CorePagesModule implements ModuleInterface
             $request,
             'pages.delete',
             fn () => $this->deleteHomepageItem($request)
+        ));
+        $router->get('/admin/homepage/items/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->renderHomepageItemTranslationForm($request)
+        ));
+        $router->post('/admin/homepage/items/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->saveHomepageItemTranslation($request)
+        ));
+        $router->post('/admin/homepage/items/translations/generate', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->generateHomepageItemTranslation($request)
+        ));
+        $router->post('/admin/homepage/items/translations/publish', fn (Request $request) => $this->guard(
+            $request,
+            'pages.publish',
+            fn () => $this->publishHomepageItemTranslation($request)
         ));
     }
 
@@ -382,8 +420,15 @@ final class CorePagesModule implements ModuleInterface
                 ['label' => $editing ? 'Edycja' : 'Nowa sekcja', 'href' => ''],
             ],
             $editing ? [
-                'label' => 'Podgląd roboczy',
-                'href' => 'index.php?route=/admin/homepage/preview',
+                [
+                    'label' => 'Podgląd roboczy',
+                    'href' => 'index.php?route=/admin/homepage/preview',
+                ],
+                [
+                    'label' => 'Tłumaczenia EN / DE',
+                    'href' => 'index.php?route=/admin/homepage/translations&id=' . $section->id . '&locale=en',
+                    'variant' => 'outline-light',
+                ],
             ] : null
         );
 
@@ -845,7 +890,7 @@ final class CorePagesModule implements ModuleInterface
             ],
             $editing ? [
                 'label' => 'Tłumaczenia',
-                'href' => 'index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=en',
+                'href' => 'index.php?route=/admin/homepage/items/translations&id=' . $item->id . '&locale=en',
             ] : null
         );
         if ($message !== '') {
@@ -1308,9 +1353,393 @@ final class CorePagesModule implements ModuleInterface
         return [$data, ''];
     }
 
+    private function renderHomepageTranslationForm(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $user = $this->auth->user();
+        $section = $this->homepageSections->find($request->queryInt('id') ?? $request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($user === null || $section === null || $locale === null) {
+            http_response_code(404);
+            $this->renderHomepageList('Nie znaleziono sekcji albo języka tłumaczenia.', 'danger');
+            return;
+        }
+        $translation = $this->homepageSections->translation($section->id, $locale);
+        $this->theme->start_admin_page(
+            'Tłumaczenie sekcji',
+            $this->menu->visibleFor($user->permissions),
+            '/admin/homepage',
+            $this->adminUser($user)
+        );
+        $this->theme->start_admin_content(
+            'Tłumaczenie: ' . $section->title,
+            'Układ, adres przycisku, kolejność i widoczność pozostają wspólne dla wszystkich języków.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
+                ['label' => $section->title, 'href' => 'index.php?route=/admin/homepage/edit&id=' . $section->id],
+                ['label' => strtoupper($locale), 'href' => ''],
+            ]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->render_button('English', 'index.php?route=/admin/homepage/translations&id=' . $section->id . '&locale=en', 'outline-light');
+        $this->theme->render_button('Deutsch', 'index.php?route=/admin/homepage/translations&id=' . $section->id . '&locale=de', 'outline-light');
+        if (in_array($section->layout, ['columns', 'contact'], true)) {
+            $this->theme->render_button(
+                'Tłumaczenia elementów',
+                'index.php?route=/admin/homepage/items&section_id=' . $section->id,
+                'outline-light'
+            );
+        }
+
+        $this->theme->start_admin_panel(
+            'Wersja ' . strtoupper($locale),
+            $translation === null ? 'Brak szkicu' : ($translation->status === 'published' ? 'Opublikowana' : 'Szkic')
+        );
+        if ($translation !== null && $translation->sourceUpdatedAt !== $section->updatedAt) {
+            $this->theme->render_alert('Polski oryginał sekcji zmienił się od ostatniego zapisu.', 'warning');
+        }
+        $this->theme->render_form(
+            'index.php?route=/admin/homepage/translations',
+            [
+                ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $section->id],
+                ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ['name' => 'title', 'label' => 'Nagłówek', 'type' => 'textarea', 'rows' => 3, 'value' => $translation?->title ?? ''],
+                ['name' => 'eyebrow', 'label' => 'Nadtytuł', 'value' => $translation?->eyebrow ?? ''],
+                [
+                    'name' => 'acrostic_words',
+                    'label' => 'Akrostych Hero',
+                    'type' => 'textarea',
+                    'rows' => 6,
+                    'value' => $translation?->acrosticWords ?? '',
+                    'help' => 'Każdy wyraz pozostaje w osobnym wierszu; maksymalnie 12 wyrazów.',
+                ],
+                [
+                    'name' => 'content_html',
+                    'label' => 'Treść',
+                    'type' => 'richtext',
+                    'value' => $translation?->contentHtml ?? '',
+                    'format_name' => 'content_format',
+                    'format_value' => $translation?->contentFormat ?? $section->contentFormat,
+                ],
+                ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $translation?->buttonLabel ?? ''],
+            ],
+            'Zapisz szkic tłumaczenia',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        if ($this->machineTranslation->available()) {
+            $this->theme->start_admin_panel('Google Cloud Translation', 'Generator szkicu');
+            $this->theme->render_alert('Wynik zastąpi szkic sekcji, ale nie zostanie opublikowany.', 'info');
+            $this->theme->render_form(
+                'index.php?route=/admin/homepage/translations/generate',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $section->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ],
+                'Wygeneruj szkic przez Google',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        if ($translation !== null) {
+            $this->theme->start_admin_panel('Publikacja');
+            $this->theme->render_form(
+                'index.php?route=/admin/homepage/translations/publish',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $section->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                    ['name' => 'status', 'label' => 'Status', 'type' => 'hidden', 'value' => $translation->status === 'published' ? 'draft' : 'published'],
+                ],
+                $translation->status === 'published' ? 'Cofnij do szkicu' : 'Opublikuj tłumaczenie',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function saveHomepageTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_translation_save')) {
+            return;
+        }
+        $section = $this->homepageSections->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($section === null || $locale === null) {
+            $this->renderHomepageTranslationForm($request, 'Nieprawidłowa sekcja lub język.', 'danger');
+            return;
+        }
+        [$data, $error] = $this->homepageTranslationInput($request, $section);
+        if ($error !== '') {
+            $this->renderHomepageTranslationForm($request, $error, 'danger');
+            return;
+        }
+        $this->homepageSections->saveTranslation($section->id, $locale, $data);
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_translation_save', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/translations&id=' . $section->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function generateHomepageTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_translation_generate')) {
+            return;
+        }
+        $section = $this->homepageSections->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($section === null || $locale === null || !$this->machineTranslation->available()) {
+            $this->renderHomepageTranslationForm($request, 'Google Cloud Translation nie jest dostępny.', 'danger');
+            return;
+        }
+        try {
+            $text = fn (string $value): string => $value === '' ? '' : $this->machineTranslation->translate($value, 'pl', $locale);
+            $format = $section->contentFormat === 'html' ? 'html' : 'text';
+            $this->homepageSections->saveTranslation($section->id, $locale, [
+                'eyebrow' => $text($section->eyebrow),
+                'acrostic_words' => $text($section->acrosticWords),
+                'title' => $text($section->title),
+                'content_html' => $section->contentHtml === '' ? '' : $this->machineTranslation->translate($section->contentHtml, 'pl', $locale, $format),
+                'content_format' => $section->contentFormat,
+                'button_label' => $text($section->buttonLabel),
+                'source_updated_at' => $section->updatedAt,
+            ], 'google');
+        } catch (\Throwable) {
+            $this->audit->record($request, 'homepage_translation_generate', 'failed', $locale, $this->auth->user()?->id);
+            $this->renderHomepageTranslationForm($request, 'Nie udało się wygenerować tłumaczenia sekcji.', 'danger');
+            return;
+        }
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_translation_generate', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/translations&id=' . $section->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function publishHomepageTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_translation_publish')) {
+            return;
+        }
+        $section = $this->homepageSections->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        $status = $request->postString('status');
+        $changed = $section !== null && $locale !== null
+            && $this->homepageSections->setTranslationStatus($section->id, $locale, $status);
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_translation_publish', $changed ? $status : 'not_found', $locale, $this->auth->user()?->id);
+        $this->renderHomepageTranslationForm($request, $changed ? 'Status tłumaczenia został zmieniony.' : 'Nie znaleziono tłumaczenia.', $changed ? 'success' : 'warning');
+    }
+
+    /** @return array{0: array<string, string>, 1: string} */
+    private function homepageTranslationInput(Request $request, HomepageSection $section): array
+    {
+        $titleLines = array_values(array_filter(array_map(
+            static fn (string $line): string => trim(preg_replace('/[ \t]+/u', ' ', $line) ?? $line),
+            preg_split('/\R/u', trim($request->postString('title'))) ?: []
+        ), static fn (string $line): bool => $line !== ''));
+        $title = implode("\n", $titleLines);
+        $words = preg_split('/\s+/u', trim($request->postString('acrostic_words')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $acrostic = implode("\n", $words);
+        $format = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $data = [
+            'eyebrow' => substr($request->postString('eyebrow'), 0, 160),
+            'acrostic_words' => $acrostic,
+            'title' => $title,
+            'content_html' => (new ContentRenderer())->prepareForStorage($request->postString('content_html'), $format),
+            'content_format' => $format,
+            'button_label' => substr($request->postString('button_label'), 0, 120),
+            'source_updated_at' => $section->updatedAt,
+        ];
+        if ($title === '' || strlen($title) > 220 || count($titleLines) > 4) {
+            return [$data, 'Nagłówek jest wymagany i może mieć maksymalnie cztery wiersze oraz 220 znaków.'];
+        }
+        if (count($words) > 12 || strlen($acrostic) > 500 || array_any($words, static fn (string $word): bool => strlen($word) > 60)) {
+            return [$data, 'Akrostych może zawierać maksymalnie 12 wyrazów, po 60 znaków każdy.'];
+        }
+
+        return [$data, ''];
+    }
+
+    private function renderHomepageItemTranslationForm(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $user = $this->auth->user();
+        $item = $this->homepageItems->find($request->queryInt('id') ?? $request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        $section = $item !== null ? $this->homepageSections->find($item->sectionId) : null;
+        if ($user === null || $item === null || $section === null || $locale === null) {
+            http_response_code(404);
+            $this->renderHomepageList('Nie znaleziono elementu albo języka tłumaczenia.', 'danger');
+            return;
+        }
+        $translation = $this->homepageItems->translation($item->id, $locale);
+        $this->theme->start_admin_page(
+            'Tłumaczenie elementu',
+            $this->menu->visibleFor($user->permissions),
+            '/admin/homepage',
+            $this->adminUser($user)
+        );
+        $this->theme->start_admin_content(
+            'Tłumaczenie: ' . $item->title,
+            'URL, ikona, wariant, szerokość i powiązanie ze stroną pozostają wspólne.',
+            [
+                ['label' => 'Strona główna', 'href' => 'index.php?route=/admin/homepage'],
+                ['label' => $section->title, 'href' => 'index.php?route=/admin/homepage/items&section_id=' . $section->id],
+                ['label' => $item->title, 'href' => 'index.php?route=/admin/homepage/items/edit&id=' . $item->id],
+                ['label' => strtoupper($locale), 'href' => ''],
+            ]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->render_button('English', 'index.php?route=/admin/homepage/items/translations&id=' . $item->id . '&locale=en', 'outline-light');
+        $this->theme->render_button('Deutsch', 'index.php?route=/admin/homepage/items/translations&id=' . $item->id . '&locale=de', 'outline-light');
+        $this->theme->start_admin_panel(
+            'Wersja ' . strtoupper($locale),
+            $translation === null ? 'Brak szkicu' : ($translation->status === 'published' ? 'Opublikowana' : 'Szkic')
+        );
+        if ($translation !== null && $translation->sourceUpdatedAt !== $item->updatedAt) {
+            $this->theme->render_alert('Polski oryginał elementu zmienił się od ostatniego zapisu.', 'warning');
+        }
+        $this->theme->render_form(
+            'index.php?route=/admin/homepage/items/translations',
+            [
+                ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $item->id],
+                ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ['name' => 'label', 'label' => 'Etykieta', 'value' => $translation?->label ?? ''],
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $translation?->title ?? ''],
+                [
+                    'name' => 'content',
+                    'label' => 'Opis',
+                    'type' => 'richtext',
+                    'value' => $translation?->content ?? '',
+                    'format_name' => 'content_format',
+                    'format_value' => $translation?->contentFormat ?? $item->contentFormat,
+                ],
+                ['name' => 'button_label', 'label' => 'Etykieta przycisku', 'value' => $translation?->buttonLabel ?? ''],
+            ],
+            'Zapisz szkic tłumaczenia',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+        if ($this->machineTranslation->available()) {
+            $this->theme->start_admin_panel('Google Cloud Translation', 'Generator szkicu');
+            $this->theme->render_form(
+                'index.php?route=/admin/homepage/items/translations/generate',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $item->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ],
+                'Wygeneruj szkic przez Google',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        if ($translation !== null) {
+            $this->theme->start_admin_panel('Publikacja');
+            $this->theme->render_form(
+                'index.php?route=/admin/homepage/items/translations/publish',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $item->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                    ['name' => 'status', 'label' => 'Status', 'type' => 'hidden', 'value' => $translation->status === 'published' ? 'draft' : 'published'],
+                ],
+                $translation->status === 'published' ? 'Cofnij do szkicu' : 'Opublikuj tłumaczenie',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function saveHomepageItemTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_translation_save')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($item === null || $locale === null) {
+            $this->renderHomepageItemTranslationForm($request, 'Nieprawidłowy element lub język.', 'danger');
+            return;
+        }
+        $format = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $data = [
+            'label' => substr($request->postString('label'), 0, 120),
+            'title' => $request->postString('title'),
+            'content' => (new ContentRenderer())->prepareForStorage($request->postString('content'), $format),
+            'content_format' => $format,
+            'button_label' => substr($request->postString('button_label'), 0, 120),
+            'source_updated_at' => $item->updatedAt,
+        ];
+        if ($data['title'] === '' || strlen($data['title']) > 180 || strlen($data['content']) > 4000) {
+            $this->renderHomepageItemTranslationForm($request, 'Tytuł jest wymagany, a opis może mieć maksymalnie 4000 znaków.', 'danger');
+            return;
+        }
+        $this->homepageItems->saveTranslation($item->id, $locale, $data);
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_item_translation_save', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/items/translations&id=' . $item->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function generateHomepageItemTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_translation_generate')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($item === null || $locale === null || !$this->machineTranslation->available()) {
+            $this->renderHomepageItemTranslationForm($request, 'Google Cloud Translation nie jest dostępny.', 'danger');
+            return;
+        }
+        try {
+            $text = fn (string $value): string => $value === '' ? '' : $this->machineTranslation->translate($value, 'pl', $locale);
+            $format = $item->contentFormat === 'html' ? 'html' : 'text';
+            $this->homepageItems->saveTranslation($item->id, $locale, [
+                'label' => $text($item->label),
+                'title' => $text($item->title),
+                'content' => $item->content === '' ? '' : $this->machineTranslation->translate($item->content, 'pl', $locale, $format),
+                'content_format' => $item->contentFormat,
+                'button_label' => $text($item->buttonLabel),
+                'source_updated_at' => $item->updatedAt,
+            ], 'google');
+        } catch (\Throwable) {
+            $this->audit->record($request, 'homepage_item_translation_generate', 'failed', $locale, $this->auth->user()?->id);
+            $this->renderHomepageItemTranslationForm($request, 'Nie udało się wygenerować tłumaczenia elementu.', 'danger');
+            return;
+        }
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_item_translation_generate', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/homepage/items/translations&id=' . $item->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function publishHomepageItemTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_item_translation_publish')) {
+            return;
+        }
+        $item = $this->homepageItems->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        $status = $request->postString('status');
+        $changed = $item !== null && $locale !== null
+            && $this->homepageItems->setTranslationStatus($item->id, $locale, $status);
+        $this->invalidatePageCache();
+        $this->audit->record($request, 'homepage_item_translation_publish', $changed ? $status : 'not_found', $locale, $this->auth->user()?->id);
+        $this->renderHomepageItemTranslationForm($request, $changed ? 'Status tłumaczenia został zmieniony.' : 'Nie znaleziono tłumaczenia.', $changed ? 'success' : 'warning');
+    }
+
     private function renderPublicPage(Request $request): void
     {
-        $slug = $this->normalizeSlug($request->queryString('slug'));
+        $slug = $this->normalizeSlug($request->routeString('slug', $request->queryString('slug')));
         $page = $slug !== '' ? $this->pages->findPublishedBySlugForLocale($slug, $this->locale->locale) : null;
 
         if ($page === null) {
@@ -1517,7 +1946,11 @@ final class CorePagesModule implements ModuleInterface
                 ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
                 ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
                 ['label' => $editing ? 'Edycja' : 'Nowa', 'href' => ''],
-            ]
+            ],
+            $editing ? [
+                'label' => 'Tłumaczenia',
+                'href' => 'index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=en',
+            ] : null
         );
 
         if ($message !== '') {

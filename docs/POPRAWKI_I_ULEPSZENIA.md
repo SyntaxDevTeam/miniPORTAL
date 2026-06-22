@@ -93,6 +93,11 @@ przełącznik języka i generują `lang`/`hreflang`. Strony i artykuły mają ni
 szkice oraz publikacje EN/DE; opcjonalny Google Cloud Translation wypełnia szkic,
 ale nie może go automatycznie opublikować. (Krok 8.1 gotowy)
 
+Ręcznie wpisywane sekcje i karty strony głównej mają osobne szkice oraz publikacje
+EN/DE. Polskie rekordy pozostają źródłem, pola strukturalne są wspólne, a Google
+może uzupełnić wyłącznie szkic. Brak publikacji pokazuje lokalizowany stan pusty,
+bez mieszania treści PL z wybraną wersją językową. (Krok 8.2 gotowy)
+
 Typografia akrostychu nie rezerwuje osobnej kolumny dla pierwszych liter. Litera
 wyróżniona kolorem pozostaje bezpośrednią częścią wyrazu, a ograniczona skala i
 nierozdzielanie słów utrzymują stabilny układ hero obok terminala. (gotowe)

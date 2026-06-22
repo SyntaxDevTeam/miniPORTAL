@@ -9,6 +9,7 @@ use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\GoogleCloudTranslationService;
+use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
@@ -53,6 +54,7 @@ $adminMenu = new AdminMenuRegistry();
 $adminSearch = new AdminSearchRegistry();
 $dashboard = new DashboardRegistry();
 $publicNavigation = new PublicNavigationRegistry();
+$hooks = new HookRegistry();
 $modules = new ModuleRegistry();
 $authConfig = $config['auth'] ?? [];
 $authStorage = (string) ($authConfig['storage'] ?? 'database');
@@ -170,8 +172,9 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'translator' => $translator,
     'locale' => $locale,
     'machine_translation' => $machineTranslation,
+    'hooks' => $hooks,
 ], $modules);
-$modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard);
+$modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard, $hooks);
 $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
 
 $localizedPublicHref = static function (string $href) use ($locale): string {
@@ -267,7 +270,8 @@ $router->get('/', static function () use (
     $auth,
     $templateCache,
     $publicNavigationItems,
-    $locale
+    $locale,
+    $hooks
 ): void {
     $renderer = static function () use (
         $homepageSectionRepository,
@@ -275,17 +279,29 @@ $router->get('/', static function () use (
         $theme,
         $auth,
         $publicNavigationItems,
-        $locale
+        $locale,
+        $hooks
     ): string {
         $navigation = $publicNavigationItems();
         $sections = [];
         if ($homepageSectionRepository !== null) {
             $sections = array_map(
                 static fn ($section): array => $section->toThemeData(
-                    $homepageSectionItemRepository?->forSection($section->id, true) ?? []
+                    $homepageSectionItemRepository?->forSectionLocale(
+                        $section->id,
+                        $locale->locale,
+                        true
+                    ) ?? []
                 ),
-                $homepageSectionRepository->visible()
+                $homepageSectionRepository->visibleForLocale($locale->locale)
             );
+        }
+        $sections = $hooks->applyFilters('homepage.sections', $sections, [
+            'locale' => $locale->locale,
+            'authenticated' => $auth->user() !== null,
+        ]);
+        if (!is_array($sections)) {
+            throw new UnexpectedValueException('Filtr homepage.sections musi zwrócić tablicę sekcji.');
         }
 
         ob_start();

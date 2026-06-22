@@ -18,6 +18,7 @@ return [
     'public.back_home' => 'Wróć do strony głównej',
     'public.published' => 'Opublikowano: {date}',
     'public.page_empty' => 'Ta strona nie ma jeszcze treści.',
+    'homepage.empty' => 'Nie opublikowano jeszcze treści strony głównej w tym języku.',
     'public.page_type.project' => 'Projekt',
     'public.page_type.legal' => 'Dokument prawny',
     'public.page_type.standard' => 'Informacje',

@@ -11,6 +11,8 @@ use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
 use SyntaxDevTeam\Cms\Core\FileTranslator;
 use SyntaxDevTeam\Cms\Core\GoogleCloudTranslationService;
+use SyntaxDevTeam\Cms\Core\HookProviderInterface;
+use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\LocaleResolver;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
@@ -628,6 +630,78 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert($publicItems[0]['show_footer']);
 });
 
+$test('Hook registry runs actions and filters by priority', static function () use ($assert): void {
+    $hooks = new HookRegistry();
+    $actions = [];
+    $hooks->addAction('content.saved', static function (string $id) use (&$actions): void {
+        $actions[] = 'late:' . $id;
+    }, 200);
+    $hooks->addAction('content.saved', static function (string $id) use (&$actions): void {
+        $actions[] = 'early:' . $id;
+    }, 10);
+    $hooks->addFilter('homepage.sections', static fn (array $sections): array => [...$sections, ['id' => 'widget']]);
+    $hooks->addFilter('homepage.sections', static fn (array $sections): array => [...$sections, ['id' => 'first']], 10);
+
+    $hooks->doAction('content.saved', '42');
+    $sections = $hooks->applyFilters('homepage.sections', []);
+
+    $assert($actions === ['early:42', 'late:42']);
+    $assert(array_column($sections, 'id') === ['first', 'widget']);
+});
+
+$test('Module registry registers optional hook providers', static function () use ($assert): void {
+    $registry = new ModuleRegistry();
+    $hooks = new HookRegistry();
+    $module = new class implements ModuleInterface, HookProviderInterface {
+        public function id(): string { return 'hook_module'; }
+        public function version(): string { return '1.0.0'; }
+        public function dependencies(): array { return []; }
+        public function isProtected(): bool { return false; }
+        public function requiredPermissions(): array { return []; }
+        public function registerAdminMenu(AdminMenuRegistry $menu): void {}
+        public function registerRoutes(Router $router): void {}
+        public function registerHooks(HookRegistry $hooks): void
+        {
+            $hooks->addFilter('homepage.sections', static fn (array $sections): array => [...$sections, ['id' => 'module-widget']]);
+        }
+    };
+    $registry->add($module);
+    $registry->boot(new AdminMenuRegistry(), new Router(), hooks: $hooks);
+
+    $assert($hooks->applyFilters('homepage.sections', []) === [['id' => 'module-widget']]);
+});
+
+$test('Router resolves validated slug parameters without database-built routes', static function () use ($assert): void {
+    $router = new Router();
+    $resolved = [];
+    $router->get('/article/archive', static function () use (&$resolved): void {
+        $resolved = ['static'];
+    });
+    $router->get('/article/{slug}', static function (Request $request) use (&$resolved): void {
+        $resolved = [$request->routeString('slug')];
+    });
+
+    $status = $router->dispatch(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/article/nowy%20wpis',
+    ]));
+    $assert($status === 200 && $resolved === ['nowy wpis']);
+
+    $router->dispatch(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/article/archive',
+    ]));
+    $assert($resolved === ['static']);
+    $assert($router->dispatch(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'POST',
+        'REQUEST_URI' => '/article/test',
+    ])) === 405);
+    $assert($router->dispatch(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/article/path%2Fescape',
+    ])) === 404);
+});
+
 $test('Admin menu keeps entries from the same section together', static function () use ($assert): void {
     $menu = new AdminMenuRegistry();
     $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
@@ -995,7 +1069,7 @@ $test('Public theme renders safe local related links', static function () use ($
         ['label' => 'Blocked', 'href' => '//attacker.example', 'meta' => ''],
     ]);
     $html = (string) ob_get_clean();
-    $assert(str_contains($html, 'href="/builds/punisherx"'));
+    $assert(str_contains($html, 'href="/pl/builds/punisherx"'));
     $assert(!str_contains($html, 'attacker.example'));
 });
 
@@ -1249,7 +1323,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $corePages = $validator->validate(dirname(__DIR__) . '/modules/CorePages');
     $assert($corePages->id === 'core_pages');
-    $assert($corePages->version === '1.4.0');
+    $assert($corePages->version === '1.5.0');
     $assert($corePages->protected);
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
@@ -1485,8 +1559,8 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsCiMigrationSql, 'uq_project_builds_ci'));
     $buildsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/BuildExplorer/BuildExplorerModule.php');
     $assert(str_contains($buildsSource, "\$router->get('/builds'"));
-    $assert(str_contains($buildsSource, "\$router->post('/api/builds/ci/'"));
-    $assert(str_contains($buildsSource, "'/builds/' . \$slug . '/' . \$channel"));
+    $assert(str_contains($buildsSource, "\$router->post('/api/builds/ci/{project}'"));
+    $assert(str_contains($buildsSource, "\$router->get('/builds/{project}/{channel}'"));
     $assert(str_contains($buildsSource, "hash_equals(\$this->ciToken"));
     $assert(str_contains($buildsSource, "\$router->get('/admin/builds'"));
     $assert(str_contains($buildsSource, "\$router->get('/builds/download'"));

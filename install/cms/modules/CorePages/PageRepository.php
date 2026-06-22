@@ -168,11 +168,11 @@ final class PageRepository
             'status' => 'draft',
         ];
         if ($this->translation($pageId, $locale) === null) {
-            return (int) $this->database->create('core_page_translations', [
+            return $this->database->insert('core_page_translations', [
                 'page_id' => $pageId,
                 'locale' => $locale,
                 ...$values,
-            ]) > 0;
+            ]) !== null;
         }
 
         return $this->database->update('core_page_translations', $values, [

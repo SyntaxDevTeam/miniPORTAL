@@ -75,22 +75,17 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $router->get('/builds', fn () => $this->renderPublicProjects());
         $router->get('/builds/download', fn (Request $request) => $this->download($request));
         $router->get('/builds/project', fn (Request $request) => $this->renderPublicChannels($request->queryString('slug')));
-        foreach ($this->builds->projectSlugs() as $slug) {
-            $router->post('/api/builds/ci/' . $slug, fn (Request $request) => $this->importCi($request, $slug));
-            $router->get('/builds/' . $slug, fn () => $this->renderPublicChannels($slug));
-        }
-        $channelRoutes = []; $versionRoutes = [];
-        foreach ($this->builds->all(true) as $build) {
-            $channel = strtolower($build->channel);
-            $channelRoutes[$build->projectSlug . '/' . $channel] = [$build->projectSlug, $channel];
-            $versionRoutes[$build->projectSlug . '/' . $channel . '/' . $build->versionLabel] = [$build->projectSlug, $channel, $build->versionLabel];
-        }
-        foreach ($channelRoutes as [$slug, $channel]) {
-            $router->get('/builds/' . $slug . '/' . $channel, fn () => $this->renderPublicVersions($slug, $channel));
-        }
-        foreach ($versionRoutes as [$slug, $channel, $version]) {
-            $router->get('/builds/' . $slug . '/' . $channel . '/' . rawurlencode($version), fn () => $this->renderPublicHistory($slug, $channel, $version));
-        }
+        $router->post('/api/builds/ci/{project}', fn (Request $request) => $this->importCi($request, $request->routeString('project')));
+        $router->get('/builds/{project}', fn (Request $request) => $this->renderPublicChannels($request->routeString('project')));
+        $router->get('/builds/{project}/{channel}', fn (Request $request) => $this->renderPublicVersions(
+            $request->routeString('project'),
+            strtolower($request->routeString('channel'))
+        ));
+        $router->get('/builds/{project}/{channel}/{version}', fn (Request $request) => $this->renderPublicHistory(
+            $request->routeString('project'),
+            strtolower($request->routeString('channel')),
+            $request->routeString('version')
+        ));
         $router->get('/admin/builds', fn (Request $request) => $this->guard($request, 'builds.view', fn () => $this->renderAdmin()));
         $router->get('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderForm()));
         $router->post('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request)));
