@@ -724,7 +724,29 @@ Stan 1.0.0:
 6. Błąd instalacji sprząta tabele utworzone w początkowo pustej bazie.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
-MariaDB przez instalację wszystkich 11 modułów i utworzenie jednego Ownera.
+MariaDB przez instalację wszystkich 12 modułów i utworzenie jednego Ownera.
+
+### Krok 8: internacjonalizacja PL/EN/DE
+
+1. Core udostępnia `LocaleResolver`, `LocaleContext`, `TranslatorInterface` i
+   katalogi `config/i18n/{pl,en,de}.php` z polskim fallbackiem.
+2. Publiczne trasy przyjmują prefiksy `/pl`, `/en` i `/de`; Router nadal otrzymuje
+   kanoniczną ścieżkę modułu, a panel `/admin/*` i API pozostają bez prefiksu.
+3. Wszystkie motywy generują poprawne `lang`, przełącznik języka, canonical oraz
+   alternatywne odnośniki `hreflang`, w tym `x-default`.
+4. Cache publiczny rozdziela wpisy i tagi według locale.
+5. `core_pages` 1.4.0 przechowuje EN/DE w `core_page_translations`; wersje mają
+   niezależny szkic/publikację, źródło manualne/Google i znacznik aktualności
+   względem polskiego oryginału.
+6. `articles` 1.1.0 realizuje ten sam kontrakt w `article_translations`.
+7. `GoogleCloudTranslationService` działa wyłącznie po stronie serwera i tylko na
+   jawne żądanie redaktora. Wynik zawsze trafia do szkicu i wymaga publikacji.
+8. Brak opublikowanego tłumaczenia zwraca 404 w danym języku zamiast prezentować
+   polską treść pod adresem EN/DE.
+
+Stan Kroku 8.1: fundament Core, publiczna otoczka Theme oraz wielojęzyczne strony
+i artykuły są ukończone. Kolejne podetapy obejmą katalogi tekstów pozostałych
+modułów oraz tłumaczenia sekcji strony głównej.
 
 ---
 

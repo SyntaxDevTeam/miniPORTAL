@@ -7,9 +7,12 @@ namespace SyntaxDevTeam\Cms\Templates\GlassnightTheme;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
+use SyntaxDevTeam\Cms\Core\TranslationAwareThemeTrait;
 
 final class Theme implements ThemeInterface
 {
+    use TranslationAwareThemeTrait;
+
     private readonly string $publicName;
 
     private readonly string $publicDefaultTitle;
@@ -58,6 +61,7 @@ final class Theme implements ThemeInterface
 
     public function __construct(array $config = [])
     {
+        $this->initializeTranslation($config);
         $publicUrl = rtrim(trim((string) ($config['public_url'] ?? '')), '/');
         $this->publicUrl = filter_var($publicUrl, FILTER_VALIDATE_URL) !== false
             && str_starts_with($publicUrl, 'https://')
@@ -135,7 +139,8 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
-        echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
+        echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">';
+        echo $this->escape($this->tr('public.skip_to_content')) . '</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
         echo '<main id="content" tabindex="-1">';
         $heroRendered = false;
@@ -158,15 +163,17 @@ final class Theme implements ThemeInterface
 
     private function renderPublicNavbar(array $pages, bool $authenticated, array $sections = [], bool $fixed = false): void
     {
-        echo '<nav class="navbar navbar-expand-lg border-bottom' . ($fixed ? ' fixed-top' : '') . '" data-site-nav aria-label="Główna nawigacja"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="/">' . $this->brandLogo('site-brand-logo');
+        echo '<nav class="navbar navbar-expand-lg border-bottom' . ($fixed ? ' fixed-top' : '') . '" data-site-nav aria-label="';
+        echo $this->escape($this->tr('public.main_navigation')) . '"><div class="container">';
+        echo '<a class="navbar-brand fw-bold" href="' . $this->escape($this->localizedHomePath()) . '">' . $this->brandLogo('site-brand-logo');
         echo $this->escape($this->publicName) . '</a>';
-        echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
+        echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="';
+        echo $this->escape($this->tr('public.toggle_navigation')) . '"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
         if (!$fixed) {
-            echo '<li class="nav-item"><a class="nav-link" href="/"';
-            echo $this->publicPath === '/' ? ' aria-current="page"' : '';
-            echo '>Home</a></li>';
+            echo '<li class="nav-item"><a class="nav-link" href="' . $this->escape($this->localizedHomePath()) . '"';
+            echo in_array($this->publicPath, ['/', $this->localizedHomePath()], true) ? ' aria-current="page"' : '';
+            echo '>' . $this->escape($this->tr('public.home')) . '</a></li>';
         }
         $hasContactLink = false;
         foreach ($sections as $section) {
@@ -192,15 +199,19 @@ final class Theme implements ThemeInterface
         }
         if ($pages !== [] && array_filter($pages, static fn (array $page): bool => $page['navigation_area'] === 'main') === []) {
             if ($authenticated) {
-                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
+                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">';
+                echo $this->escape($this->tr('public.pages')) . '</a></li>';
             }
         }
         if (!$hasContactLink) {
-            echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
+            echo '<li class="nav-item"><a class="nav-link" href="' . $this->escape($this->localizedHomePath()) . '#contact">';
+            echo $this->escape($this->tr('public.contact')) . '</a></li>';
         }
+        $this->renderLanguageSwitcher();
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';
         echo $authenticated ? '/admin' : '/admin/login';
-        echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
+        echo '">' . $this->escape($authenticated ? $this->tr('public.open_panel') : $this->tr('public.login'));
+        echo '</a></li></ul></div></div></nav>';
     }
 
     private function renderPublicFooter(array $pages): void
@@ -245,7 +256,8 @@ final class Theme implements ThemeInterface
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
-        echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
+        echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">';
+        echo $this->escape($this->tr('public.skip_to_content')) . '</a>';
         $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
         echo '<main id="content" tabindex="-1">';
     }
@@ -1067,25 +1079,26 @@ final class Theme implements ThemeInterface
         string $eyebrow = '',
     ): void {
         $labels = [
-            'project' => 'Projekt',
-            'legal' => 'Dokument prawny',
-            'standard' => 'Informacje',
+            'project' => $this->tr('public.page_type.project'),
+            'legal' => $this->tr('public.page_type.legal'),
+            'standard' => $this->tr('public.page_type.standard'),
         ];
         $this->start_page($title . ' - ' . $this->publicName, $description !== '' ? $description : $title);
         $this->start_header(
             $title,
-            ($labels[$pageType] ?? $labels['standard']) . ' · Opublikowano: ' . $publishedAt,
+            ($labels[$pageType] ?? $labels['standard']) . ' · ' . $this->tr('public.published', ['date' => $publishedAt]),
             $eyebrow
         );
         $this->end_header();
         $this->start_section();
         echo '<article class="showcase-card managed-home-content">';
         if ($content === '') {
-            echo '<p>Ta strona nie ma jeszcze treści.</p>';
+            echo '<p>' . $this->escape($this->tr('public.page_empty')) . '</p>';
         } else {
             $this->render_rich_content($content, $contentFormat);
         }
-        echo '<a class="btn btn-outline-light" href="/index.php">Wróć do strony głównej</a></article>';
+        echo '<a class="btn btn-outline-light" href="' . $this->escape($this->localizedHomePath()) . '">';
+        echo $this->escape($this->tr('public.back_home')) . '</a></article>';
         $this->end_section();
         $this->end_page();
     }
@@ -1651,6 +1664,7 @@ final class Theme implements ThemeInterface
         if ($canonicalUrl !== '') {
             echo '<link rel="canonical" href="' . $this->escape($canonicalUrl) . '">';
         }
+        $this->renderAlternateLanguageLinks($this->publicUrl);
         $logoPath = (string) parse_url($this->asset('img/brand/syntaxdevteam-logo.png'), PHP_URL_PATH);
         $logoUrl = $this->absolutePublicUrl($logoPath);
         $socialImageUrl = $this->publicSocialImageUrl !== ''

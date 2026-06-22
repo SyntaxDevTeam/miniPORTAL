@@ -87,7 +87,10 @@ return [
             $services['access'],
             $services['security'],
             $services['audit'],
-            $services['template_cache']
+            $services['template_cache'],
+            $services['translator'],
+            $services['locale'],
+            $services['machine_translation']
         ),
     ],
     [
@@ -101,7 +104,10 @@ return [
             $services['access'],
             $services['security'],
             $services['audit'],
-            $services['template_cache']
+            $services['template_cache'],
+            $services['translator'],
+            $services['locale'],
+            $services['machine_translation']
         ),
     ],
     [

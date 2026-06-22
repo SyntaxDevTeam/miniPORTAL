@@ -2072,3 +2072,27 @@ linię przed połączeniem przez `<br>`, a etykieta menu usuwa podziały. Moduł
 
 **Weryfikacja:** test zamierzonego podziału i kodowania potencjalnego HTML, test
 manifestu, pełne testy repozytorium, lint PHP i przebudowa dystrybucji.
+
+### Sesja: 2026-06-22 - Fundament i18n PL/EN/DE i tłumaczenia treści
+
+**Faza i krok specyfikacji:** Krok 8.1 - internacjonalizacja Core, Theme oraz
+modułów treści bez naruszania granic Core -> Modules -> Templates.
+
+**Wykonano:**
+- dodano `LocaleResolver`, `LocaleContext`, `TranslatorInterface`, plikowy katalog
+  tłumaczeń z fallbackiem PL i prefiksy publiczne `/pl`, `/en`, `/de`,
+- Router nadal otrzymuje dotychczasowe ścieżki modułów; `/admin/*` i `/api/*` nie
+  są lokalizowane,
+- wszystkie motywy generują `lang`, przełącznik języka, canonical i `hreflang`,
+  a cache homepage, stron i artykułów jest rozdzielony locale,
+- `core_pages` 1.4.0 dodaje `core_page_translations`, formularze EN/DE, osobną
+  publikację i wykrywanie zmiany polskiego źródła,
+- `articles` 1.1.0 dodaje analogiczny kontrakt `article_translations`,
+- opcjonalny `GoogleCloudTranslationService` korzysta z serwerowego klucza,
+  zapisuje wyłącznie szkice i nie jest uruchamiany podczas publicznych żądań,
+- brak opublikowanej wersji językowej zwraca 404 zamiast mieszać języki.
+
+**Weryfikacja:** pełne testy repozytorium, aktualizacja obu modułów przez
+`ModuleInstaller` z kontrolą SHA-256, transakcyjny test zapisu/publikacji strony i
+artykułu, integracyjna instalacja wszystkich 12 modułów na pustej bazie, smoke
+testy `/pl`, `/en`, `/de`, lint PHP, przebudowa dystrybucji i `git diff --check`.

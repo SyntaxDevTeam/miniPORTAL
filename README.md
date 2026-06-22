@@ -123,6 +123,12 @@ Warstwa prezentacji zawiera trzy wymienne motywy: `default`, `glassnight` oraz
 edukacyjnego SyntaxDevTeam na aktualny `ThemeInterface`, bez przejmowania kodu ani
 zależności starego CMS-a. Motyw wybiera się w panelu `/admin/settings`.
 
+Publiczna warstwa i18n obsługuje języki polski, angielski i niemiecki pod
+prefiksami `/pl`, `/en` i `/de`. Core rozstrzyga locale przed Routerem, motywy
+generują przełącznik oraz `hreflang`, a `core_pages` i `articles` przechowują
+niezależne szkice i publikacje EN/DE. Opcjonalny Google Cloud Translation tworzy
+wyłącznie wersje robocze wymagające ręcznej publikacji.
+
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez
 główny `.htaccess`.

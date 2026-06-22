@@ -6,12 +6,15 @@ namespace SyntaxDevTeam\Cms\Modules\CorePages;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\LocaleContext;
+use SyntaxDevTeam\Cms\Core\MachineTranslationInterface;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
+use SyntaxDevTeam\Cms\Core\TranslatorInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
@@ -30,6 +33,9 @@ final class CorePagesModule implements ModuleInterface
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly TemplateCacheInterface $templateCache,
+        private readonly TranslatorInterface $translator,
+        private readonly LocaleContext $locale,
+        private readonly MachineTranslationInterface $machineTranslation,
     ) {
     }
 
@@ -40,7 +46,7 @@ final class CorePagesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.4.0';
     }
 
     public function dependencies(): array
@@ -68,7 +74,7 @@ final class CorePagesModule implements ModuleInterface
     {
         $router->get('/page', fn (Request $request) => $this->renderPublicPage($request));
         $router->get('/pages', fn () => $this->renderPublicPages());
-        foreach ($this->pages->published() as $page) {
+        foreach ($this->pages->publishedForLocale($this->locale->locale) as $page) {
             $router->get('/p/' . $page->slug, fn () => $this->renderPage($page));
         }
         $router->get('/admin/pages', fn (Request $request) => $this->guard(
@@ -95,6 +101,26 @@ final class CorePagesModule implements ModuleInterface
             $request,
             'pages.edit',
             fn () => $this->update($request)
+        ));
+        $router->get('/admin/pages/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->renderTranslationForm($request)
+        ));
+        $router->post('/admin/pages/translations', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->saveTranslation($request)
+        ));
+        $router->post('/admin/pages/translations/generate', fn (Request $request) => $this->guard(
+            $request,
+            'pages.edit',
+            fn () => $this->generateTranslation($request)
+        ));
+        $router->post('/admin/pages/translations/publish', fn (Request $request) => $this->guard(
+            $request,
+            'pages.publish',
+            fn () => $this->publishTranslation($request)
         ));
         $router->post('/admin/pages/publish', fn (Request $request) => $this->guard(
             $request,
@@ -816,7 +842,11 @@ final class CorePagesModule implements ModuleInterface
                     'href' => 'index.php?route=/admin/homepage/items&section_id=' . $sectionId,
                 ],
                 ['label' => $editing ? 'Edycja' : 'Nowy', 'href' => ''],
-            ]
+            ],
+            $editing ? [
+                'label' => 'Tłumaczenia',
+                'href' => 'index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=en',
+            ] : null
         );
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
@@ -927,6 +957,198 @@ final class CorePagesModule implements ModuleInterface
         $this->theme->end_admin_panel();
         $this->theme->end_admin_content();
         $this->theme->end_admin_page();
+    }
+
+    private function renderTranslationForm(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $user = $this->auth->user();
+        $page = $this->pages->find($request->queryInt('id') ?? $request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($user === null || $page === null || $locale === null) {
+            http_response_code(404);
+            $this->renderList('Nie znaleziono strony albo języka tłumaczenia.', 'danger');
+            return;
+        }
+        $translation = $this->pages->translation($page->id, $locale);
+
+        $this->theme->start_admin_page(
+            'Tłumaczenia strony',
+            $this->menu->visibleFor($user->permissions),
+            '/admin/pages',
+            $this->adminUser($user)
+        );
+        $this->theme->start_admin_content(
+            'Tłumaczenia: ' . $page->title,
+            'Wersje EN i DE są niezależnymi szkicami. Publikacja nigdy nie odbywa się automatycznie.',
+            [
+                ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
+                ['label' => 'Strony', 'href' => 'index.php?route=/admin/pages'],
+                ['label' => $page->title, 'href' => 'index.php?route=/admin/pages/edit&id=' . $page->id],
+                ['label' => strtoupper($locale), 'href' => ''],
+            ]
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->render_button('English', 'index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=en', 'outline-light');
+        $this->theme->render_button('Deutsch', 'index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=de', 'outline-light');
+
+        $stale = $translation !== null && $translation->sourceUpdatedAt !== $page->updatedAt;
+        $this->theme->start_admin_panel(
+            'Wersja ' . strtoupper($locale),
+            $translation === null ? 'Brak szkicu' : ($translation->status === 'published' ? 'Opublikowana' : 'Szkic')
+        );
+        if ($stale) {
+            $this->theme->render_alert('Polski oryginał zmienił się od ostatniego zapisu tłumaczenia.', 'warning');
+        }
+        $this->theme->render_form(
+            'index.php?route=/admin/pages/translations',
+            [
+                ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $page->id],
+                ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $translation?->title ?? ''],
+                ['name' => 'eyebrow', 'label' => 'Nadtytuł', 'value' => $translation?->eyebrow ?? ''],
+                ['name' => 'summary', 'label' => 'Krótki opis', 'type' => 'textarea', 'rows' => 3, 'value' => $translation?->summary ?? ''],
+                ['name' => 'meta_description', 'label' => 'Opis SEO', 'value' => $translation?->metaDescription ?? ''],
+                ['name' => 'navigation_label', 'label' => 'Etykieta nawigacji', 'value' => $translation?->navigationLabel ?? ''],
+                [
+                    'name' => 'content',
+                    'label' => 'Treść',
+                    'type' => 'richtext',
+                    'value' => $translation?->content ?? '',
+                    'format_name' => 'content_format',
+                    'format_value' => $translation?->contentFormat ?? $page->contentFormat,
+                ],
+            ],
+            'Zapisz szkic tłumaczenia',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        if ($this->machineTranslation->available()) {
+            $this->theme->start_admin_panel('Google Cloud Translation', 'Generator szkicu');
+            $this->theme->render_alert('Wynik zastąpi bieżący szkic, ale nie zostanie opublikowany.', 'info');
+            $this->theme->render_form(
+                'index.php?route=/admin/pages/translations/generate',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $page->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ],
+                'Wygeneruj szkic przez Google',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+
+        if ($translation !== null) {
+            $this->theme->start_admin_panel('Publikacja');
+            $this->theme->render_form(
+                'index.php?route=/admin/pages/translations/publish',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $page->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                    ['name' => 'status', 'label' => 'Status', 'type' => 'hidden', 'value' => $translation->status === 'published' ? 'draft' : 'published'],
+                ],
+                $translation->status === 'published' ? 'Cofnij do szkicu' : 'Opublikuj tłumaczenie',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
+    }
+
+    private function saveTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'page_translation_save')) {
+            return;
+        }
+        $page = $this->pages->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($page === null || $locale === null) {
+            $this->renderTranslationForm($request, 'Nieprawidłowa strona lub język.', 'danger');
+            return;
+        }
+        $format = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $data = [
+            'title' => $request->postString('title'),
+            'eyebrow' => $request->postString('eyebrow'),
+            'summary' => $request->postString('summary'),
+            'meta_description' => $request->postString('meta_description'),
+            'navigation_label' => $request->postString('navigation_label'),
+            'content' => (new ContentRenderer())->prepareForStorage($request->postString('content'), $format),
+            'content_format' => $format,
+            'source_updated_at' => $page->updatedAt,
+        ];
+        if ($data['title'] === '' || strlen($data['title']) > 180 || $data['content'] === '') {
+            $this->renderTranslationForm($request, 'Tytuł i treść tłumaczenia są wymagane.', 'danger');
+            return;
+        }
+        $this->pages->saveTranslation($page->id, $locale, $data);
+        $this->invalidatePageCache($page->slug);
+        $this->audit->record($request, 'page_translation_save', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function generateTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'page_translation_generate')) {
+            return;
+        }
+        $page = $this->pages->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($page === null || $locale === null || !$this->machineTranslation->available()) {
+            $this->renderTranslationForm($request, 'Google Cloud Translation nie jest dostępny.', 'danger');
+            return;
+        }
+        try {
+            $text = fn (string $value): string => $value === '' ? '' : $this->machineTranslation->translate($value, 'pl', $locale);
+            $format = $page->contentFormat === 'html' ? 'html' : 'text';
+            $this->pages->saveTranslation($page->id, $locale, [
+                'title' => $text($page->title),
+                'eyebrow' => $text($page->eyebrow),
+                'summary' => $text($page->summary),
+                'meta_description' => $text($page->metaDescription),
+                'navigation_label' => $text($page->navigationLabel),
+                'content' => $this->machineTranslation->translate($page->content, 'pl', $locale, $format),
+                'content_format' => $page->contentFormat,
+                'source_updated_at' => $page->updatedAt,
+            ], 'google');
+        } catch (\Throwable) {
+            $this->audit->record($request, 'page_translation_generate', 'failed', $locale, $this->auth->user()?->id);
+            $this->renderTranslationForm($request, 'Nie udało się wygenerować tłumaczenia.', 'danger');
+            return;
+        }
+        $this->invalidatePageCache($page->slug);
+        $this->audit->record($request, 'page_translation_generate', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/pages/translations&id=' . $page->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function publishTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'page_translation_publish')) {
+            return;
+        }
+        $page = $this->pages->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        $status = $request->postString('status');
+        $changed = $page !== null && $locale !== null
+            && $this->pages->setTranslationStatus($page->id, $locale, $status);
+        if ($page !== null) {
+            $this->invalidatePageCache($page->slug);
+        }
+        $this->audit->record($request, 'page_translation_publish', $changed ? $status : 'not_found', $locale, $this->auth->user()?->id);
+        $this->renderTranslationForm($request, $changed ? 'Status tłumaczenia został zmieniony.' : 'Nie znaleziono tłumaczenia.', $changed ? 'success' : 'warning');
+    }
+
+    private function translationLocale(Request $request): ?string
+    {
+        $locale = strtolower($request->postString('locale', $request->queryString('locale', 'en')));
+
+        return in_array($locale, ['en', 'de'], true) ? $locale : null;
     }
 
     private function createHomepageItem(Request $request): void
@@ -1089,21 +1311,21 @@ final class CorePagesModule implements ModuleInterface
     private function renderPublicPage(Request $request): void
     {
         $slug = $this->normalizeSlug($request->queryString('slug'));
-        $page = $slug !== '' ? $this->pages->findPublishedBySlug($slug) : null;
+        $page = $slug !== '' ? $this->pages->findPublishedBySlugForLocale($slug, $this->locale->locale) : null;
 
         if ($page === null) {
             http_response_code(404);
             $this->theme->render_page_not_found(
-                'Nie znaleziono strony',
-                'Ta strona nie istnieje albo nie została jeszcze opublikowana.'
+                $this->translator->translate('pages.not_found_title'),
+                $this->translator->translate('pages.not_found_message')
             );
             return;
         }
 
         echo $this->cachedPublic(
-            'page:' . $page->slug,
+            'page:' . $this->locale->locale . ':' . $page->slug,
             fn (): string => $this->capture(fn () => $this->renderPage($page)),
-            ['pages', 'page:' . $page->slug, 'theme']
+            ['pages', 'page:' . $page->slug, 'locale:' . $this->locale->locale, 'theme']
         );
     }
 
@@ -1123,33 +1345,33 @@ final class CorePagesModule implements ModuleInterface
     private function renderPublicPages(): void
     {
         echo $this->cachedPublic(
-            'pages:index',
+            'pages:index:' . $this->locale->locale,
             function (): string {
-                $pages = $this->pages->published();
+                $pages = $this->pages->publishedForLocale($this->locale->locale);
                 return $this->capture(function () use ($pages): void {
         $this->theme->start_page(
-            'Podstrony - SyntaxDevTeam',
-            'Projekty, informacje i dokumenty serwisu SyntaxDevTeam.'
+            $this->translator->translate('pages.title') . ' - SyntaxDevTeam',
+            $this->translator->translate('pages.description')
         );
         $this->theme->start_header(
-            'Podstrony',
-            'Opisy projektów, dodatkowe informacje oraz dokumenty prawne.',
-            'SyntaxDevTeam / Podstrony'
+            $this->translator->translate('pages.title'),
+            $this->translator->translate('pages.lead'),
+            'SyntaxDevTeam / ' . $this->translator->translate('pages.title')
         );
         $this->theme->end_header();
         $this->theme->start_section();
 
         if ($pages === []) {
-            $this->theme->render_alert('Nie opublikowano jeszcze żadnych podstron.', 'info');
+            $this->theme->render_alert($this->translator->translate('pages.empty'), 'info');
         } else {
             $this->theme->start_grid();
             foreach ($pages as $page) {
                 $this->theme->start_column('md-6');
                 $this->theme->start_card($page->title, $this->pageTypeLabel($page->pageType));
-                $this->theme->render_text($page->summary !== '' ? $page->summary : 'Otwórz stronę, aby przeczytać pełną treść.');
+                $this->theme->render_text($page->summary !== '' ? $page->summary : $this->translator->translate('pages.read_more'));
                 $this->theme->render_button(
-                    'Otwórz',
-                    '/p/' . rawurlencode($page->slug),
+                    $this->translator->translate('pages.open'),
+                    $this->locale->localizePath('/p/' . rawurlencode($page->slug)),
                     'outline-light'
                 );
                 $this->theme->end_card();
@@ -1162,7 +1384,7 @@ final class CorePagesModule implements ModuleInterface
         $this->theme->end_page();
                 });
             },
-            ['pages', 'pages:index', 'theme']
+            ['pages', 'pages:index', 'locale:' . $this->locale->locale, 'theme']
         );
     }
 
@@ -1553,9 +1775,9 @@ final class CorePagesModule implements ModuleInterface
     private function pageTypeLabel(string $type): string
     {
         return match ($type) {
-            'project' => 'Projekt',
-            'legal' => 'Dokument prawny',
-            default => 'Informacje',
+            'project' => $this->translator->translate('public.page_type.project'),
+            'legal' => $this->translator->translate('public.page_type.legal'),
+            default => $this->translator->translate('public.page_type.standard'),
         };
     }
 

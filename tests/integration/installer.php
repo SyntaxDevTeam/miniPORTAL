@@ -64,6 +64,10 @@ $ownerCount = (int) $pdo->query(
 $activeModules = (int) $pdo->query(
     "SELECT COUNT(*) FROM modules_config WHERE status = 'active'"
 )->fetchColumn();
+$translationTables = (int) $pdo->query(
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() "
+    . "AND table_name IN ('core_page_translations', 'article_translations')"
+)->fetchColumn();
 $econifyEnvironment = $root . '/modules/Econify/.env';
 $econifyValues = is_file($econifyEnvironment)
     ? parse_ini_file($econifyEnvironment, false, INI_SCANNER_RAW)
@@ -71,6 +75,7 @@ $econifyValues = is_file($econifyEnvironment)
 
 if ($ownerCount !== 1
     || $activeModules !== count($modules)
+    || $translationTables !== 2
     || $result['installed_modules'] !== count($modules)
     || !is_file($root . '/config/installed.env')
     || !is_file($root . '/config/installed.lock')

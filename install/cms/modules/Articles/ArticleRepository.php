@@ -62,6 +62,30 @@ final class ArticleRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** @return list<Article> */
+    public function publishedForLocale(string $locale, ?string $categorySlug = null): array
+    {
+        if ($locale === 'pl') {
+            return $this->published($categorySlug);
+        }
+        $sql = 'SELECT a.id, a.category_id, c.name AS category_name, t.title, a.slug, t.summary, '
+            . 't.content, t.content_format, t.status, a.author_id, a.published_at, a.created_at, t.updated_at '
+            . 'FROM articles a JOIN article_categories c ON c.id = a.category_id '
+            . 'JOIN article_translations t ON t.article_id = a.id '
+            . 'WHERE a.status = :published AND t.status = :published AND t.locale = :locale';
+        $parameters = [':published' => 'published', ':locale' => $locale];
+        if ($categorySlug !== null && $categorySlug !== '') {
+            $sql .= ' AND c.slug = :category_slug';
+            $parameters[':category_slug'] = $categorySlug;
+        }
+        $sql .= ' ORDER BY a.published_at DESC, a.id DESC';
+
+        return array_map(
+            $this->hydrate(...),
+            $this->database->query($sql, $parameters)?->fetchAll(PDO::FETCH_ASSOC) ?: []
+        );
+    }
+
     public function find(int $id): ?Article
     {
         $statement = $this->database->query(
@@ -86,6 +110,80 @@ final class ArticleRepository
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
 
         return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function findPublishedBySlugForLocale(string $slug, string $locale): ?Article
+    {
+        if ($locale === 'pl') {
+            return $this->findPublishedBySlug($slug);
+        }
+        $statement = $this->database->query(
+            'SELECT a.id, a.category_id, c.name AS category_name, t.title, a.slug, t.summary, '
+            . 't.content, t.content_format, t.status, a.author_id, a.published_at, a.created_at, t.updated_at '
+            . 'FROM articles a JOIN article_categories c ON c.id = a.category_id '
+            . 'JOIN article_translations t ON t.article_id = a.id '
+            . 'WHERE a.slug = :slug AND a.status = :published AND t.status = :published '
+            . 'AND t.locale = :locale LIMIT 1',
+            [':slug' => $slug, ':published' => 'published', ':locale' => $locale]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function translation(int $articleId, string $locale): ?ArticleTranslation
+    {
+        $row = $this->database->read('article_translations', '*', [
+            'article_id' => $articleId,
+            'locale' => $locale,
+        ]);
+        if (!is_array($row)) {
+            return null;
+        }
+        if (array_is_list($row)) {
+            $row = $row[0] ?? null;
+        }
+
+        return is_array($row) ? $this->hydrateTranslation($row) : null;
+    }
+
+    /** @param array<string, string> $data */
+    public function saveTranslation(int $articleId, string $locale, array $data, string $origin = 'manual'): bool
+    {
+        $values = [
+            'title' => $data['title'],
+            'summary' => $data['summary'],
+            'content' => $data['content'],
+            'content_format' => $data['content_format'],
+            'origin' => $origin,
+            'source_updated_at' => $data['source_updated_at'],
+            'status' => 'draft',
+        ];
+        if ($this->translation($articleId, $locale) === null) {
+            return (int) $this->database->create('article_translations', [
+                'article_id' => $articleId,
+                'locale' => $locale,
+                ...$values,
+            ]) > 0;
+        }
+
+        return $this->database->update('article_translations', $values, [
+            'article_id' => $articleId,
+            'locale' => $locale,
+        ]) !== null;
+    }
+
+    public function setTranslationStatus(int $articleId, string $locale, string $status): bool
+    {
+        if (!in_array($status, ['draft', 'published'], true)) {
+            return false;
+        }
+        $statement = $this->database->update('article_translations', ['status' => $status], [
+            'article_id' => $articleId,
+            'locale' => $locale,
+        ]);
+
+        return $statement !== null && $statement->rowCount() === 1;
     }
 
     /**
@@ -240,6 +338,22 @@ final class ArticleRepository
             (int) $row['author_id'],
             $row['published_at'] !== null ? (string) $row['published_at'] : null,
             (string) $row['created_at'],
+            (string) $row['updated_at'],
+        );
+    }
+
+    private function hydrateTranslation(array $row): ArticleTranslation
+    {
+        return new ArticleTranslation(
+            (int) $row['article_id'],
+            (string) $row['locale'],
+            (string) $row['title'],
+            (string) $row['summary'],
+            (string) $row['content'],
+            (string) ($row['content_format'] ?? 'html'),
+            (string) $row['status'],
+            (string) ($row['origin'] ?? 'manual'),
+            $row['source_updated_at'] !== null ? (string) $row['source_updated_at'] : null,
             (string) $row['updated_at'],
         );
     }

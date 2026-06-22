@@ -201,11 +201,24 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Dedykowany `.env` modułu z niezależnymi danymi Discord i API |
 | [x] | OAuth listy zarządzanych serwerów i przypięta instalacja bota |
 
+### Krok 9 - internacjonalizacja
+
+| Status | Zadanie |
+|--------|---------|
+| [x] | Resolver locale i katalogi interfejsu PL/EN/DE |
+| [x] | Prefiksy `/pl`, `/en`, `/de`, przełącznik i metadane `hreflang` |
+| [x] | Niezależne szkice i publikacje tłumaczeń `core_pages` |
+| [x] | Niezależne szkice i publikacje tłumaczeń `articles` |
+| [x] | Opcjonalne generowanie szkiców przez Google Cloud Translation |
+| [ ] | Tłumaczenia sekcji i elementów strony głównej |
+| [ ] | Katalogi tekstów publicznych pozostałych modułów |
+
 ## Następne kroki
 
-1. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
-2. Rozważyć osobny widok przeglądania `auth_events_archive`.
-3. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
+1. Rozszerzyć i18n na sekcje strony głównej i pozostałe moduły publiczne.
+2. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
+3. Rozważyć osobny widok przeglądania `auth_events_archive`.
+4. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
 
 ## Uwagi / blokery
 
@@ -313,6 +326,7 @@ Brak aktywnych blokerów.
 | 2026-06-21 | Sekrety Econify należą do `modules/Econify/.env`, nie do środowiska miniPORTAL. `ECONIFY_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
 | 2026-06-22 | `econify` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
 | 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
+| 2026-06-22 | Core i18n obsługuje `/pl`, `/en`, `/de`, fallback katalogów, przełącznik Theme i `hreflang`. `core_pages` 1.4.0 oraz `articles` 1.1.0 przechowują publikowane tłumaczenia EN/DE, a Google Cloud Translation tworzy wyłącznie szkice. |
 
 ## Historia sesji
 

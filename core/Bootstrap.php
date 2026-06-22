@@ -15,6 +15,10 @@ final class Bootstrap
 
     private TemplateCacheInterface $templateCache;
 
+    private TranslatorInterface $translator;
+
+    private LocaleContext $localeContext;
+
     private function __construct(
         private array $config,
         private readonly ThemeInterface $theme,
@@ -29,7 +33,25 @@ final class Bootstrap
         $timezone = (string) ($config['app']['timezone'] ?? 'UTC');
         date_default_timezone_set($timezone);
 
-        $request = Request::fromGlobals();
+        $rawRequest = Request::fromGlobals();
+        $i18nConfig = is_array($config['i18n'] ?? null) ? $config['i18n'] : [];
+        $supportedLocales = array_values(array_filter(
+            is_array($i18nConfig['supported_locales'] ?? null) ? $i18nConfig['supported_locales'] : ['pl', 'en', 'de'],
+            static fn (mixed $locale): bool => is_string($locale) && preg_match('/^[a-z]{2}$/', $locale) === 1
+        ));
+        $defaultLocale = (string) ($i18nConfig['default_locale'] ?? 'pl');
+        if ($supportedLocales === [] || !in_array($defaultLocale, $supportedLocales, true)) {
+            $supportedLocales = ['pl', 'en', 'de'];
+            $defaultLocale = 'pl';
+        }
+        $localeContext = (new LocaleResolver($supportedLocales, $defaultLocale))->resolve($rawRequest);
+        $request = $rawRequest->withPath($localeContext->routePath);
+        $translator = new FileTranslator(
+            (string) ($i18nConfig['catalog_directory'] ?? dirname(__DIR__) . '/config/i18n'),
+            $localeContext->locale,
+            $localeContext->defaultLocale,
+            $localeContext->supportedLocales,
+        );
         $security = new Security($config['session'] ?? []);
         $security->boot($request);
 
@@ -41,7 +63,12 @@ final class Bootstrap
             $config['app'] ?? [],
             self::themeSettings($database)
         );
-        $config['app']['public_path'] = $request->path();
+        $localeNames = ['pl' => 'pl_PL', 'en' => 'en_GB', 'de' => 'de_DE'];
+        $config['app']['public_path'] = $localeContext->publicPath;
+        $config['app']['public_locale'] = $localeNames[$localeContext->locale] ?? 'pl_PL';
+        $config['app']['current_locale'] = $localeContext->locale;
+        $config['app']['language_links'] = $localeContext->languageLinks();
+        $config['app']['translator'] = $translator;
         $themeName = (string) ($config['app']['theme'] ?? 'default');
         if (!isset($availableThemes[$themeName])) {
             $themeName = isset($availableThemes[$configuredTheme]) ? $configuredTheme : 'default';
@@ -56,6 +83,8 @@ final class Bootstrap
         );
         $application->database = $database;
         $application->databaseStatus = $databaseStatus;
+        $application->translator = $translator;
+        $application->localeContext = $localeContext;
         $cacheConfig = is_array($config['cache'] ?? null) ? $config['cache'] : [];
         $application->templateCache = new FileTemplateCache(
             dirname(__DIR__) . '/cache/templates',
@@ -91,6 +120,16 @@ final class Bootstrap
         return $this->templateCache;
     }
 
+    public function translator(): TranslatorInterface
+    {
+        return $this->translator;
+    }
+
+    public function locale(): LocaleContext
+    {
+        return $this->localeContext;
+    }
+
     public function config(): array
     {
         return $this->config;
@@ -115,6 +154,7 @@ final class Bootstrap
             ['Cache szablonów', FileTemplateCache::class, $this->templateCache->stats()['enabled'] ? 'Gotowy' : 'Wyłączony'],
             ['Security', Security::class, 'Gotowy'],
             ['Request', Request::class, 'Gotowy'],
+            ['i18n', FileTranslator::class, strtoupper($this->translator->locale())],
             ['Router', Router::class, 'Gotowy'],
             ['ModuleInterface', ModuleInterface::class, 'Gotowy'],
             ['Menu panelu', AdminMenuRegistry::class, 'Gotowy'],

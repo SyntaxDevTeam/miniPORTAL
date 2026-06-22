@@ -50,6 +50,7 @@ APP_NAME="miniPORTAL"
 APP_DEBUG=false
 APP_TIMEZONE="Europe/Warsaw"
 APP_THEME="default"
+I18N_DEFAULT_LOCALE="pl"
 SITE_URL="https://syntaxdevteam.pl"
 SITE_NAME="SyntaxDevTeam"
 SITE_DEFAULT_TITLE="SyntaxDevTeam - software dla serwerów, społeczności i urządzeń"
@@ -83,6 +84,7 @@ DISCORD_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/d
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 GOOGLE_CALLBACK_URL="https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback"
+GOOGLE_TRANSLATE_API_KEY=""
 
 DB_ENABLED=true
 DB_DRIVER="mysql"
@@ -135,6 +137,7 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `APP_DEBUG` | Szczegóły błędów diagnostycznych |
 | `APP_TIMEZONE` | Strefa czasowa PHP |
 | `APP_THEME` | Nazwa aktywnego katalogu w `templates/` |
+| `I18N_DEFAULT_LOCALE` | Domyślny język publiczny bez prefiksu URL; dozwolone `pl`, `en`, `de` |
 | `SITE_URL` | Kanoniczny publiczny adres HTTPS używany w metadanych SEO i Open Graph |
 | `SITE_NAME` | Publiczna nazwa marki używana w logo, tytułach i stopce |
 | `SITE_DEFAULT_TITLE` | Domyślny tytuł strony głównej i podglądów społecznościowych |
@@ -143,7 +146,7 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `SITE_META_KEYWORDS` | Pole zgodności wstecznej; Google nie używa go do rankingu |
 | `SITE_META_AUTHOR` | Autor lub wydawca treści publicznych |
 | `SITE_META_ROBOTS` | Globalna polityka `index/follow`; strony błędów zawsze mają `noindex` |
-| `SITE_LOCALE` | Locale Open Graph i język dokumentu, np. `pl_PL` |
+| `SITE_LOCALE` | Wartość zgodności wstecznej; publiczny język dokumentu wynika obecnie z `/pl`, `/en` albo `/de` |
 | `SITE_SOCIAL_IMAGE_URL` | Opcjonalny lokalny lub zewnętrzny HTTPS obraz podglądu społecznościowego |
 | `SITE_SOCIAL_IMAGE_ALT` | Tekstowy opis obrazu Open Graph i Twitter Card |
 | `SITE_TWITTER_SITE` | Nazwa konta X/Twitter bez znaku `@` |
@@ -167,6 +170,7 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `GOOGLE_CLIENT_ID` | Client ID klienta OAuth 2.0 typu Web application |
 | `GOOGLE_CLIENT_SECRET` | Sekret klienta Google, przechowywany poza repozytorium |
 | `GOOGLE_CALLBACK_URL` | Dokładny callback: `https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback` |
+| `GOOGLE_TRANSLATE_API_KEY` | Opcjonalny serwerowy klucz Cloud Translation API; pusty wyłącza generator szkiców |
 | `DB_ENABLED` | Włączenie połączenia przez `CrudApp` |
 | `DB_DRIVER` | Sterownik Medoo/PDO, obecnie `mysql` |
 | `DB_HOST`, `DB_PORT` | Adres i port serwera bazy |
@@ -174,6 +178,17 @@ traktowane jako odrębne konta, dlatego używaj konsekwentnie `127.0.0.1`.
 | `DB_USER`, `DB_PASS` | Dane dedykowanego użytkownika bazy |
 | `DB_CHARSET`, `DB_COLLATION` | Kodowanie i porównywanie tekstu |
 | `DB_LOGGING` | Rejestrowanie zapytań przez Medoo |
+
+## i18n i Google Cloud Translation
+
+Publiczne ścieżki `/pl`, `/en` i `/de` korzystają ze wspólnego Routera. Panel
+administracyjny oraz `/api/*` nie otrzymują prefiksu języka. Tłumaczenia interfejsu
+znajdują się w `config/i18n`, natomiast tłumaczenia stron i artykułów należą do
+odpowiednich modułów i są zapisywane w bazie jako szkice lub publikacje.
+
+Po ustawieniu `GOOGLE_TRANSLATE_API_KEY` formularze tłumaczeń stron i artykułów
+udostępniają generator Google. Klucz nie trafia do HTML ani bazy. Generator nie
+jest wywoływany podczas publicznego wejścia i nigdy sam nie publikuje wyniku.
 
 ## Ustawienia w panelu
 

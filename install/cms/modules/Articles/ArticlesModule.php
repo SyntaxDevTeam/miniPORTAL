@@ -7,6 +7,8 @@ namespace SyntaxDevTeam\Cms\Modules\Articles;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\LocaleContext;
+use SyntaxDevTeam\Cms\Core\MachineTranslationInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
@@ -14,6 +16,7 @@ use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
+use SyntaxDevTeam\Cms\Core\TranslatorInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
@@ -30,6 +33,9 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly TemplateCacheInterface $templateCache,
+        private readonly TranslatorInterface $translator,
+        private readonly LocaleContext $locale,
+        private readonly MachineTranslationInterface $machineTranslation,
     ) {
     }
 
@@ -40,7 +46,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     public function version(): string
     {
-        return '1.0.4';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -72,7 +78,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
     {
         $router->get('/articles', fn (Request $request) => $this->renderPublicList($request));
         $router->get('/article', fn (Request $request) => $this->renderPublicArticle($request));
-        foreach ($this->articles->published() as $article) {
+        foreach ($this->articles->publishedForLocale($this->locale->locale) as $article) {
             $router->get('/article/' . $article->slug, fn () => $this->renderPublicArticleSlug($article->slug));
         }
         $router->get('/admin/articles', fn (Request $request) => $this->guard(
@@ -99,6 +105,26 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             $request,
             'articles.edit',
             fn () => $this->update($request)
+        ));
+        $router->get('/admin/articles/translations', fn (Request $request) => $this->guard(
+            $request,
+            'articles.edit',
+            fn () => $this->renderTranslationForm($request)
+        ));
+        $router->post('/admin/articles/translations', fn (Request $request) => $this->guard(
+            $request,
+            'articles.edit',
+            fn () => $this->saveTranslation($request)
+        ));
+        $router->post('/admin/articles/translations/generate', fn (Request $request) => $this->guard(
+            $request,
+            'articles.edit',
+            fn () => $this->generateTranslation($request)
+        ));
+        $router->post('/admin/articles/translations/publish', fn (Request $request) => $this->guard(
+            $request,
+            'articles.publish',
+            fn () => $this->publishTranslation($request)
         ));
         $router->post('/admin/articles/publish', fn (Request $request) => $this->guard(
             $request,
@@ -131,22 +157,30 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
     {
         $category = $this->normalizeSlug($request->queryString('category'));
         echo $this->cachedPublic(
-            'articles:index:' . ($category !== '' ? $category : 'all'),
+            'articles:index:' . $this->locale->locale . ':' . ($category !== '' ? $category : 'all'),
             function () use ($category): string {
-                $articles = $this->articles->published($category !== '' ? $category : null);
+                $articles = $this->articles->publishedForLocale(
+                    $this->locale->locale,
+                    $category !== '' ? $category : null
+                );
 
                 return $this->capture(function () use ($articles, $category): void {
-        $this->theme->start_page('Artykuły - SyntaxDevTeam', 'Opublikowane artykuły SyntaxDevTeam.');
+        $this->theme->start_page(
+            $this->translator->translate('articles.title') . ' - SyntaxDevTeam',
+            $this->translator->translate('articles.description')
+        );
         $this->theme->start_header(
-            'Artykuły',
-            $category !== '' ? 'Kategoria: ' . $category : 'Wiadomości, poradniki i informacje projektowe.',
-            'SyntaxDevTeam / Artykuły'
+            $this->translator->translate('articles.title'),
+            $category !== ''
+                ? $this->translator->translate('articles.category', ['category' => $category])
+                : $this->translator->translate('articles.lead'),
+            'SyntaxDevTeam / ' . $this->translator->translate('articles.title')
         );
         $this->theme->end_header();
         $this->theme->start_section();
 
         if ($articles === []) {
-            $this->theme->render_alert('Brak opublikowanych artykułów w wybranej kategorii.', 'info');
+            $this->theme->render_alert($this->translator->translate('articles.empty'), 'info');
         } else {
             $this->theme->start_grid();
             foreach ($articles as $article) {
@@ -154,7 +188,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                 $this->theme->start_card($article->title, $article->categoryName);
                 $this->theme->render_text($article->summary);
                 $this->theme->render_button(
-                    'Czytaj artykuł',
+                    $this->translator->translate('articles.read'),
                     $this->articleHref($article->slug),
                     'outline-light'
                 );
@@ -168,7 +202,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         $this->theme->end_page();
                 });
             },
-            ['articles', 'articles:index', $category !== '' ? 'article-category:' . $category : 'article-category:all', 'theme']
+            ['articles', 'articles:index', 'locale:' . $this->locale->locale, $category !== '' ? 'article-category:' . $category : 'article-category:all', 'theme']
         );
     }
 
@@ -179,19 +213,21 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     private function renderPublicArticleSlug(string $slug): void
     {
-        $article = $slug !== '' ? $this->articles->findPublishedBySlug($slug) : null;
+        $article = $slug !== ''
+            ? $this->articles->findPublishedBySlugForLocale($slug, $this->locale->locale)
+            : null;
 
         if ($article === null) {
             http_response_code(404);
             $this->theme->render_page_not_found(
-                'Nie znaleziono artykułu',
-                'Ten artykuł nie istnieje albo nie został jeszcze opublikowany.'
+                $this->translator->translate('articles.not_found_title'),
+                $this->translator->translate('articles.not_found_message')
             );
             return;
         }
 
         echo $this->cachedPublic(
-            'article:' . $article->slug,
+            'article:' . $this->locale->locale . ':' . $article->slug,
             fn (): string => $this->capture(function () use ($article): void {
         $this->theme->start_page($article->title . ' - SyntaxDevTeam', $article->summary);
         $this->theme->start_header(
@@ -201,20 +237,24 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         );
         $this->theme->end_header();
         $this->theme->start_section();
-        $this->theme->start_card('', 'Artykuł');
+        $this->theme->start_card('', $this->translator->translate('articles.item'));
         $this->theme->render_rich_content($article->content, $article->contentFormat);
-        $this->theme->render_button('Wróć do artykułów', '/articles', 'outline-light');
+        $this->theme->render_button(
+            $this->translator->translate('articles.back'),
+            $this->locale->localizePath('/articles'),
+            'outline-light'
+        );
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();
             }),
-            ['articles', 'article:' . $article->slug, 'article-category:' . $article->categoryName, 'theme']
+            ['articles', 'article:' . $article->slug, 'locale:' . $this->locale->locale, 'article-category:' . $article->categoryName, 'theme']
         );
     }
 
     private function articleHref(string $slug): string
     {
-        return '/article/' . rawurlencode($slug);
+        return $this->locale->localizePath('/article/' . rawurlencode($slug));
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void
@@ -241,7 +281,6 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
-
         if ($allows('articles.edit')) {
             $this->theme->render_button(
                 'Zarządzaj kategoriami',
@@ -300,6 +339,173 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         }
         $this->theme->end_admin_panel();
         $this->endAdminPage();
+    }
+
+    private function renderTranslationForm(
+        Request $request,
+        string $message = '',
+        string $variant = 'info',
+    ): void {
+        $user = $this->auth->user();
+        $article = $this->articles->find($request->queryInt('id') ?? $request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($user === null || $article === null || $locale === null) {
+            http_response_code(404);
+            $this->renderList('Nie znaleziono artykułu albo języka tłumaczenia.', 'danger');
+            return;
+        }
+        $translation = $this->articles->translation($article->id, $locale);
+        $this->startAdminPage(
+            $user,
+            'Tłumaczenia: ' . $article->title,
+            'Wersje EN i DE są zapisywane jako niezależne szkice wymagające publikacji.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->render_button('English', 'index.php?route=/admin/articles/translations&id=' . $article->id . '&locale=en', 'outline-light');
+        $this->theme->render_button('Deutsch', 'index.php?route=/admin/articles/translations&id=' . $article->id . '&locale=de', 'outline-light');
+        if ($translation !== null && $translation->sourceUpdatedAt !== $article->updatedAt) {
+            $this->theme->render_alert('Polski oryginał zmienił się od ostatniego zapisu tłumaczenia.', 'warning');
+        }
+
+        $this->theme->start_admin_panel(
+            'Wersja ' . strtoupper($locale),
+            $translation === null ? 'Brak szkicu' : ($translation->status === 'published' ? 'Opublikowana' : 'Szkic')
+        );
+        $this->theme->render_form(
+            'index.php?route=/admin/articles/translations',
+            [
+                ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $article->id],
+                ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $translation?->title ?? ''],
+                ['name' => 'summary', 'label' => 'Zajawka', 'type' => 'textarea', 'rows' => 3, 'value' => $translation?->summary ?? ''],
+                [
+                    'name' => 'content',
+                    'label' => 'Treść',
+                    'type' => 'richtext',
+                    'value' => $translation?->content ?? '',
+                    'format_name' => 'content_format',
+                    'format_value' => $translation?->contentFormat ?? $article->contentFormat,
+                ],
+            ],
+            'Zapisz szkic tłumaczenia',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        if ($this->machineTranslation->available()) {
+            $this->theme->start_admin_panel('Google Cloud Translation', 'Generator szkicu');
+            $this->theme->render_alert('Wynik zastąpi bieżący szkic, ale nie zostanie opublikowany.', 'info');
+            $this->theme->render_form(
+                'index.php?route=/admin/articles/translations/generate',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $article->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                ],
+                'Wygeneruj szkic przez Google',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        if ($translation !== null) {
+            $this->theme->start_admin_panel('Publikacja');
+            $this->theme->render_form(
+                'index.php?route=/admin/articles/translations/publish',
+                [
+                    ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $article->id],
+                    ['name' => 'locale', 'label' => 'Język', 'type' => 'hidden', 'value' => $locale],
+                    ['name' => 'status', 'label' => 'Status', 'type' => 'hidden', 'value' => $translation->status === 'published' ? 'draft' : 'published'],
+                ],
+                $translation->status === 'published' ? 'Cofnij do szkicu' : 'Opublikuj tłumaczenie',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+        $this->endAdminPage();
+    }
+
+    private function saveTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'article_translation_save')) {
+            return;
+        }
+        $article = $this->articles->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($article === null || $locale === null) {
+            $this->renderTranslationForm($request, 'Nieprawidłowy artykuł lub język.', 'danger');
+            return;
+        }
+        $format = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
+        $data = [
+            'title' => $request->postString('title'),
+            'summary' => $request->postString('summary'),
+            'content' => (new ContentRenderer())->prepareForStorage($request->postString('content'), $format),
+            'content_format' => $format,
+            'source_updated_at' => $article->updatedAt,
+        ];
+        if ($data['title'] === '' || $data['summary'] === '' || $data['content'] === '') {
+            $this->renderTranslationForm($request, 'Tytuł, zajawka i treść tłumaczenia są wymagane.', 'danger');
+            return;
+        }
+        $this->articles->saveTranslation($article->id, $locale, $data);
+        $this->invalidateArticleCache($article->slug);
+        $this->audit->record($request, 'article_translation_save', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/articles/translations&id=' . $article->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function generateTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'article_translation_generate')) {
+            return;
+        }
+        $article = $this->articles->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        if ($article === null || $locale === null || !$this->machineTranslation->available()) {
+            $this->renderTranslationForm($request, 'Google Cloud Translation nie jest dostępny.', 'danger');
+            return;
+        }
+        try {
+            $format = $article->contentFormat === 'html' ? 'html' : 'text';
+            $this->articles->saveTranslation($article->id, $locale, [
+                'title' => $this->machineTranslation->translate($article->title, 'pl', $locale),
+                'summary' => $this->machineTranslation->translate($article->summary, 'pl', $locale),
+                'content' => $this->machineTranslation->translate($article->content, 'pl', $locale, $format),
+                'content_format' => $article->contentFormat,
+                'source_updated_at' => $article->updatedAt,
+            ], 'google');
+        } catch (\Throwable) {
+            $this->audit->record($request, 'article_translation_generate', 'failed', $locale, $this->auth->user()?->id);
+            $this->renderTranslationForm($request, 'Nie udało się wygenerować tłumaczenia.', 'danger');
+            return;
+        }
+        $this->invalidateArticleCache($article->slug);
+        $this->audit->record($request, 'article_translation_generate', 'success', $locale, $this->auth->user()?->id);
+        header('Location: index.php?route=/admin/articles/translations&id=' . $article->id . '&locale=' . $locale, true, 303);
+    }
+
+    private function publishTranslation(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'article_translation_publish')) {
+            return;
+        }
+        $article = $this->articles->find($request->postInt('id') ?? 0);
+        $locale = $this->translationLocale($request);
+        $status = $request->postString('status');
+        $changed = $article !== null && $locale !== null
+            && $this->articles->setTranslationStatus($article->id, $locale, $status);
+        if ($article !== null) {
+            $this->invalidateArticleCache($article->slug);
+        }
+        $this->audit->record($request, 'article_translation_publish', $changed ? $status : 'not_found', $locale, $this->auth->user()?->id);
+        $this->renderTranslationForm($request, $changed ? 'Status tłumaczenia został zmieniony.' : 'Nie znaleziono tłumaczenia.', $changed ? 'success' : 'warning');
+    }
+
+    private function translationLocale(Request $request): ?string
+    {
+        $locale = strtolower($request->postString('locale', $request->queryString('locale', 'en')));
+
+        return in_array($locale, ['en', 'de'], true) ? $locale : null;
     }
 
     private function renderCategories(string $message = '', string $variant = 'info'): void
@@ -387,6 +593,13 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
+        }
+        if ($editing) {
+            $this->theme->render_button(
+                'Tłumaczenia EN / DE',
+                'index.php?route=/admin/articles/translations&id=' . $article->id . '&locale=en',
+                'outline-light'
+            );
         }
 
         $categories = [];

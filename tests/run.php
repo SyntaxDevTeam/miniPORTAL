@@ -9,6 +9,9 @@ use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
+use SyntaxDevTeam\Cms\Core\FileTranslator;
+use SyntaxDevTeam\Cms\Core\GoogleCloudTranslationService;
+use SyntaxDevTeam\Cms\Core\LocaleResolver;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
@@ -102,6 +105,44 @@ $test('Request exposes bounded JSON and normalized headers', static function () 
     $assert($request->header('X-Build-Token') === 'secret-token');
     $assert($request->header('Content-Type') === 'application/json');
     $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
+});
+
+$test('Locale resolver maps public language prefixes without changing admin routes', static function () use ($assert): void {
+    $resolver = new LocaleResolver(['pl', 'en', 'de'], 'pl');
+    $english = $resolver->resolve(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/en/p/miniportal',
+    ]));
+    $admin = $resolver->resolve(Request::fromArrays([], [], [
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/admin/pages',
+    ]));
+
+    $assert($english->locale === 'en');
+    $assert($english->routePath === '/p/miniportal');
+    $assert($english->publicPath === '/en/p/miniportal');
+    $assert($english->languageLinks()['de'] === '/de/p/miniportal');
+    $assert($admin->locale === 'pl' && $admin->routePath === '/admin/pages');
+    $assert($admin->localizePath('/admin/pages', 'de') === '/admin/pages');
+});
+
+$test('File translator loads PL EN DE catalogs with parameter interpolation', static function () use ($assert): void {
+    $translator = new FileTranslator(dirname(__DIR__) . '/config/i18n', 'de', 'pl', ['pl', 'en', 'de']);
+
+    $assert($translator->translate('public.login') === 'Anmelden');
+    $assert($translator->translate('public.published', ['date' => '2026-06-22']) === 'Veröffentlicht: 2026-06-22');
+    $assert($translator->translate('missing.key', fallback: 'Fallback') === 'Fallback');
+});
+
+$test('Google translation adapter remains disabled without a server-side API key', static function () use ($assert): void {
+    $service = new GoogleCloudTranslationService('');
+    $assert(!$service->available());
+    try {
+        $service->translate('Tekst', 'pl', 'en');
+        $assert(false, 'Missing Google API key should reject translation.');
+    } catch (RuntimeException $exception) {
+        $assert(str_contains($exception->getMessage(), 'nie jest skonfigurowany'));
+    }
 });
 
 $test('Econify loads an isolated module environment file', static function () use ($assert): void {
@@ -687,8 +728,8 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     $theme->end_page();
     $html = (string) ob_get_clean();
 
-    $assert(str_contains($html, 'href="/">Home</a>'));
-    $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
+    $assert(str_contains($html, 'href="/pl">Home</a>'));
+    $assert(str_contains($html, 'href="/pl#contact">Kontakt</a>'));
 });
 
 $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews', static function () use ($assert): void {
@@ -766,6 +807,32 @@ $test('Theme uses generated favicon set with cache version', static function () 
     $assert(str_contains($html, '/uploads/branding/favicon.ico?v=123456'));
     $assert(str_contains($html, '/uploads/branding/apple-touch-icon.png?v=123456'));
     $assert(str_contains($html, '/uploads/branding/site.webmanifest?v=123456'));
+});
+
+$test('Public theme renders selected locale switcher and hreflang metadata', static function () use ($assert): void {
+    $translator = new FileTranslator(dirname(__DIR__) . '/config/i18n', 'en', 'pl', ['pl', 'en', 'de']);
+    $theme = new DefaultTheme([
+        'public_url' => 'https://syntaxdevteam.pl',
+        'public_path' => '/en/projects',
+        'public_locale' => 'en_GB',
+        'translator' => $translator,
+        'language_links' => [
+            'pl' => '/pl/projects',
+            'en' => '/en/projects',
+            'de' => '/de/projects',
+        ],
+    ]);
+    ob_start();
+    $theme->start_page('Projects', 'Project catalog');
+    $theme->end_page();
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '<html lang="en-GB"'));
+    $assert(str_contains($html, 'aria-label="Main navigation"'));
+    $assert(str_contains($html, '>Sign in</a>'));
+    $assert(str_contains($html, 'hreflang="de" href="https://syntaxdevteam.pl/de/projects"'));
+    $assert(str_contains($html, 'hreflang="x-default" href="https://syntaxdevteam.pl/pl/projects"'));
+    $assert(str_contains($html, 'class="dropdown-item active" href="/en/projects"'));
 });
 
 $test('Future theme is discoverable and renders its own assets', static function () use ($assert): void {
@@ -1168,7 +1235,7 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.0.4');
+    $assert($manifest->version === '1.1.0');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
@@ -1182,7 +1249,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $corePages = $validator->validate(dirname(__DIR__) . '/modules/CorePages');
     $assert($corePages->id === 'core_pages');
-    $assert($corePages->version === '1.3.0');
+    $assert($corePages->version === '1.4.0');
     $assert($corePages->protected);
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
