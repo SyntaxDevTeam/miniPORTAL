@@ -2132,3 +2132,18 @@ tłumaczeń z kluczem złożonym: wynik `INSERT` nie zależy już od `lastInsert
 cykl zapisu, publikacji i odczytu sekcji oraz karty, lint PHP, pełne testy
 repozytorium, integracyjna instalacja na pustej bazie, przebudowa dystrybucji,
 smoke testy PL/EN/DE i `git diff --check`.
+
+### Sesja: 2026-06-22 - Wycofanie publicznego i18n
+
+**Faza i krok specyfikacji:** decyzja projektowa wycofująca Kroki 8.1/8.2
+internacjonalizacji, z zachowaniem niezależnych elementów Kroku 4/6.
+
+**Wykonano:** usunięto resolver locale, katalogi PL/EN/DE, prefiksy językowe,
+przełącznik i `hreflang`, integrację Google Cloud Translation, formularze
+tłumaczeń oraz tabele i migracje tłumaczeń stron, artykułów, sekcji i kart.
+Przywrócono pojedynczy polski obieg treści i wersje modułów sprzed i18n.
+Zachowano niezależne `HookRegistry`, `HookProviderInterface` i parametryczny Router,
+które znalazły się w tym samym historycznym commicie, ale nie należą do i18n.
+
+**Weryfikacja:** pełne testy repozytorium, lint PHP, przebudowa czystej
+dystrybucji, wyszukiwanie pozostałości i18n oraz `git diff --check`.

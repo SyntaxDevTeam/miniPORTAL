@@ -52,20 +52,6 @@ final class Request
         return $this->path;
     }
 
-    public function withPath(string $path): self
-    {
-        return new self(
-            $this->method,
-            self::normalizePath($path),
-            $this->query,
-            $this->post,
-            $this->server,
-            $this->files,
-            $this->rawBody,
-            $this->routeParameters,
-        );
-    }
-
     /** @param array<string, string> $parameters */
     public function withRouteParameters(array $parameters): self
     {

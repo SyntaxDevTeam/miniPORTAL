@@ -8,7 +8,6 @@ use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
-use SyntaxDevTeam\Cms\Core\GoogleCloudTranslationService;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
@@ -47,8 +46,6 @@ $application = Bootstrap::boot($config);
 $theme = $application->theme();
 $security = $application->security();
 $templateCache = $application->templateCache();
-$translator = $application->translator();
-$locale = $application->locale();
 $router = new Router();
 $adminMenu = new AdminMenuRegistry();
 $adminSearch = new AdminSearchRegistry();
@@ -82,9 +79,6 @@ $discordConfig = is_array($providerConfig['discord'] ?? null) ? $providerConfig[
 $googleConfig = is_array($providerConfig['google'] ?? null) ? $providerConfig['google'] : [];
 $providers = new IdentityProviderRegistry();
 $httpClient = new NativeHttpClient();
-$machineTranslation = new GoogleCloudTranslationService(
-    (string) ($config['translation']['google_api_key'] ?? '')
-);
 $providers->add(new GitHubIdentityProvider(
     $httpClient,
     (string) ($githubConfig['client_id'] ?? ''),
@@ -169,52 +163,26 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'dashboard' => $dashboard,
     'brand_icon_generator' => $brandIconGenerator,
     'http_client' => $httpClient,
-    'translator' => $translator,
-    'locale' => $locale,
-    'machine_translation' => $machineTranslation,
     'hooks' => $hooks,
 ], $modules);
 $modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard, $hooks);
 $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
 
-$localizedPublicHref = static function (string $href) use ($locale): string {
-    if (
-        $href === ''
-        || str_starts_with($href, '#')
-        || str_starts_with($href, 'mailto:')
-        || str_starts_with($href, 'tel:')
-        || str_starts_with($href, 'https://')
-        || str_starts_with($href, 'http://')
-        || str_starts_with($href, '/admin')
-        || str_starts_with($href, '/api/')
-        || str_starts_with($href, 'index.php')
-    ) {
-        return $href;
-    }
-
-    return $locale->localizePath($href);
-};
-$publicNavigationItems = static function () use (
-    $pageRepository,
-    $publicNavigation,
-    $application,
-    $locale,
-    $localizedPublicHref
-): array {
+$publicNavigationItems = static function () use ($pageRepository, $publicNavigation, $application): array {
     $navigation = [];
     if ($pageRepository !== null) {
         $navigation = array_map(
             static fn ($page): array => [
                 'title' => $page->title,
                 'slug' => $page->slug,
-                'href' => $locale->localizePath('/p/' . rawurlencode($page->slug)),
+                'href' => '/p/' . rawurlencode($page->slug),
                 'summary' => $page->summary,
                 'type' => $page->pageType,
                 'navigation_area' => $page->navigationArea,
                 'navigation_label' => $page->navigationLabel,
                 'sort_order' => $page->sortOrder,
             ],
-            $pageRepository->publishedForLocale($locale->locale)
+            $pageRepository->published()
         );
     }
     $settings = $application->database() !== null
@@ -228,7 +196,7 @@ $publicNavigationItems = static function () use (
             $navigation[] = [
                 'title' => $item['label'],
                 'slug' => '',
-                'href' => $localizedPublicHref($item['href']),
+                'href' => $item['href'],
                 'summary' => '',
                 'type' => 'module',
                 'navigation_area' => $area,
@@ -270,7 +238,6 @@ $router->get('/', static function () use (
     $auth,
     $templateCache,
     $publicNavigationItems,
-    $locale,
     $hooks
 ): void {
     $renderer = static function () use (
@@ -279,7 +246,6 @@ $router->get('/', static function () use (
         $theme,
         $auth,
         $publicNavigationItems,
-        $locale,
         $hooks
     ): string {
         $navigation = $publicNavigationItems();
@@ -287,17 +253,12 @@ $router->get('/', static function () use (
         if ($homepageSectionRepository !== null) {
             $sections = array_map(
                 static fn ($section): array => $section->toThemeData(
-                    $homepageSectionItemRepository?->forSectionLocale(
-                        $section->id,
-                        $locale->locale,
-                        true
-                    ) ?? []
+                    $homepageSectionItemRepository?->forSection($section->id, true) ?? []
                 ),
-                $homepageSectionRepository->visibleForLocale($locale->locale)
+                $homepageSectionRepository->visible()
             );
         }
         $sections = $hooks->applyFilters('homepage.sections', $sections, [
-            'locale' => $locale->locale,
             'authenticated' => $auth->user() !== null,
         ]);
         if (!is_array($sections)) {
@@ -310,12 +271,7 @@ $router->get('/', static function () use (
     };
 
     echo $auth->user() === null
-        ? $templateCache->remember(
-            'public',
-            'homepage:' . $locale->locale,
-            $renderer,
-            ['homepage', 'pages', 'theme', 'locale:' . $locale->locale]
-        )
+        ? $templateCache->remember('public', 'homepage', $renderer, ['homepage', 'pages', 'theme'])
         : $renderer();
 });
 

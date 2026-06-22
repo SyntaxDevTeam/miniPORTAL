@@ -553,27 +553,15 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 ### 5.3 Propozycje autorskie do przyszłego rozwoju
 
 1. System haków i filtrów (Hooks API) [wdrożony]
-   - moduł może wstrzyknąć własne zachowanie do innego modułu bez modyfikacji jego źródeł,
-   - `HookRegistry` rozdziela akcje `doAction()` od filtrów `applyFilters()`, wykonuje
-     callbacki według priorytetu, a przy remisie zachowuje kolejność rejestracji,
-   - aktywny moduł zgłasza hooki opcjonalnym `HookProviderInterface`; wyłączenie modułu
-     usuwa jego zachowanie bez zmian w konsumencie,
-   - pierwszy punkt rozszerzenia `homepage.sections` filtruje strukturalną listę sekcji
-     przed przekazaniem jej do `ThemeInterface::render_homepage()`, dlatego przyszły
-     moduł widgetów może dodawać dane kart lub sekcji bez generowania HTML i bez
-     zależności od konkretnego motywu,
-   - kontekst hooka strony głównej zawiera locale i stan uwierzytelnienia; zawartość
-     anonimowa musi pozostawać bezpieczna dla wspólnego cache publicznego.
+   - `HookRegistry` rozdziela akcje od filtrów i wykonuje callbacki według priorytetu,
+   - aktywny moduł zgłasza hooki opcjonalnym `HookProviderInterface`,
+   - `homepage.sections` filtruje strukturalne dane przed renderowaniem przez Theme.
 
 2. Przyjazne adresy URL (Slug Router) [wdrożony]
-   - zamiast index.php?module=articles&id=5
-   - system mapuje adresy typu `/article/{slug}` i udostępnia zdekodowane segmenty
-     przez `Request::routeString()`,
-   - trasy statyczne mają pierwszeństwo przed parametrycznymi, zduplikowane wzorce są
-     odrzucane, a pusty segment, NUL i zakodowany separator `/` nie trafiają do handlera,
-   - strony, artykuły, Wiki, Team, Projects i Build Explorer nie odpytują już bazy tylko
-     po to, aby zbudować listę tras podczas startu; istnienie i publikacja zasobu są
-     sprawdzane przez repozytorium dopiero po dopasowaniu adresu.
+   - Router mapuje wzorce typu `/article/{slug}` i przekazuje segment przez
+     `Request::routeString()`,
+   - trasy statyczne mają pierwszeństwo, a zakodowany separator i NUL są odrzucane,
+   - moduły sprawdzają istnienie zasobu po dopasowaniu trasy zamiast budować trasy z bazy.
 
 3. Wbudowany moduł logów (Audit Log) [wdrożony]
    - zapis nieudanych logowań, instalacji modułów i zmian konfiguracyjnych w `auth_events`
@@ -687,8 +675,6 @@ Stan fundamentu Kroku 6:
 - `DashboardRegistry` przyjmuje bezpieczne metryki i tabele od
   `DashboardProviderInterface`; widoczność każdego elementu modułu jest zapisywana
   w ustawieniach bez przechowywania wykonywalnego kodu w bazie,
-- `HookRegistry` uruchamia akcje i filtry zgłoszone przez `HookProviderInterface`;
-  filtr `homepage.sections` stanowi strukturalny punkt rozszerzenia pod przyszłe widgety,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
 - `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
   migracji, aktualizacji, aktywacji i odinstalowania, eksport audytu oraz diagnostykę
@@ -744,35 +730,7 @@ Stan 1.0.0:
 6. Błąd instalacji sprząta tabele utworzone w początkowo pustej bazie.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
-MariaDB przez instalację wszystkich 12 modułów i utworzenie jednego Ownera.
-
-### Krok 8: internacjonalizacja PL/EN/DE
-
-1. Core udostępnia `LocaleResolver`, `LocaleContext`, `TranslatorInterface` i
-   katalogi `config/i18n/{pl,en,de}.php` z polskim fallbackiem.
-2. Publiczne trasy przyjmują prefiksy `/pl`, `/en` i `/de`; Router nadal otrzymuje
-   kanoniczną ścieżkę modułu, a panel `/admin/*` i API pozostają bez prefiksu.
-3. Wszystkie motywy generują poprawne `lang`, przełącznik języka, canonical oraz
-   alternatywne odnośniki `hreflang`, w tym `x-default`.
-4. Cache publiczny rozdziela wpisy i tagi według locale.
-5. `core_pages` przechowuje EN/DE w `core_page_translations`; wersje mają
-   niezależny szkic/publikację, źródło manualne/Google i znacznik aktualności
-   względem polskiego oryginału.
-6. `articles` 1.1.0 realizuje ten sam kontrakt w `article_translations`.
-7. `GoogleCloudTranslationService` działa wyłącznie po stronie serwera i tylko na
-   jawne żądanie redaktora. Wynik zawsze trafia do szkicu i wymaga publikacji.
-8. Brak opublikowanego tłumaczenia zwraca 404 w danym języku zamiast prezentować
-   polską treść pod adresem EN/DE.
-9. `core_pages` 1.5.0 rozszerza ten kontrakt na `homepage_section_translations`
-   i `homepage_section_item_translations`. Tłumaczone są pola tekstowe, natomiast
-   typ, układ, wariant, kolejność, URL i relacje pozostają współdzielone.
-10. Nieopublikowana sekcja lub karta nie trafia do wersji EN/DE. Gdy w danym
-    języku nie ma żadnej opublikowanej sekcji, Theme pokazuje lokalizowany stan
-    pusty zamiast polskiego źródła.
-
-Stan Kroku 8.2: fundament Core, publiczna otoczka Theme, wielojęzyczne strony,
-artykuły i strona główna są ukończone. Kolejne podetapy obejmą katalogi tekstów
-pozostałych modułów publicznych.
+MariaDB przez instalację wszystkich 11 modułów i utworzenie jednego Ownera.
 
 ---
 

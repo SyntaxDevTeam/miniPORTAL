@@ -98,14 +98,6 @@ return [
         'enabled' => $envBool('TEMPLATE_CACHE_ENABLED', true),
         'ttl' => $envInt('TEMPLATE_CACHE_TTL', 300, 1),
     ],
-    'i18n' => [
-        'default_locale' => (string) $env('I18N_DEFAULT_LOCALE', 'pl'),
-        'supported_locales' => ['pl', 'en', 'de'],
-        'catalog_directory' => __DIR__ . '/i18n',
-    ],
-    'translation' => [
-        'google_api_key' => (string) $env('GOOGLE_TRANSLATE_API_KEY', ''),
-    ],
     'modules' => [
         'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
         'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),

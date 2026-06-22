@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-21 - czysta dystrybucja i kreator instalacji.
+> **Ostatnia aktualizacja:** 2026-06-22 - wycofanie publicznego i18n.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -203,24 +203,17 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Dedykowany `.env` modułu z niezależnymi danymi Discord i API |
 | [x] | OAuth listy zarządzanych serwerów i przypięta instalacja bota |
 
-### Krok 9 - internacjonalizacja
+### Wycofany kierunek - internacjonalizacja
 
-| Status | Zadanie |
-|--------|---------|
-| [x] | Resolver locale i katalogi interfejsu PL/EN/DE |
-| [x] | Prefiksy `/pl`, `/en`, `/de`, przełącznik i metadane `hreflang` |
-| [x] | Niezależne szkice i publikacje tłumaczeń `core_pages` |
-| [x] | Niezależne szkice i publikacje tłumaczeń `articles` |
-| [x] | Opcjonalne generowanie szkiców przez Google Cloud Translation |
-| [x] | Tłumaczenia sekcji i elementów strony głównej |
-| [ ] | Katalogi tekstów publicznych pozostałych modułów |
+Publiczne i18n PL/EN/DE zostało wycofane decyzją projektową 2026-06-22.
+miniPORTAL pozostaje jednojęzyczny; nie planuje się prefiksów locale, katalogów
+tekstu interfejsu ani osobnych tłumaczeń treści CMS.
 
 ## Następne kroki
 
-1. Rozszerzyć katalogi i18n na pozostałe moduły publiczne.
-2. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
-3. Rozważyć osobny widok przeglądania `auth_events_archive`.
-4. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
+1. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
+2. Rozważyć osobny widok przeglądania `auth_events_archive`.
+3. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
 
 ## Uwagi / blokery
 
@@ -328,8 +321,7 @@ Brak aktywnych blokerów.
 | 2026-06-21 | Sekrety Econify należą do `modules/Econify/.env`, nie do środowiska miniPORTAL. `ECONIFY_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
 | 2026-06-22 | `econify` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
 | 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
-| 2026-06-22 | Core i18n obsługuje `/pl`, `/en`, `/de`, fallback katalogów, przełącznik Theme i `hreflang`. `core_pages` 1.4.0 oraz `articles` 1.1.0 przechowują publikowane tłumaczenia EN/DE, a Google Cloud Translation tworzy wyłącznie szkice. |
-| 2026-06-22 | `core_pages` 1.5.0 dodaje niezależne szkice i publikacje EN/DE dla sekcji oraz elementów strony głównej. Pola układu, adresów i relacji pozostają wspólne, a nieprzetłumaczone treści nie mieszają się z polskim źródłem. |
+| 2026-06-22 | Wycofano publiczne i18n PL/EN/DE wraz z tabelami tłumaczeń, prefiksami locale, przełącznikiem języka i integracją Google Cloud Translation; projekt pozostaje jednojęzyczny. |
 
 ## Historia sesji
 

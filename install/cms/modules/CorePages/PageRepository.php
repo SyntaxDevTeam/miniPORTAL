@@ -53,25 +53,6 @@ final class PageRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /** @return list<Page> */
-    public function publishedForLocale(string $locale): array
-    {
-        if ($locale === 'pl') {
-            return $this->published();
-        }
-        $statement = $this->database->query(
-            'SELECT p.id, t.title, p.slug, t.eyebrow, t.summary, t.meta_description, t.content, '
-            . 't.content_format, p.page_type, p.navigation_area, t.navigation_label, p.sort_order, '
-            . 't.status, p.author_id, p.published_at, p.created_at, t.updated_at '
-            . 'FROM core_pages p JOIN core_page_translations t ON t.page_id = p.id '
-            . 'WHERE p.status = :published AND t.status = :published AND t.locale = :locale '
-            . 'ORDER BY p.sort_order ASC, p.published_at DESC, p.id DESC',
-            [':published' => 'published', ':locale' => $locale]
-        );
-
-        return array_map($this->hydrate(...), $statement?->fetchAll(PDO::FETCH_ASSOC) ?: []);
-    }
-
     /**
      * @return list<Page>
      */
@@ -115,83 +96,6 @@ final class PageRepository
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
 
         return is_array($row) ? $this->hydrate($row) : null;
-    }
-
-    public function findPublishedBySlugForLocale(string $slug, string $locale): ?Page
-    {
-        if ($locale === 'pl') {
-            return $this->findPublishedBySlug($slug);
-        }
-        $statement = $this->database->query(
-            'SELECT p.id, t.title, p.slug, t.eyebrow, t.summary, t.meta_description, t.content, '
-            . 't.content_format, p.page_type, p.navigation_area, t.navigation_label, p.sort_order, '
-            . 't.status, p.author_id, p.published_at, p.created_at, t.updated_at '
-            . 'FROM core_pages p JOIN core_page_translations t ON t.page_id = p.id '
-            . 'WHERE p.slug = :slug AND p.status = :published AND t.status = :published '
-            . 'AND t.locale = :locale LIMIT 1',
-            [':slug' => $slug, ':published' => 'published', ':locale' => $locale]
-        );
-        $row = $statement?->fetch(PDO::FETCH_ASSOC);
-
-        return is_array($row) ? $this->hydrate($row) : null;
-    }
-
-    public function translation(int $pageId, string $locale): ?PageTranslation
-    {
-        $row = $this->database->read('core_page_translations', '*', [
-            'page_id' => $pageId,
-            'locale' => $locale,
-        ]);
-        if (!is_array($row)) {
-            return null;
-        }
-        if (array_is_list($row)) {
-            $row = $row[0] ?? null;
-        }
-
-        return is_array($row) ? $this->hydrateTranslation($row) : null;
-    }
-
-    /** @param array<string, string> $data */
-    public function saveTranslation(int $pageId, string $locale, array $data, string $origin = 'manual'): bool
-    {
-        $values = [
-            'title' => $data['title'],
-            'eyebrow' => $data['eyebrow'],
-            'summary' => $data['summary'],
-            'meta_description' => $data['meta_description'],
-            'content' => $data['content'],
-            'content_format' => $data['content_format'],
-            'navigation_label' => $data['navigation_label'],
-            'origin' => $origin,
-            'source_updated_at' => $data['source_updated_at'],
-            'status' => 'draft',
-        ];
-        if ($this->translation($pageId, $locale) === null) {
-            return $this->database->insert('core_page_translations', [
-                'page_id' => $pageId,
-                'locale' => $locale,
-                ...$values,
-            ]) !== null;
-        }
-
-        return $this->database->update('core_page_translations', $values, [
-            'page_id' => $pageId,
-            'locale' => $locale,
-        ]) !== null;
-    }
-
-    public function setTranslationStatus(int $pageId, string $locale, string $status): bool
-    {
-        if (!in_array($status, ['draft', 'published'], true)) {
-            return false;
-        }
-        $statement = $this->database->update('core_page_translations', ['status' => $status], [
-            'page_id' => $pageId,
-            'locale' => $locale,
-        ]);
-
-        return $statement !== null && $statement->rowCount() === 1;
     }
 
     public function slugExists(string $slug, ?int $exceptId = null): bool
@@ -275,25 +179,6 @@ final class PageRepository
             (int) $row['author_id'],
             $row['published_at'] !== null ? (string) $row['published_at'] : null,
             (string) $row['created_at'],
-            (string) $row['updated_at'],
-        );
-    }
-
-    private function hydrateTranslation(array $row): PageTranslation
-    {
-        return new PageTranslation(
-            (int) $row['page_id'],
-            (string) $row['locale'],
-            (string) $row['title'],
-            (string) ($row['eyebrow'] ?? ''),
-            (string) ($row['summary'] ?? ''),
-            (string) ($row['meta_description'] ?? ''),
-            (string) $row['content'],
-            (string) ($row['content_format'] ?? 'html'),
-            (string) ($row['navigation_label'] ?? ''),
-            (string) $row['status'],
-            (string) ($row['origin'] ?? 'manual'),
-            $row['source_updated_at'] !== null ? (string) $row['source_updated_at'] : null,
             (string) $row['updated_at'],
         );
     }

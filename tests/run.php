@@ -9,11 +9,8 @@ use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
-use SyntaxDevTeam\Cms\Core\FileTranslator;
-use SyntaxDevTeam\Cms\Core\GoogleCloudTranslationService;
 use SyntaxDevTeam\Cms\Core\HookProviderInterface;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
-use SyntaxDevTeam\Cms\Core\LocaleResolver;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
@@ -107,44 +104,6 @@ $test('Request exposes bounded JSON and normalized headers', static function () 
     $assert($request->header('X-Build-Token') === 'secret-token');
     $assert($request->header('Content-Type') === 'application/json');
     $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
-});
-
-$test('Locale resolver maps public language prefixes without changing admin routes', static function () use ($assert): void {
-    $resolver = new LocaleResolver(['pl', 'en', 'de'], 'pl');
-    $english = $resolver->resolve(Request::fromArrays([], [], [
-        'REQUEST_METHOD' => 'GET',
-        'REQUEST_URI' => '/en/p/miniportal',
-    ]));
-    $admin = $resolver->resolve(Request::fromArrays([], [], [
-        'REQUEST_METHOD' => 'GET',
-        'REQUEST_URI' => '/admin/pages',
-    ]));
-
-    $assert($english->locale === 'en');
-    $assert($english->routePath === '/p/miniportal');
-    $assert($english->publicPath === '/en/p/miniportal');
-    $assert($english->languageLinks()['de'] === '/de/p/miniportal');
-    $assert($admin->locale === 'pl' && $admin->routePath === '/admin/pages');
-    $assert($admin->localizePath('/admin/pages', 'de') === '/admin/pages');
-});
-
-$test('File translator loads PL EN DE catalogs with parameter interpolation', static function () use ($assert): void {
-    $translator = new FileTranslator(dirname(__DIR__) . '/config/i18n', 'de', 'pl', ['pl', 'en', 'de']);
-
-    $assert($translator->translate('public.login') === 'Anmelden');
-    $assert($translator->translate('public.published', ['date' => '2026-06-22']) === 'Veröffentlicht: 2026-06-22');
-    $assert($translator->translate('missing.key', fallback: 'Fallback') === 'Fallback');
-});
-
-$test('Google translation adapter remains disabled without a server-side API key', static function () use ($assert): void {
-    $service = new GoogleCloudTranslationService('');
-    $assert(!$service->available());
-    try {
-        $service->translate('Tekst', 'pl', 'en');
-        $assert(false, 'Missing Google API key should reject translation.');
-    } catch (RuntimeException $exception) {
-        $assert(str_contains($exception->getMessage(), 'nie jest skonfigurowany'));
-    }
 });
 
 $test('Econify loads an isolated module environment file', static function () use ($assert): void {
@@ -630,6 +589,64 @@ $test('Module registry boots each module once', static function () use ($assert)
     $assert($publicItems[0]['show_footer']);
 });
 
+$test('Admin menu keeps entries from the same section together', static function () use ($assert): void {
+    $menu = new AdminMenuRegistry();
+    $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
+    $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
+    $menu->add('Treść', 'Strona główna', '/admin/homepage', 'HG', 'pages.view', 15);
+    $menu->add('Treść', 'Zespół', '/admin/team', 'TM', 'team.manage', 40);
+    $menu->add('System', 'Role', '/admin/roles', 'RL', 'roles.view', 45);
+
+    $items = $menu->visibleFor(['*']);
+    $assert(array_column($items, 'section') === [
+        'Przestrzeń robocza',
+        'Treść',
+        'Treść',
+        'System',
+        'System',
+    ]);
+    $assert(array_column($items, 'label') === [
+        'Dashboard',
+        'Strona główna',
+        'Zespół',
+        'Użytkownicy',
+        'Role',
+    ]);
+});
+
+$test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
+    $navigation = new PublicNavigationRegistry();
+    $navigation->add('module.docs', 'Dokumentacja', '/wiki', 'none', 10);
+    $navigation->add('module.projects', 'Projekty', '/projects', 'none', 20);
+
+    $legacy = array_values(array_filter(
+        $navigation->items(['module.docs' => 'footer']),
+        static fn (array $item): bool => $item['id'] === 'module.docs'
+    ))[0];
+    $assert($legacy['label'] === 'Dokumentacja');
+    $assert($legacy['area'] === 'footer');
+    $assert(!$legacy['show_main']);
+    $assert($legacy['show_footer']);
+
+    $configured = $navigation->items([
+        'module.docs' => [
+            'label' => 'Baza wiedzy',
+            'main' => true,
+            'footer' => true,
+            'order' => 90,
+        ],
+        'module.projects' => ['label' => 'Projekty', 'main' => true, 'footer' => false, 'order' => 5],
+    ]);
+    $assert($configured[0]['id'] === 'module.projects');
+    $configured = $configured[1];
+    $assert($configured['default_label'] === 'Dokumentacja');
+    $assert($configured['label'] === 'Baza wiedzy');
+    $assert($configured['area'] === 'main');
+    $assert($configured['show_main']);
+    $assert($configured['show_footer']);
+    $assert($configured['order'] === 90);
+});
+
 $test('Hook registry runs actions and filters by priority', static function () use ($assert): void {
     $hooks = new HookRegistry();
     $actions = [];
@@ -702,64 +719,6 @@ $test('Router resolves validated slug parameters without database-built routes',
     ])) === 404);
 });
 
-$test('Admin menu keeps entries from the same section together', static function () use ($assert): void {
-    $menu = new AdminMenuRegistry();
-    $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
-    $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
-    $menu->add('Treść', 'Strona główna', '/admin/homepage', 'HG', 'pages.view', 15);
-    $menu->add('Treść', 'Zespół', '/admin/team', 'TM', 'team.manage', 40);
-    $menu->add('System', 'Role', '/admin/roles', 'RL', 'roles.view', 45);
-
-    $items = $menu->visibleFor(['*']);
-    $assert(array_column($items, 'section') === [
-        'Przestrzeń robocza',
-        'Treść',
-        'Treść',
-        'System',
-        'System',
-    ]);
-    $assert(array_column($items, 'label') === [
-        'Dashboard',
-        'Strona główna',
-        'Zespół',
-        'Użytkownicy',
-        'Role',
-    ]);
-});
-
-$test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
-    $navigation = new PublicNavigationRegistry();
-    $navigation->add('module.docs', 'Dokumentacja', '/wiki', 'none', 10);
-    $navigation->add('module.projects', 'Projekty', '/projects', 'none', 20);
-
-    $legacy = array_values(array_filter(
-        $navigation->items(['module.docs' => 'footer']),
-        static fn (array $item): bool => $item['id'] === 'module.docs'
-    ))[0];
-    $assert($legacy['label'] === 'Dokumentacja');
-    $assert($legacy['area'] === 'footer');
-    $assert(!$legacy['show_main']);
-    $assert($legacy['show_footer']);
-
-    $configured = $navigation->items([
-        'module.docs' => [
-            'label' => 'Baza wiedzy',
-            'main' => true,
-            'footer' => true,
-            'order' => 90,
-        ],
-        'module.projects' => ['label' => 'Projekty', 'main' => true, 'footer' => false, 'order' => 5],
-    ]);
-    $assert($configured[0]['id'] === 'module.projects');
-    $configured = $configured[1];
-    $assert($configured['default_label'] === 'Dokumentacja');
-    $assert($configured['label'] === 'Baza wiedzy');
-    $assert($configured['area'] === 'main');
-    $assert($configured['show_main']);
-    $assert($configured['show_footer']);
-    $assert($configured['order'] === 90);
-});
-
 $test('Admin search index filters entries by ACL and imports menu keywords', static function () use ($assert): void {
     $menu = new AdminMenuRegistry();
     $menu->add('Treść', 'Zespół', '/admin/team', 'TM', 'team.manage', 40);
@@ -802,8 +761,8 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     $theme->end_page();
     $html = (string) ob_get_clean();
 
-    $assert(str_contains($html, 'href="/pl">Home</a>'));
-    $assert(str_contains($html, 'href="/pl#contact">Kontakt</a>'));
+    $assert(str_contains($html, 'href="/">Home</a>'));
+    $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
 });
 
 $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews', static function () use ($assert): void {
@@ -881,32 +840,6 @@ $test('Theme uses generated favicon set with cache version', static function () 
     $assert(str_contains($html, '/uploads/branding/favicon.ico?v=123456'));
     $assert(str_contains($html, '/uploads/branding/apple-touch-icon.png?v=123456'));
     $assert(str_contains($html, '/uploads/branding/site.webmanifest?v=123456'));
-});
-
-$test('Public theme renders selected locale switcher and hreflang metadata', static function () use ($assert): void {
-    $translator = new FileTranslator(dirname(__DIR__) . '/config/i18n', 'en', 'pl', ['pl', 'en', 'de']);
-    $theme = new DefaultTheme([
-        'public_url' => 'https://syntaxdevteam.pl',
-        'public_path' => '/en/projects',
-        'public_locale' => 'en_GB',
-        'translator' => $translator,
-        'language_links' => [
-            'pl' => '/pl/projects',
-            'en' => '/en/projects',
-            'de' => '/de/projects',
-        ],
-    ]);
-    ob_start();
-    $theme->start_page('Projects', 'Project catalog');
-    $theme->end_page();
-    $html = (string) ob_get_clean();
-
-    $assert(str_contains($html, '<html lang="en-GB"'));
-    $assert(str_contains($html, 'aria-label="Main navigation"'));
-    $assert(str_contains($html, '>Sign in</a>'));
-    $assert(str_contains($html, 'hreflang="de" href="https://syntaxdevteam.pl/de/projects"'));
-    $assert(str_contains($html, 'hreflang="x-default" href="https://syntaxdevteam.pl/pl/projects"'));
-    $assert(str_contains($html, 'class="dropdown-item active" href="/en/projects"'));
 });
 
 $test('Future theme is discoverable and renders its own assets', static function () use ($assert): void {
@@ -1069,7 +1002,7 @@ $test('Public theme renders safe local related links', static function () use ($
         ['label' => 'Blocked', 'href' => '//attacker.example', 'meta' => ''],
     ]);
     $html = (string) ob_get_clean();
-    $assert(str_contains($html, 'href="/pl/builds/punisherx"'));
+    $assert(str_contains($html, 'href="/builds/punisherx"'));
     $assert(!str_contains($html, 'attacker.example'));
 });
 
@@ -1309,7 +1242,7 @@ $test('Module manifests are validated against runtime requirements', static func
     $manifest = $validator->validate(dirname(__DIR__) . '/modules/Articles');
 
     $assert($manifest->id === 'articles');
-    $assert($manifest->version === '1.1.0');
+    $assert($manifest->version === '1.0.4');
     $assert($manifest->installFile === 'install.sql');
     $assert($manifest->uninstallFile === 'uninstall.sql');
     $assert($manifest->requiredModules === ['core_auth']);
@@ -1323,7 +1256,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $corePages = $validator->validate(dirname(__DIR__) . '/modules/CorePages');
     $assert($corePages->id === 'core_pages');
-    $assert($corePages->version === '1.5.0');
+    $assert($corePages->version === '1.3.0');
     $assert($corePages->protected);
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
