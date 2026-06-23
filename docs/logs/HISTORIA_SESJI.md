@@ -2177,3 +2177,53 @@ poleceń serwera.
 **Weryfikacja:** testy układu hooków, manifestu, bezpiecznego renderowania karty,
 braku zaszytego terminala, wielu terminali JS, pełny lint PHP/JS, testy repozytorium,
 przebudowa czystej dystrybucji, instalacja przez `ModuleInstaller` i smoke test `/`.
+
+### Sesja: 2026-06-23 - Kontakt na końcu publicznego menu
+
+**Faza i krok specyfikacji:** Krok 3/7 - wspólna publiczna nawigacja aktywnych
+motywów oraz kolejność linków publicznych modułów.
+
+**Wykonano:** Default, Glassnight i Future odkładają link do sekcji `Kontakt`
+podczas renderowania sekcji strony głównej i wypisują go dopiero po linkach
+stron oraz modułów w menu głównym. Dzięki temu `Kontakt` pozostaje ostatnim
+zwykłym linkiem nawigacyjnym niezależnie od liczby modułów dodających własne
+pozycje; przycisk logowania/panelu pozostaje osobną akcją po nim.
+
+**Weryfikacja:** dodano test regresji kolejności linków publicznej nawigacji,
+uruchomiono lint zmienionych plików PHP, pełne testy repozytorium, pełny lint PHP,
+przebudowę czystej dystrybucji, migracje Core oraz `git diff --check`.
+
+### Sesja: 2026-06-23 - Dokumentacja modułu Econify
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, dokumentacja
+części publicznej oraz panelu administracyjnego.
+
+**Wykonano:** dodano `docs/ECONIFY_MODULE.md` z opisem celu modułu, poziomów
+dostępu, widoków `/econify`, `/econify/shop`, `/econify/market`,
+`/econify/server`, panelu `/admin/econify`, onboardingu Discord, endpointu bota,
+pliku `.env`, tabel bazy oraz granic bezpieczeństwa. README wskazuje nowy dokument
+w mapie dokumentacji projektu.
+
+**Weryfikacja:** porównano dokument z aktualnym `EconifyModule`,
+`EconifyRepository`, `EconifyConfig`, `EconifyDiscordGateway`, `info.json` oraz
+`install.sql`; uruchomiono kontrolę spójności Markdown przez podgląd diffu.
+
+### Sesja: 2026-06-23 - Bot-first onboarding serwerów Econify
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, rozdzielenie
+zarządzania serwerem Discord od konta gracza.
+
+**Wykonano:** podniesiono `econify` do 1.2.0. Dodano publiczny flow
+`/econify/servers` dla właścicieli i administratorów Discord, którzy pobierają
+zarządzane serwery przez OAuth `identify guilds`. Portal nie tworzy już tenantów
+przez ręczne aktywowanie Guild ID; nowy endpoint `/api/econify/guilds` przyjmuje
+zgłoszenie bota `installed`/`removed` i dopiero taki rekord można połączyć z
+lokalnym kontem jako `guild_owner` albo `guild_admin`. `owner_user_id` w
+`econify_guilds` jest opcjonalny, bo bot może zgłosić serwer przed połączeniem
+lokalnego właściciela. Sklep, giełda, portfele i transakcje pozostają przypisane
+do konkretnego serwera Discord.
+
+**Weryfikacja:** lint zmienionych plików PHP, pełne testy repozytorium, pełny
+lint PHP, przebudowa dystrybucji, lint plików Econify w `install/cms`, migracje
+Core, `git diff --check` oraz kontrolowana aktualizacja produkcyjnego stanu
+`econify` z 1.1.0 do 1.2.0 przez `ModuleInstaller`.

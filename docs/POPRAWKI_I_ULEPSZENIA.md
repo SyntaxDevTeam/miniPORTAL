@@ -333,6 +333,13 @@ Szczegóły serwera udostępniają aktywację Freemium, kontrolę obecności bot
 przypięty link instalacji `bot applications.commands`. Diagnostyka konfiguracji
 wyróżnia poprawne elementy zieloną ramką, a przy komplecie zwija się do paska.
 
+Etap 3 gotowy: rozdzielono właściciela/administratora Discord od gracza serwera.
+Lista zarządzanych serwerów działa w publicznym flow `/econify/servers`, tenant
+powstaje dopiero po zgłoszeniu bota do `/api/econify/guilds`, a zweryfikowany
+manager Discord tylko łączy konto z istniejącym tenantem i dopiero wtedy zarządza
+ustawieniami per `discord_guild_id`. Sklep, giełda, portfele i historia pozostają
+izolowane per serwer Discord.
+
 ### Ustawienia systemowe
 
 Etap diagnostyki cache i favicon gotowy: licznik cache rozróżnia ważne i wygasłe

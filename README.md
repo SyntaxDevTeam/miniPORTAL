@@ -6,6 +6,7 @@ Autorski mini-CMS w systemie modularnym
 - [Specyfikacja techniczna i plan rozwoju](docs/TECHNICAL_SPECIFICATION.md)
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
+- [Opis modułu Econify](docs/ECONIFY_MODULE.md)
 - [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
 - [Czysta dystrybucja z kreatorem](install/cms/INSTALL.md)
 

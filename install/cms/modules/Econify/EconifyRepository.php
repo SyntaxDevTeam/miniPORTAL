@@ -55,9 +55,9 @@ final class EconifyRepository
     public function guilds(): array
     {
         return $this->rows(
-            'SELECT g.*, u.display_name AS owner_name, '
+            "SELECT g.*, COALESCE(u.display_name, 'Nieprzypisany') AS owner_name, "
             . '(SELECT COUNT(*) FROM econify_memberships m WHERE m.guild_id = g.id AND m.is_active = 1) AS member_count '
-            . 'FROM econify_guilds g JOIN users u ON u.id = g.owner_user_id ORDER BY g.created_at DESC'
+            . 'FROM econify_guilds g LEFT JOIN users u ON u.id = g.owner_user_id ORDER BY g.created_at DESC'
         );
     }
 
@@ -92,6 +92,28 @@ final class EconifyRepository
         $this->ensureWallet($guildId, $ownerId);
 
         return $guildId;
+    }
+
+    public function upsertDiscordGuild(string $discordId, string $name, bool $active = true): int
+    {
+        $defaults = $this->platformSettings();
+        $this->database->query(
+            'INSERT INTO econify_guilds (discord_guild_id, name, owner_user_id, plan, locale, daily_amount, work_min, work_max, is_active) '
+            . 'VALUES (:discord_guild_id, :name, NULL, :plan, :locale, :daily_amount, :work_min, :work_max, :is_active) '
+            . 'ON DUPLICATE KEY UPDATE name = VALUES(name), is_active = VALUES(is_active)',
+            [
+                ':discord_guild_id' => $discordId,
+                ':name' => $name,
+                ':plan' => 'freemium',
+                ':locale' => (string) $defaults['default_locale'],
+                ':daily_amount' => (int) $defaults['default_daily_amount'],
+                ':work_min' => (int) $defaults['default_work_min'],
+                ':work_max' => (int) $defaults['default_work_max'],
+                ':is_active' => $active ? 1 : 0,
+            ]
+        );
+
+        return (int) ($this->guildByDiscordId($discordId)['id'] ?? 0);
     }
 
     /** @return array<string, mixed>|null */
@@ -156,6 +178,9 @@ final class EconifyRepository
             . 'ON DUPLICATE KEY UPDATE discord_user_id = VALUES(discord_user_id), access_role = VALUES(access_role), is_active = 1',
             [':guild_id' => $guildId, ':user_id' => $userId, ':discord_user_id' => $discordUserId, ':access_role' => $role]
         );
+        if ($role === 'guild_owner') {
+            $this->database->update('econify_guilds', ['owner_user_id' => $userId], ['id' => $guildId]);
+        }
         $this->ensureWallet($guildId, $userId);
     }
 

@@ -765,6 +765,48 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
 
     $assert(str_contains($html, 'href="/">Home</a>'));
     $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
+
+    $publicNavigation = [
+        [
+            'title' => 'Econify',
+            'slug' => '',
+            'href' => '/econify',
+            'summary' => '',
+            'type' => 'module',
+            'navigation_area' => 'main',
+            'navigation_label' => 'Econify',
+            'sort_order' => 35,
+        ],
+        [
+            'title' => 'Projekty',
+            'slug' => '',
+            'href' => '/projects',
+            'summary' => '',
+            'type' => 'module',
+            'navigation_area' => 'main',
+            'navigation_label' => 'Projekty',
+            'sort_order' => 55,
+        ],
+    ];
+    $theme->set_public_navigation($publicNavigation, true);
+    $navbar = new ReflectionMethod($theme, 'renderPublicNavbar');
+    $navbar->setAccessible(true);
+
+    ob_start();
+    $navbar->invoke($theme, $publicNavigation, true, [
+        ['type' => 'hero', 'key' => 'hero', 'layout' => 'split', 'eyebrow' => '', 'title' => 'Hero'],
+        ['type' => 'content', 'key' => 'contact', 'layout' => 'contact', 'eyebrow' => '03 / Kontakt', 'title' => 'Kontakt'],
+    ], true);
+    $html = (string) ob_get_clean();
+
+    $econifyPosition = strpos($html, '>Econify</a>');
+    $projectsPosition = strpos($html, '>Projekty</a>');
+    $contactPosition = strpos($html, '>Kontakt</a>');
+    $panelPosition = strpos($html, '>Otwórz panel</a>');
+    $assert($econifyPosition !== false && $projectsPosition !== false && $contactPosition !== false);
+    $assert($econifyPosition < $contactPosition);
+    $assert($projectsPosition < $contactPosition);
+    $assert($contactPosition < $panelPosition);
 });
 
 $test('Theme exposes SyntaxDevTeam brand assets for browsers and social previews', static function () use ($assert): void {
@@ -1454,7 +1496,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econify = $validator->validate(dirname(__DIR__) . '/modules/Econify');
     $assert($econify->id === 'econify');
-    $assert($econify->version === '1.1.0');
+    $assert($econify->version === '1.2.0');
     $assert($econify->type === 'extension');
     $assert($econify->requiredModules === ['core_auth']);
     $assert($econify->installFile === 'install.sql');
@@ -1580,16 +1622,19 @@ $test('CoreAuth declares database explorer permission', static function () use (
     }
     $assert(str_contains($econifyInstallSql, "'econify.platform.manage'"));
     $assert(str_contains($econifySource, "'/api/econify/events'"));
+    $assert(str_contains($econifySource, "'/api/econify/guilds'"));
     $assert(str_contains($econifySource, "hash_equals(\$this->config->apiToken"));
     $assert(str_contains($econifySource, "\$this->config->apiConfigured()"));
     $assert(str_contains($econifySource, "? 'unauthenticated' : 'forbidden'"));
     $assert(!str_contains($econifySource, "'econify_acl', \$decision"));
     $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
     $assert(!str_contains($econifySource, 'Dodaj serwer Discord'));
+    $assert(!str_contains($econifySource, '/admin/econify/discord/activate'));
     $assert(str_contains($econifySource, 'Twoje serwery Discord'));
-    $assert(str_contains($econifySource, '/admin/econify/discord/connect'));
+    $assert(str_contains($econifySource, '/econify/discord/connect'));
     $assert(str_contains($econifyRepository, 'FOR UPDATE'));
     $assert(str_contains($econifyRepository, 'external_reference'));
+    $assert(str_contains($econifyRepository, 'upsertDiscordGuild'));
 
     $projectsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/install.sql');
     $assert(str_contains($projectsInstallSql, 'CREATE TABLE projects'));

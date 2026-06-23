@@ -169,14 +169,15 @@ final class Theme implements ThemeInterface
             echo $this->publicPath === '/' ? ' aria-current="page"' : '';
             echo '>Home</a></li>';
         }
-        $hasContactLink = false;
+        $contactSection = null;
         foreach ($sections as $section) {
             if ($section['type'] === 'hero') {
                 continue;
             }
-            $hasContactLink = $hasContactLink
-                || (string) ($section['key'] ?? '') === 'contact'
-                || (string) ($section['layout'] ?? '') === 'contact';
+            if ((string) ($section['key'] ?? '') === 'contact' || (string) ($section['layout'] ?? '') === 'contact') {
+                $contactSection = $section;
+                continue;
+            }
             echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($section['key']) . '">';
             echo $this->escape($this->navigationLabel($section)) . '</a></li>';
         }
@@ -196,7 +197,10 @@ final class Theme implements ThemeInterface
                 echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
             }
         }
-        if (!$hasContactLink) {
+        if ($contactSection !== null) {
+            echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($contactSection['key']) . '">';
+            echo $this->escape($this->navigationLabel($contactSection)) . '</a></li>';
+        } else {
             echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';

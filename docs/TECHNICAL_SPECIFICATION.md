@@ -722,6 +722,9 @@ Stan 1.0.0:
   `identify guilds`; pokazuje wyłącznie serwery Owner/Administrator/Manage Guild,
   nie przechowuje tokenu użytkownika i przypina instalację bota do zweryfikowanego
   Guild ID przez `bot applications.commands`,
+- tenant serwera powstaje po zgłoszeniu instalacji przez bota do
+  `/api/econify/guilds`; zweryfikowany właściciel albo administrator Discord
+  może następnie połączyć lokalne konto z istniejącym tenantem,
 - sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
 - tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
   w jednym module i jednej transakcji z portfelem.

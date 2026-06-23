@@ -26,7 +26,7 @@ CREATE TABLE econify_guilds (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     discord_guild_id VARCHAR(32) NOT NULL UNIQUE,
     name VARCHAR(120) NOT NULL,
-    owner_user_id BIGINT UNSIGNED NOT NULL,
+    owner_user_id BIGINT UNSIGNED NULL,
     plan ENUM('freemium', 'premium') NOT NULL DEFAULT 'freemium',
     locale VARCHAR(8) NOT NULL DEFAULT 'pl',
     currency_name VARCHAR(40) NOT NULL DEFAULT 'kredyty',
@@ -41,7 +41,7 @@ CREATE TABLE econify_guilds (
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_econify_guilds_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_econify_guilds_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_econify_guilds_owner (owner_user_id, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

@@ -1,7 +1,7 @@
 # Econify Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econify.
-Wersja 1.1.0 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.2.0 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
@@ -59,16 +59,39 @@ zmienia salda drugi raz. Obsługiwane typy to `daily`, `work`, `vip_daily`,
 Panel Ownera pokazuje jedynie stan kompletności ustawień. Nie zwraca wartości
 tokenów, sekretu klienta ani ścieżki wskazanej dla środowiska testowego.
 
+Bot zgłasza swoją obecność na serwerze osobnym endpointem:
+
+```http
+POST /api/econify/guilds
+X-Econify-Token: <sekret>
+Content-Type: application/json
+```
+
+```json
+{
+  "guild_id": "123456789012345678",
+  "name": "Nazwa serwera",
+  "action": "installed"
+}
+```
+
+`action=installed` tworzy lub reaktywuje tenant serwera. `action=removed` oznacza
+tenant jako nieaktywny. Dopiero po takim zgłoszeniu zweryfikowany właściciel albo
+administrator Discord może połączyć konto miniPORTAL z serwerem i przejść do
+ustawień Econify.
+
 ## Onboarding serwera Discord
 
-Panel nie przyjmuje już ręcznie Guild ID. `Pobierz moje serwery Discord` uruchamia
-osobny Authorization Code + PKCE z zakresami `identify guilds`. Moduł pobiera
-profil i listę `/users/@me/guilds`, zachowuje tylko serwery z Owner,
-Administrator albo Manage Guild, a token użytkownika natychmiast odrzuca.
+Panel nie przyjmuje ręcznie Guild ID i nie tworzy tenantów z formularza.
+`Pobierz moje serwery Discord` uruchamia osobny Authorization Code + PKCE z
+zakresami `identify guilds`. Moduł pobiera profil i listę `/users/@me/guilds`,
+zachowuje tylko serwery z Owner, Administrator albo Manage Guild, a token
+użytkownika natychmiast odrzuca.
 
-Lista jest przechowywana w sesji przez 10 minut. Wybrany serwer można aktywować
-w planie Freemium, co tworzy tenant i przypisuje zweryfikowane konto jako
-`guild_owner` albo `guild_admin`. Przycisk zaproszenia używa oficjalnego flow
+Lista jest przechowywana w sesji przez 10 minut. Dla serwera bez zgłoszenia bota
+użytkownik widzi link `Zaproś Econify na serwer`. Dla serwera już zgłoszonego
+przez bota może połączyć konto z tenantem jako `guild_owner` albo `guild_admin`
+i przejść do ustawień ekonomii. Przycisk zaproszenia używa oficjalnego flow
 Discord `bot applications.commands`, blokuje wybór do zweryfikowanego Guild ID
 i prosi wyłącznie o maskę `ECONIFY_DISCORD_BOT_PERMISSIONS`.
 
