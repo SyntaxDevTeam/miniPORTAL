@@ -102,8 +102,10 @@ akcje i słowa kluczowe. Ten sam kontrakt rozszerzeń pozwala modułom dodawać
 konfigurowalne metryki oraz panele do Dashboardu.
 Aktywne moduły mogą również implementować `HookProviderInterface`: akcje i filtry
 `HookRegistry` są wykonywane według priorytetu bez modyfikowania modułu-konsumenta.
-Pierwszy filtr `homepage.sections` pozwala przyszłemu modułowi widgetów dostarczać
-strukturalne dane sekcji, które nadal renderuje wyłącznie aktywny motyw.
+Filtr `homepage.sections` zasila moduł `widgets`. Panel `/admin/widgets` pozwala
+umieszczać terminale i karty na początku strony, obok Hero, po Hero, przed albo po
+wskazanej sekcji oraz przed stopką. Widget może działać we wszystkich motywach albo
+tylko w `default`, `glassnight` lub `future`; HTML nadal renderuje aktywny motyw.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.
@@ -128,6 +130,10 @@ Warstwa prezentacji zawiera trzy wymienne motywy: `default`, `glassnight` oraz
 `future`. Motyw `future` przenosi neonowy, grafitowy wygląd wcześniejszego projektu
 edukacyjnego SyntaxDevTeam na aktualny `ThemeInterface`, bez przejmowania kodu ani
 zależności starego CMS-a. Motyw wybiera się w panelu `/admin/settings`.
+
+Pierwotny terminal Hero jest startowym rekordem modułu `widgets`, a nie zaszytym
+elementem szablonu. Wyłączenie widgetu rozszerza treść Hero na pełną szerokość,
+a wpis przypisany do konkretnego motywu może zastąpić wspólny element w jego slocie.
 
 Publiczny serwer udostępnia wyłącznie Front Controller, statyczne prototypy i assety.
 Kod, migracje, dokumentacja techniczna, testy oraz repozytorium Git są blokowane przez

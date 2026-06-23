@@ -40,6 +40,8 @@ use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
 use SyntaxDevTeam\Cms\Modules\Econify\EconifyDiscordGateway;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
+use SyntaxDevTeam\Cms\Modules\Widgets\Widget;
+use SyntaxDevTeam\Cms\Modules\Widgets\WidgetLayout;
 use SyntaxDevTeam\Cms\Templates\DefaultTheme\Theme as DefaultTheme;
 use SyntaxDevTeam\Cms\Installer\Installer;
 
@@ -891,6 +893,16 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
         'button_label' => '',
         'button_url' => '',
         'items' => [],
+        'widgets_aside' => [[
+            'id' => 1,
+            'key' => 'syntax-terminal',
+            'name' => 'Terminal SyntaxDevTeam',
+            'type' => 'terminal',
+            'title' => 'syntaxdevteam.pl/build',
+            'content' => 'Witaj w SyntaxDevTerminal 0.1.5.',
+            'button_label' => '',
+            'button_url' => '',
+        ]],
     ]], [], false);
     $html = (string) ob_get_clean();
 
@@ -900,9 +912,8 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(str_contains($html, 'class="terminal"'));
     $assert(str_contains($html, 'data-home-terminal data-authenticated="false"'));
     $assert(str_contains($html, 'data-terminal-output role="log" aria-live="polite"'));
-    $assert(str_contains($html, 'SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>'));
-    $assert(str_contains($html, 'status:         <span class="terminal-status">READY_TO_USE</span>'));
-    $assert(str_contains($html, 'Witaj w  SyntaxDevTerminal 0.1.5 .'));
+    $assert(str_contains($html, '<template data-terminal-welcome>Witaj w SyntaxDevTerminal 0.1.5.</template>'));
+    $assert(str_contains($html, 'id="widget-terminal-syntax-terminal-1-command"'));
     $assert(!str_contains($html, '>Panel administracyjny</a>'));
     $assert(!str_contains($html, '>Przejdź do panelu</a>'));
     $assert(!str_contains($html, '[ OK ]'));
@@ -917,9 +928,122 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(str_contains($js, '"help"'));
     $assert(str_contains($js, 'window.location.assign(route)'));
     $assert(str_contains($js, 'event.key !== "ArrowUp"'));
+    $assert(str_contains($js, 'querySelectorAll("[data-home-terminal]")'));
     $assert(str_contains($css, 'white-space: nowrap'));
     $assert(!str_contains($css, '.hero-acrostic::before'));
     $assert(!str_contains($css, 'flex: 0 0 0.95em'));
+});
+
+$test('Widget layout attaches terminal and cards to named homepage slots', static function () use ($assert): void {
+    $widget = static fn (
+        int $id,
+        string $key,
+        string $type,
+        string $placement,
+        string $target = '',
+        string $theme = '*',
+    ): Widget => new Widget(
+        $id,
+        $key,
+        ucfirst($key),
+        $type,
+        $placement,
+        $target,
+        $theme,
+        ucfirst($key),
+        'Treść widgetu',
+        '',
+        '',
+        10,
+        true,
+        '2026-06-22 00:00:00',
+        '2026-06-22 00:00:00',
+    );
+    $sections = (new WidgetLayout())->attach([
+        ['key' => 'top', 'type' => 'hero'],
+        ['key' => 'projects', 'type' => 'content'],
+    ], [
+        $widget(1, 'terminal', 'terminal', 'hero_aside'),
+        $widget(2, 'start', 'card', 'homepage_start'),
+        $widget(3, 'before-projects', 'card', 'before_section', 'projects'),
+        $widget(4, 'footer', 'card', 'before_footer'),
+    ]);
+
+    $assert(array_column($sections[0]['widgets_aside'], 'key') === ['terminal']);
+    $assert(array_column($sections[0]['widgets_before'], 'key') === ['start']);
+    $assert(array_column($sections[1]['widgets_before'], 'key') === ['before-projects']);
+    $assert(array_column($sections[1]['widgets_after'], 'key') === ['footer']);
+});
+
+$test('Homepage renders widget cards safely and has no hardcoded terminal', static function () use ($assert): void {
+    $theme = new DefaultTheme();
+    $section = [
+        'key' => 'top',
+        'type' => 'hero',
+        'eyebrow' => '',
+        'acrostic_words' => '',
+        'title' => 'Hero bez widgetu',
+        'content_html' => '<p>Opis.</p>',
+        'content_format' => 'html',
+        'layout' => 'split',
+        'button_label' => '',
+        'button_url' => '',
+        'items' => [],
+        'widgets_before' => [[
+            'key' => 'safe-card',
+            'name' => 'Karta',
+            'type' => 'card',
+            'title' => '<script>alert(1)</script>',
+            'content' => '<img src=x onerror=alert(1)>',
+            'button_label' => 'Zobacz',
+            'button_url' => 'javascript:alert(1)',
+        ]],
+    ];
+    ob_start();
+    $theme->render_homepage([$section], [], false);
+    $html = (string) ob_get_clean();
+
+    $assert(str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;'));
+    $assert(str_contains($html, '&lt;img src=x onerror=alert(1)&gt;'));
+    $assert(!str_contains($html, 'javascript:'));
+    $assert(!str_contains($html, 'data-home-terminal'));
+    $assert(str_contains($html, 'class="col-12 reveal is-visible"'));
+});
+
+$test('Every active theme can replace the Hero terminal with another widget', static function () use ($assert): void {
+    $engine = new ThemeEngine(dirname(__DIR__) . '/templates');
+    $section = [
+        'key' => 'top',
+        'type' => 'hero',
+        'eyebrow' => 'Widget test',
+        'acrostic_words' => '',
+        'title' => 'Wymienny element Hero',
+        'content_html' => '<p>Opis.</p>',
+        'content_format' => 'html',
+        'layout' => 'split',
+        'button_label' => '',
+        'button_url' => '',
+        'items' => [],
+        'widgets_aside' => [[
+            'id' => 7,
+            'key' => 'theme-card',
+            'name' => 'Zamiennik terminala',
+            'type' => 'card',
+            'title' => 'Widget motywu',
+            'content' => 'Ta karta zastępuje terminal.',
+            'button_label' => '',
+            'button_url' => '',
+        ]],
+    ];
+
+    foreach (['default', 'glassnight', 'future'] as $name) {
+        ob_start();
+        $engine->load($name)->render_homepage([$section], [], false);
+        $html = (string) ob_get_clean();
+        $assert(str_contains($html, 'data-widget="theme-card"'), 'Motyw nie renderuje karty: ' . $name);
+        $assert(str_contains($html, 'Widget motywu'), 'Motyw pomija treść widgetu: ' . $name);
+        $assert(!str_contains($html, 'data-home-terminal'), 'Motyw zachował terminal: ' . $name);
+    }
 });
 
 $test('Homepage headings preserve intentional line breaks safely', static function () use ($assert): void {
@@ -1194,6 +1318,7 @@ $test('Installer exposes a complete installable module catalog', static function
     $assert(in_array('core_auth', $ids, true));
     $assert(in_array('core_pages', $ids, true));
     $assert(in_array('system_admin', $ids, true));
+    $assert(in_array('widgets', $ids, true));
     $required = array_column(array_filter(
         $modules,
         static fn (array $module): bool => $module['required']
@@ -1294,6 +1419,14 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($team->installFile === 'install.sql');
     $assert($team->uninstallFile === 'uninstall.sql');
     $assert($team->requiredModules === ['core_auth']);
+
+    $widgets = $validator->validate(dirname(__DIR__) . '/modules/Widgets');
+    $assert($widgets->id === 'widgets');
+    $assert($widgets->version === '1.0.0');
+    $assert($widgets->type === 'extension');
+    $assert($widgets->requiredModules === ['core_auth', 'core_pages']);
+    $assert($widgets->installFile === 'install.sql');
+    $assert($widgets->uninstallFile === 'uninstall.sql');
 
     $projects = $validator->validate(dirname(__DIR__) . '/modules/Projects');
     $assert($projects->id === 'projects');

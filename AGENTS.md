@@ -146,6 +146,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `build_explorer` Etap 3: hierarchia projekt/kanał/wersja/build oraz uwierzytelniony import DEV/WIP z CI. |
 | [x] | `core_pages` 1.1.0: opcjonalny pionowy akrostych dla sekcji Hero / Split. |
 | [x] | `core_pages` 1.2.0: publiczna podstrona projektu miniPORTAL i linkowany podpis stopki. |
+| [x] | `widgets` 1.0.0: hookowe sloty strony głównej, CRUD i terminal wydzielony z motywów. |
 
 ### Krok 6 - system modułów
 

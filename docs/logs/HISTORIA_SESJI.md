@@ -2160,3 +2160,20 @@ w nawigacji publicznej.
 
 **Weryfikacja:** test regresji renderowania Hero, lint PHP, pełne testy,
 przebudowa dystrybucji i `git diff --check`.
+### Sesja: 2026-06-22 - Moduł widgetów i terminal Hero
+
+**Faza i krok specyfikacji:** Krok 5C/6 - moduł treści prezentacyjnej korzystający
+z Hooks API bez zależności od HTML konkretnego motywu.
+
+**Wykonano:** dodano `widgets` 1.0.0 z CRUD, ACL `widgets.manage`, CSRF, audytem,
+cache invalidation, metryką Dashboardu i wyszukiwarką panelu. Widgety typu terminal
+albo karta można przypisać do wszystkich motywów lub jednego motywu oraz do slotów
+na początku strony, obok Hero, po Hero, przed/po wskazanej sekcji i przed stopką.
+Istniejący SyntaxDevTerminal stał się rekordem instalacyjnym modułu. Default,
+Glassnight i Future renderują dane widgetów samodzielnie; brak widgetu rozszerza
+Hero na pełną szerokość. Symulator obsługuje wiele instancji i nadal nie wykonuje
+poleceń serwera.
+
+**Weryfikacja:** testy układu hooków, manifestu, bezpiecznego renderowania karty,
+braku zaszytego terminala, wielu terminali JS, pełny lint PHP/JS, testy repozytorium,
+przebudowa czystej dystrybucji, instalacja przez `ModuleInstaller` i smoke test `/`.

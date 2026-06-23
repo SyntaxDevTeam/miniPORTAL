@@ -143,7 +143,7 @@ Cel tej fazy:
 
 Stan integracji:
 - aktywna trasa `/` odwzorowuje `templates/default/homepage.html` przez `ThemeInterface`,
-- terminal Hero jest bezpiecznym symulatorem po stronie przeglądarki: pokazuje
+- terminal Hero jest startowym widgetem i bezpiecznym symulatorem po stronie przeglądarki: pokazuje
   sekwencję startową, przyjmuje ograniczony zestaw komend nawigacyjnych i nie
   uruchamia procesów, powłoki ani poleceń systemu operacyjnego na serwerze,
 - opublikowane treści `core_pages` pojawiają się dynamicznie na stronie głównej,
@@ -555,7 +555,8 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
 1. System haków i filtrów (Hooks API) [wdrożony]
    - `HookRegistry` rozdziela akcje od filtrów i wykonuje callbacki według priorytetu,
    - aktywny moduł zgłasza hooki opcjonalnym `HookProviderInterface`,
-   - `homepage.sections` filtruje strukturalne dane przed renderowaniem przez Theme.
+   - `homepage.sections` filtruje strukturalne dane przed renderowaniem przez Theme;
+     moduł `widgets` używa go do osadzania terminali i kart bez generowania HTML.
 
 2. Przyjazne adresy URL (Slug Router) [wdrożony]
    - Router mapuje wzorce typu `/article/{slug}` i przekazuje segment przez
@@ -634,6 +635,7 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
     przegląd bezpieczeństwa z wejściem do tożsamości zarządzanych przez `core_auth`.
 15. `projects`: publiczny katalog stanu projektów powiązany z podstronami i Wiki.
 16. `build_explorer`: kanały i pliki wydań przypisane do katalogu projektów.
+17. `widgets`: małe komponenty publiczne osadzane w slotach motywów przez Hooks API.
 
 Stan Kroku 5:
 
@@ -642,6 +644,10 @@ Stan Kroku 5:
   profil obejmuje podgląd, edycję danych, ustawienia avatara i bezpieczeństwo,
   natomiast `core_auth` zachowuje operacje na połączonych kontach,
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
+- `widgets` 1.0.0 zarządza terminalami i kartami w slotach `homepage_start`,
+  `hero_aside`, `after_hero`, `before_section`, `after_section` i `before_footer`;
+  widget może być wspólny albo przypisany do jednego motywu, a pierwszy terminal
+  Hero jest rekordem startowym instalacji zamiast HTML zaszytego w Theme,
 - elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
   pozostają wyłączną odpowiedzialnością aktywnego motywu,
 - sekcja `hero` z układem `split` może przechowywać opcjonalną listę wyrazów
@@ -675,6 +681,8 @@ Stan fundamentu Kroku 6:
 - `DashboardRegistry` przyjmuje bezpieczne metryki i tabele od
   `DashboardProviderInterface`; widoczność każdego elementu modułu jest zapisywana
   w ustawieniach bez przechowywania wykonywalnego kodu w bazie,
+- moduł `widgets` implementuje `HookProviderInterface`, a Theme renderuje wyłącznie
+  strukturalne dane widgetów przypisanych do aktywnego motywu i slotu,
 - `ModuleStateRepository` i `ModuleInstaller` zapewniają trwały stan i historię SQL,
 - `SystemAdminModule` udostępnia dashboard, zasoby systemowe oraz manager instalacji,
   migracji, aktualizacji, aktywacji i odinstalowania, eksport audytu oraz diagnostykę

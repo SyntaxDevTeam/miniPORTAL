@@ -125,6 +125,14 @@ Szablon strony głównej a szablon pozostałych elementów to to 2 różne bajki
 ~~Więcej elementów statystyk i informacji o modułach, aktywności użytkowników itp. Dashboard musi byc centrum informacji o stronie gdzie padają decyzję co dalej 😉.~~ (gotowe)
 
 ## Przyszłę moduły i pomysły
+### Widgety
+
+Etap 1 gotowy: dodano moduł `widgets` 1.0.0 oparty na Hooks API. Panel
+`/admin/widgets` zarządza terminalami i kartami, ich widocznością, kolejnością,
+motywem oraz slotem strony głównej. Dotychczasowy terminal Hero jest rekordem
+startowym modułu; motywy nie zawierają już bezwarunkowego terminala i mogą
+zastąpić wspólny widget wpisem przypisanym do konkretnego motywu.
+
 ### Profil użytkownika
 
 ~~Obecnie istnieje jakaś namiastka w panelu admina o nazwie "Profil" gdzie występuej tylko "Połączone konta" całość można by zamknąć w osobnym module który by rozszerzał możliwości i przenosił opcje z "Profil" do menu po kliknięciu w nazwę użytkownika~~

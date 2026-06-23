@@ -140,13 +140,14 @@ final class Theme implements ThemeInterface
         echo '<main id="content" tabindex="-1">';
         $heroRendered = false;
         foreach ($sections as $section) {
+            $this->renderHomepageWidgetArea($section['widgets_before'] ?? [], $authenticated);
             if ($section['type'] === 'hero' && !$heroRendered) {
                 $this->renderHomepageHero($section, $authenticated);
                 $heroRendered = true;
-                continue;
+            } else {
+                $this->renderHomepageSection($section);
             }
-
-            $this->renderHomepageSection($section);
+            $this->renderHomepageWidgetArea($section['widgets_after'] ?? [], $authenticated);
         }
 
         echo '</main>';
@@ -1187,9 +1188,11 @@ final class Theme implements ThemeInterface
     private function renderHomepageHero(array $section, bool $authenticated): void
     {
         $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
+        $asideWidgets = is_array($section['widgets_aside'] ?? null) ? $section['widgets_aside'] : [];
+        $hasAside = $asideWidgets !== [];
 
         echo '<header id="' . $this->escape($section['key']) . '" class="home-hero"><div class="container py-5">';
-        echo '<div class="row align-items-center g-5"><div class="col-lg-7 reveal is-visible">';
+        echo '<div class="row align-items-center g-5"><div class="' . ($hasAside ? 'col-lg-7' : 'col-12') . ' reveal is-visible">';
         if ($section['eyebrow'] !== '') {
             echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
         }
@@ -1205,30 +1208,70 @@ final class Theme implements ThemeInterface
             echo '<a class="btn btn-primary btn-lg" href="' . $this->escape($this->safeHref($section['button_url'])) . '">';
             echo $this->escape($section['button_label']) . '</a>';
         }
-        echo '</div></div><div class="col-lg-5 reveal is-visible">';
+        echo '</div></div>';
+        if ($hasAside) {
+            echo '<div class="col-lg-5 reveal is-visible">';
+            $this->renderHomepageWidget($asideWidgets[0], $authenticated);
+            echo '</div>';
+        }
+        echo '</div></div></header>';
+    }
+
+    /** @param list<array<string, mixed>> $widgets */
+    private function renderHomepageWidgetArea(array $widgets, bool $authenticated): void
+    {
+        if ($widgets === []) {
+            return;
+        }
+        echo '<section class="home-section homepage-widget-area"><div class="container"><div class="managed-card-grid">';
+        foreach ($widgets as $widget) {
+            $this->renderHomepageWidget($widget, $authenticated);
+        }
+        echo '</div></div></section>';
+    }
+
+    /** @param array<string, mixed> $widget */
+    private function renderHomepageWidget(array $widget, bool $authenticated): void
+    {
+        if (($widget['type'] ?? '') === 'terminal') {
+            $this->renderHomepageTerminalWidget($widget, $authenticated);
+            return;
+        }
+
+        $title = trim((string) ($widget['title'] ?? '')) ?: (string) ($widget['name'] ?? 'Widget');
+        echo '<article class="showcase-card managed-card reveal is-visible" data-widget="' . $this->escape((string) ($widget['key'] ?? 'card')) . '">';
+        echo '<p class="managed-card-label">WIDGET</p><h3>' . $this->escape($title) . '</h3>';
+        echo '<p class="text-secondary">' . nl2br($this->escape((string) ($widget['content'] ?? ''))) . '</p>';
+        $href = $this->safeHref((string) ($widget['button_url'] ?? ''));
+        if ($href !== '' && trim((string) ($widget['button_label'] ?? '')) !== '') {
+            echo '<a class="btn btn-outline-light" href="' . $this->escape($href) . '">';
+            echo $this->escape((string) $widget['button_label']) . '</a>';
+        }
+        echo '</article>';
+    }
+
+    /** @param array<string, mixed> $widget */
+    private function renderHomepageTerminalWidget(array $widget, bool $authenticated): void
+    {
+        $key = (preg_replace('/[^a-z0-9_-]/', '-', strtolower((string) ($widget['key'] ?? 'terminal'))) ?: 'terminal')
+            . '-' . max(0, (int) ($widget['id'] ?? 0));
+        $inputId = 'widget-terminal-' . $key . '-command';
+        $hintId = 'widget-terminal-' . $key . '-hint';
         echo '<div class="terminal" data-home-terminal data-authenticated="' . ($authenticated ? 'true' : 'false') . '"';
         echo ' aria-label="Interaktywny terminal strony"><div class="terminal-bar">';
         echo '<i class="terminal-dot" aria-hidden="true"></i><i class="terminal-dot" aria-hidden="true"></i>';
-        echo '<i class="terminal-dot" aria-hidden="true"></i><span>syntaxdevteam.pl/build</span></div>';
+        echo '<i class="terminal-dot" aria-hidden="true"></i><span>';
+        echo $this->escape(trim((string) ($widget['title'] ?? '')) ?: 'syntaxdevteam.pl/build') . '</span></div>';
         echo '<div class="terminal-screen" data-terminal-output role="log" aria-live="polite" aria-label="Wynik terminala">';
-        echo '<pre><code>Uruchamianie SyntaxDevTerminal...</code></pre><pre><code>';
-        echo 'CoreAuth        <span class="terminal-status">READY</span>' . "\n";
-        echo 'CorePages       <span class="terminal-status">READY</span>' . "\n";
-        echo 'ThemeEngine     <span class="terminal-status">ONLINE</span>' . "\n";
-        echo 'SyntaxCrudApp   <span class="terminal-status">CONNECTED</span>' . "\n\n";
-        echo 'architecture:   <span class="terminal-status">MODULAR</span>' . "\n";
-        echo 'security:       <span class="terminal-status">ENABLED</span>' . "\n";
-        echo 'status:         <span class="terminal-status">READY_TO_USE</span></code></pre>';
-        echo '<pre class="terminal-welcome"><code>Witaj w  SyntaxDevTerminal 0.1.5 .' . "\n";
-        echo 'Wpisz help i naciśnij Enter aby zobaczyć dostępne komendy.</code></pre></div>';
+        echo '</div>';
         echo '<form class="terminal-command" data-terminal-form action="#" autocomplete="off">';
-        echo '<label class="visually-hidden" for="homepage-terminal-command">Komenda terminala</label>';
+        echo '<label class="visually-hidden" for="' . $inputId . '">Komenda terminala</label>';
         echo '<span aria-hidden="true">visitor@syntax:~$</span>';
-        echo '<input id="homepage-terminal-command" data-terminal-input name="command" type="text"';
-        echo ' inputmode="text" autocapitalize="none" spellcheck="false" maxlength="80" aria-describedby="terminal-command-hint">';
+        echo '<input id="' . $inputId . '" data-terminal-input name="command" type="text"';
+        echo ' inputmode="text" autocapitalize="none" spellcheck="false" maxlength="80" aria-describedby="' . $hintId . '">';
         echo '<button type="submit" class="visually-hidden">Wykonaj</button></form>';
-        echo '<p id="terminal-command-hint" class="visually-hidden">Wpisz help i naciśnij Enter. Historia komend jest dostępna strzałkami.</p></div>';
-        echo '</div></div></div></header>';
+        echo '<p id="' . $hintId . '" class="visually-hidden">Wpisz help i naciśnij Enter. Historia komend jest dostępna strzałkami.</p>';
+        echo '<template data-terminal-welcome>' . $this->escape((string) ($widget['content'] ?? '')) . '</template></div>';
     }
 
     private function renderHomepageAcrostic(string $value): void

@@ -36,6 +36,8 @@ use SyntaxDevTeam\Cms\Modules\Team\TeamRepository;
 use SyntaxDevTeam\Cms\Modules\UserProfile\UserProfileModule;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikipediaModule;
 use SyntaxDevTeam\Cms\Modules\Wikipedia\WikiRepository;
+use SyntaxDevTeam\Cms\Modules\Widgets\WidgetRepository;
+use SyntaxDevTeam\Cms\Modules\Widgets\WidgetsModule;
 
 return [
     [
@@ -205,6 +207,20 @@ return [
             $services['access'],
             $services['security'],
             $services['audit']
+        ),
+    ],
+    [
+        'directory' => 'Widgets',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): WidgetsModule => new WidgetsModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new WidgetRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
+            $services['template_cache'],
+            $services['available_themes'],
         ),
     ],
     [

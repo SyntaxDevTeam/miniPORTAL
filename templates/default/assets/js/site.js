@@ -57,13 +57,13 @@ if (reduceMotion || !("IntersectionObserver" in window)) {
   revealElements.forEach((element) => observer.observe(element));
 }
 
-const terminal = document.querySelector("[data-home-terminal]");
-
-if (terminal) {
+document.querySelectorAll("[data-home-terminal]").forEach((terminal) => {
   const output = terminal.querySelector("[data-terminal-output]");
   const form = terminal.querySelector("[data-terminal-form]");
   const input = terminal.querySelector("[data-terminal-input]");
   const authenticated = terminal.dataset.authenticated === "true";
+  const welcome = terminal.querySelector("[data-terminal-welcome]")?.textContent.trim()
+    || "Wpisz help i naciśnij Enter, aby zobaczyć dostępne komendy.";
   const history = [];
   let historyIndex = 0;
 
@@ -81,7 +81,7 @@ if (terminal) {
     { text: "Uruchamianie SyntaxDevTerminal..." },
     ...statusLines.map(([label, value]) => ({ label, value })),
     {
-      text: "Witaj w  SyntaxDevTerminal 0.1.5 .\nWpisz help i naciśnij Enter aby zobaczyć dostępne komendy.",
+      text: welcome,
       className: "terminal-welcome",
     },
   ];
@@ -240,4 +240,4 @@ if (terminal) {
   });
 
   startTerminal();
-}
+});

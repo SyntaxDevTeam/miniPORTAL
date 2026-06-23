@@ -21,6 +21,9 @@ interface ThemeInterface
      *     layout: string,
      *     button_label: string,
      *     button_url: string,
+     *     widgets_before?: list<array<string, scalar>>,
+     *     widgets_after?: list<array<string, scalar>>,
+     *     widgets_aside?: list<array<string, scalar>>,
      *     items: list<array{
      *         label: string,
      *         title: string,

@@ -238,7 +238,8 @@ $router->get('/', static function () use (
     $auth,
     $templateCache,
     $publicNavigationItems,
-    $hooks
+    $hooks,
+    $application
 ): void {
     $renderer = static function () use (
         $homepageSectionRepository,
@@ -246,7 +247,8 @@ $router->get('/', static function () use (
         $theme,
         $auth,
         $publicNavigationItems,
-        $hooks
+        $hooks,
+        $application
     ): string {
         $navigation = $publicNavigationItems();
         $sections = [];
@@ -260,6 +262,7 @@ $router->get('/', static function () use (
         }
         $sections = $hooks->applyFilters('homepage.sections', $sections, [
             'authenticated' => $auth->user() !== null,
+            'theme' => (string) ($application->config()['app']['theme'] ?? 'default'),
         ]);
         if (!is_array($sections)) {
             throw new UnexpectedValueException('Filtr homepage.sections musi zwrócić tablicę sekcji.');
@@ -271,7 +274,7 @@ $router->get('/', static function () use (
     };
 
     echo $auth->user() === null
-        ? $templateCache->remember('public', 'homepage', $renderer, ['homepage', 'pages', 'theme'])
+        ? $templateCache->remember('public', 'homepage', $renderer, ['homepage', 'pages', 'widgets', 'theme'])
         : $renderer();
 });
 
