@@ -163,6 +163,33 @@ $test('Econizer discovers only manageable Discord guilds without storing token',
     unset($_SESSION['_econizer_discord_guilds']);
 });
 
+$test('Econizer prefers the managed config directory over the module directory', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/econizer-config-' . bin2hex(random_bytes(4));
+    $module = $root . '/modules/Econizer';
+    $managed = $root . '/config/modules';
+    mkdir($module, 0770, true);
+    mkdir($managed, 0770, true);
+    file_put_contents($module . '/.env', "ECONIZER_API_TOKEN=\"legacy-token-xxxxxxxxxxxxxxxxxxxx\"\n");
+    file_put_contents(
+        $managed . '/econizer.env',
+        "ECONIZER_API_TOKEN=\"managed-token-xxxxxxxxxxxxxxxxxxx\"\n"
+    );
+
+    try {
+        $config = SyntaxDevTeam\Cms\Modules\Econizer\EconizerConfig::load($module);
+        $assert($config->apiToken === 'managed-token-xxxxxxxxxxxxxxxxxxx');
+        $assert($config->environmentFile === $managed . '/econizer.env');
+    } finally {
+        @unlink($managed . '/econizer.env');
+        @unlink($module . '/.env');
+        @rmdir($managed);
+        @rmdir($root . '/config');
+        @rmdir($module);
+        @rmdir($root . '/modules');
+        @rmdir($root);
+    }
+});
+
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
     $stream = fopen('php://temp', 'w+b');
     (new AuditCsvExporter())->write($stream, [[
@@ -1368,10 +1395,31 @@ $test('Installer exposes a complete installable module catalog', static function
     $assert($required === ['core_auth', 'core_pages', 'system_admin']);
 });
 
+$test('Clean installer uses current schemas instead of migration SQL', static function () use ($assert): void {
+    $installerSource = (string) file_get_contents(
+        dirname(__DIR__) . '/install/cms-source/Installer.php'
+    );
+    $coreInstall = (string) file_get_contents(dirname(__DIR__) . '/core/install.sql');
+
+    $assert(str_contains($installerSource, "/core/install.sql"));
+    $assert(!str_contains($installerSource, "/core/migrations/"));
+    $assert(str_contains($coreInstall, 'CREATE TABLE core_migrations'));
+    $assert(str_contains($coreInstall, 'CREATE TABLE modules_config'));
+    $assert(str_contains($coreInstall, 'CREATE TABLE module_migrations'));
+    $assert(str_contains($coreInstall, 'CREATE TABLE system_settings'));
+});
+
 $test('CMS distribution contains installer and excludes local state', static function () use ($assert): void {
     $distribution = dirname(__DIR__) . '/install/cms';
 
-    foreach (['index.php', 'install.php', 'installer/Installer.php', 'INSTALL.md', '.htaccess'] as $file) {
+    foreach ([
+        'index.php',
+        'install.php',
+        'installer/Installer.php',
+        'installer/migration-baseline.php',
+        'INSTALL.md',
+        '.htaccess',
+    ] as $file) {
         $assert(is_file($distribution . '/' . $file), 'Brak pliku dystrybucji: ' . $file);
     }
     $assert(!file_exists($distribution . '/config/installed.env'));
@@ -1381,6 +1429,10 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
     $assert(!file_exists($distribution . '/modules/Econizer/.env'));
     $assert(is_file($distribution . '/modules/Econizer/.env.example'));
+    $assert(is_dir($distribution . '/config/modules'));
+    $assert(!file_exists($distribution . '/config/modules/econizer.env'));
+    $assert(!is_dir($distribution . '/core/migrations'));
+    $assert((glob($distribution . '/modules/*/migrations') ?: []) === []);
     $distributionBuilder = (string) file_get_contents(dirname(__DIR__) . '/bin/build-cms-distribution.php');
     $assert(str_contains($distributionBuilder, "\$basename === '.env'"));
     $assert(str_contains($distributionBuilder, "\$basename !== '.env.example'"));

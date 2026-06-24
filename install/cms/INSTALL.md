@@ -31,6 +31,9 @@
 Kreator przyjmuje wyłącznie pustą bazę, sam uruchamia migracje, tworzy pierwszego
 Ownera, zapisuje sekrety w `config/installed.env` i blokuje ponowne uruchomienie
 plikiem `config/installed.lock`. Oba pliki są chronione przez dołączony `.htaccess`.
+Każda kopia miniPORTAL korzysta domyślnie wyłącznie z własnego
+`config/installed.env`. Zewnętrzny plik można wskazać zmienną
+`MINIPORTAL_ENV_FILE` ustawioną osobno dla danego virtual hosta.
 
 Callback aplikacji GitHub należy ustawić na:
 

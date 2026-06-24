@@ -2286,3 +2286,34 @@ test tras `/econizer`, `/econizer/servers` i `/admin/econizer` na izolowanym
 serwerze PHP. Produkcyjna baza ma aktywny `econizer` 1.3.1, 11 tabel
 `econizer_*`, nowe uprawnienia oraz zero starych nazw tabel, indeksów, ograniczeń
 i treści CMS.
+
+### Sesja: 2026-06-24 - Czysty schemat instalacyjny bez migracji historycznych
+
+**Faza i krok specyfikacji:** Krok 7 - integracyjna instalacja wszystkich modułów
+na czystej bazie.
+
+**Wykonano:** dodano bieżący `core/install.sql`, a kreator przestał wykonywać
+historyczne migracje Core na pustej bazie. Generator dystrybucji pomija wszystkie
+katalogi `migrations/` Core i modułów. Zamiast kopiować historyczny SQL, generuje
+manifest nazw i SHA-256 migracji już zawartych w aktualnych plikach `install.sql`;
+kreator zapisuje ten stan w `core_migrations` i `module_migrations`, dzięki czemu
+przyszłe aktualizacje nie próbują uruchamiać starych zmian ponownie.
+
+**Weryfikacja:** dodano test bieżącego schematu Core, braku katalogów migracji
+w dystrybucji oraz obecności manifestu stanu bazowego; uruchomiono testy
+repozytorium, lint PHP, przebudowę czystej dystrybucji i kontrolę diffu.
+
+### Sesja: 2026-06-24 - Zapisywalna konfiguracja Econizer w kreatorze
+
+**Faza i krok specyfikacji:** Krok 7 - kreator instalacji i atomowy zapis
+konfiguracji; Krok 8 - izolowany plik środowiska Econizer.
+
+**Wykonano:** instalator zapisuje sekrety Econizer w chronionym
+`config/modules/econizer.env` zamiast w katalogu kodu `modules/Econizer`.
+`config/modules` jest wymaganym katalogiem zapisywalnym i powstaje w czystej
+dystrybucji. Loader preferuje nową lokalizację, zachowuje zgodność ze starszym
+`modules/Econizer/.env` i nadal pozwala jawnie użyć `ECONIZER_ENV_FILE`.
+
+**Weryfikacja:** zaktualizowano test integracyjny instalatora i test zawartości
+dystrybucji; uruchomiono pełne testy, lint PHP, generator pakietu oraz kontrolę
+uprawnień i diffu.

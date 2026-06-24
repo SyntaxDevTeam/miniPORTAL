@@ -1,2 +1,0 @@
-ALTER TABLE core_pages
-    ADD COLUMN eyebrow VARCHAR(160) NOT NULL DEFAULT '' AFTER slug;

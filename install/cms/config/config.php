@@ -2,34 +2,32 @@
 
 declare(strict_types=1);
 
-$environmentFile = getenv('MINIPORTAL_ENV_FILE');
-if ($environmentFile === false || $environmentFile === '') {
-    $systemEnvironmentFile = '/etc/miniportal/miniportal.env';
-    $localEnvironmentFile = __DIR__ . '/installed.env';
-    $environmentFile = is_readable($localEnvironmentFile)
-        ? $localEnvironmentFile
-        : $systemEnvironmentFile;
+$explicitEnvironmentFile = getenv('MINIPORTAL_ENV_FILE');
+$explicitEnvironmentFile = is_string($explicitEnvironmentFile) ? trim($explicitEnvironmentFile) : '';
+$environmentFile = $explicitEnvironmentFile !== ''
+    ? $explicitEnvironmentFile
+    : __DIR__ . '/installed.env';
+$environment = [];
+
+if ($explicitEnvironmentFile !== '' && !is_readable($environmentFile)) {
+    throw new RuntimeException(
+        "Plik wskazany przez MINIPORTAL_ENV_FILE nie jest dostępny: {$environmentFile}"
+    );
 }
 
 if (is_readable($environmentFile)) {
-    $environment = parse_ini_file($environmentFile, false, INI_SCANNER_RAW);
+    $parsedEnvironment = parse_ini_file($environmentFile, false, INI_SCANNER_RAW);
 
-    if ($environment === false) {
+    if ($parsedEnvironment === false) {
         throw new RuntimeException("Nie można odczytać pliku środowiskowego: {$environmentFile}");
     }
-
-    foreach ($environment as $name => $value) {
-        if (getenv($name) !== false) {
-            continue;
-        }
-
-        $value = (string) $value;
-        putenv("{$name}={$value}");
-        $_ENV[$name] = $value;
-    }
+    $environment = $parsedEnvironment;
 }
 
-$env = static function (string $name, mixed $default = null): mixed {
+$env = static function (string $name, mixed $default = null) use ($environment): mixed {
+    if (array_key_exists($name, $environment)) {
+        return $environment[$name];
+    }
     $value = getenv($name);
 
     return $value === false ? $default : $value;

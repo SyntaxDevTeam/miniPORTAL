@@ -64,7 +64,7 @@ $ownerCount = (int) $pdo->query(
 $activeModules = (int) $pdo->query(
     "SELECT COUNT(*) FROM modules_config WHERE status = 'active'"
 )->fetchColumn();
-$econizerEnvironment = $root . '/modules/Econizer/.env';
+$econizerEnvironment = $root . '/config/modules/econizer.env';
 $econizerValues = is_file($econizerEnvironment)
     ? parse_ini_file($econizerEnvironment, false, INI_SCANNER_RAW)
     : false;

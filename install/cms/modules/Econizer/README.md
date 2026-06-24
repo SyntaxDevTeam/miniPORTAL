@@ -12,14 +12,14 @@ Wersja 1.3.1 obejmuje trzy niezależne poziomy dostępu:
 
 ## Integracja bota
 
-Moduł czyta własny plik `modules/Econizer/.env`, niezależny od
+Moduł czyta własny plik `config/modules/econizer.env`, niezależny od
 `config/installed.env` i `/etc/miniportal/miniportal.env`. Zacznij od
-`.env.example`, zapisz wynik jako `.env` i ustaw prawa `0600`, gdy plik należy do
-procesu WWW, albo `0640` z grupą serwera WWW w instalacji zarządzanej przez
-administratora systemu. W testach lub CI
+.env.example, zapisz wynik w chronionym katalogu konfiguracji i ustaw prawa
+`0600`, gdy plik należy do procesu WWW, albo `0640` z grupą serwera WWW
+w instalacji zarządzanej przez administratora systemu. W testach lub CI
 możesz wskazać inną lokalizację zmienną procesu `ECONIZER_ENV_FILE`; ma ona
-najwyższy priorytet. Jeśli lokalny plik nie istnieje, loader zachowuje zgodność
-wsteczną i odczytuje zmienne procesu.
+najwyższy priorytet. Jeśli zarządzany plik nie istnieje, loader sprawdza starszy
+`modules/Econizer/.env`, a następnie zachowuje zgodność ze zmiennymi procesu.
 
 Plik zawiera:
 

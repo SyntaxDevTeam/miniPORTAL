@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Core\Autoloader;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Installer\Installer;
 
 require_once __DIR__ . '/core/Autoloader.php';
@@ -24,7 +25,7 @@ header('Content-Type: text/html; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'nonce-{$nonce}'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'nonce-{$nonce}'; script-src 'nonce-{$nonce}'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
 $installer = new Installer(__DIR__);
 $checks = $installer->preflight();
@@ -57,6 +58,9 @@ $selectedModules = is_array($_POST['modules'] ?? null)
     ? array_map('strval', $_POST['modules'])
     : array_column($modules, 'id');
 $preflightOk = array_all($checks, static fn (array $check): bool => $check['ok']);
+$permissionIssues = FilesystemPermissions::missing(__DIR__);
+$permissionCommand = FilesystemPermissions::remediationCommand(__DIR__);
+$initialStep = $error !== '' ? 5 : 1;
 $host = preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost')) ?: 'localhost';
 $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
 ?><!doctype html>
@@ -75,9 +79,15 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
     .mark { display:grid; width:3.4rem; height:3.4rem; place-items:center; color:#07101d; background:var(--accent); border-radius:1rem; font-weight:900; }
     h1,h2 { margin:.2rem 0; line-height:1.15; }
     p { color:var(--muted); }
-    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
     .panel { padding:1.25rem; background:rgba(16,27,43,.94); border:1px solid var(--line); border-radius:1rem; box-shadow:0 1rem 3rem rgba(0,0,0,.22); }
-    .wide { grid-column:1/-1; }
+    .wizard { width:min(760px,100%); margin:0 auto; }
+    .wizard-progress { display:grid; grid-template-columns:repeat(5,1fr); gap:.45rem; margin:0 0 1rem; padding:0; list-style:none; }
+    .wizard-progress li { min-width:0; color:var(--muted); text-align:center; font-size:.82rem; }
+    .wizard-progress span { display:grid; width:2rem; height:2rem; margin:0 auto .35rem; place-items:center; background:#101b2b; border:1px solid var(--line); border-radius:50%; font-weight:850; }
+    .wizard-progress li.active { color:var(--text); }
+    .wizard-progress li.active span { color:#04111d; background:var(--accent); border-color:var(--accent); }
+    .js .wizard-step { display:none; }
+    .js .wizard-step.active { display:block; }
     label,legend { color:var(--text); font-weight:750; }
     label { display:grid; gap:.35rem; margin-top:.85rem; }
     input,select { width:100%; min-height:2.8rem; padding:.65rem .75rem; color:var(--text); background:#081424; border:1px solid var(--line); border-radius:.55rem; font:inherit; }
@@ -93,12 +103,16 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
     .alert-error { color:#ffd7de; background:#381421; }
     .alert-success { color:#d8ffed; background:#103326; }
     .actions { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1.25rem; }
+    .action-group { display:flex; gap:.65rem; margin-left:auto; }
     button,.button { display:inline-flex; min-height:2.8rem; align-items:center; justify-content:center; padding:.65rem 1rem; color:#04111d; background:var(--accent); border:0; border-radius:.6rem; font:inherit; font-weight:850; text-decoration:none; cursor:pointer; }
+    button.secondary { color:var(--text); background:#1b2a3d; border:1px solid var(--line); }
     button:disabled { cursor:not-allowed; opacity:.45; }
     small { color:var(--muted); font-weight:450; }
     code { color:var(--accent); }
-    @media (max-width:760px) { .grid,.checks { grid-template-columns:1fr; } .wide { grid-column:auto; } .actions { align-items:stretch; flex-direction:column; } }
+    pre { overflow:auto; padding:1rem; background:#050b13; border:1px solid var(--line); border-radius:.55rem; white-space:pre-wrap; }
+    @media (max-width:760px) { .checks { grid-template-columns:1fr; } .wizard-progress li { font-size:0; } .wizard-progress span { font-size:.82rem; } .actions { align-items:stretch; flex-direction:column; } .action-group { width:100%; margin:0; } .action-group button { flex:1; } }
   </style>
+  <script nonce="<?= $escape($nonce) ?>">document.documentElement.classList.add('js');</script>
 </head>
 <body>
 <main class="shell">
@@ -119,27 +133,40 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
     <section class="panel"><h2>Instalator jest zablokowany</h2><p>Ta kopia miniPORTAL została już zainstalowana.</p><a class="button" href="/">Otwórz stronę</a></section>
   <?php else: ?>
     <?php if ($error !== ''): ?><div class="alert alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
-    <form method="post" action="install.php" autocomplete="off">
+    <form class="wizard" method="post" action="install.php" autocomplete="off" novalidate data-initial-step="<?= $initialStep ?>">
       <input type="hidden" name="_token" value="<?= $escape($token) ?>">
-      <div class="grid">
-        <section class="panel">
+      <ol class="wizard-progress" aria-label="Postęp instalacji">
+        <li><span>1</span>Środowisko</li><li><span>2</span>Witryna</li>
+        <li><span>3</span>Baza</li><li><span>4</span>Logowanie</li><li><span>5</span>Moduły</li>
+      </ol>
+      <div>
+        <section class="panel wizard-step" data-step="1">
           <h2>1. Środowisko</h2>
           <p>Wymagania są sprawdzane przed zmianą bazy.</p>
           <?php foreach ($checks as $check): ?>
             <div class="status"><span><?= $escape($check['label']) ?></span><strong class="<?= $check['ok'] ? 'ok' : 'bad' ?>"><?= $escape($check['detail']) ?></strong></div>
           <?php endforeach; ?>
+          <?php if ($permissionIssues !== []): ?>
+            <div class="alert alert-error" role="alert">
+              <strong>PHP nie może zapisywać wymaganych katalogów.</strong>
+              <p>W katalogu instalacji wykonaj:</p>
+              <pre><code><?= $escape($permissionCommand) ?></code></pre>
+            </div>
+          <?php endif; ?>
+          <div class="actions"><small>Najpierw usuń wszystkie wykryte problemy.</small><div class="action-group"><button type="button" data-next<?= $preflightOk ? '' : ' disabled' ?>>Dalej</button></div></div>
         </section>
 
-        <section class="panel">
+        <section class="panel wizard-step" data-step="2">
           <h2>2. Witryna</h2>
           <label>Adres strony <input name="site_url" type="url" required maxlength="255" value="<?= $escape($old('site_url', $defaultUrl)) ?>"></label>
           <label>Nazwa strony <input name="site_name" required maxlength="80" value="<?= $escape($old('site_name', 'miniPORTAL')) ?>"></label>
           <label>Strefa czasowa <input name="timezone" required value="<?= $escape($old('timezone', 'Europe/Warsaw')) ?>"></label>
           <label>Język i region <input name="locale" required maxlength="5" value="<?= $escape($old('locale', 'pl_PL')) ?>"></label>
           <label>Motyw <select name="theme"><option value="default"<?= $old('theme', 'default') === 'default' ? ' selected' : '' ?>>Default</option><option value="future"<?= $old('theme') === 'future' ? ' selected' : '' ?>>Future</option><option value="glassnight"<?= $old('theme') === 'glassnight' ? ' selected' : '' ?>>Glassnight</option></select></label>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back>Wstecz</button><button type="button" data-next>Dalej</button></div></div>
         </section>
 
-        <section class="panel">
+        <section class="panel wizard-step" data-step="3">
           <h2>3. Baza MySQL</h2>
           <label>Host <input name="db_host" required value="<?= $escape($old('db_host', '127.0.0.1')) ?>"></label>
           <label>Port <input name="db_port" type="number" min="1" max="65535" required value="<?= $escape($old('db_port', '3306')) ?>"></label>
@@ -147,9 +174,10 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
           <label>Użytkownik <input name="db_user" required autocomplete="username" value="<?= $escape($old('db_user')) ?>"></label>
           <label>Hasło <input name="db_pass" type="password" required autocomplete="new-password"></label>
           <label class="check"><input name="create_database" type="checkbox" value="1"<?= isset($_POST['create_database']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ? ' checked' : '' ?>> Utwórz bazę, jeśli nie istnieje</label>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back>Wstecz</button><button type="button" data-next>Dalej</button></div></div>
         </section>
 
-        <section class="panel">
+        <section class="panel wizard-step" data-step="4">
           <h2>4. GitHub i pierwszy Owner</h2>
           <p>Konto zostanie rozpoznane po stałym numerycznym ID GitHub.</p>
           <label>Login GitHub <input name="github_login" required maxlength="39" value="<?= $escape($old('github_login')) ?>"></label>
@@ -161,9 +189,10 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
             <label>Google Client ID <input name="google_client_id" value="<?= $escape($old('google_client_id')) ?>"></label>
             <label>Google Client Secret <input name="google_client_secret" type="password" autocomplete="new-password"></label>
           </details>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back>Wstecz</button><button type="button" data-next>Dalej</button></div></div>
         </section>
 
-        <section class="panel wide">
+        <section class="panel wizard-step" data-step="5">
           <fieldset><legend><h2>5. Moduły</h2></legend><p>Zależności wybranych modułów zostaną dołączone automatycznie.</p>
             <div class="checks">
               <?php foreach ($modules as $module): ?>
@@ -173,11 +202,57 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
               <?php endforeach; ?>
             </div>
           </fieldset>
-          <div class="actions"><small>Instalator przyjmuje wyłącznie pustą bazę i nie nadpisuje istniejących tabel.</small><button type="submit"<?= $preflightOk ? '' : ' disabled' ?>>Zainstaluj miniPORTAL</button></div>
+          <div class="actions"><small>Instalator przyjmuje wyłącznie pustą bazę i nie nadpisuje istniejących tabel.</small><div class="action-group"><button class="secondary" type="button" data-back>Wstecz</button><button type="submit"<?= $preflightOk ? '' : ' disabled' ?>>Zainstaluj miniPORTAL</button></div></div>
         </section>
       </div>
     </form>
   <?php endif; ?>
 </main>
+<script nonce="<?= $escape($nonce) ?>">
+(() => {
+  const form = document.querySelector('.wizard');
+  if (!form) return;
+  const steps = [...form.querySelectorAll('.wizard-step')];
+  const progress = [...form.querySelectorAll('.wizard-progress li')];
+  let current = Math.min(steps.length, Math.max(1, Number(form.dataset.initialStep) || 1));
+  const show = (number) => {
+    current = number;
+    steps.forEach((step, index) => {
+      const active = index + 1 === current;
+      step.classList.toggle('active', active);
+      step.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    progress.forEach((item, index) => {
+      item.classList.toggle('active', index + 1 <= current);
+      if (index + 1 === current) item.setAttribute('aria-current', 'step');
+      else item.removeAttribute('aria-current');
+    });
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+  const firstInvalidField = (step) =>
+    [...step.querySelectorAll('input, select, textarea')].find((field) => !field.checkValidity());
+  const valid = (step) => {
+    const field = firstInvalidField(step);
+    if (!field) return true;
+    field.reportValidity();
+    return false;
+  };
+  form.addEventListener('click', (event) => {
+    if (event.target.closest('[data-next]') && valid(steps[current - 1])) {
+      show(Math.min(steps.length, current + 1));
+    }
+    if (event.target.closest('[data-back]')) show(Math.max(1, current - 1));
+  });
+  form.addEventListener('submit', (event) => {
+    const invalidIndex = steps.findIndex((step) => firstInvalidField(step));
+    if (invalidIndex !== -1) {
+      event.preventDefault();
+      show(invalidIndex + 1);
+      firstInvalidField(steps[invalidIndex])?.reportValidity();
+    }
+  });
+  show(current);
+})();
+</script>
 </body>
 </html>

@@ -716,8 +716,9 @@ Stan 1.0.0:
   limitu liczby pozycji,
 - endpoint zdarzeń bota wymaga osobnego sekretu nagłówka i `event_id` jako klucza
   idempotencji; nie przyjmuje sekretu w ciele JSON,
-- sekrety modułu są izolowane w `modules/Econizer/.env`; testy mogą wskazać inny
-  plik przez `ECONIZER_ENV_FILE`, a panel raportuje tylko kompletność konfiguracji,
+- sekrety modułu są izolowane w `config/modules/econizer.env`; testy mogą wskazać
+  inny plik przez `ECONIZER_ENV_FILE`, starsza lokalizacja modułowa pozostaje
+  kompatybilna, a panel raportuje tylko kompletność konfiguracji,
 - onboarding Discord korzysta z osobnego Authorization Code + PKCE i zakresów
   `identify guilds`; pokazuje wyłącznie serwery Owner/Administrator/Manage Guild,
   nie przechowuje tokenu użytkownika i przypina instalację bota do zweryfikowanego
@@ -747,6 +748,10 @@ Stan 1.3.1:
 2. Kreator WWW sprawdza PHP, rozszerzenia i zapis do wymaganych katalogów.
 3. Instalacja wymaga pustej bazy, uruchamia schemat Core oraz wybranych modułów
    w kolejności zależności i zapisuje ich stan bazowy wraz z SHA-256 migracji.
+   Czysta dystrybucja nie zawiera historycznych plików `migrations/*.sql`: używa
+   bieżących `core/install.sql` i modułowych `install.sql`. Generator zapisuje
+   wyłącznie manifest nazw i SHA-256 migracji wchłoniętych przez schemat bazowy,
+   aby późniejsze aktualizacje nie wykonywały ponownie historycznego SQL.
 4. Pierwszy Owner jest wiązany ze stałym numerycznym ID konta GitHub.
 5. Sekrety trafiają do lokalnego `config/installed.env`, a ponowne użycie kreatora
    blokuje `config/installed.lock`; oba pliki pozostają poza dystrybucją.

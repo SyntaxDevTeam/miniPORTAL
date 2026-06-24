@@ -1,8 +1,18 @@
+CREATE TABLE core_migrations (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    migration VARCHAR(191) NOT NULL,
+    checksum CHAR(64) NOT NULL,
+    executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_core_migrations_name (migration)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE modules_config (
     module_id VARCHAR(64) PRIMARY KEY,
     version VARCHAR(32) NOT NULL,
-    status ENUM('discovered', 'active', 'disabled') NOT NULL DEFAULT 'discovered',
+    status ENUM('discovered', 'active', 'disabled', 'uninstalled')
+        NOT NULL DEFAULT 'discovered',
     is_protected TINYINT(1) NOT NULL DEFAULT 0,
+    data_preserved TINYINT(1) NOT NULL DEFAULT 0,
     installed_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -21,10 +31,10 @@ CREATE TABLE module_migrations (
     INDEX idx_module_migrations_executed (module_id, executed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO modules_config
-    (module_id, version, status, is_protected, installed_at)
-VALUES
-    ('core_auth', '1.0.0', 'active', 1, CURRENT_TIMESTAMP),
-    ('core_pages', '1.0.0', 'active', 1, CURRENT_TIMESTAMP),
-    ('articles', '1.0.0', 'active', 0, CURRENT_TIMESTAMP),
-    ('system_admin', '1.0.0', 'active', 1, CURRENT_TIMESTAMP);
+CREATE TABLE system_settings (
+    setting_key VARCHAR(64) PRIMARY KEY,
+    setting_value TEXT NOT NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_system_settings_updated (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

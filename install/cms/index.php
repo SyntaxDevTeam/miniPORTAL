@@ -8,6 +8,7 @@ use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
@@ -40,6 +41,45 @@ use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
 require_once __DIR__ . '/core/Autoloader.php';
 
 Autoloader::register();
+
+if (!is_file(__DIR__ . '/config/installed.lock')) {
+    $scriptDirectory = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php')));
+    $installerUrl = rtrim($scriptDirectory, '/') . '/install.php';
+    header('Location: ' . ($installerUrl !== '' ? $installerUrl : '/install.php'), true, 302);
+    exit;
+}
+
+$permissionIssues = FilesystemPermissions::missing(__DIR__);
+if ($permissionIssues !== []) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=UTF-8');
+    $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $directories = implode(', ', array_map(
+        static fn (string $directory): string => $directory . '/',
+        $permissionIssues
+    ));
+    $command = FilesystemPermissions::remediationCommand(__DIR__);
+    ?>
+    <!doctype html>
+    <html lang="pl-PL"><head>
+      <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="robots" content="noindex, nofollow">
+      <title>miniPORTAL — wymagane uprawnienia</title>
+      <style>
+        :root{color-scheme:dark;--bg:#07101d;--panel:#101b2b;--line:#29405c;--text:#edf6ff;--muted:#a9b8ca;--accent:#64c7ff}
+        *{box-sizing:border-box}body{display:grid;min-height:100vh;margin:0;place-items:center;padding:1rem;color:var(--text);background:var(--bg);font:16px/1.55 system-ui,sans-serif}
+        main{width:min(800px,100%);padding:1.5rem;background:var(--panel);border:1px solid var(--line);border-radius:1rem}
+        p{color:var(--muted)}code{color:var(--accent)}pre{overflow:auto;padding:1rem;background:#050b13;border:1px solid var(--line);border-radius:.55rem;white-space:pre-wrap}
+      </style>
+    </head><body><main>
+      <h1>miniPORTAL wymaga poprawienia uprawnień</h1>
+      <p>PHP nie może zapisywać katalogów: <code><?= $escape($directories) ?></code></p>
+      <p>Wykonaj poniższe polecenia, a następnie odśwież stronę:</p>
+      <pre><code><?= $escape($command) ?></code></pre>
+    </main></body></html>
+    <?php
+    exit;
+}
 
 $config = require __DIR__ . '/config/config.php';
 $application = Bootstrap::boot($config);

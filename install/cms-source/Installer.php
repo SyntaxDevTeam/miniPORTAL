@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Installer;
 
 use PDO;
 use RuntimeException;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Database\CrudApp;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\ExternalIdentity;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\FirstAdminBootstrapper;
@@ -14,8 +15,6 @@ use Throwable;
 
 final class Installer
 {
-    private const DEFERRED_CORE_MIGRATIONS = ['20260616_audit_archive.sql'];
-
     /** @var null|\Closure(string): ExternalIdentity */
     private readonly ?\Closure $identityResolver;
 
@@ -43,7 +42,7 @@ final class Installer
                 'detail' => extension_loaded($extension) ? 'Dostępne' : 'Brak',
             ];
         }
-        foreach (['config', 'cache'] as $directory) {
+        foreach (FilesystemPermissions::requiredDirectories() as $directory) {
             $path = $this->root . '/' . $directory;
             $checks[] = [
                 'label' => 'Zapis do ' . $directory . '/',
@@ -298,27 +297,8 @@ final class Installer
     /** @param list<string> $selectedModules */
     private function installSchema(PDO $pdo, array $selectedModules): void
     {
-        $pdo->exec(
-            "CREATE TABLE core_migrations (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                migration VARCHAR(191) NOT NULL,
-                checksum CHAR(64) NOT NULL,
-                executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_core_migrations_name (migration)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
-        );
-
-        $deferred = [];
-        $coreFiles = glob($this->root . '/core/migrations/*.sql') ?: [];
-        sort($coreFiles, SORT_STRING);
-        foreach ($coreFiles as $file) {
-            if (in_array(basename($file), self::DEFERRED_CORE_MIGRATIONS, true)) {
-                $deferred[] = $file;
-                continue;
-            }
-            $this->executeSqlFile($pdo, $file);
-            $this->recordCoreMigration($pdo, $file);
-        }
+        $this->executeSqlFile($pdo, $this->root . '/core/install.sql');
+        $baseline = $this->migrationBaseline();
 
         $catalog = $this->moduleCatalog();
         foreach ($catalog as $id => $module) {
@@ -326,12 +306,6 @@ final class Installer
                 continue;
             }
             $this->executeSqlFile($pdo, $module['directory'] . '/' . $module['install']);
-        }
-        foreach ($deferred as $file) {
-            if (!$this->tableExists($pdo, 'auth_events_archive')) {
-                $this->executeSqlFile($pdo, $file);
-            }
-            $this->recordCoreMigration($pdo, $file);
         }
 
         $state = $pdo->prepare(
@@ -353,34 +327,24 @@ final class Installer
             if (!$active) {
                 continue;
             }
-            foreach ($module['migrations'] as $migration) {
-                $checksum = hash_file('sha256', $migration);
-                if (!is_string($checksum)) {
-                    throw new RuntimeException('Nie można policzyć sumy migracji ' . basename($migration) . '.');
-                }
+            foreach ($baseline['modules'][$id] ?? [] as $migration => $checksum) {
                 $record = $pdo->prepare(
                     'INSERT INTO module_migrations (module_id, migration, checksum) '
                     . 'VALUES (:module_id, :migration, :checksum)'
                 );
                 $record->execute([
                     ':module_id' => $id,
-                    ':migration' => basename($migration),
+                    ':migration' => $migration,
                     ':checksum' => $checksum,
                 ]);
             }
         }
-    }
-
-    private function recordCoreMigration(PDO $pdo, string $file): void
-    {
-        $checksum = hash_file('sha256', $file);
-        if (!is_string($checksum)) {
-            throw new RuntimeException('Nie można policzyć sumy migracji Core.');
-        }
-        $statement = $pdo->prepare(
+        $record = $pdo->prepare(
             'INSERT INTO core_migrations (migration, checksum) VALUES (:migration, :checksum)'
         );
-        $statement->execute([':migration' => basename($file), ':checksum' => $checksum]);
+        foreach ($baseline['core'] as $migration => $checksum) {
+            $record->execute([':migration' => $migration, ':checksum' => $checksum]);
+        }
     }
 
     private function executeSqlFile(PDO $pdo, string $file): void
@@ -391,15 +355,26 @@ final class Installer
         }
     }
 
-    private function tableExists(PDO $pdo, string $table): bool
+    /**
+     * @return array{
+     *     core: array<string, string>,
+     *     modules: array<string, array<string, string>>
+     * }
+     */
+    private function migrationBaseline(): array
     {
-        $statement = $pdo->prepare(
-            'SELECT COUNT(*) FROM information_schema.tables '
-            . 'WHERE table_schema = DATABASE() AND table_name = :table'
-        );
-        $statement->execute([':table' => $table]);
+        $file = $this->root . '/installer/migration-baseline.php';
+        if (!is_file($file)) {
+            throw new RuntimeException('Pakiet instalacyjny nie zawiera manifestu stanu migracji.');
+        }
+        $baseline = require $file;
+        if (!is_array($baseline)
+            || !is_array($baseline['core'] ?? null)
+            || !is_array($baseline['modules'] ?? null)) {
+            throw new RuntimeException('Manifest stanu migracji jest nieprawidłowy.');
+        }
 
-        return (int) $statement->fetchColumn() === 1;
+        return $baseline;
     }
 
     /** @param array<string, mixed> $data */
@@ -528,7 +503,7 @@ final class Installer
 
     private function writeEconizerEnvironment(string $content): void
     {
-        $file = $this->root . '/modules/Econizer/.env';
+        $file = $this->root . '/config/modules/econizer.env';
         $temporary = $file . '.tmp-' . bin2hex(random_bytes(4));
         if (!is_dir(dirname($file)) || file_put_contents($temporary, $content, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zapisać konfiguracji środowiska Econizer.');
@@ -579,8 +554,6 @@ final class Installer
         foreach (glob($this->root . '/modules/*/info.json') ?: [] as $file) {
             $data = json_decode((string) file_get_contents($file), true, 16, JSON_THROW_ON_ERROR);
             $directory = dirname($file);
-            $migrations = glob($directory . '/migrations/*.sql') ?: [];
-            sort($migrations, SORT_STRING);
             $modules[(string) $data['id']] = [
                 'id' => (string) $data['id'],
                 'name' => (string) $data['name'],
@@ -589,7 +562,6 @@ final class Installer
                 'dependencies' => array_values(array_map('strval', $data['requires']['modules'] ?? [])),
                 'install' => is_string($data['install'] ?? null) ? $data['install'] : null,
                 'directory' => $directory,
-                'migrations' => array_values($migrations),
             ];
         }
 

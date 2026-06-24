@@ -322,11 +322,12 @@ Możliwe odpowiedzi:
 Econizer używa własnego pliku:
 
 ```text
-modules/Econizer/.env
+config/modules/econizer.env
 ```
 
 Można też wskazać inny plik przez zmienną procesu `ECONIZER_ENV_FILE`. To ułatwia
-testy i oddzielenie konfiguracji modułu od konfiguracji miniPORTAL.
+testy i oddzielenie konfiguracji modułu od głównego `config/installed.env`.
+Istniejące wdrożenia mogą nadal korzystać ze starszego `modules/Econizer/.env`.
 
 Najważniejsze zmienne:
 

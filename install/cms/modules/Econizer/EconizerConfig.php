@@ -23,9 +23,12 @@ final readonly class EconizerConfig
     public static function load(string $moduleDirectory): self
     {
         $explicitFile = getenv('ECONIZER_ENV_FILE');
+        $moduleDirectory = rtrim($moduleDirectory, '/');
+        $managedFile = dirname(dirname($moduleDirectory)) . '/config/modules/econizer.env';
+        $legacyFile = $moduleDirectory . '/.env';
         $environmentFile = is_string($explicitFile) && trim($explicitFile) !== ''
             ? trim($explicitFile)
-            : rtrim($moduleDirectory, '/') . '/.env';
+            : (is_readable($managedFile) ? $managedFile : $legacyFile);
         $environment = [];
 
         if (is_readable($environmentFile)) {
