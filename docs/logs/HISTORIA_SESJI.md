@@ -2331,3 +2331,20 @@ oczekiwania zamiast pokazywać ogólny błąd 403.
 
 **Weryfikacja:** dodano kontrole manifestu, trasy i komunikatu; uruchomiono pełne
 testy, lint PHP, przebudowę czystej dystrybucji i kontrolę diffu.
+
+### Sesja: 2026-06-24 - Zgodność historycznej instancji bez installed.lock
+
+**Faza i krok specyfikacji:** Krok 7 - blokada ponownej instalacji i zgodność
+istniejących wdrożeń.
+
+**Wykonano:** wykrywanie instalacji nie opiera się już wyłącznie na
+`config/installed.lock`. Wspólny `InstallationState` rozpoznaje także poprawną
+konfigurację bazodanową z jawnego `MINIPORTAL_ENV_FILE`, lokalnego
+`config/installed.env` albo zgodnościowego `/etc/miniportal/miniportal.env`.
+Przywrócono kolejność źródeł konfiguracji używaną przez instancję, na której
+projekt był rozwijany. Wymóg zapisu `config/modules` pozostał częścią preflightu
+kreatora, ale nie blokuje uruchamiania już działającego portalu.
+
+**Weryfikacja:** dodano test instancji bez blokady korzystającej z zewnętrznego
+pliku środowiska; uruchomiono pełne testy, lint PHP, przebudowę dystrybucji
+i kontrolę diffu.

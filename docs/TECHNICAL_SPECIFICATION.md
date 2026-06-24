@@ -757,6 +757,11 @@ Stan 1.3.1:
 4. Pierwszy Owner jest wiązany ze stałym numerycznym ID konta GitHub.
 5. Sekrety trafiają do lokalnego `config/installed.env`, a ponowne użycie kreatora
    blokuje `config/installed.lock`; oba pliki pozostają poza dystrybucją.
+   Istniejące instancje bez blokady pozostają rozpoznawane po poprawnej konfiguracji
+   wskazanej przez `MINIPORTAL_ENV_FILE` albo zgodnościowy
+   `/etc/miniportal/miniportal.env`.
+   Prawo zapisu do `config/` i `config/modules/` jest wymaganiem kreatora, nie
+   stałym wymaganiem runtime po zakończeniu instalacji.
 6. Błąd instalacji sprząta tabele utworzone w początkowo pustej bazie.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej

@@ -9,7 +9,13 @@ final class FilesystemPermissions
     /** @return list<string> */
     public static function requiredDirectories(): array
     {
-        return ['config', 'config/modules', 'cache', 'cache/build-artifacts', 'uploads/branding'];
+        return ['cache', 'cache/build-artifacts', 'uploads/branding'];
+    }
+
+    /** @return list<string> */
+    public static function installerDirectories(): array
+    {
+        return ['config', 'config/modules', ...self::requiredDirectories()];
     }
 
     /** @return list<string> */

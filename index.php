@@ -10,6 +10,7 @@ use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
+use SyntaxDevTeam\Cms\Core\InstallationState;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
@@ -42,7 +43,7 @@ require_once __DIR__ . '/core/Autoloader.php';
 
 Autoloader::register();
 
-if (!is_file(__DIR__ . '/config/installed.lock')) {
+if (!InstallationState::isInstalled(__DIR__)) {
     $scriptDirectory = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php')));
     $installerUrl = rtrim($scriptDirectory, '/') . '/install.php';
     header('Location: ' . ($installerUrl !== '' ? $installerUrl : '/install.php'), true, 302);

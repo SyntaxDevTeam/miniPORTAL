@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-$explicitEnvironmentFile = getenv('MINIPORTAL_ENV_FILE');
-$explicitEnvironmentFile = is_string($explicitEnvironmentFile) ? trim($explicitEnvironmentFile) : '';
-$environmentFile = $explicitEnvironmentFile !== ''
-    ? $explicitEnvironmentFile
-    : __DIR__ . '/installed.env';
+use SyntaxDevTeam\Cms\Core\InstallationState;
+
+$environmentFile = InstallationState::environmentFile(dirname(__DIR__));
 $environment = [];
 
+$explicitEnvironmentFile = getenv('MINIPORTAL_ENV_FILE');
+$explicitEnvironmentFile = is_string($explicitEnvironmentFile) ? trim($explicitEnvironmentFile) : '';
 if ($explicitEnvironmentFile !== '' && !is_readable($environmentFile)) {
     throw new RuntimeException(
         "Plik wskazany przez MINIPORTAL_ENV_FILE nie jest dostępny: {$environmentFile}"

@@ -7,6 +7,7 @@ namespace SyntaxDevTeam\Cms\Installer;
 use PDO;
 use RuntimeException;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
+use SyntaxDevTeam\Cms\Core\InstallationState;
 use SyntaxDevTeam\Cms\Database\CrudApp;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\ExternalIdentity;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\FirstAdminBootstrapper;
@@ -42,7 +43,7 @@ final class Installer
                 'detail' => extension_loaded($extension) ? 'Dostępne' : 'Brak',
             ];
         }
-        foreach (FilesystemPermissions::requiredDirectories() as $directory) {
+        foreach (FilesystemPermissions::installerDirectories() as $directory) {
             $path = $this->root . '/' . $directory;
             $checks[] = [
                 'label' => 'Zapis do ' . $directory . '/',
@@ -56,7 +57,7 @@ final class Installer
 
     public function isInstalled(): bool
     {
-        return is_file($this->lockFile());
+        return InstallationState::isInstalled($this->root);
     }
 
     /** @return list<array{id: string, name: string, required: bool, dependencies: list<string>}> */

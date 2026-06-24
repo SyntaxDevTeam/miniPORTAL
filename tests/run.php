@@ -11,6 +11,7 @@ use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
 use SyntaxDevTeam\Cms\Core\HookProviderInterface;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
+use SyntaxDevTeam\Cms\Core\InstallationState;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
@@ -106,6 +107,36 @@ $test('Request exposes bounded JSON and normalized headers', static function () 
     $assert($request->header('X-Build-Token') === 'secret-token');
     $assert($request->header('Content-Type') === 'application/json');
     $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
+});
+
+$test('Installation state accepts legacy external configuration without a lock file', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-state-' . bin2hex(random_bytes(4));
+    $legacy = $root . '/legacy.env';
+    mkdir($root . '/config', 0770, true);
+    file_put_contents(
+        $legacy,
+        "DB_ENABLED=\"true\"\nDB_NAME=\"miniportal\"\nDB_USER=\"portal\"\n"
+    );
+
+    try {
+        $assert(InstallationState::environmentFile($root, $legacy) === $legacy);
+        $assert(InstallationState::hasConfiguration($root, $legacy));
+        $assert(InstallationState::isInstalled($root, $legacy));
+
+        file_put_contents(
+            $root . '/config/installed.env',
+            "DB_ENABLED=\"true\"\nDB_NAME=\"local\"\nDB_USER=\"portal\"\n"
+        );
+        $assert(
+            InstallationState::environmentFile($root, $legacy)
+            === $root . '/config/installed.env'
+        );
+    } finally {
+        @unlink($root . '/config/installed.env');
+        @unlink($legacy);
+        @rmdir($root . '/config');
+        @rmdir($root);
+    }
 });
 
 $test('Econizer loads an isolated module environment file', static function () use ($assert): void {
