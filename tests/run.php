@@ -1513,7 +1513,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.8.1');
+    $assert($system->version === '1.9.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -1635,7 +1635,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '1.8.1';"));
+    $assert(str_contains($systemSource, "return '1.9.0';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 
@@ -1893,8 +1893,90 @@ $test('Verified module archive can be approved without executing its factory', s
             $importer->approve(basename($secondImport['directory']), $modules);
             $assert(false, 'Zaakceptowano konflikt katalogu modułu');
         } catch (RuntimeException $exception) {
-            $assert(str_contains($exception->getMessage(), 'już istnieje'));
+            $assert(str_contains($exception->getMessage(), 'wyższą wersję'));
         }
+    } finally {
+        if (is_dir($root)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+            }
+            rmdir($root);
+        }
+    }
+});
+
+$test('Bundled protected module archive updates atomically and rolls back on failure', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-protected-update-' . bin2hex(random_bytes(6));
+    $source = $root . '/source/System';
+    $modules = $root . '/modules';
+    $installed = $modules . '/System';
+    $quarantine = $root . '/quarantine';
+    $exports = $root . '/exports';
+    mkdir($source, 0700, true);
+    mkdir($installed, 0700, true);
+    mkdir($quarantine, 0700, true);
+
+    $manifest = static function (string $version): string {
+        return json_encode([
+            'id' => 'system_admin',
+            'name' => 'System',
+            'version' => $version,
+            'type' => 'system',
+            'author' => 'SyntaxDevTeam',
+            'requires' => ['php' => '>=8.4', 'miniportal' => '>=0.1.0', 'modules' => []],
+            'protected' => true,
+            'origin' => ['type' => 'bundled', 'url' => 'https://github.com/SyntaxDevTeam/miniPORTAL'],
+            'install' => null,
+        ], JSON_THROW_ON_ERROR);
+    };
+    file_put_contents($installed . '/info.json', $manifest('1.0.0'));
+    file_put_contents($installed . '/Module.php', "<?php\n// old\n");
+    file_put_contents($source . '/info.json', $manifest('1.1.0'));
+    file_put_contents($source . '/Module.php', "<?php\n// new\n");
+
+    try {
+        $validator = new ModuleManifestValidator('0.1.0');
+        $archive = (new ModulePackageExporter())->exportZip($validator->validate($source), $exports);
+        $importer = new ModuleArchiveImporter($quarantine, $validator);
+        $import = $importer->importFile($archive['path'], $archive['filename']);
+        $updated = false;
+        $approved = $importer->approve(
+            basename($import['directory']),
+            $modules,
+            static function ($approvedManifest) use (&$updated, $assert): void {
+                $assert($approvedManifest->id === 'system_admin');
+                $assert($approvedManifest->version === '1.1.0');
+                $updated = true;
+            }
+        );
+        $assert($updated);
+        $assert($approved['operation'] === 'updated');
+        $assert(str_contains((string) file_get_contents($installed . '/Module.php'), '// new'));
+
+        file_put_contents($source . '/info.json', $manifest('1.2.0'));
+        file_put_contents($source . '/Module.php', "<?php\n// broken\n");
+        $archive = (new ModulePackageExporter())->exportZip($validator->validate($source), $exports);
+        $import = $importer->importFile($archive['path'], $archive['filename']);
+        try {
+            $importer->approve(
+                basename($import['directory']),
+                $modules,
+                static function (): void {
+                    throw new RuntimeException('migration failed');
+                }
+            );
+            $assert(false, 'Nie cofnięto nieudanej aktualizacji chronionego modułu');
+        } catch (RuntimeException $exception) {
+            $assert($exception->getMessage() === 'migration failed');
+        }
+        $assert(str_contains((string) file_get_contents($installed . '/Module.php'), '// new'));
+        $assert(
+            (new ModuleManifestValidator('0.1.0'))->validate($installed)->version === '1.1.0'
+        );
     } finally {
         if (is_dir($root)) {
             $files = new RecursiveIteratorIterator(

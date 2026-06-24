@@ -35,8 +35,10 @@ z `config/module_publishers.php`. Klucz unieważniony blokuje pakiet.
 Zweryfikowany import można zatwierdzić w managerze: pakiet jest ponownie sprawdzany
 i atomowo przenoszony z `cache/module-quarantine` do `modules/`. Zatwierdzenie nie
 instaluje modułu ani nie wykonuje jego fabryki; instalacja pozostaje osobną akcją.
-Zainstalowane moduły typu `extension` można eksportować z managera do archiwum ZIP;
-eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
+Każdy zainstalowany moduł, również chroniony `core` lub `system`, można eksportować
+z managera do archiwum ZIP. Import wyższej wersji istniejącego pakietu atomowo
+podmienia kod i uruchamia kontrolowane migracje; błąd przywraca poprzednią wersję.
+Eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
 top-level katalog modułu z `info.json`.
 
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.

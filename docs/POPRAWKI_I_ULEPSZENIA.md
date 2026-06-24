@@ -10,6 +10,10 @@
 
 3. ~~Obecnie głownym założeniem modulacji jest separacja pozwalajaca na "wrzuć -> zainstaluj -> używaj". Chciałbym aby moduły "Rozszerzenie" dodawały do sekcji ustawień rozszerzone możliwości ustawień dla linków. W tej chwili taką mozliwość ma wyłacznie "Dokumentacja" w dodatku z wyborem Menu głowne lub stopka (tylko na stronie głównej) bez opcji ustawienia nazwy/etykiety linku anie zaznaczenia obu tych elementów. To trzeba zmienić aby każdy z modułów "Rozszerzenie" posiadał taką implementację oraz w niej bardziej zaaawansowane opcje.~~ (gotowe)
 4. ~~Możliwość eksportu do zip już zainstalowanych modułów "Rozszerzenie"~~ (gotowe)
+5. Eksport i aktualizacja modułów chronionych: manager eksportuje także moduły
+   `core` i `system`. Import wyższej wersji zachowuje tożsamość pakietu, wykonuje
+   podmianę kodu wraz z kontrolowanymi migracjami i przy błędzie przywraca poprzednią
+   wersję plików. Ochrona przed wyłączeniem i odinstalowaniem pozostaje aktywna. (gotowe)
 
 ## Szablony
 

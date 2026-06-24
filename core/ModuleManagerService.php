@@ -182,10 +182,6 @@ final class ModuleManagerService
         if ($state === null || !$state->isInstalled()) {
             throw new RuntimeException("Moduł {$moduleId} nie jest zainstalowany.");
         }
-        if ($manifest->type !== 'extension' || $manifest->protected) {
-            throw new RuntimeException('Eksportować można wyłącznie zainstalowane moduły typu rozszerzenie.');
-        }
-
         $targetDirectory = dirname(rtrim($this->modulesPath, '/')) . '/cache/module-exports';
 
         return (new ModulePackageExporter())->exportZip($manifest, $targetDirectory);

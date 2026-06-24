@@ -110,9 +110,14 @@ final class ModuleArchiveImporter
     }
 
     /**
-     * @return array{directory: string, manifest: ModuleManifest}
+     * @param null|callable(ModuleManifest): void $updateInstalled
+     * @return array{directory: string, manifest: ModuleManifest, operation: string}
      */
-    public function approve(string $importDirectory, string $modulesPath): array
+    public function approve(
+        string $importDirectory,
+        string $modulesPath,
+        ?callable $updateInstalled = null,
+    ): array
     {
         if (preg_match('/^import-\d{8}-\d{6}-[a-f0-9]{8}$/', $importDirectory) !== 1) {
             throw new RuntimeException('Identyfikator importu z kwarantanny jest nieprawidłowy.');
@@ -127,13 +132,6 @@ final class ModuleArchiveImporter
         $packageDirectory = $this->locatePackage($importPath . '/source');
         $this->assertNoLinks($packageDirectory);
         $manifest = $this->validator->validate($packageDirectory);
-        if ($manifest->type !== 'extension' || $manifest->protected) {
-            throw new RuntimeException('Z kwarantanny można zatwierdzać wyłącznie niechronione rozszerzenia.');
-        }
-        if (!in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)) {
-            throw new RuntimeException('Zatwierdzenie wymaga poprawnego podpisu zaufanego wydawcy.');
-        }
-
         $packageName = basename($packageDirectory);
         if (preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/', $packageName) !== 1) {
             throw new RuntimeException('Nazwa katalogu pakietu jest nieprawidłowa.');
@@ -143,24 +141,97 @@ final class ModuleArchiveImporter
         }
 
         $target = rtrim($modulesPath, '/') . '/' . $packageName;
-        if (file_exists($target) || is_link($target)) {
-            throw new RuntimeException("Katalog modułu {$packageName} już istnieje.");
-        }
+        $existingManifest = null;
         foreach (glob(rtrim($modulesPath, '/') . '/*/info.json') ?: [] as $manifestFile) {
             $existing = $this->validator->inspect(dirname($manifestFile))['manifest'];
             if ($existing !== null && $existing->id === $manifest->id) {
-                throw new RuntimeException("Moduł o identyfikatorze {$manifest->id} już istnieje.");
+                $existingManifest = $existing;
+                break;
             }
         }
 
-        if (!rename($packageDirectory, $target)) {
-            throw new RuntimeException('Nie można atomowo przenieść pakietu do katalogu modules/.');
+        if ($existingManifest === null) {
+            if ($manifest->type !== 'extension' || $manifest->protected) {
+                throw new RuntimeException('Nowy pakiet musi być niechronionym modułem typu rozszerzenie.');
+            }
+            $this->assertVerifiedSignature($manifest);
+            if (file_exists($target) || is_link($target)) {
+                throw new RuntimeException("Katalog modułu {$packageName} już istnieje.");
+            }
+            if (!rename($packageDirectory, $target)) {
+                throw new RuntimeException('Nie można atomowo przenieść pakietu do katalogu modules/.');
+            }
+            @chmod($target, 0770);
+            $approvedManifest = $this->validator->validate($target);
+            $this->removeDirectory($importPath);
+
+            return ['directory' => $target, 'manifest' => $approvedManifest, 'operation' => 'installed'];
         }
-        @chmod($target, 0770);
-        $approvedManifest = $this->validator->validate($target);
+
+        $existingDirectory = $existingManifest->directory;
+        if ($packageName !== basename($existingDirectory) || $target !== $existingDirectory) {
+            throw new RuntimeException('Aktualizacja musi zachować katalog istniejącego modułu.');
+        }
+        if ($manifest->type !== $existingManifest->type || $manifest->protected !== $existingManifest->protected) {
+            throw new RuntimeException('Aktualizacja nie może zmieniać typu ani ochrony modułu.');
+        }
+        if ($manifest->author !== $existingManifest->author) {
+            throw new RuntimeException('Aktualizacja nie może zmieniać autora modułu.');
+        }
+        if (
+            $manifest->originType !== $existingManifest->originType
+            || $manifest->originUrl !== $existingManifest->originUrl
+        ) {
+            throw new RuntimeException('Aktualizacja nie może zmieniać pochodzenia modułu.');
+        }
+        if (version_compare($manifest->version, $existingManifest->version, '<=')) {
+            throw new RuntimeException('Importowana aktualizacja musi mieć wyższą wersję niż bieżący kod modułu.');
+        }
+        if ($existingManifest->protected) {
+            if ($manifest->originType !== 'bundled') {
+                $this->assertVerifiedSignature($manifest);
+            }
+        } else {
+            $this->assertVerifiedSignature($manifest);
+        }
+        if ($updateInstalled === null) {
+            throw new RuntimeException('Podmiana zainstalowanego modułu wymaga kontrolowanej aktualizacji.');
+        }
+
+        $backup = $importPath . '/previous';
+        if (file_exists($backup) || !rename($existingDirectory, $backup)) {
+            throw new RuntimeException('Nie można utworzyć kopii bezpieczeństwa aktualizowanego modułu.');
+        }
+        try {
+            if (!rename($packageDirectory, $target)) {
+                throw new RuntimeException('Nie można atomowo umieścić aktualizacji w katalogu modules/.');
+            }
+            @chmod($target, 0770);
+            $approvedManifest = $this->validator->validate($target);
+            $updateInstalled($approvedManifest);
+        } catch (\Throwable $exception) {
+            $this->removeDirectory($target);
+            if (!rename($backup, $existingDirectory)) {
+                throw new RuntimeException(
+                    'Aktualizacja nie powiodła się i nie można przywrócić poprzedniego kodu modułu.',
+                    0,
+                    $exception
+                );
+            }
+            throw $exception;
+        }
+
+        $this->removeDirectory($backup);
         $this->removeDirectory($importPath);
 
-        return ['directory' => $target, 'manifest' => $approvedManifest];
+        return ['directory' => $target, 'manifest' => $approvedManifest, 'operation' => 'updated'];
+    }
+
+    private function assertVerifiedSignature(ModuleManifest $manifest): void
+    {
+        if (!in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)) {
+            throw new RuntimeException('Zatwierdzenie wymaga poprawnego podpisu zaufanego wydawcy.');
+        }
     }
 
     private function archiveExtension(string $name): string

@@ -173,6 +173,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Cache publicznych podstron i artykułów z granularnymi tagami |
 | [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
 | [x] | Kontrolowane zatwierdzanie podpisanego pakietu z kwarantanny do `modules/` bez instalacji i wykonania kodu |
+| [x] | Eksport oraz atomowa aktualizacja modułów chronionych z rollbackiem kodu |
 | [x] | Polityka retencji i archiwizacji audit logu |
 
 ### Krok 7 - dystrybucja i kreator instalacji
@@ -324,6 +325,7 @@ Brak aktywnych blokerów.
 | 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
 | 2026-06-22 | Wycofano publiczne i18n PL/EN/DE wraz z tabelami tłumaczeń, prefiksami locale, przełącznikiem języka i integracją Google Cloud Translation; projekt pozostaje jednojęzyczny. |
 | 2026-06-24 | Produkcyjna marka bota i modułu została zmieniona na Econizer. Bieżący kontrakt używa katalogu `modules/Econizer`, identyfikatora `econizer`, tras `/econizer`, endpointów `/api/econizer/*`, zmiennych `ECONIZER_*`, nagłówka `X-Econizer-Token` i tabel `econizer_*`; migracje zachowują dane istniejącej instalacji. |
+| 2026-06-24 | Manager eksportuje także chronione moduły `core` i `system`. Import wyższej wersji istniejącego pakietu zachowuje jego tożsamość, atomowo podmienia katalog i wykonuje standardową aktualizację migracji; błąd przywraca poprzedni kod. Ochrona przed wyłączeniem i odinstalowaniem pozostaje niezależna od możliwości aktualizacji. |
 
 ## Historia sesji
 

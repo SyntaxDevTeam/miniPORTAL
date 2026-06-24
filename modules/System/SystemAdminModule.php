@@ -51,7 +51,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.8.1';
+        return '1.9.0';
     }
 
     public function dependencies(): array
@@ -408,8 +408,6 @@ final class SystemAdminModule implements ModuleInterface
             }
             if (
                 $state->isInstalled()
-                && $manifest->type === 'extension'
-                && !$manifest->protected
                 && $allows('modules.install')
             ) {
                 $actions[] = [
@@ -489,9 +487,10 @@ final class SystemAdminModule implements ModuleInterface
                     function (array $import) use ($allows): array {
                         $manifest = $import['manifest'];
                         $approvable = $manifest !== null
-                            && $manifest->type === 'extension'
-                            && !$manifest->protected
-                            && in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
+                            && (
+                                in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
+                                || ($manifest->protected && $manifest->originType === 'bundled')
+                            )
                             && $allows('modules.install');
 
                         return [
@@ -508,7 +507,9 @@ final class SystemAdminModule implements ModuleInterface
                                 'action' => 'index.php?route=/admin/modules/approve',
                                 'fields' => ['import_directory' => $import['directory']],
                                 'variant' => 'primary',
-                                'confirm' => 'Przenieść zweryfikowany pakiet do modules/? Kod nie zostanie jeszcze uruchomiony; instalacja pozostanie osobną akcją.',
+                                'confirm' => $manifest->protected
+                                    ? 'Zaktualizować chroniony moduł? Kod zostanie podmieniony atomowo, migracje wykonane od razu, a błąd przywróci poprzednią wersję.'
+                                    : 'Zatwierdzić pakiet? Nowy moduł zostanie przeniesiony do modules/, a istniejący zaktualizowany atomowo wraz z migracjami.',
                             ]] : [],
                         ];
                     },
@@ -690,7 +691,13 @@ final class SystemAdminModule implements ModuleInterface
         try {
             $result = $this->moduleArchiveImporter->approve(
                 $importDirectory,
-                dirname(__DIR__, 2) . '/modules'
+                dirname(__DIR__, 2) . '/modules',
+                function ($manifest): void {
+                    if ($this->moduleManager === null) {
+                        throw new \RuntimeException('Manager modułów jest niedostępny.');
+                    }
+                    $this->moduleManager->update($manifest->id);
+                }
             );
             $manifest = $result['manifest'];
             $this->audit->record(
@@ -701,8 +708,9 @@ final class SystemAdminModule implements ModuleInterface
                 $actor?->id
             );
             $this->renderModules(
-                'Pakiet ' . $manifest->name . ' zatwierdzono i przeniesiono do modules/. '
-                . 'Instalacja pozostaje osobną operacją.',
+                $result['operation'] === 'updated'
+                    ? 'Pakiet ' . $manifest->name . ' zaktualizował kod i migracje modułu do wersji ' . $manifest->version . '.'
+                    : 'Pakiet ' . $manifest->name . ' zatwierdzono i przeniesiono do modules/. Instalacja pozostaje osobną operacją.',
                 'success'
             );
         } catch (\Throwable $exception) {

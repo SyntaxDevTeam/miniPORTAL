@@ -2348,3 +2348,27 @@ kreatora, ale nie blokuje uruchamiania już działającego portalu.
 **Weryfikacja:** dodano test instancji bez blokady korzystającej z zewnętrznego
 pliku środowiska; uruchomiono pełne testy, lint PHP, przebudowę dystrybucji
 i kontrolę diffu.
+
+### Sesja: 2026-06-24 - Dystrybucyjne aktualizacje modułów chronionych
+
+**Faza i krok specyfikacji:** Krok 6 - system modułów, aktualizacja i dystrybucja
+pakietów; Krok 7 - czysta dystrybucja instalacyjna.
+
+**Wykonano:** manager modułów eksportuje teraz każdy zainstalowany pakiet, również
+chronione moduły `core` i `system`. Import wyższej wersji istniejącego modułu
+wymaga zachowania identyfikatora, katalogu, typu, ochrony, autora i pochodzenia.
+Rozszerzenia nadal wymagają podpisu zaufanego wydawcy, a chronione pakiety
+wbudowane korzystają z kontrolowanego kanału `origin.type=bundled`.
+
+Zatwierdzenie aktualizacji tworzy kopię poprzedniego katalogu, atomowo podmienia
+kod i od razu uruchamia standardowy preflight oraz migracje `ModuleInstaller`.
+Błąd walidacji lub aktualizacji przywraca poprzednią wersję plików. Standardowe
+ograniczenie MySQL/MariaDB pozostaje jawne: wykonane DDL może zostać automatycznie
+zatwierdzone i nie jest obiecywany rollback bazy. Ochrona modułów przed wyłączeniem
+i odinstalowaniem nie została osłabiona. `system_admin` podniesiono do 1.9.0.
+
+**Weryfikacja:** dodano test poprawnej aktualizacji chronionego pakietu i rollbacku
+kodu po symulowanym błędzie migracji. Uruchomiono dwukrotnie pełne
+`php tests/run.php`, pełny lint PHP, `node --check`, `php bin/migrate-core.php`,
+`git diff --check` oraz przebudowę `install/cms`. Wygenerowana dystrybucja zawiera
+`system_admin` 1.9.0 i nowy przepływ importu chronionych aktualizacji.
