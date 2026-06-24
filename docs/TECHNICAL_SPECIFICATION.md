@@ -211,7 +211,9 @@ a operacje uwierzytelniania i ACL trafiają do `auth_events`. Próby rozpoczęci
 i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
 Nieznana tożsamość tworzy nieaktywne konto `pending` z domyślną rolą `user`.
 Aktywacja jest decyzją lokalnego administratora; system nadal nie łączy kont
-automatycznie po zgodnym adresie e-mail.
+automatycznie po zgodnym adresie e-mail. Po poprawnym pierwszym logowaniu konto
+oczekujące otrzymuje własny ekran potwierdzający utworzenie konta i konieczność
+akceptacji; nie jest kierowane na ogólny błąd 403 panelu.
 
 Role systemowe mają stałą hierarchię. `owner` posiada wildcard `*`, obejmujący
 także przyszłe uprawnienia, i jako jedyny zarządza kontami Ownerów. `administrator`

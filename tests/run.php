@@ -1482,12 +1482,12 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.8.0');
+    $assert($system->version === '1.8.1');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
     $assert($coreAuth->id === 'core_auth');
-    $assert($coreAuth->version === '1.5.0');
+    $assert($coreAuth->version === '1.5.1');
     $assert($coreAuth->protected);
 
     $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
@@ -1565,6 +1565,9 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert(str_contains($profileSource, "\$router->post('/admin/profile/avatar'"));
     $assert(!str_contains($authSource, "\$router->get('/admin/profile'"));
     $assert(str_contains($authSource, "\$router->get('/admin/profile/identities'"));
+    $assert(str_contains($authSource, "\$router->get('/admin/account-pending'"));
+    $assert(str_contains($authSource, 'Konto oczekuje na akceptację'));
+    $assert(str_contains($authSource, "index.php?route=/admin/account-pending"));
 
     $learning = $validator->validate(dirname(__DIR__) . '/install/mod/LearningModule');
     $assert($learning->id === 'learning_module');
@@ -1601,7 +1604,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '1.8.0';"));
+    $assert(str_contains($systemSource, "return '1.8.1';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 

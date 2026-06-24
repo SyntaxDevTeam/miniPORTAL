@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.5.0';
+        return '1.5.1';
     }
 
     public function dependencies(): array
@@ -63,6 +63,7 @@ final class CoreAuthModule implements ModuleInterface
     public function registerRoutes(Router $router): void
     {
         $router->get('/admin/login', fn () => $this->renderLogin());
+        $router->get('/admin/account-pending', fn () => $this->renderPendingAccount());
         $router->post('/admin/login', fn (Request $request) => $this->login($request));
         $router->post('/admin/logout', fn (Request $request) => $this->logout($request));
         $router->get('/admin/users', fn (Request $request) => $this->guard(
@@ -133,8 +134,15 @@ final class CoreAuthModule implements ModuleInterface
 
     private function renderLogin(string $message = '', string $variant = 'info'): void
     {
-        if ($this->auth->user() !== null) {
-            header('Location: index.php?route=/admin', true, 303);
+        $user = $this->auth->user();
+        if ($user !== null) {
+            header(
+                'Location: ' . ($user->isActive()
+                    ? 'index.php?route=/admin'
+                    : 'index.php?route=/admin/account-pending'),
+                true,
+                303
+            );
             return;
         }
 
@@ -165,6 +173,30 @@ final class CoreAuthModule implements ModuleInterface
                 ? ''
                 : 'Żaden dostawca logowania nie jest jeszcze skonfigurowany.'),
             $message !== '' ? $variant : 'warning'
+        );
+    }
+
+    private function renderPendingAccount(): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            header('Location: index.php?route=/admin/login', true, 303);
+            return;
+        }
+        if ($user->isActive()) {
+            header('Location: index.php?route=/admin', true, 303);
+            return;
+        }
+
+        http_response_code(200);
+        $this->theme->render_admin_access_state(
+            202,
+            'Konto oczekuje na akceptację',
+            'Konto zostało utworzone i logowanie przebiegło poprawnie. '
+                . 'Do czasu aktywacji przez administratora możesz korzystać wyłącznie '
+                . 'z publicznych funkcji dostępnych dla kont oczekujących.',
+            '/',
+            'Przejdź do strony głównej'
         );
     }
 
@@ -799,6 +831,9 @@ final class CoreAuthModule implements ModuleInterface
 
         $this->audit->record($request, 'login', $user->isActive() ? 'success' : 'pending_public_session', $name, $user->id);
         $redirect = $this->consumeAfterLoginRedirect();
+        if (!$user->isActive() && $this->isAdminRedirect($redirect)) {
+            $redirect = 'index.php?route=/admin/account-pending';
+        }
         header('Location: ' . $redirect, true, 303);
     }
 
@@ -833,7 +868,11 @@ final class CoreAuthModule implements ModuleInterface
         }
 
         $this->audit->record($request, 'login_demo', $user->isActive() ? 'success' : 'pending_public_session', 'demo', $user->id);
-        header('Location: ' . $this->consumeAfterLoginRedirect(), true, 303);
+        $redirect = $this->consumeAfterLoginRedirect();
+        if (!$user->isActive() && $this->isAdminRedirect($redirect)) {
+            $redirect = 'index.php?route=/admin/account-pending';
+        }
+        header('Location: ' . $redirect, true, 303);
     }
 
     private function logout(Request $request): void
@@ -869,6 +908,17 @@ final class CoreAuthModule implements ModuleInterface
         }
 
         return $redirect;
+    }
+
+    private function isAdminRedirect(string $redirect): bool
+    {
+        if (str_starts_with($redirect, 'index.php?route=')) {
+            $redirect = substr($redirect, strlen('index.php?route='));
+        }
+
+        return $redirect === '/admin'
+            || str_starts_with($redirect, '/admin?')
+            || str_starts_with($redirect, '/admin/');
     }
 
     private function completeIdentityLink(

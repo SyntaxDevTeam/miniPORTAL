@@ -2317,3 +2317,17 @@ dystrybucji. Loader preferuje nową lokalizację, zachowuje zgodność ze starsz
 **Weryfikacja:** zaktualizowano test integracyjny instalatora i test zawartości
 dystrybucji; uruchomiono pełne testy, lint PHP, generator pakietu oraz kontrolę
 uprawnień i diffu.
+
+### Sesja: 2026-06-24 - Ekran konta oczekującego po pierwszym OAuth
+
+**Faza i krok specyfikacji:** Krok 5B - tworzenie i akceptacja kont oczekujących.
+
+**Wykonano:** `core_auth` 1.5.1 dodaje trasę `/admin/account-pending` z informacją,
+że konto zostało utworzone, ale wymaga aktywacji przez administratora. Callback
+OAuth kieruje tam konto `pending`, gdy docelowym adresem był panel, zachowując
+jednocześnie powrót do dozwolonych funkcji publicznych. Ręczne wejście takiego
+użytkownika na dashboard również przekierowuje przez `system_admin` 1.8.1 na ekran
+oczekiwania zamiast pokazywać ogólny błąd 403.
+
+**Weryfikacja:** dodano kontrole manifestu, trasy i komunikatu; uruchomiono pełne
+testy, lint PHP, przebudowę czystej dystrybucji i kontrolę diffu.

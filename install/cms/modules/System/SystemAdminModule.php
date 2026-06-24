@@ -51,7 +51,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.8.0';
+        return '1.8.1';
     }
 
     public function dependencies(): array
@@ -1630,6 +1630,13 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         if ($decision === AdminAccessGate::FORBIDDEN) {
+            $user = $this->auth->user();
+            if ($user !== null && !$user->isActive()) {
+                $this->audit->record($request, 'admin_access', 'pending', null, $userId);
+                http_response_code(303);
+                header('Location: index.php?route=/admin/account-pending', true, 303);
+                return;
+            }
             $this->audit->record($request, 'admin_access', 'forbidden', null, $userId);
             http_response_code(403);
             $this->theme->render_admin_access_state(
