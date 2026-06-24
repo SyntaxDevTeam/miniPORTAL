@@ -9,7 +9,7 @@ final class FilesystemPermissions
     /** @return list<string> */
     public static function requiredDirectories(): array
     {
-        return ['cache', 'cache/build-artifacts', 'uploads/branding'];
+        return ['cache', 'cache/build-artifacts', 'cache/platform-updates', 'uploads/branding'];
     }
 
     /** @return list<string> */

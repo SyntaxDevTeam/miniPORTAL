@@ -9,22 +9,41 @@ use ZipArchive;
 
 final class ModulePackageExporter
 {
+    public function __construct(
+        private readonly ?ModulePackageSigner $signer = null,
+    ) {
+    }
+
     /**
      * @return array{path: string, filename: string, mime: string}
      */
     public function exportZip(ModuleManifest $manifest, string $targetDirectory): array
     {
-        $files = $this->exportableFiles($manifest->directory);
         $this->ensureExportDirectory($targetDirectory);
-
         $filename = $manifest->id . '-' . $manifest->version . '.zip';
         $target = rtrim($targetDirectory, '/') . '/' . $filename;
         @unlink($target);
 
-        if (class_exists(ZipArchive::class)) {
-            $this->exportWithZipArchive($manifest->directory, $target, $files);
-        } else {
-            $this->exportWithCli($manifest->directory, $target, $files);
+        $sourceDirectory = $manifest->directory;
+        $stagingDirectory = null;
+        try {
+            if ($this->signer !== null) {
+                $stagingDirectory = rtrim($targetDirectory, '/') . '/.signing-' . bin2hex(random_bytes(8));
+                $sourceDirectory = $stagingDirectory . '/' . basename($manifest->directory);
+                $this->copyPackage($manifest->directory, $sourceDirectory);
+                $this->signer->sign($sourceDirectory);
+            }
+
+            $files = $this->exportableFiles($sourceDirectory);
+            if (class_exists(ZipArchive::class)) {
+                $this->exportWithZipArchive($sourceDirectory, $target, $files);
+            } else {
+                $this->exportWithCli($sourceDirectory, $target, $files);
+            }
+        } finally {
+            if ($stagingDirectory !== null) {
+                $this->removeDirectory($stagingDirectory);
+            }
         }
         @chmod($target, 0660);
 
@@ -33,6 +52,39 @@ final class ModulePackageExporter
             'filename' => $filename,
             'mime' => 'application/zip',
         ];
+    }
+
+    private function copyPackage(string $source, string $target): void
+    {
+        $files = $this->exportableFiles($source);
+        if (!mkdir($target, 0770, true) && !is_dir($target)) {
+            throw new RuntimeException('Nie można utworzyć kopii roboczej podpisywanego modułu.');
+        }
+        foreach ($files as $relative) {
+            $destination = $target . '/' . $relative;
+            $parent = dirname($destination);
+            if (!is_dir($parent) && !mkdir($parent, 0770, true) && !is_dir($parent)) {
+                throw new RuntimeException('Nie można przygotować struktury podpisywanego modułu.');
+            }
+            if (!copy(rtrim($source, '/') . '/' . $relative, $destination)) {
+                throw new RuntimeException("Nie można skopiować pliku {$relative} do podpisania.");
+            }
+        }
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+        @rmdir($directory);
     }
 
     private function ensureExportDirectory(string $targetDirectory): void

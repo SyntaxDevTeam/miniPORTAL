@@ -16,9 +16,12 @@ use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModulePackageExporter;
+use SyntaxDevTeam\Cms\Core\ModulePackageSigner;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleState;
+use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
@@ -1458,12 +1461,16 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert(!file_exists($distribution . '/tests'));
     $assert(!file_exists($distribution . '/docs'));
     $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
+    $assert(!file_exists($distribution . '/bin/build-platform-release.php'));
     $assert(!file_exists($distribution . '/modules/Econizer/.env'));
     $assert(is_file($distribution . '/modules/Econizer/.env.example'));
     $assert(is_dir($distribution . '/config/modules'));
     $assert(!file_exists($distribution . '/config/modules/econizer.env'));
     $assert(!is_dir($distribution . '/core/migrations'));
     $assert((glob($distribution . '/modules/*/migrations') ?: []) === []);
+    $assert(is_dir($distribution . '/cache/platform-updates'));
+    $assert(is_file($distribution . '/releases/.htaccess'));
+    $assert(json_decode((string) file_get_contents($distribution . '/releases/catalog.json'), true) === ['releases' => []]);
     $distributionBuilder = (string) file_get_contents(dirname(__DIR__) . '/bin/build-cms-distribution.php');
     $assert(str_contains($distributionBuilder, "\$basename === '.env'"));
     $assert(str_contains($distributionBuilder, "\$basename !== '.env.example'"));
@@ -1513,7 +1520,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '1.9.0');
+    $assert($system->version === '2.0.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -1635,7 +1642,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '1.9.0';"));
+    $assert(str_contains($systemSource, "return '2.0.0';"));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
 
@@ -2039,6 +2046,165 @@ $test('Module package exporter creates an importable ZIP archive', static functi
             $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
         }
         rmdir($root);
+    }
+});
+
+$test('Configured module exporter automatically signs only the exported copy', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-signed-export-' . bin2hex(random_bytes(6));
+    $source = $root . '/SignedModule';
+    $exports = $root . '/exports';
+    $quarantine = $root . '/quarantine';
+    mkdir($source, 0700, true);
+    mkdir($quarantine, 0700, true);
+    file_put_contents($source . '/info.json', json_encode([
+        'id' => 'signed_module',
+        'name' => 'Signed Module',
+        'version' => '2.0.0',
+        'type' => 'extension',
+        'author' => 'Tests',
+        'requires' => ['php' => '>=8.4', 'miniportal' => '>=0.1.0', 'modules' => []],
+        'protected' => false,
+        'origin' => ['type' => 'repository', 'url' => 'https://example.test/signed-module'],
+        'install' => null,
+    ], JSON_THROW_ON_ERROR));
+    file_put_contents($source . '/Module.php', "<?php\n");
+
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    $details = $key !== false ? openssl_pkey_get_details($key) : false;
+    $assert($key !== false && is_array($details));
+    $assert(openssl_pkey_export($key, $privatePem));
+    file_put_contents($root . '/private.pem', $privatePem);
+    $publishers = [
+        'test-signing-key' => [
+            'name' => 'Test publisher',
+            'public_key' => (string) $details['key'],
+            'status' => 'active',
+        ],
+    ];
+
+    try {
+        $manifest = (new ModuleManifestValidator('0.2.0'))->validate($source);
+        $export = (new ModulePackageExporter(
+            new ModulePackageSigner($root . '/private.pem', 'test-signing-key')
+        ))->exportZip($manifest, $exports);
+        $assert(!is_file($source . '/signature.json'));
+        $sourceManifest = json_decode((string) file_get_contents($source . '/info.json'), true);
+        $assert(is_array($sourceManifest) && !array_key_exists('signature', $sourceManifest));
+
+        $import = (new ModuleArchiveImporter(
+            $quarantine,
+            new ModuleManifestValidator('0.2.0', $publishers)
+        ))->importFile($export['path'], $export['filename']);
+        $assert($import['manifest']?->signatureStatus === 'verified');
+        $assert(is_file($import['directory'] . '/source/SignedModule/signature.json'));
+    } finally {
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($root);
+    }
+});
+
+$test('Platform release catalog selects a compatible newer version', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-release-catalog-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    file_put_contents($directory . '/catalog.json', json_encode([
+        'releases' => [
+            [
+                'version' => '0.3.0',
+                'released_at' => '2026-06-24T12:00:00+00:00',
+                'minimum_version' => '0.2.0',
+                'filename' => 'miniportal-0.3.0.zip',
+                'checksum' => str_repeat('a', 64),
+                'changelog' => ['Nowsze wydanie'],
+            ],
+            [
+                'version' => '0.2.0',
+                'released_at' => '2026-06-24T10:00:00+00:00',
+                'minimum_version' => '0.1.0',
+                'filename' => 'miniportal-0.2.0.zip',
+                'checksum' => str_repeat('b', 64),
+                'changelog' => ['Aktualizator platformy'],
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    try {
+        $repository = new PlatformReleaseRepository($directory);
+        $assert($repository->latestFor('0.1.0')['version'] === '0.2.0');
+        $assert($repository->latestFor('0.2.0')['version'] === '0.3.0');
+        $assert($repository->latestFor('0.3.0') === null);
+    } finally {
+        unlink($directory . '/catalog.json');
+        rmdir($directory);
+    }
+});
+
+$test('Platform updater preserves local data and rolls files back on failure', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-platform-update-' . bin2hex(random_bytes(6));
+    $application = $root . '/app';
+    $package = $root . '/package';
+    $work = $application . '/cache/platform-updates';
+    mkdir($application . '/core', 0700, true);
+    mkdir($application . '/config', 0700, true);
+    mkdir($package . '/payload/core', 0700, true);
+    file_put_contents($application . '/core/Test.php', "<?php\n// old\n");
+    file_put_contents($application . '/config/installed.env', "DB_PASS=secret\n");
+    file_put_contents($package . '/payload/core/Test.php', "<?php\n// new\n");
+    $files = ['core/Test.php' => hash_file('sha256', $package . '/payload/core/Test.php')];
+    file_put_contents($package . '/release.json', json_encode([
+        'version' => '0.2.0',
+        'minimum_version' => '0.1.0',
+        'files' => $files,
+    ], JSON_THROW_ON_ERROR));
+    $archive = $root . '/miniportal-0.2.0.zip';
+    exec(
+        'cd ' . escapeshellarg($package) . ' && zip -qr ' . escapeshellarg($archive) . ' .',
+        $output,
+        $code
+    );
+    $assert($code === 0);
+    $release = [
+        'version' => '0.2.0',
+        'minimum_version' => '0.1.0',
+        'filename' => basename($archive),
+        'checksum' => (string) hash_file('sha256', $archive),
+    ];
+
+    try {
+        $updater = new PlatformUpdater($application, $work);
+        try {
+            $updater->apply($release, $archive, '0.1.0', static function (): void {
+                throw new RuntimeException('migration failed');
+            });
+            $assert(false, 'Nie cofnięto plików po błędzie aktualizacji platformy');
+        } catch (RuntimeException $exception) {
+            $assert($exception->getMessage() === 'migration failed');
+        }
+        $assert(str_contains((string) file_get_contents($application . '/core/Test.php'), '// old'));
+        $assert((string) file_get_contents($application . '/config/installed.env') === "DB_PASS=secret\n");
+
+        $result = $updater->apply($release, $archive, '0.1.0', static function (): void {
+        });
+        $assert($result['version'] === '0.2.0');
+        $assert($result['files'] === 1);
+        $assert(str_contains((string) file_get_contents($application . '/core/Test.php'), '// new'));
+        $assert((string) file_get_contents($application . '/config/installed.env') === "DB_PASS=secret\n");
+    } finally {
+        if (is_dir($root)) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($root);
+        }
     }
 });
 

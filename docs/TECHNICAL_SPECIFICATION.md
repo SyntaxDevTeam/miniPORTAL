@@ -492,6 +492,13 @@ Stan managera:
   ACL/CSRF, jest audytowany i blokuje dowiązania symboliczne oraz ukryte segmenty
   ścieżek; lokalny `.env` jest pomijany, a `.env.example` jest jedynym dozwolonym
   ukrytym plikiem konfiguracyjnym pakietu.
+- opcjonalny lokalny wydawca z `MODULE_SIGNING_KEY_ID`,
+  `MODULE_SIGNING_PRIVATE_KEY_FILE` i `MODULE_SIGNING_PUBLIC_KEY_FILE`
+  automatycznie podpisuje panelowy eksport RSA-SHA256; podpis powstaje w kopii
+  roboczej, więc źródłowy manifest i katalog modułu pozostają niezmienione,
+- `bin/sign-module.php` pozostaje interfejsem CLI/CI i korzysta z tej samej klasy
+  podpisującej co eksport panelowy; `bin/setup-module-signing.php` tworzy parę
+  kluczy oraz wypisuje gotową konfigurację środowiskową.
 - dashboard panelu pokazuje syntetyczne metryki modułów, rozszerzeń, migracji,
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
@@ -773,9 +780,27 @@ Stan 1.3.1:
    Prawo zapisu do `config/` i `config/modules/` jest wymaganiem kreatora, nie
    stałym wymaganiem runtime po zakończeniu instalacji.
 6. Błąd instalacji sprząta tabele utworzone w początkowo pustej bazie.
+7. Aktualizacja istniejącej instalacji korzysta z osobnego katalogu `releases/`
+   i manifestu `catalog.json`; manager modułów nie udaje aktualizatora Core.
+8. Dashboard porównuje `app.version` z najnowszym zgodnym wydaniem i pokazuje
+   administratorowi listę zmian oraz wejście do aktualizacji jednym kliknięciem.
+9. Pakiet platformy obejmuje kontrolowany runtime: `core/`, `modules/`,
+   `templates/`, kod `config/`, `bin/`, `tools/`, `index.php` i `.htaccess`.
+   Nie obejmuje bazy, uploadów, cache, lokalnego środowiska, blokady instalatora
+   ani sekretów modułów.
+10. Aktualizator weryfikuje SHA-256 archiwum i każdego pliku, rozpakowuje wydanie
+    do stagingu, tworzy kopię poprzednich plików, podmienia je atomowo, uruchamia
+    migracje Core i aktualizacje zainstalowanych modułów. Błąd przywraca kod;
+    wykonane DDL MySQL/MariaDB może pozostać zatwierdzone zgodnie z ograniczeniami
+    opisanymi dla migracji.
+11. Katalog `releases/` jest blokowany przed bezpośrednim dostępem HTTP. Domyślny
+    kanał jest lokalny, a opcjonalne `PLATFORM_RELEASE_CATALOG_URL` pozwala pobrać
+    katalog i archiwum z centralnego HTTPS bez przekierowań. Pobrany ZIP trafia do
+    chronionego cache i nadal wymaga zgodnej sumy SHA-256.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
-MariaDB przez instalację wszystkich 11 modułów i utworzenie jednego Ownera.
+MariaDB przez instalację wszystkich modułów i utworzenie jednego Ownera; wersja
+0.2.0 dodaje kontrolowany kanał aktualizacji całej platformy.
 
 ---
 

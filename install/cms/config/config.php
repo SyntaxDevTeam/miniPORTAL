@@ -53,7 +53,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.1.0',
+        'version' => '0.2.0',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'theme' => (string) $env('APP_THEME', 'default'),
@@ -100,6 +100,13 @@ return [
         'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
         'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
         'build_ci_token' => (string) $env('BUILD_CI_TOKEN', ''),
+        'signing_key_id' => trim((string) $env('MODULE_SIGNING_KEY_ID', '')),
+        'signing_private_key_file' => trim((string) $env('MODULE_SIGNING_PRIVATE_KEY_FILE', '')),
+        'signing_public_key_file' => trim((string) $env('MODULE_SIGNING_PUBLIC_KEY_FILE', '')),
+    ],
+    'updates' => [
+        'catalog_url' => (string) $env('PLATFORM_RELEASE_CATALOG_URL', ''),
+        'archive_max_bytes' => $envInt('PLATFORM_RELEASE_MAX_BYTES', 52428800, 1048576),
     ],
     'auth' => [
         'storage' => (string) $env('AUTH_STORAGE', 'database'),

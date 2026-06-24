@@ -1,0 +1,18 @@
+{
+    "releases": [
+        {
+            "version": "0.2.0",
+            "released_at": "2026-06-24T17:04:01+00:00",
+            "minimum_version": "0.1.0",
+            "filename": "miniportal-0.2.0.zip",
+            "checksum": "a2fed9073d017ba74c5528deca7700640da5b2d606860bc6a12fe40109402d1a",
+            "changelog": [
+                "Dodano panelowy aktualizator ca\u0142ego miniPORTALu z katalogiem wyda\u0144 i list\u0105 zmian.",
+                "Dodano staging, kontrol\u0119 SHA-256, kopi\u0119 bezpiecze\u0144stwa i rollback plik\u00f3w.",
+                "Aktualizacja uruchamia migracje Core oraz kontrolowane aktualizacje zainstalowanych modu\u0142\u00f3w.",
+                "Dodano eksport i aktualizacj\u0119 modu\u0142\u00f3w chronionych bez mo\u017cliwo\u015bci ich wy\u0142\u0105czenia lub usuni\u0119cia.",
+                "Eksport modu\u0142\u00f3w pomija lokalne pliki .env i zachowuje bezpieczne .env.example."
+            ]
+        }
+    ]
+}

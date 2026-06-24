@@ -198,6 +198,27 @@ wartości nadal wykonuje się w `/etc/miniportal/miniportal.env`.
 Publiczne klucze wydawców są rejestrowane przez `config/module_publishers.php`.
 Klucz prywatny nie może trafić do repozytorium, katalogu WWW ani panelu.
 
+Projekt macierzysty może skonfigurować automatyczne podpisywanie eksportów jednym
+poleceniem:
+
+```bash
+php bin/setup-module-signing.php /etc/miniportal/module-signing syntaxdevteam-modules-2026
+```
+
+Następnie wartości pokazane przez skrypt należy dodać do pliku środowiskowego:
+
+```dotenv
+MODULE_SIGNING_KEY_ID=syntaxdevteam-modules-2026
+MODULE_SIGNING_PRIVATE_KEY_FILE=/etc/miniportal/module-signing/syntaxdevteam-modules-2026-private.pem
+MODULE_SIGNING_PUBLIC_KEY_FILE=/etc/miniportal/module-signing/syntaxdevteam-modules-2026-public.pem
+```
+
+Od tego momentu panelowa akcja `Eksportuj ZIP` automatycznie tworzy podpisaną
+kopię pakietu. Nie zmienia katalogu źródłowego modułu i nie zapisuje prywatnego
+klucza w archiwum. Proces PHP musi mieć prawo odczytu klucza prywatnego. Instalacja
+odbierająca paczki potrzebuje tego samego `MODULE_SIGNING_KEY_ID` i kopii wyłącznie
+klucza publicznego; zmienna klucza prywatnego może tam pozostać pusta.
+
 Przykładowe podpisanie wydania:
 
 ```bash
@@ -225,6 +246,42 @@ sudo install -d -m 2770 -o debian -g www-data cache/module-quarantine
 sudo chgrp www-data modules
 sudo chmod 2775 modules
 ```
+
+## Aktualizacja całego miniPORTALu z panelu
+
+Jednoklikowa aktualizacja runtime wymaga, aby proces PHP mógł zapisywać kod
+zarządzany przez wydanie. Jest to świadoma granica bezpieczeństwa: konto serwera
+WWW otrzymuje zapis do katalogów kodu wyłącznie dlatego, że panel ma kontrolowany
+aktualizator z ACL, CSRF, stagingiem, SHA-256 i kopią bezpieczeństwa.
+
+```bash
+cd /var/www/syntaxdevteam.pl/new
+sudo chgrp -R www-data core modules templates bin tools
+sudo find core modules templates bin tools -type d -exec chmod 2775 {} \;
+sudo find core modules templates bin tools -type f -exec chmod 0664 {} \;
+sudo chgrp www-data config config/*.php
+sudo chmod 2770 config
+sudo chmod 0664 config/*.php
+sudo chgrp www-data index.php .htaccess
+sudo chmod 0664 index.php .htaccess
+sudo install -d -m 2770 -o debian -g www-data cache/platform-updates
+```
+
+Sekrety powinny nadal znajdować się poza kodem w `/etc/miniportal/miniportal.env`
+albo lokalnym `config/installed.env`. Aktualizator nigdy nie umieszcza tych plików
+w wydaniu i ich nie nadpisuje. Powyższe polecenia celowo nie zmieniają praw
+`config/installed.env` ani plików w `config/modules/`.
+
+Centralny kanał wydań można włączyć bez zmiany kodu:
+
+```dotenv
+PLATFORM_RELEASE_CATALOG_URL=https://downloads.example.org/miniportal/catalog.json
+PLATFORM_RELEASE_MAX_BYTES=52428800
+```
+
+Akceptowany jest wyłącznie HTTPS bez przekierowań. Pobrane archiwum trafia do
+`cache/platform-updates/downloads`, a przed użyciem musi odpowiadać sumie SHA-256
+z katalogu. Pusty URL pozostawia lokalny tryb `releases/`.
 
 Zatwierdzenie wykonuje atomowe przeniesienie w obrębie tego samego systemu plików.
 Nie nadaje zapisu do istniejących katalogów modułów i nie uruchamia ich kodu.

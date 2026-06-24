@@ -2389,3 +2389,56 @@ wyeksportowany pakiet może przejść pełny import do kwarantanny.
 ZIP: zawiera `Econizer/.env.example`, ale nie zawiera `Econizer/.env`. Dodano test
 regresji eksportu i ponownego importu, uruchomiono pełne `php tests/run.php`, lint
 zmienionych plików, `git diff --check` oraz przebudowę `install/cms`.
+
+### Sesja: 2026-06-24 - Katalog wydań i aktualizator platformy 0.2.0
+
+**Faza i krok specyfikacji:** Krok 6 - lifecycle modułów chronionych; Krok 7 -
+dystrybucja, wersjonowanie i aktualizacja istniejącej instalacji.
+
+**Wykonano:** oddzielono aktualizację całego miniPORTALu od managera modułów.
+Dodano chroniony katalog `releases/`, walidowany `catalog.json`, generator
+`bin/build-platform-release.php`, manifest plików i archiwum wydania
+`miniportal-0.2.0.zip`. Wersja aplikacji została podniesiona do 0.2.0, a
+`system_admin` do 2.0.0.
+
+Dashboard pokazuje dostępność nowszego zgodnego wydania. Nowy panel
+`/admin/system-updates` prezentuje bieżącą wersję, wymaganie wersji bazowej,
+historię wydań i listę zmian. Aktualizacja wymaga ACL `settings.manage`, CSRF i
+jest audytowana. Proces sprawdza SHA-256 archiwum i wszystkich plików, rozpakowuje
+pakiet do stagingu, wykonuje backup, podmienia wyłącznie kontrolowany runtime,
+uruchamia migracje Core i aktualizacje zainstalowanych modułów, a przy błędzie
+przywraca poprzedni kod.
+
+Pakiet nie zawiera bazy, uploadów, cache, `config/installed.env`,
+`config/installed.lock`, `config/modules/` ani lokalnych `.env`. Czysta
+dystrybucja ma pusty, chroniony katalog wydań i zapisywalny
+`cache/platform-updates`. Kanał może działać lokalnie albo pobierać centralny
+`catalog.json` i ZIP przez skonfigurowany HTTPS bez przekierowań; archiwum trafia
+do chronionego cache i przed użyciem musi odpowiadać SHA-256 katalogu.
+
+**Weryfikacja:** dodano test wyboru zgodnej wersji oraz test zachowania lokalnych
+danych i rollbacku plików. Wykonano pełne testy repozytorium, pełny lint PHP,
+`node --check`, `git diff --check`, przebudowę `install/cms` oraz rzeczywisty smoke
+test aktualizacji kopii czystej instalacji z 0.1.0 do 0.2.0. Zaktualizowano 275
+plików, zachowując `config/installed.env` i plik użytkownika w `uploads/branding`.
+
+### Sesja: 2026-06-24 - Automatyczny podpis eksportowanych modułów
+
+**Faza i krok specyfikacji:** Krok 6 - system modułów, pochodzenie, podpisy
+RSA-SHA256 oraz dystrybucja aktualizacji pomiędzy instalacjami.
+
+**Wykonano:** dodano `ModulePackageSigner` jako wspólną implementację podpisu dla
+panelu i CLI. Po skonfigurowaniu `MODULE_SIGNING_*` akcja `Eksportuj ZIP`
+automatycznie tworzy kopię roboczą modułu, dodaje do niej deklarację i dokument
+podpisu, pakuje ZIP, a następnie usuwa staging. Źródłowy `info.json` i katalog
+modułu nie są zmieniane, `.env` nadal nie trafia do archiwum, a klucz prywatny
+pozostaje poza projektem.
+
+Dodano `bin/setup-module-signing.php`, który generuje parę RSA 4096 i wypisuje
+gotowe zmienne środowiskowe. `bin/sign-module.php` pozostaje dostępny dla CI oraz
+ręcznych wydań, ale używa tej samej klasy co panel. Instalacja odbierająca pakiet
+potrzebuje wyłącznie zgodnego identyfikatora i klucza publicznego.
+
+**Weryfikacja:** dodano test automatycznie podpisanego eksportu, ponownego importu
+ze statusem `verified` oraz braku zmian w źródłowym module. Uruchomiono lint
+zmienionych plików PHP, pełne testy repozytorium i `git diff --check`.

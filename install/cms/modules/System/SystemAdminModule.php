@@ -7,9 +7,12 @@ namespace SyntaxDevTeam\Cms\Modules\System;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
+use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
+use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -41,6 +44,9 @@ final class SystemAdminModule implements ModuleInterface
         private readonly PublicNavigationRegistry $publicNavigation,
         private readonly DashboardRegistry $dashboard,
         private readonly BrandIconGenerator $brandIconGenerator,
+        private readonly PlatformReleaseRepository $platformReleases,
+        private readonly PlatformUpdater $platformUpdater,
+        private readonly ?CoreMigrationRunner $coreMigrationRunner,
     ) {
     }
 
@@ -51,7 +57,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.9.0';
+        return '2.0.0';
     }
 
     public function dependencies(): array
@@ -73,6 +79,7 @@ final class SystemAdminModule implements ModuleInterface
     {
         $menu->add('Przestrzeń robocza', 'Dashboard', '/admin', 'DB', 'admin.access', 10);
         $menu->add('System', 'Moduły', '/admin/modules', 'MD', 'modules.view', 50);
+        $menu->add('System', 'Aktualizacje', '/admin/system-updates', 'UP', 'settings.manage', 52);
         $menu->add('System', 'Ustawienia', '/admin/settings', 'ST', 'settings.manage', 55);
         $menu->add('System', 'Dziennik zdarzeń', '/admin/logs', 'LG', 'logs.view', 60);
     }
@@ -129,6 +136,16 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'modules.install',
             fn () => $this->exportModuleArchive($request)
+        ));
+        $router->get('/admin/system-updates', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->renderPlatformUpdates()
+        ));
+        $router->post('/admin/system-updates/apply', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->applyPlatformUpdate($request)
         ));
         $router->get('/admin/settings', fn (Request $request) => $this->guard(
             $request,
@@ -214,6 +231,24 @@ final class SystemAdminModule implements ModuleInterface
             '/admin',
             'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
         );
+        try {
+            $currentVersion = (string) ($this->config['app']['version'] ?? '0.0.0');
+            $latestRelease = $this->platformReleases->latestFor($currentVersion);
+            if ($latestRelease !== null) {
+                $this->theme->render_alert(
+                    'Dostępna jest aktualizacja miniPORTAL ' . $latestRelease['version']
+                    . '. Otwórz sekcję Aktualizacje, aby poznać listę zmian.',
+                    'warning'
+                );
+                $this->theme->render_button(
+                    'Sprawdź aktualizację',
+                    'index.php?route=/admin/system-updates',
+                    'primary'
+                );
+            }
+        } catch (\Throwable $exception) {
+            $this->theme->render_alert('Nie można odczytać katalogu wydań: ' . $exception->getMessage(), 'warning');
+        }
 
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric(
@@ -302,6 +337,133 @@ final class SystemAdminModule implements ModuleInterface
         $this->endPage();
     }
 
+    private function renderPlatformUpdates(string $message = '', string $variant = 'info'): void
+    {
+        $currentVersion = (string) ($this->config['app']['version'] ?? '0.0.0');
+        $this->startPage(
+            'Aktualizacje miniPORTAL',
+            '/admin/system-updates',
+            'Kontrolowane wydania Core, modułów chronionych i runtime bez naruszania treści.'
+        );
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        try {
+            $releases = $this->platformReleases->all();
+            $latest = $this->platformReleases->latestFor($currentVersion);
+            $this->theme->start_admin_panel('Stan platformy', 'Wersja ' . $currentVersion);
+            if ($latest === null) {
+                $this->theme->render_alert('Ta instalacja korzysta z najnowszego dostępnego wydania.', 'success');
+            } else {
+                $this->theme->render_alert(
+                    'Dostępna aktualizacja ' . $currentVersion . ' → ' . $latest['version'] . '.',
+                    'warning'
+                );
+                $this->theme->render_admin_table(
+                    ['Lista zmian'],
+                    array_map(static fn (string $item): array => [$item], $latest['changelog'])
+                );
+                $this->theme->render_form(
+                    'index.php?route=/admin/system-updates/apply',
+                    [[
+                        'name' => 'version',
+                        'label' => 'Wersja docelowa',
+                        'type' => 'hidden',
+                        'value' => $latest['version'],
+                    ]],
+                    'Pobierz i zaktualizuj do ' . $latest['version'],
+                    $this->security->csrfToken()
+                );
+            }
+            $this->theme->end_admin_panel();
+
+            $this->theme->start_admin_panel('Historia dostępnych wydań', count($releases) . ' wersji');
+            $this->theme->render_admin_table(
+                ['Wersja', 'Data wydania', 'Wymagana wersja bazowa', 'Stan'],
+                array_map(
+                    static fn (array $release): array => [
+                        $release['version'],
+                        $release['released_at'],
+                        $release['minimum_version'],
+                        version_compare($release['version'], $currentVersion, '>')
+                            ? 'Dostępna'
+                            : ($release['version'] === $currentVersion ? 'Zainstalowana' : 'Starsza'),
+                    ],
+                    $releases
+                )
+            );
+            $this->theme->end_admin_panel();
+        } catch (\Throwable $exception) {
+            $this->theme->render_alert($exception->getMessage(), 'danger');
+        }
+        $this->endPage();
+    }
+
+    private function applyPlatformUpdate(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $version = $request->postString('version');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'platform_update', 'invalid_csrf', $version, $actor?->id);
+            http_response_code(403);
+            $this->renderPlatformUpdates('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $release = $this->platformReleases->find($version);
+            if ($release === null) {
+                throw new \RuntimeException('Nie znaleziono wskazanego wydania.');
+            }
+            if ($this->moduleManager === null || $this->coreMigrationRunner === null) {
+                throw new \RuntimeException('Aktualizacja wymaga aktywnego połączenia z bazą danych.');
+            }
+            $currentVersion = (string) ($this->config['app']['version'] ?? '0.0.0');
+            $result = $this->platformUpdater->apply(
+                $release,
+                $this->platformReleases->archivePath($release),
+                $currentVersion,
+                function (): void {
+                    $this->coreMigrationRunner?->run();
+                    foreach ($this->moduleManager?->modules() ?? [] as $entry) {
+                        if (
+                            $entry['manifest'] !== null
+                            && $entry['state']?->isInstalled() === true
+                            && $entry['update_available'] === true
+                        ) {
+                            $this->moduleManager?->update($entry['manifest']->id);
+                        }
+                    }
+                }
+            );
+            $this->audit->record(
+                $request,
+                'platform_update',
+                'success',
+                $currentVersion . ' -> ' . $result['version'] . ' / files:' . $result['files'],
+                $actor?->id
+            );
+            $this->startPage(
+                'Aktualizacja zakończona',
+                '/admin/system-updates',
+                'Nowy runtime miniPORTAL został wdrożony.'
+            );
+            $this->theme->render_alert(
+                'miniPORTAL zaktualizowano do ' . $result['version']
+                . '. Zmieniono ' . $result['files'] . ' plików; treści i dane lokalne pozostały bez zmian.',
+                'success'
+            );
+            $this->theme->render_button(
+                'Uruchom odświeżony panel',
+                'index.php?route=/admin/system-updates',
+                'primary'
+            );
+            $this->endPage();
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'platform_update', 'failed', $version, $actor?->id);
+            $this->renderPlatformUpdates($exception->getMessage(), 'danger');
+        }
+    }
+
     private function renderModules(string $message = '', string $variant = 'info'): void
     {
         $this->startPage(
@@ -316,6 +478,17 @@ final class SystemAdminModule implements ModuleInterface
             $this->theme->render_alert('Manager modułów wymaga aktywnego połączenia z bazą danych.', 'danger');
             $this->endPage();
             return;
+        }
+        if ($this->moduleManager->signsExportsAutomatically()) {
+            $this->theme->render_alert(
+                'Automatyczny podpis eksportów jest aktywny. Eksportuj ZIP utworzy podpisaną kopię pakietu.',
+                'success'
+            );
+        } else {
+            $this->theme->render_alert(
+                'Eksporty nie są automatycznie podpisywane. Skonfiguruj MODULE_SIGNING_* lub użyj bin/sign-module.php.',
+                'warning'
+            );
         }
 
         $user = $this->auth->user();

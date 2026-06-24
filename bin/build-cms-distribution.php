@@ -74,6 +74,7 @@ try {
         $copyDirectory($root . '/' . $directory, $temporary . '/' . $directory);
     }
     @unlink($temporary . '/bin/build-cms-distribution.php');
+    @unlink($temporary . '/bin/build-platform-release.php');
     foreach (['.htaccess', '.env.example', 'index.php'] as $file) {
         if (!copy($root . '/' . $file, $temporary . '/' . $file)) {
             throw new RuntimeException("Nie można skopiować {$file}.");
@@ -112,7 +113,7 @@ try {
         . ";\n";
     file_put_contents($temporary . '/installer/migration-baseline.php', $baselinePhp);
 
-    foreach (['templates', 'build-artifacts', 'module-quarantine'] as $directory) {
+    foreach (['templates', 'build-artifacts', 'module-quarantine', 'platform-updates'] as $directory) {
         $path = $temporary . '/cache/' . $directory;
         mkdir($path, 0775, true);
         file_put_contents($path . '/.gitkeep', '');
@@ -124,6 +125,11 @@ try {
     if (!copy($root . '/uploads/.htaccess', $temporary . '/uploads/.htaccess')) {
         throw new RuntimeException('Nie można dołączyć ochrony katalogu uploads.');
     }
+    mkdir($temporary . '/releases', 0775, true);
+    if (!copy($root . '/releases/.htaccess', $temporary . '/releases/.htaccess')) {
+        throw new RuntimeException('Nie można dołączyć ochrony katalogu releases.');
+    }
+    file_put_contents($temporary . '/releases/catalog.json', "{\n  \"releases\": []\n}\n");
     @unlink($temporary . '/config/installed.env');
     @unlink($temporary . '/config/installed.lock');
 

@@ -8,6 +8,7 @@ use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
+use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\InstallationState;
@@ -16,8 +17,11 @@ use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleInstaller;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
+use SyntaxDevTeam\Cms\Core\ModulePackageSigner;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleStateRepository;
+use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
@@ -149,6 +153,27 @@ $homepageSectionItemRepository = $application->database() !== null
     : null;
 $moduleDefinitions = require __DIR__ . '/config/modules.php';
 $trustedModulePublishers = require __DIR__ . '/config/module_publishers.php';
+$modulesConfig = is_array($config['modules'] ?? null) ? $config['modules'] : [];
+$moduleSigningKeyId = (string) ($modulesConfig['signing_key_id'] ?? '');
+$moduleSigningPublicKeyFile = (string) ($modulesConfig['signing_public_key_file'] ?? '');
+if (
+    $moduleSigningKeyId !== ''
+    && $moduleSigningPublicKeyFile !== ''
+    && is_readable($moduleSigningPublicKeyFile)
+) {
+    $trustedModulePublishers[$moduleSigningKeyId] = [
+        'name' => 'Lokalny wydawca miniPORTAL',
+        'public_key' => (string) file_get_contents($moduleSigningPublicKeyFile),
+        'status' => 'active',
+        'valid_from' => null,
+        'valid_until' => null,
+        'replacement_key_id' => null,
+    ];
+}
+$moduleSigningPrivateKeyFile = (string) ($modulesConfig['signing_private_key_file'] ?? '');
+$modulePackageSigner = $moduleSigningKeyId !== '' && $moduleSigningPrivateKeyFile !== ''
+    ? new ModulePackageSigner($moduleSigningPrivateKeyFile, $moduleSigningKeyId)
+    : null;
 $manifestValidator = new ModuleManifestValidator(
     (string) ($config['app']['version'] ?? '0.1.0'),
     $trustedModulePublishers
@@ -168,7 +193,8 @@ $moduleManager = $moduleStates !== null && $moduleInstaller !== null
         array_values(array_map(
             static fn (array $definition): string => (string) ($definition['directory'] ?? ''),
             $moduleDefinitions
-        ))
+        )),
+        $modulePackageSigner
     )
     : null;
 $moduleArchiveImporter = new ModuleArchiveImporter(
@@ -176,6 +202,17 @@ $moduleArchiveImporter = new ModuleArchiveImporter(
     $manifestValidator,
     (int) ($config['modules']['archive_max_bytes'] ?? 10485760)
 );
+$updatesConfig = is_array($config['updates'] ?? null) ? $config['updates'] : [];
+$platformReleases = new PlatformReleaseRepository(
+    __DIR__ . '/releases',
+    (string) ($updatesConfig['catalog_url'] ?? ''),
+    __DIR__ . '/cache/platform-updates/downloads',
+    (int) ($updatesConfig['archive_max_bytes'] ?? 52428800)
+);
+$platformUpdater = new PlatformUpdater(__DIR__, __DIR__ . '/cache/platform-updates');
+$coreMigrationRunner = $application->database() !== null
+    ? new CoreMigrationRunner($application->database(), __DIR__ . '/core/migrations')
+    : null;
 $brandIconGenerator = new BrandIconGenerator(__DIR__, __DIR__ . '/uploads/branding');
 $moduleBootstrapper = new ModuleBootstrapper(
     __DIR__ . '/modules',
@@ -195,6 +232,9 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'auth_demo_enabled' => $authDemoEnabled,
     'module_manager' => $moduleManager,
     'module_archive_importer' => $moduleArchiveImporter,
+    'platform_releases' => $platformReleases,
+    'platform_updater' => $platformUpdater,
+    'core_migration_runner' => $coreMigrationRunner,
     'config' => $application->config(),
     'diagnostics' => $application->diagnostics(),
     'available_themes' => $application->availableThemes(),

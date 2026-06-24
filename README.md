@@ -21,6 +21,25 @@ Pakiet można odtworzyć po każdej zmianie poleceniem:
 php bin/build-cms-distribution.php
 ```
 
+## Aktualizacje platformy
+
+miniPORTAL ma osobny kanał aktualizacji całego runtime, niezależny od managera
+modułów. Wydania znajdują się w chronionym katalogu `releases/`; `catalog.json`
+zawiera wersję, wymaganie wersji bazowej, SHA-256 archiwum i listę zmian.
+Dashboard informuje administratora o nowszym zgodnym wydaniu, a panel
+`/admin/system-updates` wykonuje staging, backup plików, podmianę runtime, migracje
+Core i aktualizacje zainstalowanych modułów.
+Opcjonalne `PLATFORM_RELEASE_CATALOG_URL` wskazuje centralny `catalog.json` przez
+HTTPS; wtedy panel pobiera archiwum do chronionego cache. Bez tego ustawienia
+korzysta z lokalnego katalogu `releases/`.
+
+Pakiet nie zawiera treści bazy, uploadów, cache, `config/installed.env`,
+`config/installed.lock` ani konfiguracji modułowych z sekretami. Wydanie tworzy:
+
+```bash
+php bin/build-platform-release.php 0.2.0 releases/notes-0.2.0.json
+```
+
 ## Weryfikacja
 
 ```bash
@@ -38,6 +57,9 @@ instaluje modułu ani nie wykonuje jego fabryki; instalacja pozostaje osobną ak
 Każdy zainstalowany moduł, również chroniony `core` lub `system`, można eksportować
 z managera do archiwum ZIP. Import wyższej wersji istniejącego pakietu atomowo
 podmienia kod i uruchamia kontrolowane migracje; błąd przywraca poprzednią wersję.
+Po jednorazowym skonfigurowaniu lokalnego wydawcy przez
+`bin/setup-module-signing.php` panelowy eksport automatycznie podpisuje kopię
+pakietu bez modyfikowania źródłowego katalogu modułu.
 Eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
 top-level katalog modułu z `info.json`. Lokalny `.env` jest zawsze pomijany;
 bezpieczny plik wzorcowy `.env.example` może wejść do pakietu.

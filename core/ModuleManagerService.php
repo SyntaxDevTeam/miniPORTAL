@@ -14,6 +14,7 @@ final class ModuleManagerService
         private readonly ModuleStateRepository $states,
         private readonly ModuleInstaller $installer,
         private readonly array $registeredDirectories,
+        private readonly ?ModulePackageSigner $packageSigner = null,
     ) {
     }
 
@@ -184,7 +185,12 @@ final class ModuleManagerService
         }
         $targetDirectory = dirname(rtrim($this->modulesPath, '/')) . '/cache/module-exports';
 
-        return (new ModulePackageExporter())->exportZip($manifest, $targetDirectory);
+        return (new ModulePackageExporter($this->packageSigner))->exportZip($manifest, $targetDirectory);
+    }
+
+    public function signsExportsAutomatically(): bool
+    {
+        return $this->packageSigner !== null;
     }
 
     public function toggle(string $moduleId, bool $active): void

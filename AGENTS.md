@@ -174,6 +174,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Kontrolowany import archiwum modułu do katalogu kwarantanny |
 | [x] | Kontrolowane zatwierdzanie podpisanego pakietu z kwarantanny do `modules/` bez instalacji i wykonania kodu |
 | [x] | Eksport oraz atomowa aktualizacja modułów chronionych z rollbackiem kodu |
+| [x] | Automatyczne podpisywanie eksportowanych modułów skonfigurowanym kluczem wydawcy |
 | [x] | Polityka retencji i archiwizacji audit logu |
 
 ### Krok 7 - dystrybucja i kreator instalacji
@@ -185,6 +186,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Kreator wymagań, strony, MySQL, OAuth, modułów i pierwszego Ownera |
 | [x] | Atomowy zapis konfiguracji i blokada ponownej instalacji |
 | [x] | Integracyjna instalacja wszystkich modułów na czystej bazie |
+| [x] | Katalog wydań i jednoklikowa aktualizacja całego runtime miniPORTAL |
 | [x] | Zbalansowany, responsywny układ paneli strony Ustawienia |
 | [x] | Rozszerzalny indeks wyszukiwania panelu z ACL i słowami kluczowymi modułów |
 | [x] | Kolejność linków publicznej nawigacji modułów |
@@ -326,6 +328,8 @@ Brak aktywnych blokerów.
 | 2026-06-22 | Wycofano publiczne i18n PL/EN/DE wraz z tabelami tłumaczeń, prefiksami locale, przełącznikiem języka i integracją Google Cloud Translation; projekt pozostaje jednojęzyczny. |
 | 2026-06-24 | Produkcyjna marka bota i modułu została zmieniona na Econizer. Bieżący kontrakt używa katalogu `modules/Econizer`, identyfikatora `econizer`, tras `/econizer`, endpointów `/api/econizer/*`, zmiennych `ECONIZER_*`, nagłówka `X-Econizer-Token` i tabel `econizer_*`; migracje zachowują dane istniejącej instalacji. |
 | 2026-06-24 | Manager eksportuje także chronione moduły `core` i `system`. Import wyższej wersji istniejącego pakietu zachowuje jego tożsamość, atomowo podmienia katalog i wykonuje standardową aktualizację migracji; błąd przywraca poprzedni kod. Ochrona przed wyłączeniem i odinstalowaniem pozostaje niezależna od możliwości aktualizacji. |
+| 2026-06-24 | Opcjonalna konfiguracja `MODULE_SIGNING_*` automatycznie podpisuje kopię pakietu podczas panelowego eksportu. Klucz prywatny pozostaje poza projektem, źródłowy katalog modułu nie jest modyfikowany, a `bin/sign-module.php` korzysta z tej samej implementacji dla CLI i CI. |
+| 2026-06-24 | miniPORTAL 0.2.0 ma osobny lifecycle aktualizacji platformy. Chroniony katalog `releases/` przechowuje katalog wersji, SHA-256 i listę zmian; panel wykonuje staging, backup, podmianę runtime, migracje Core i aktualizacje modułów bez pakowania treści, uploadów ani sekretów. |
 
 ## Historia sesji
 

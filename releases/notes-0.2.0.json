@@ -1,0 +1,10 @@
+{
+  "minimum_version": "0.1.0",
+  "changelog": [
+    "Dodano panelowy aktualizator całego miniPORTALu z katalogiem wydań i listą zmian.",
+    "Dodano staging, kontrolę SHA-256, kopię bezpieczeństwa i rollback plików.",
+    "Aktualizacja uruchamia migracje Core oraz kontrolowane aktualizacje zainstalowanych modułów.",
+    "Dodano eksport i aktualizację modułów chronionych bez możliwości ich wyłączenia lub usunięcia.",
+    "Eksport modułów pomija lokalne pliki .env i zachowuje bezpieczne .env.example."
+  ]
+}

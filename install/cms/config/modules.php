@@ -245,6 +245,9 @@ return [
             $services['public_navigation'],
             $services['dashboard'],
             $services['brand_icon_generator'],
+            $services['platform_releases'],
+            $services['platform_updater'],
+            $services['core_migration_runner'],
         ),
     ],
 ];
