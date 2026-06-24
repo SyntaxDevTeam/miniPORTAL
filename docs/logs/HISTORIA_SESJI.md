@@ -2227,3 +2227,37 @@ do konkretnego serwera Discord.
 lint PHP, przebudowa dystrybucji, lint plików Econify w `install/cms`, migracje
 Core, `git diff --check` oraz kontrolowana aktualizacja produkcyjnego stanu
 `econify` z 1.1.0 do 1.2.0 przez `ModuleInstaller`.
+
+### Sesja: 2026-06-23 - Usunięcie ręcznego wiązania użytkowników Econify
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, separacja graczy
+Discord od administracji serwera Discord.
+
+**Wykonano:** podniesiono `econify` do 1.2.1. Usunięto z ustawień serwera kartę
+`Powiąż użytkownika`, trasę `/econify/server/member` oraz administracyjne trasy
+Discord OAuth z `/admin/econify/*`. Panel administracyjny Econify jest teraz
+diagnostyką platformy i listą tenantów zgłoszonych przez bota, bez flow zapraszania
+bota z panelu. Właściciel lub administrator Discord korzysta z publicznego
+`/econify/servers`, a gracz jest przypisywany automatycznie po zdarzeniu bota,
+jeśli jego lokalne konto miniPORTAL ma tożsamość Discord zgodną z `discord_user_id`.
+
+**Weryfikacja:** lint zmienionych plików PHP, pełne testy repozytorium, pełny
+lint PHP, przebudowa dystrybucji, lint plików Econify w `install/cms`, kontrolowana
+aktualizacja produkcyjnego stanu `econify` z 1.2.0 do 1.2.1 bez migracji, migracje
+Core oraz `git diff --check`.
+
+### Sesja: 2026-06-23 - Ikona Econify w stylu Future
+
+**Faza i krok specyfikacji:** Krok 8 - identyfikacja wizualna dedykowanego modułu
+Econify, zgodna z motywem Future.
+
+**Wykonano:** wygenerowano dużą bitmapową ikonę Econify 1254x1254 px z grafitowym
+tłem, neonowym cyan/lime/magenta, motywem tokena ekonomii, bota i wykresu wzrostu.
+Asset zapisano jako `modules/Econify/assets/brand/econify-icon-future-1254.png`
+i przebudowano czystą dystrybucję, aby trafił również do `install/cms`.
+Po ocenie jako zbyt modułowo-dashboardowej wygenerowano drugą, prostszą wersję
+avatarową dla Discorda: `modules/Econify/assets/brand/econify-discord-bot-icon-v2.png`.
+
+**Weryfikacja:** sprawdzono rozdzielczość pliku i podgląd wizualny wygenerowanej
+ikony; lokalne narzędzia do automatycznego skalowania PNG nie są dostępne w
+środowisku.

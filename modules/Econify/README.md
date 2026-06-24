@@ -1,7 +1,7 @@
 # Econify Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econify.
-Wersja 1.2.0 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.2.1 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
@@ -80,6 +80,10 @@ tenant jako nieaktywny. Dopiero po takim zgłoszeniu zweryfikowany właściciel 
 administrator Discord może połączyć konto miniPORTAL z serwerem i przejść do
 ustawień Econify.
 
+Ustawienia serwera nie pozwalają wybierać dowolnych użytkowników miniPORTAL.
+Gracz jest przypisywany automatycznie przy zdarzeniu bota, jeśli jego Discord User
+ID ma już lokalne konto miniPORTAL połączone z providerem Discord.
+
 ## Onboarding serwera Discord
 
 Panel nie przyjmuje ręcznie Guild ID i nie tworzy tenantów z formularza.
@@ -95,8 +99,15 @@ i przejść do ustawień ekonomii. Przycisk zaproszenia używa oficjalnego flow
 Discord `bot applications.commands`, blokuje wybór do zweryfikowanego Guild ID
 i prosi wyłącznie o maskę `ECONIFY_DISCORD_BOT_PERMISSIONS`.
 
+Panel `/admin/econify` jest diagnostyką platformy i listą tenantów zgłoszonych
+przez bota. Nie zaprasza bota ani nie tworzy serwera ręcznie.
+
 W Discord Developer Portal trzeba dodać dokładną wartość
 `ECONIFY_DISCORD_CALLBACK_URL` do Redirects aplikacji Econify.
+Ten sam rekord aplikacji określa wygląd ekranu autoryzacji Discord: użytkownik
+zobaczy nazwę, ikonę i opis aplikacji przypisanej do `ECONIFY_DISCORD_CLIENT_ID`.
+Dlatego aplikacja nie powinna nazywać się roboczo `NewMain`; ustaw nazwę i ikonę
+na Econify albo inną docelową markę bota.
 
 Sekretnych kodów sklepu nie należy przechowywać w miniPORTAL. Pole referencji
 wskazuje identyfikator roli albo bezpieczny klucz rekordu należącego do bota.

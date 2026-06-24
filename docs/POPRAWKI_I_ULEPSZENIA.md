@@ -340,6 +340,12 @@ manager Discord tylko łączy konto z istniejącym tenantem i dopiero wtedy zarz
 ustawieniami per `discord_guild_id`. Sklep, giełda, portfele i historia pozostają
 izolowane per serwer Discord.
 
+Etap 4 gotowy: usunięto z ustawień serwera mylące pole `Powiąż użytkownika`.
+Administrator serwera Discord nie wybiera dowolnych kont miniPORTAL; gracze są
+przypisywani automatycznie po zdarzeniu bota, jeśli mają lokalną tożsamość Discord.
+Panel `/admin/econify` nie zawiera już flow zaproszenia bota, tylko diagnostykę
+platformy i listę tenantów zgłoszonych przez bota.
+
 ### Ustawienia systemowe
 
 Etap diagnostyki cache i favicon gotowy: licznik cache rozróżnia ważne i wygasłe

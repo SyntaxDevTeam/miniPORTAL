@@ -1496,7 +1496,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econify = $validator->validate(dirname(__DIR__) . '/modules/Econify');
     $assert($econify->id === 'econify');
-    $assert($econify->version === '1.2.0');
+    $assert($econify->version === '1.2.1');
     $assert($econify->type === 'extension');
     $assert($econify->requiredModules === ['core_auth']);
     $assert($econify->installFile === 'install.sql');
@@ -1630,8 +1630,12 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
     $assert(!str_contains($econifySource, 'Dodaj serwer Discord'));
     $assert(!str_contains($econifySource, '/admin/econify/discord/activate'));
-    $assert(str_contains($econifySource, 'Twoje serwery Discord'));
+    $assert(!str_contains($econifySource, '/admin/econify/discord/connect'));
+    $assert(!str_contains($econifySource, 'Powiąż użytkownika'));
+    $assert(!str_contains($econifySource, '/econify/server/member'));
+    $assert(str_contains($econifySource, '/econify/servers'));
     $assert(str_contains($econifySource, '/econify/discord/connect'));
+    $assert(str_contains($econifyRepository, 'user_identities'));
     $assert(str_contains($econifyRepository, 'FOR UPDATE'));
     $assert(str_contains($econifyRepository, 'external_reference'));
     $assert(str_contains($econifyRepository, 'upsertDiscordGuild'));

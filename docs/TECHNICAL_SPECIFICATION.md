@@ -725,6 +725,9 @@ Stan 1.0.0:
 - tenant serwera powstaje po zgłoszeniu instalacji przez bota do
   `/api/econify/guilds`; zweryfikowany właściciel albo administrator Discord
   może następnie połączyć lokalne konto z istniejącym tenantem,
+- administrator serwera nie wybiera ręcznie użytkowników miniPORTAL; gracz jest
+  przypisywany automatycznie po zdarzeniu bota, jeśli lokalne konto ma tożsamość
+  Discord zgodną z `discord_user_id`,
 - sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
 - tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
   w jednym module i jednej transakcji z portfelem.

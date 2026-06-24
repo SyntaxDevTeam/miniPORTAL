@@ -44,7 +44,7 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
     }
 
     public function id(): string { return 'econify'; }
-    public function version(): string { return '1.2.0'; }
+    public function version(): string { return '1.2.1'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econify.view', 'econify.platform.manage']; }
@@ -88,12 +88,8 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $router->get('/econify/discord/callback', fn (Request $request) => $this->completeDiscordDiscovery($request));
         $router->get('/econify/discord/server', fn (Request $request) => $this->renderDiscordGuild($request));
         $router->post('/econify/discord/link', fn (Request $request) => $this->linkDiscordGuild($request));
-        $router->get('/admin/econify/discord/connect', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->startDiscordDiscovery($request)));
-        $router->get('/admin/econify/discord/callback', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->completeDiscordDiscovery($request)));
-        $router->get('/admin/econify/discord/server', fn (Request $request) => $this->guard($request, 'econify.view', fn () => $this->renderDiscordGuild($request)));
         $router->get('/econify/server', fn (Request $request) => $this->renderServer($request));
         $router->post('/econify/server/settings', fn (Request $request) => $this->saveServer($request));
-        $router->post('/econify/server/member', fn (Request $request) => $this->addMember($request));
         $router->post('/econify/server/shop', fn (Request $request) => $this->addShopItem($request));
         $router->post('/econify/server/asset', fn (Request $request) => $this->addAsset($request));
         $router->post('/econify/server/quote', fn (Request $request) => $this->updateQuote($request));
@@ -122,7 +118,7 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $integration = [
             ['label' => 'Plik modułu', 'ok' => $this->config->environmentReadable, 'value' => $this->config->environmentReadable ? 'Odczytany' : 'Brak', 'detail' => 'modules/Econify/.env lub ECONIFY_ENV_FILE'],
             ['label' => 'Token API', 'ok' => $this->config->apiConfigured(), 'value' => $this->config->apiConfigured() ? 'Skonfigurowany' : 'Brak lub za krótki', 'detail' => 'Nagłówek X-Econify-Token'],
-            ['label' => 'Aplikacja Discord', 'ok' => $this->config->discordApplicationConfigured(), 'value' => $this->config->discordApplicationConfigured() ? 'Skonfigurowana' : 'Niekompletna', 'detail' => 'Client ID, Client Secret i callback'],
+            ['label' => 'Aplikacja Discord', 'ok' => $this->config->discordApplicationConfigured(), 'value' => $this->config->discordApplicationConfigured() ? 'Skonfigurowana' : 'Niekompletna', 'detail' => 'Client ID, Client Secret, callback oraz nazwa i ikona aplikacji w Discord Developer Portal'],
             ['label' => 'Token bota', 'ok' => $this->config->botTokenConfigured(), 'value' => $this->config->botTokenConfigured() ? 'Skonfigurowany' : 'Brak', 'detail' => 'Weryfikacja obecności bota'],
         ];
         if (count(array_filter($integration, static fn (array $item): bool => $item['ok'])) === count($integration)) {
@@ -136,41 +132,14 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
             $this->theme->end_admin_panel();
         }
 
-        $this->theme->start_admin_panel_grid();
-        $this->theme->start_admin_panel_column();
         $guildRows = array_map(static fn (array $guild): array => [
             'cells' => [(string) $guild['name'], (string) $guild['owner_name'], strtoupper((string) $guild['plan']), (int) $guild['member_count'], (int) $guild['is_active'] === 1 ? 'Aktywny' : 'Wyłączony'],
             'actions' => [['label' => 'Ustawienia', 'href' => 'index.php?route=/econify/server&guild_id=' . (int) $guild['id'], 'variant' => 'outline-light']],
         ], $this->econify->guilds());
         $this->theme->start_admin_panel('Serwery Econify', count($guildRows) . ' aktywowanych tenantów');
+        $this->theme->render_alert('Ten widok pokazuje tylko serwery zgłoszone przez bota do /api/econify/guilds. Zaproszenie bota odbywa się po stronie właściciela lub administratora Discord w widoku /econify/servers.', 'info');
         $this->theme->render_admin_action_table(['Serwer', 'Właściciel', 'Plan', 'Członkowie', 'Stan'], $guildRows, $this->security->csrfToken());
         $this->theme->end_admin_panel();
-        $this->theme->end_admin_panel_column();
-
-        $this->theme->start_admin_panel_column();
-        $discordGuilds = $this->discord->guilds($user->id);
-        $this->theme->start_admin_panel('Twoje serwery Discord', 'Tylko serwery z uprawnieniem Owner, Administrator lub Zarządzanie serwerem');
-        if (!$this->config->discordApplicationConfigured()) {
-            $this->theme->render_alert('Uzupełnij dedykowane Client ID, Client Secret i callback Econify, aby pobrać listę serwerów.', 'warning');
-        } elseif ($discordGuilds === []) {
-            $this->theme->render_alert('Połącz Discord, aby jednorazowo pobrać serwery, którymi możesz zarządzać. Token użytkownika nie jest zapisywany.', 'info');
-            $this->theme->render_admin_panel_actions([['label' => 'Pobierz moje serwery Discord', 'href' => 'index.php?route=/econify/discord/connect', 'variant' => 'primary']]);
-        } else {
-            $this->theme->render_admin_panel_actions([['label' => 'Odśwież listę z Discord', 'href' => 'index.php?route=/econify/discord/connect', 'variant' => 'outline-light']]);
-            foreach ($discordGuilds as $guild) {
-                $registered = $this->econify->guildByDiscordId($guild['id']);
-                $this->theme->start_admin_panel((string) $guild['name'], $guild['access'] . ($registered !== null ? ' / Econify aktywne' : ' / Bot nieaktywny'));
-                $this->theme->render_admin_fact_grid([
-                    ['label' => 'Discord Guild ID', 'value' => $guild['id']],
-                    ['label' => 'Status Econify', 'value' => $registered !== null ? 'Aktywny' : 'Nieaktywowany', 'variant' => $registered !== null ? 'success' : 'warning'],
-                ]);
-                $this->theme->render_admin_panel_actions([['label' => 'Otwórz serwer', 'href' => 'index.php?route=/econify/discord/server&guild_id=' . rawurlencode($guild['id']), 'variant' => 'primary']]);
-                $this->theme->end_admin_panel();
-            }
-        }
-        $this->theme->end_admin_panel();
-        $this->theme->end_admin_panel_column();
-        $this->theme->end_admin_panel_grid();
 
         $this->theme->start_admin_panel_grid();
         $this->theme->start_admin_panel_column();
@@ -272,14 +241,8 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->start_column('6');
-        $options = []; foreach ($this->econify->users() as $account) { $options[(string) $account['id']] = $account['label']; }
-        $this->theme->start_card('Powiąż użytkownika', 'Dostęp ograniczony do tego serwera');
-        $this->theme->render_form('index.php?route=/econify/server/member', [
-            ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-            ['name' => 'user_id', 'label' => 'Konto miniPORTAL', 'type' => 'select', 'options' => $options],
-            ['name' => 'discord_user_id', 'label' => 'Discord User ID'],
-            ['name' => 'access_role', 'label' => 'Poziom dostępu', 'type' => 'select', 'options' => ['player' => 'Gracz', 'guild_admin' => 'Administrator serwera', 'guild_owner' => 'Właściciel serwera']],
-        ], 'Powiąż konto', $this->security->csrfToken());
+        $this->theme->start_card('Użytkownicy Discord', 'Bez ręcznego wyboru kont miniPORTAL');
+        $this->theme->render_text('Gracze są wiązani z serwerem przez ich Discord User ID. Jeśli użytkownik zalogował się do miniPORTAL przez Discord, pierwsze zdarzenie bota dla tego Discord ID automatycznie przypisze go do właściwego serwera jako gracza. Właściciel lub administrator serwera łączy swoje konto w widoku Moje serwery Discord.');
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->end_grid();
@@ -534,17 +497,6 @@ final class EconifyModule implements ModuleInterface, PublicNavigationProviderIn
         ]);
         $this->audit->record($request, 'econify_server_update', 'success', 'guild:' . $membership['guild_id'], $this->auth->user()?->id);
         $this->renderServer($request, 'Ustawienia serwera zostały zapisane.', 'success');
-    }
-
-    private function addMember(Request $request): void
-    {
-        $context = $this->serverContext($request); if ($context === null || !$this->csrf($request, 'econify_member_upsert')) { return; }
-        [, $membership] = $context; $userId = $request->postInt('user_id', 0) ?? 0; $discord = $request->postString('discord_user_id'); $role = $request->postString('access_role');
-        if ($userId < 1 || preg_match('/^[0-9]{6,32}$/', $discord) !== 1 || !in_array($role, ['guild_owner', 'guild_admin', 'player'], true)) { $this->renderServer($request, 'Nieprawidłowe powiązanie użytkownika.', 'danger'); return; }
-        try { $this->econify->addMembership((int) $membership['guild_id'], $userId, $discord, $role); }
-        catch (\Throwable) { $this->renderServer($request, 'Konto Discord jest już powiązane albo dane są nieprawidłowe.', 'danger'); return; }
-        $this->audit->record($request, 'econify_member_upsert', 'success', 'guild:' . $membership['guild_id'], $this->auth->user()?->id);
-        $this->renderServer($request, 'Powiązanie konta zostało zapisane.', 'success');
     }
 
     private function addShopItem(Request $request): void

@@ -70,30 +70,6 @@ final class EconifyRepository
         );
     }
 
-    public function createGuild(string $discordId, string $name, int $ownerId, string $plan): int
-    {
-        $defaults = $this->platformSettings();
-        $guildId = (int) $this->database->create('econify_guilds', [
-            'discord_guild_id' => $discordId,
-            'name' => $name,
-            'owner_user_id' => $ownerId,
-            'plan' => $plan,
-            'locale' => (string) $defaults['default_locale'],
-            'daily_amount' => (int) $defaults['default_daily_amount'],
-            'work_min' => (int) $defaults['default_work_min'],
-            'work_max' => (int) $defaults['default_work_max'],
-        ]);
-        $this->database->create('econify_memberships', [
-            'guild_id' => $guildId,
-            'user_id' => $ownerId,
-            'discord_user_id' => 'pending:' . $ownerId,
-            'access_role' => 'guild_owner',
-        ]);
-        $this->ensureWallet($guildId, $ownerId);
-
-        return $guildId;
-    }
-
     public function upsertDiscordGuild(string $discordId, string $name, bool $active = true): int
     {
         $defaults = $this->platformSettings();
@@ -160,7 +136,25 @@ final class EconifyRepository
             . 'WHERE g.discord_guild_id = :guild AND m.discord_user_id = :user AND g.is_active = 1 AND m.is_active = 1',
             [':guild' => $discordGuildId, ':user' => $discordUserId]
         );
-        return $row === null ? null : ['guild_id' => (int) $row['guild_id'], 'user_id' => (int) $row['user_id']];
+        if ($row !== null) {
+            return ['guild_id' => (int) $row['guild_id'], 'user_id' => (int) $row['user_id']];
+        }
+
+        $linked = $this->row(
+            "SELECT g.id AS guild_id, i.user_id FROM econify_guilds g JOIN user_identities i "
+            . "ON i.provider = 'discord' AND i.provider_subject = :user "
+            . 'WHERE g.discord_guild_id = :guild AND g.is_active = 1 LIMIT 1',
+            [':guild' => $discordGuildId, ':user' => $discordUserId]
+        );
+        if ($linked === null) {
+            return null;
+        }
+
+        $guildId = (int) $linked['guild_id'];
+        $userId = (int) $linked['user_id'];
+        $this->addMembership($guildId, $userId, $discordUserId, 'player');
+
+        return ['guild_id' => $guildId, 'user_id' => $userId];
     }
 
     /** @param array<string, mixed> $settings */
