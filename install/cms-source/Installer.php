@@ -120,8 +120,8 @@ final class Installer
             $owner = (new FirstAdminBootstrapper($database))->bootstrap($identity, $identity->login);
             $this->saveSiteSettings($pdo, $owner->id, $data);
             $this->writeEnvironment($environment);
-            if (in_array('econify', $data['selected_modules'], true)) {
-                $this->writeEconifyEnvironment($this->econifyEnvironmentContent($data));
+            if (in_array('econizer', $data['selected_modules'], true)) {
+                $this->writeEconizerEnvironment($this->econizerEnvironmentContent($data));
             }
             $this->writeLock();
 
@@ -509,34 +509,34 @@ final class Installer
     }
 
     /** @param array<string, mixed> $data */
-    private function econifyEnvironmentContent(array $data): string
+    private function econizerEnvironmentContent(array $data): string
     {
         $values = [
-            'ECONIFY_API_TOKEN' => bin2hex(random_bytes(32)),
-            'ECONIFY_DISCORD_CLIENT_ID' => '',
-            'ECONIFY_DISCORD_CLIENT_SECRET' => '',
-            'ECONIFY_DISCORD_BOT_TOKEN' => '',
-            'ECONIFY_DISCORD_CALLBACK_URL' => $data['site_url'] . '/index.php?route=/econify/discord/callback',
-            'ECONIFY_DISCORD_BOT_PERMISSIONS' => '0',
+            'ECONIZER_API_TOKEN' => bin2hex(random_bytes(32)),
+            'ECONIZER_DISCORD_CLIENT_ID' => '',
+            'ECONIZER_DISCORD_CLIENT_SECRET' => '',
+            'ECONIZER_DISCORD_BOT_TOKEN' => '',
+            'ECONIZER_DISCORD_CALLBACK_URL' => $data['site_url'] . '/index.php?route=/econizer/discord/callback',
+            'ECONIZER_DISCORD_BOT_PERMISSIONS' => '0',
         ];
-        $lines = ['# Wygenerowano dla modułu Econify. Plik nie należy do konfiguracji miniPORTAL.'];
+        $lines = ['# Wygenerowano dla modułu Econizer. Plik nie należy do konfiguracji miniPORTAL.'];
         foreach ($values as $key => $value) {
             $lines[] = $key . '=' . $this->quoteEnvironmentValue((string) $value);
         }
         return implode(PHP_EOL, $lines) . PHP_EOL;
     }
 
-    private function writeEconifyEnvironment(string $content): void
+    private function writeEconizerEnvironment(string $content): void
     {
-        $file = $this->root . '/modules/Econify/.env';
+        $file = $this->root . '/modules/Econizer/.env';
         $temporary = $file . '.tmp-' . bin2hex(random_bytes(4));
         if (!is_dir(dirname($file)) || file_put_contents($temporary, $content, LOCK_EX) === false) {
-            throw new RuntimeException('Nie można zapisać konfiguracji środowiska Econify.');
+            throw new RuntimeException('Nie można zapisać konfiguracji środowiska Econizer.');
         }
         chmod($temporary, 0600);
         if (!is_array(parse_ini_file($temporary, false, INI_SCANNER_RAW)) || !rename($temporary, $file)) {
             @unlink($temporary);
-            throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska Econify.');
+            throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska Econizer.');
         }
     }
 

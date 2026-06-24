@@ -40,7 +40,7 @@ final class CorePagesModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.3.0';
+        return '1.3.1';
     }
 
     public function dependencies(): array

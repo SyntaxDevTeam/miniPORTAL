@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace SyntaxDevTeam\Cms\Modules\Econify;
+namespace SyntaxDevTeam\Cms\Modules\Econizer;
 
 use RuntimeException;
 
-final readonly class EconifyConfig
+final readonly class EconizerConfig
 {
     public function __construct(
         public string $apiToken,
@@ -22,7 +22,7 @@ final readonly class EconifyConfig
 
     public static function load(string $moduleDirectory): self
     {
-        $explicitFile = getenv('ECONIFY_ENV_FILE');
+        $explicitFile = getenv('ECONIZER_ENV_FILE');
         $environmentFile = is_string($explicitFile) && trim($explicitFile) !== ''
             ? trim($explicitFile)
             : rtrim($moduleDirectory, '/') . '/.env';
@@ -31,7 +31,7 @@ final readonly class EconifyConfig
         if (is_readable($environmentFile)) {
             $parsed = parse_ini_file($environmentFile, false, INI_SCANNER_RAW);
             if ($parsed === false) {
-                throw new RuntimeException('Nie można odczytać konfiguracji środowiska Econify.');
+                throw new RuntimeException('Nie można odczytać konfiguracji środowiska Econizer.');
             }
             $environment = $parsed;
         }
@@ -43,14 +43,14 @@ final readonly class EconifyConfig
             $processValue = getenv($name);
             return $processValue === false ? $default : trim((string) $processValue);
         };
-        $permissions = filter_var($value('ECONIFY_DISCORD_BOT_PERMISSIONS', '0'), FILTER_VALIDATE_INT);
+        $permissions = filter_var($value('ECONIZER_DISCORD_BOT_PERMISSIONS', '0'), FILTER_VALIDATE_INT);
 
         return new self(
-            $value('ECONIFY_API_TOKEN'),
-            $value('ECONIFY_DISCORD_BOT_TOKEN'),
-            $value('ECONIFY_DISCORD_CLIENT_ID'),
-            $value('ECONIFY_DISCORD_CLIENT_SECRET'),
-            $value('ECONIFY_DISCORD_CALLBACK_URL'),
+            $value('ECONIZER_API_TOKEN'),
+            $value('ECONIZER_DISCORD_BOT_TOKEN'),
+            $value('ECONIZER_DISCORD_CLIENT_ID'),
+            $value('ECONIZER_DISCORD_CLIENT_SECRET'),
+            $value('ECONIZER_DISCORD_CALLBACK_URL'),
             $permissions === false ? 0 : max(0, $permissions),
             $environmentFile,
             is_readable($environmentFile),

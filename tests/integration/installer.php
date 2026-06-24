@@ -64,9 +64,9 @@ $ownerCount = (int) $pdo->query(
 $activeModules = (int) $pdo->query(
     "SELECT COUNT(*) FROM modules_config WHERE status = 'active'"
 )->fetchColumn();
-$econifyEnvironment = $root . '/modules/Econify/.env';
-$econifyValues = is_file($econifyEnvironment)
-    ? parse_ini_file($econifyEnvironment, false, INI_SCANNER_RAW)
+$econizerEnvironment = $root . '/modules/Econizer/.env';
+$econizerValues = is_file($econizerEnvironment)
+    ? parse_ini_file($econizerEnvironment, false, INI_SCANNER_RAW)
     : false;
 
 if ($ownerCount !== 1
@@ -74,9 +74,9 @@ if ($ownerCount !== 1
     || $result['installed_modules'] !== count($modules)
     || !is_file($root . '/config/installed.env')
     || !is_file($root . '/config/installed.lock')
-    || !is_array($econifyValues)
-    || strlen((string) ($econifyValues['ECONIFY_API_TOKEN'] ?? '')) < 32
-    || ((fileperms($econifyEnvironment) ?: 0) & 0777) !== 0600) {
+    || !is_array($econizerValues)
+    || strlen((string) ($econizerValues['ECONIZER_API_TOKEN'] ?? '')) < 32
+    || ((fileperms($econizerEnvironment) ?: 0) & 0777) !== 0600) {
     throw new RuntimeException('Integracyjna instalacja nie utworzyła kompletnego stanu.');
 }
 

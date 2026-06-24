@@ -103,7 +103,7 @@ FROM (
         'content',
         '01 / Wybrane realizacje',
         'Niezależne projekty. Wspólny standard jakości.',
-        '<h3>PunisherX</h3><p>System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.</p><h3>SyntaxCore</h3><p>Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.</p><h3>Econify</h3><p>Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.</p><h3>miniPORTAL</h3><p>Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.</p>',
+        '<h3>PunisherX</h3><p>System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.</p><h3>SyntaxCore</h3><p>Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.</p><h3>Econizer</h3><p>Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.</p><h3>miniPORTAL</h3><p>Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.</p>',
         'columns',
         '',
         '',
@@ -147,7 +147,7 @@ SELECT id, 'PROJECT / 002', 'SyntaxCore',
     'card', '', 'Zobacz fundamenty', '#contact', 'violet', 'standard', 20
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
-SELECT id, 'PROJECT / 003', 'Econify',
+SELECT id, 'PROJECT / 003', 'Econizer',
     'Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.',
     'card', '', 'Sprawdź możliwości', '#contact', 'violet', 'standard', 30
 FROM homepage_sections WHERE section_key = 'projects'

@@ -18,10 +18,10 @@ use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyModule;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyDiscordGateway;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyRepository;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerModule;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerConfig;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerDiscordGateway;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
@@ -178,20 +178,20 @@ return [
         ),
     ],
     [
-        'directory' => 'Econify',
+        'directory' => 'Econizer',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): EconifyModule {
-            $config = EconifyConfig::load(dirname(__DIR__) . '/modules/Econify');
-            return new EconifyModule(
+        'factory' => static function (array $services): EconizerModule {
+            $config = EconizerConfig::load(dirname(__DIR__) . '/modules/Econizer');
+            return new EconizerModule(
                 $services['theme'],
                 $services['admin_menu'],
-                new EconifyRepository($services['database']),
+                new EconizerRepository($services['database']),
                 $services['auth'],
                 $services['access'],
                 $services['security'],
                 $services['audit'],
                 $config,
-                new EconifyDiscordGateway($services['http_client'], new OAuthStateStore(), $config),
+                new EconizerDiscordGateway($services['http_client'], new OAuthStateStore(), $config),
                 new OAuthAttemptLimiter(600, 10, 20),
             );
         },

@@ -36,8 +36,8 @@ use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableCsvExporter;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseTableSqlExporter;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyConfig;
-use SyntaxDevTeam\Cms\Modules\Econify\EconifyDiscordGateway;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerConfig;
+use SyntaxDevTeam\Cms\Modules\Econizer\EconizerDiscordGateway;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
 use SyntaxDevTeam\Cms\Modules\Widgets\Widget;
@@ -108,31 +108,31 @@ $test('Request exposes bounded JSON and normalized headers', static function () 
     $assert($request->json() === ['id' => 24, 'channel' => 'DEV']);
 });
 
-$test('Econify loads an isolated module environment file', static function () use ($assert): void {
-    $file = sys_get_temp_dir() . '/econify-env-' . bin2hex(random_bytes(6));
+$test('Econizer loads an isolated module environment file', static function () use ($assert): void {
+    $file = sys_get_temp_dir() . '/econizer-env-' . bin2hex(random_bytes(6));
     file_put_contents($file, implode(PHP_EOL, [
-        'ECONIFY_API_TOKEN="' . str_repeat('a', 64) . '"',
-        'ECONIFY_DISCORD_CLIENT_ID="client-test"',
-        'ECONIFY_DISCORD_CLIENT_SECRET="secret-test"',
-        'ECONIFY_DISCORD_BOT_TOKEN="bot-test"',
-        'ECONIFY_DISCORD_CALLBACK_URL="https://econify.example.test/callback"',
-        'ECONIFY_DISCORD_BOT_PERMISSIONS=32',
+        'ECONIZER_API_TOKEN="' . str_repeat('a', 64) . '"',
+        'ECONIZER_DISCORD_CLIENT_ID="client-test"',
+        'ECONIZER_DISCORD_CLIENT_SECRET="secret-test"',
+        'ECONIZER_DISCORD_BOT_TOKEN="bot-test"',
+        'ECONIZER_DISCORD_CALLBACK_URL="https://econizer.example.test/callback"',
+        'ECONIZER_DISCORD_BOT_PERMISSIONS=32',
     ]));
-    putenv('ECONIFY_ENV_FILE=' . $file);
+    putenv('ECONIZER_ENV_FILE=' . $file);
     try {
-        $config = EconifyConfig::load(dirname(__DIR__) . '/modules/Econify');
+        $config = EconizerConfig::load(dirname(__DIR__) . '/modules/Econizer');
         $assert($config->apiConfigured());
         $assert($config->discordApplicationConfigured());
         $assert($config->botTokenConfigured());
         $assert($config->discordBotPermissions === 32);
         $assert($config->environmentFile === $file);
     } finally {
-        putenv('ECONIFY_ENV_FILE');
+        putenv('ECONIZER_ENV_FILE');
         unlink($file);
     }
 });
 
-$test('Econify discovers only manageable Discord guilds without storing token', static function () use ($assert): void {
+$test('Econizer discovers only manageable Discord guilds without storing token', static function () use ($assert): void {
     $http = new class implements HttpClientInterface {
         public function request(string $method, string $url, array $headers = [], array $form = []): HttpResponse
         {
@@ -148,8 +148,8 @@ $test('Econify discovers only manageable Discord guilds without storing token', 
             return new HttpResponse(404, '{}');
         }
     };
-    $config = new EconifyConfig(str_repeat('a', 64), 'bot-token', 'client-id', 'client-secret', 'https://portal.example.test/index.php?route=/econify/discord/callback', 32, '/tmp/econify-test', true);
-    $gateway = new EconifyDiscordGateway($http, new OAuthStateStore(), $config);
+    $config = new EconizerConfig(str_repeat('a', 64), 'bot-token', 'client-id', 'client-secret', 'https://portal.example.test/index.php?route=/econizer/discord/callback', 32, '/tmp/econizer-test', true);
+    $gateway = new EconizerDiscordGateway($http, new OAuthStateStore(), $config);
     $authorizationUrl = $gateway->discoveryUrl(42);
     parse_str((string) parse_url($authorizationUrl, PHP_URL_QUERY), $query);
     $guilds = $gateway->complete((string) ($query['state'] ?? ''), 'discord-code', 42);
@@ -160,7 +160,7 @@ $test('Econify discovers only manageable Discord guilds without storing token', 
     $assert(str_contains($installUrl, 'scope=bot%20applications.commands'));
     $assert(str_contains($installUrl, 'guild_id=1000001'));
     $assert(!str_contains(serialize($_SESSION), 'access-test'));
-    unset($_SESSION['_econify_discord_guilds']);
+    unset($_SESSION['_econizer_discord_guilds']);
 });
 
 $test('Audit CSV export neutralizes spreadsheet formulas', static function () use ($assert): void {
@@ -768,13 +768,13 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
 
     $publicNavigation = [
         [
-            'title' => 'Econify',
+            'title' => 'Econizer',
             'slug' => '',
-            'href' => '/econify',
+            'href' => '/econizer',
             'summary' => '',
             'type' => 'module',
             'navigation_area' => 'main',
-            'navigation_label' => 'Econify',
+            'navigation_label' => 'Econizer',
             'sort_order' => 35,
         ],
         [
@@ -799,12 +799,12 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     ], true);
     $html = (string) ob_get_clean();
 
-    $econifyPosition = strpos($html, '>Econify</a>');
+    $econizerPosition = strpos($html, '>Econizer</a>');
     $projectsPosition = strpos($html, '>Projekty</a>');
     $contactPosition = strpos($html, '>Kontakt</a>');
     $panelPosition = strpos($html, '>Otwórz panel</a>');
-    $assert($econifyPosition !== false && $projectsPosition !== false && $contactPosition !== false);
-    $assert($econifyPosition < $contactPosition);
+    $assert($econizerPosition !== false && $projectsPosition !== false && $contactPosition !== false);
+    $assert($econizerPosition < $contactPosition);
     $assert($projectsPosition < $contactPosition);
     $assert($contactPosition < $panelPosition);
 });
@@ -1379,8 +1379,8 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert(!file_exists($distribution . '/tests'));
     $assert(!file_exists($distribution . '/docs'));
     $assert(!file_exists($distribution . '/bin/build-cms-distribution.php'));
-    $assert(!file_exists($distribution . '/modules/Econify/.env'));
-    $assert(is_file($distribution . '/modules/Econify/.env.example'));
+    $assert(!file_exists($distribution . '/modules/Econizer/.env'));
+    $assert(is_file($distribution . '/modules/Econizer/.env.example'));
     $distributionBuilder = (string) file_get_contents(dirname(__DIR__) . '/bin/build-cms-distribution.php');
     $assert(str_contains($distributionBuilder, "\$basename === '.env'"));
     $assert(str_contains($distributionBuilder, "\$basename !== '.env.example'"));
@@ -1425,7 +1425,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $corePages = $validator->validate(dirname(__DIR__) . '/modules/CorePages');
     $assert($corePages->id === 'core_pages');
-    $assert($corePages->version === '1.3.0');
+    $assert($corePages->version === '1.3.1');
     $assert($corePages->protected);
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
@@ -1494,13 +1494,13 @@ $test('Module manifests are validated against runtime requirements', static func
     $assert($profile->installFile === 'install.sql');
     $assert($profile->uninstallFile === 'uninstall.sql');
 
-    $econify = $validator->validate(dirname(__DIR__) . '/modules/Econify');
-    $assert($econify->id === 'econify');
-    $assert($econify->version === '1.2.1');
-    $assert($econify->type === 'extension');
-    $assert($econify->requiredModules === ['core_auth']);
-    $assert($econify->installFile === 'install.sql');
-    $assert($econify->uninstallFile === 'uninstall.sql');
+    $econizer = $validator->validate(dirname(__DIR__) . '/modules/Econizer');
+    $assert($econizer->id === 'econizer');
+    $assert($econizer->version === '1.3.1');
+    $assert($econizer->type === 'extension');
+    $assert($econizer->requiredModules === ['core_auth']);
+    $assert($econizer->installFile === 'install.sql');
+    $assert($econizer->uninstallFile === 'uninstall.sql');
 
     $profileSource = (string) file_get_contents(
         dirname(__DIR__) . '/modules/UserProfile/UserProfileModule.php'
@@ -1614,31 +1614,31 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($teamInstallSql, 'fk_team_members_user'));
     $assert(str_contains($teamInstallSql, "'team.manage'"));
 
-    $econifyInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/install.sql');
-    $econifySource = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/EconifyModule.php');
-    $econifyRepository = (string) file_get_contents(dirname(__DIR__) . '/modules/Econify/EconifyRepository.php');
-    foreach (['econify_platform_settings', 'econify_guilds', 'econify_memberships', 'econify_wallets', 'econify_transactions', 'econify_shop_items', 'econify_shop_orders', 'econify_market_assets', 'econify_market_quotes', 'econify_market_holdings'] as $table) {
-        $assert(str_contains($econifyInstallSql, 'CREATE TABLE ' . $table), 'Brak tabeli Econify: ' . $table);
+    $econizerInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Econizer/install.sql');
+    $econizerSource = (string) file_get_contents(dirname(__DIR__) . '/modules/Econizer/EconizerModule.php');
+    $econizerRepository = (string) file_get_contents(dirname(__DIR__) . '/modules/Econizer/EconizerRepository.php');
+    foreach (['econizer_platform_settings', 'econizer_guilds', 'econizer_memberships', 'econizer_wallets', 'econizer_transactions', 'econizer_shop_items', 'econizer_shop_orders', 'econizer_market_assets', 'econizer_market_quotes', 'econizer_market_holdings'] as $table) {
+        $assert(str_contains($econizerInstallSql, 'CREATE TABLE ' . $table), 'Brak tabeli Econizer: ' . $table);
     }
-    $assert(str_contains($econifyInstallSql, "'econify.platform.manage'"));
-    $assert(str_contains($econifySource, "'/api/econify/events'"));
-    $assert(str_contains($econifySource, "'/api/econify/guilds'"));
-    $assert(str_contains($econifySource, "hash_equals(\$this->config->apiToken"));
-    $assert(str_contains($econifySource, "\$this->config->apiConfigured()"));
-    $assert(str_contains($econifySource, "? 'unauthenticated' : 'forbidden'"));
-    $assert(!str_contains($econifySource, "'econify_acl', \$decision"));
-    $assert(str_contains($econifySource, "\$membership['plan'] === 'freemium'"));
-    $assert(!str_contains($econifySource, 'Dodaj serwer Discord'));
-    $assert(!str_contains($econifySource, '/admin/econify/discord/activate'));
-    $assert(!str_contains($econifySource, '/admin/econify/discord/connect'));
-    $assert(!str_contains($econifySource, 'Powiąż użytkownika'));
-    $assert(!str_contains($econifySource, '/econify/server/member'));
-    $assert(str_contains($econifySource, '/econify/servers'));
-    $assert(str_contains($econifySource, '/econify/discord/connect'));
-    $assert(str_contains($econifyRepository, 'user_identities'));
-    $assert(str_contains($econifyRepository, 'FOR UPDATE'));
-    $assert(str_contains($econifyRepository, 'external_reference'));
-    $assert(str_contains($econifyRepository, 'upsertDiscordGuild'));
+    $assert(str_contains($econizerInstallSql, "'econizer.platform.manage'"));
+    $assert(str_contains($econizerSource, "'/api/econizer/events'"));
+    $assert(str_contains($econizerSource, "'/api/econizer/guilds'"));
+    $assert(str_contains($econizerSource, "hash_equals(\$this->config->apiToken"));
+    $assert(str_contains($econizerSource, "\$this->config->apiConfigured()"));
+    $assert(str_contains($econizerSource, "? 'unauthenticated' : 'forbidden'"));
+    $assert(!str_contains($econizerSource, "'econizer_acl', \$decision"));
+    $assert(str_contains($econizerSource, "\$membership['plan'] === 'freemium'"));
+    $assert(!str_contains($econizerSource, 'Dodaj serwer Discord'));
+    $assert(!str_contains($econizerSource, '/admin/econizer/discord/activate'));
+    $assert(!str_contains($econizerSource, '/admin/econizer/discord/connect'));
+    $assert(!str_contains($econizerSource, 'Powiąż użytkownika'));
+    $assert(!str_contains($econizerSource, '/econizer/server/member'));
+    $assert(str_contains($econizerSource, '/econizer/servers'));
+    $assert(str_contains($econizerSource, '/econizer/discord/connect'));
+    $assert(str_contains($econizerRepository, 'user_identities'));
+    $assert(str_contains($econizerRepository, 'FOR UPDATE'));
+    $assert(str_contains($econizerRepository, 'external_reference'));
+    $assert(str_contains($econizerRepository, 'upsertDiscordGuild'));
 
     $projectsInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/install.sql');
     $assert(str_contains($projectsInstallSql, 'CREATE TABLE projects'));

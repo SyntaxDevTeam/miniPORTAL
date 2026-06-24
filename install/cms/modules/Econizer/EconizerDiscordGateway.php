@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SyntaxDevTeam\Cms\Modules\Econify;
+namespace SyntaxDevTeam\Cms\Modules\Econizer;
 
 use JsonException;
 use RuntimeException;
@@ -10,13 +10,13 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpClientInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpResponse;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 
-final class EconifyDiscordGateway
+final class EconizerDiscordGateway
 {
     private const AUTHORIZE_URL = 'https://discord.com/oauth2/authorize';
     private const TOKEN_URL = 'https://discord.com/api/v10/oauth2/token';
     private const USER_URL = 'https://discord.com/api/v10/users/@me';
     private const GUILDS_URL = 'https://discord.com/api/v10/users/@me/guilds';
-    private const SESSION_KEY = '_econify_discord_guilds';
+    private const SESSION_KEY = '_econizer_discord_guilds';
     private const CACHE_SECONDS = 600;
     private const ADMINISTRATOR = 0x8;
     private const MANAGE_GUILD = 0x20;
@@ -24,14 +24,14 @@ final class EconifyDiscordGateway
     public function __construct(
         private readonly HttpClientInterface $http,
         private readonly OAuthStateStore $states,
-        private readonly EconifyConfig $config,
+        private readonly EconizerConfig $config,
     ) {
     }
 
     public function discoveryUrl(int $userId): string
     {
         $this->assertConfigured();
-        $oauth = $this->states->issue('econify_discord', 'guild_discovery', $userId);
+        $oauth = $this->states->issue('econizer_discord', 'guild_discovery', $userId);
 
         return self::AUTHORIZE_URL . '?' . http_build_query([
             'response_type' => 'code',
@@ -49,13 +49,13 @@ final class EconifyDiscordGateway
     public function complete(string $state, string $code, int $userId): array
     {
         $this->assertConfigured();
-        $context = $this->states->consume('econify_discord', $state);
+        $context = $this->states->consume('econizer_discord', $state);
         if ($context === null || $context->purpose !== 'guild_discovery' || $context->userId !== $userId || $code === '') {
             throw new RuntimeException('Nieprawidłowy lub wygasły stan autoryzacji Discord.');
         }
         $tokenData = $this->decode($this->http->request('POST', self::TOKEN_URL, [
             'Accept' => 'application/json',
-            'User-Agent' => 'miniPORTAL Econify',
+            'User-Agent' => 'miniPORTAL Econizer',
         ], [
             'client_id' => $this->config->discordClientId,
             'client_secret' => $this->config->discordClientSecret,
@@ -63,12 +63,12 @@ final class EconifyDiscordGateway
             'code' => $code,
             'redirect_uri' => $this->config->discordCallbackUrl,
             'code_verifier' => $context->verifier,
-        ]), 'Discord odrzucił kod autoryzacyjny Econify.');
+        ]), 'Discord odrzucił kod autoryzacyjny Econizer.');
         $accessToken = $tokenData['access_token'] ?? null;
         if (!is_string($accessToken) || $accessToken === '') {
             throw new RuntimeException('Discord nie zwrócił tokenu dla listy serwerów.');
         }
-        $headers = ['Accept' => 'application/json', 'Authorization' => 'Bearer ' . $accessToken, 'User-Agent' => 'miniPORTAL Econify'];
+        $headers = ['Accept' => 'application/json', 'Authorization' => 'Bearer ' . $accessToken, 'User-Agent' => 'miniPORTAL Econizer'];
         $profile = $this->decode($this->http->request('GET', self::USER_URL, $headers), 'Nie można potwierdzić użytkownika Discord.');
         $discordUserId = $profile['id'] ?? null;
         if (!is_string($discordUserId) || preg_match('/^[0-9]{6,32}$/', $discordUserId) !== 1) {
@@ -139,7 +139,7 @@ final class EconifyDiscordGateway
         $response = $this->http->request('GET', 'https://discord.com/api/v10/guilds/' . rawurlencode($guildId), [
             'Accept' => 'application/json',
             'Authorization' => 'Bot ' . $this->config->discordBotToken,
-            'User-Agent' => 'miniPORTAL Econify',
+            'User-Agent' => 'miniPORTAL Econizer',
         ]);
         return $response->status >= 200 && $response->status < 300;
     }
@@ -172,11 +172,11 @@ final class EconifyDiscordGateway
 
     private function assertConfigured(): void
     {
-        if (!$this->config->discordApplicationConfigured()) { throw new RuntimeException('Dedykowana aplikacja Discord Econify nie jest skonfigurowana.'); }
+        if (!$this->config->discordApplicationConfigured()) { throw new RuntimeException('Dedykowana aplikacja Discord Econizer nie jest skonfigurowana.'); }
     }
 
     private function assertSession(): void
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) { throw new RuntimeException('Integracja Discord Econify wymaga aktywnej sesji.'); }
+        if (session_status() !== PHP_SESSION_ACTIVE) { throw new RuntimeException('Integracja Discord Econizer wymaga aktywnej sesji.'); }
     }
 }

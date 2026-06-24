@@ -190,7 +190,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | DashboardRegistry z konfigurowalnymi metrykami i panelami modułów |
 | [x] | Obsłużony stan błędu formularza Team bez HTTP 500 |
 
-### Krok 8 - moduł dedykowany Econify
+### Krok 8 - moduł dedykowany Econizer
 
 | Status | Zadanie |
 |--------|---------|
@@ -318,11 +318,12 @@ Brak aktywnych blokerów.
 | 2026-06-21 | `system_admin` 1.8.0 rozszerza diagnostykę cache i dodaje generator favicon z PNG do bezpiecznego `uploads/branding`. |
 | 2026-06-21 | Motyw `future` przenosi wygląd starego projektu edukacyjnego na pełny `ThemeInterface`; nie korzysta z dawnej logiki CMS. |
 | 2026-06-21 | `core_pages` 1.3.0 pozwala dzielić nagłówki sekcji Enterem; trzy motywy bezpiecznie renderują kontrolowane `<br>`. |
-| 2026-06-21 | `econify` 1.0.0 jest dedykowanym modułem innej instalacji miniPORTAL. Izoluje tenanty Discord, rozdziela Ownera platformy, administratora serwera i gracza oraz łączy ekonomię, sklep i giełdę przez transakcyjny portfel. Endpoint bota wymaga `ECONIFY_API_TOKEN` i idempotentnego `event_id`. |
-| 2026-06-21 | Sekrety Econify należą do `modules/Econify/.env`, nie do środowiska miniPORTAL. `ECONIFY_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
-| 2026-06-22 | `econify` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
+| 2026-06-21 | `econizer` 1.0.0 jest dedykowanym modułem innej instalacji miniPORTAL. Izoluje tenanty Discord, rozdziela Ownera platformy, administratora serwera i gracza oraz łączy ekonomię, sklep i giełdę przez transakcyjny portfel. Endpoint bota wymaga `ECONIZER_API_TOKEN` i idempotentnego `event_id`. |
+| 2026-06-21 | Sekrety Econizer należą do `modules/Econizer/.env`, nie do środowiska miniPORTAL. `ECONIZER_ENV_FILE` pozwala wskazać niezależny plik testowy, a instalator generuje konfigurację modułu z trybem `0600`. |
+| 2026-06-22 | `econizer` 1.1.0 zastępuje ręczne tworzenie tenantów zweryfikowanym OAuth Discord `identify guilds`. Token użytkownika jest jednorazowy, lista sesyjna obejmuje wyłącznie Owner/Administrator/Manage Guild, a instalacja bota używa przypiętego `bot applications.commands`. |
 | 2026-06-22 | Terminal Hero jest symulatorem JavaScript bez dostępu do powłoki serwera; bootuje widok statusu i mapuje ograniczone komendy na bezpieczne trasy publiczne. |
 | 2026-06-22 | Wycofano publiczne i18n PL/EN/DE wraz z tabelami tłumaczeń, prefiksami locale, przełącznikiem języka i integracją Google Cloud Translation; projekt pozostaje jednojęzyczny. |
+| 2026-06-24 | Produkcyjna marka bota i modułu została zmieniona na Econizer. Bieżący kontrakt używa katalogu `modules/Econizer`, identyfikatora `econizer`, tras `/econizer`, endpointów `/api/econizer/*`, zmiennych `ECONIZER_*`, nagłówka `X-Econizer-Token` i tabel `econizer_*`; migracje zachowują dane istniejącej instalacji. |
 
 ## Historia sesji
 

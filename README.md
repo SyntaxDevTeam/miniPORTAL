@@ -6,7 +6,7 @@ Autorski mini-CMS w systemie modularnym
 - [Specyfikacja techniczna i plan rozwoju](docs/TECHNICAL_SPECIFICATION.md)
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
-- [Opis modułu Econify](docs/ECONIFY_MODULE.md)
+- [Opis modułu Econizer](docs/ECONIZER_MODULE.md)
 - [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
 - [Czysta dystrybucja z kreatorem](install/cms/INSTALL.md)
 
@@ -118,7 +118,7 @@ prowadzi przez projekt, kanał, wersję i historię buildów pod `/builds`.
 GitHub Actions może publikować DEV/WIP przez `POST /api/builds/ci/{slug-projektu}`
 z JSON-em oraz sekretem `BUILD_CI_TOKEN` w `X-Build-Token` lub Bearer.
 
-`econify` jest dedykowanym, wieloserwerowym centrum bota ekonomicznego Discord.
+`econizer` jest dedykowanym, wieloserwerowym centrum bota ekonomicznego Discord.
 Rozdziela właściciela platformy, administrację konkretnego serwera i gracza,
 zapewnia ustawienia ekonomii, podatki, VIP daily, plany Freemium/Premium, sklep,
 transakcyjny portfel, historię oraz giełdę. Idempotentny endpoint bota aktualizuje

@@ -697,9 +697,9 @@ Stan fundamentu Kroku 6:
 - `CoreAuthModule` pozostaje właścicielem użytkowników, lokalnych ról i tożsamości;
   zmiana statusu i roli jest wykonywana atomowo przez repozytorium `CrudApp`.
 
-### Krok 6A: dedykowany moduł Econify
+### Krok 6A: dedykowany moduł Econizer
 
-Moduł `econify` jest rozszerzeniem przeznaczonym dla osobnej instalacji
+Moduł `econizer` jest rozszerzeniem przeznaczonym dla osobnej instalacji
 miniPORTAL obsługującej projekt bota ekonomicznego Discord. Zachowuje trzy
 granice autoryzacji: globalne ACL platformy, członkostwo w konkretnym tenantcie
 Discord oraz własność portfela gracza. Samo uprawnienie CMS nie zastępuje
@@ -716,14 +716,14 @@ Stan 1.0.0:
   limitu liczby pozycji,
 - endpoint zdarzeń bota wymaga osobnego sekretu nagłówka i `event_id` jako klucza
   idempotencji; nie przyjmuje sekretu w ciele JSON,
-- sekrety modułu są izolowane w `modules/Econify/.env`; testy mogą wskazać inny
-  plik przez `ECONIFY_ENV_FILE`, a panel raportuje tylko kompletność konfiguracji,
+- sekrety modułu są izolowane w `modules/Econizer/.env`; testy mogą wskazać inny
+  plik przez `ECONIZER_ENV_FILE`, a panel raportuje tylko kompletność konfiguracji,
 - onboarding Discord korzysta z osobnego Authorization Code + PKCE i zakresów
   `identify guilds`; pokazuje wyłącznie serwery Owner/Administrator/Manage Guild,
   nie przechowuje tokenu użytkownika i przypina instalację bota do zweryfikowanego
   Guild ID przez `bot applications.commands`,
 - tenant serwera powstaje po zgłoszeniu instalacji przez bota do
-  `/api/econify/guilds`; zweryfikowany właściciel albo administrator Discord
+  `/api/econizer/guilds`; zweryfikowany właściciel albo administrator Discord
   może następnie połączyć lokalne konto z istniejącym tenantem,
 - administrator serwera nie wybiera ręcznie użytkowników miniPORTAL; gracz jest
   przypisywany automatycznie po zdarzeniu bota, jeśli lokalne konto ma tożsamość
@@ -731,6 +731,15 @@ Stan 1.0.0:
 - sklep przechowuje bezpieczną referencję realizacji, a nie jawne kody nagród,
 - tabele sklepu i rynku mają osobne granice domenowe, lecz rozliczenie pozostaje
   w jednym module i jednej transakcji z portfelem.
+
+Stan 1.3.1:
+- marka produkcyjna bota i modułu to `Econizer`,
+- kontrakt runtime używa identyfikatora `econizer`, katalogu `modules/Econizer`,
+  tras `/econizer`, endpointów `/api/econizer/*`, zmiennych `ECONIZER_*`,
+  nagłówka `X-Econizer-Token` oraz tabel `econizer_*`,
+- migracja aktualizuje stan managera modułów, uprawnienia, dane domenowe,
+  ustawienia nawigacji, treści startowe oraz nazwy ograniczeń i indeksów bazy
+  bez utraty istniejących danych.
 
 ### Krok 7: dystrybucja i instalacja zerowej konfiguracji
 

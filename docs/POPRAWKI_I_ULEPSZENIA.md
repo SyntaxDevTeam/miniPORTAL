@@ -314,10 +314,16 @@ Etap 2 gotowy: publiczny katalog układa jeden projekt na pełnej szerokości, d
 i cztery w dwóch kolumnach, a trzy w trzech kolumnach. Karta nie duplikuje opisu;
 prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
 
-### Econify
+### Econizer
+
+Etap 5 gotowy: pełny rebranding produkcyjny zmienił nazwę bota i modułu na
+`Econizer`. Zaktualizowano widoki, treści CMS, dokumentację, klasy, katalog,
+manifest, trasy, endpointy API, konfigurację środowiska, nagłówek integracyjny,
+prefiksy tabel i nazwy assetów. Migracje `econizer` 1.3.1 oraz `core_pages` 1.3.1
+zachowują istniejące dane, ustawienia instalacji i porządkują metadane schematu.
 
 Etap 1 gotowy: dodano najbardziej rozbudowany moduł dedykowany projektu bota
-ekonomicznego. `econify` 1.0.0 obsługuje wiele serwerów Discord jako izolowane
+ekonomicznego. `econizer` 1.0.0 obsługuje wiele serwerów Discord jako izolowane
 tenanty. Owner miniPORTAL ustawia globalne funkcje, język PL, wartości startowe
 ekonomii i limit Freemium; właściciel serwera konfiguruje walutę, podatek,
 VIP daily, użytkowników, sklep i rynek; gracz widzi wyłącznie własny portfel,
@@ -334,8 +340,8 @@ przypięty link instalacji `bot applications.commands`. Diagnostyka konfiguracji
 wyróżnia poprawne elementy zieloną ramką, a przy komplecie zwija się do paska.
 
 Etap 3 gotowy: rozdzielono właściciela/administratora Discord od gracza serwera.
-Lista zarządzanych serwerów działa w publicznym flow `/econify/servers`, tenant
-powstaje dopiero po zgłoszeniu bota do `/api/econify/guilds`, a zweryfikowany
+Lista zarządzanych serwerów działa w publicznym flow `/econizer/servers`, tenant
+powstaje dopiero po zgłoszeniu bota do `/api/econizer/guilds`, a zweryfikowany
 manager Discord tylko łączy konto z istniejącym tenantem i dopiero wtedy zarządza
 ustawieniami per `discord_guild_id`. Sklep, giełda, portfele i historia pozostają
 izolowane per serwer Discord.
@@ -343,7 +349,7 @@ izolowane per serwer Discord.
 Etap 4 gotowy: usunięto z ustawień serwera mylące pole `Powiąż użytkownika`.
 Administrator serwera Discord nie wybiera dowolnych kont miniPORTAL; gracze są
 przypisywani automatycznie po zdarzeniu bota, jeśli mają lokalną tożsamość Discord.
-Panel `/admin/econify` nie zawiera już flow zaproszenia bota, tylko diagnostykę
+Panel `/admin/econizer` nie zawiera już flow zaproszenia bota, tylko diagnostykę
 platformy i listę tenantów zgłoszonych przez bota.
 
 ### Ustawienia systemowe

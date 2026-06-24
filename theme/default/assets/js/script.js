@@ -89,7 +89,7 @@ if (terminal) {
         "Otwieram sekcje projektow...",
         "PunisherX     Minecraft Plugin",
         "SyntaxCore    Core Library",
-        "Econify       Discord Bot",
+        "Econizer       Discord Bot",
         "MedStock      Android APK",
       ];
     },

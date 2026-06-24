@@ -1935,13 +1935,13 @@ wymiennego motywu w `ThemeInterface`.
 wykrywania oraz renderowania własnych assetów Future, pełne testy repozytorium i
 przebudowa czystej dystrybucji.
 
-### Sesja: 2026-06-21 - Dedykowany moduł Econify Control Center
+### Sesja: 2026-06-21 - Dedykowany moduł Econizer Control Center
 
 **Faza i krok specyfikacji:** Krok 6A - samodzielny moduł rozszerzenia z pełnym
 podziałem Core -> Module -> Theme i izolacją tenantów Discord.
 
 **Wykonano:**
-- dodano `econify` 1.0.0 z 11 tabelami domenowymi: funkcje, ustawienia platformy,
+- dodano `econizer` 1.0.0 z 11 tabelami domenowymi: funkcje, ustawienia platformy,
   serwery, członkostwa, portfele, transakcje, sklep, zamówienia, aktywa, notowania
   i udziały graczy,
 - Owner platformy zarządza funkcjami, językiem PL, domyślnym `/daily` i `/work`,
@@ -1953,9 +1953,9 @@ podziałem Core -> Module -> Theme i izolacją tenantów Discord.
   kupnem/sprzedażą; ogólny wykres działa przez `ThemeInterface` we wszystkich
   trzech motywach bez biblioteki JavaScript,
 - plan Freemium egzekwuje konfigurowalny limit katalogu, a Premium nie ma limitu,
-- endpoint `/api/econify/events` wymaga osobnego tokenu nagłówka, waliduje JSON,
+- endpoint `/api/econizer/events` wymaga osobnego tokenu nagłówka, waliduje JSON,
   mapuje Discord Guild/User ID na lokalne konto i używa `event_id` do idempotencji,
-- dodano README integracji bota, konfigurację `ECONIFY_API_TOKEN`, testy manifestu,
+- dodano README integracji bota, konfigurację `ECONIZER_API_TOKEN`, testy manifestu,
   schematu i zabezpieczeń oraz moduł do czystej dystrybucji instalacyjnej.
 
 **Weryfikacja:** pełne testy repozytorium, lint PHP, walidacja JSON, `git diff
@@ -1963,38 +1963,38 @@ podziałem Core -> Module -> Theme i izolacją tenantów Discord.
 MariaDB oraz smoke test repozytorium potwierdzający idempotencję i atomowe saldo
 po zakupie sklepowym i transakcji giełdowej.
 
-### Sesja: 2026-06-21 - Izolowane środowisko modułu Econify
+### Sesja: 2026-06-21 - Izolowane środowisko modułu Econizer
 
 **Faza i krok specyfikacji:** Krok 6A/7 - konfiguracja przenośnego rozszerzenia
 i jej bezpieczne tworzenie w czystej dystrybucji.
 
 **Wykonano:**
-- wydzielono sekrety Econify z globalnego środowiska miniPORTAL do
-  `modules/Econify/.env`, ignorowanego przez Git i blokowanego publicznie,
-- dodano `EconifyConfig` z priorytetem `ECONIFY_ENV_FILE` -> lokalny `.env` ->
+- wydzielono sekrety Econizer z globalnego środowiska miniPORTAL do
+  `modules/Econizer/.env`, ignorowanego przez Git i blokowanego publicznie,
+- dodano `EconizerConfig` z priorytetem `ECONIZER_ENV_FILE` -> lokalny `.env` ->
   zmienne procesu dla zgodności wstecznej,
 - szablon modułu obejmuje token endpointu, token bota, Client ID, Client Secret,
   callback instalacji oraz minimalną maskę uprawnień Discord,
 - panel Ownera raportuje wyłącznie stan konfiguracji bez ujawniania sekretów,
-- instalator tworzy osobny plik Econify atomowo z prawami `0600`, tylko gdy moduł
+- instalator tworzy osobny plik Econizer atomowo z prawami `0600`, tylko gdy moduł
   został wybrany; czysta dystrybucja zawiera wyłącznie `.env.example`.
 
-**Weryfikacja:** test izolowanego pliku wskazanego przez `ECONIFY_ENV_FILE`, test
+**Weryfikacja:** test izolowanego pliku wskazanego przez `ECONIZER_ENV_FILE`, test
 braku sekretów w dystrybucji, integracyjna kontrola wygenerowanego tokenu i praw
 `0600`, lint PHP, pełne testy oraz `git diff --check`.
 
-### Sesja: 2026-06-22 - Kontrolowany dostęp niezalogowany do Econify
+### Sesja: 2026-06-22 - Kontrolowany dostęp niezalogowany do Econizer
 
 **Faza i krok specyfikacji:** Krok 5B/6A - ACL, audit log i odporność modułu na
 niezalogowane żądania panelowe.
 
-**Wykonano:** naprawiono `guard()` modułu Econify, który przekazywał liczbową
+**Wykonano:** naprawiono `guard()` modułu Econizer, który przekazywał liczbową
 decyzję HTTP `401`/`403` do tekstowego pola wyniku `AuditLogService`, powodując
 `TypeError` i odpowiedź 500. Decyzje są teraz mapowane na `unauthenticated` albo
 `forbidden`, natomiast kod HTTP pozostaje odpowiednio 401 lub 403.
 
 **Weryfikacja:** test regresji źródła, lint PHP, pełne testy repozytorium,
-przebudowa dystrybucji oraz anonimowy smoke test rzeczywistej trasy Econify.
+przebudowa dystrybucji oraz anonimowy smoke test rzeczywistej trasy Econizer.
 
 ### Sesja: 2026-06-22 - Warstwa menu profilu panelu
 
@@ -2010,11 +2010,11 @@ kontrola bilansu CSS, pełne testy repozytorium, przebudowa dystrybucji oraz
 kontrola działającego panelu.
 
 Podczas weryfikacji test dystrybucji wykrył, że generator kopiował ignorowany
-przez Git lokalny `modules/Econify/.env`. Generator pomija teraz `.env` oraz
+przez Git lokalny `modules/Econizer/.env`. Generator pomija teraz `.env` oraz
 warianty `.env.*` z wyjątkiem publicznego `.env.example`; dystrybucję odtworzono,
 usuwając z niej lokalny sekret.
 
-### Sesja: 2026-06-22 - OAuth serwerów i instalacja bota Econify
+### Sesja: 2026-06-22 - OAuth serwerów i instalacja bota Econizer
 
 **Faza i krok specyfikacji:** Krok 6A - rozwinięcie bezpiecznego onboardingu
 dedykowanego modułu bez ręcznego zaufania do danych użytkownika.
@@ -2022,7 +2022,7 @@ dedykowanego modułu bez ręcznego zaufania do danych użytkownika.
 **Wykonano:**
 - `Konfiguracja integracji` wyróżnia poprawne elementy zieloną ramką, a po
   skompletowaniu wszystkich ustawień zwija się do subtelnego komunikatu sukcesu,
-- serwery aktywne w Econify znajdują się w lewej kolumnie, a prawa pokazuje
+- serwery aktywne w Econizer znajdują się w lewej kolumnie, a prawa pokazuje
   kafelki serwerów Discord zarządzanych przez bieżącego użytkownika,
 - usunięto mylący formularz ręcznego tworzenia serwera na podstawie Guild ID,
 - dodano osobny Authorization Code + PKCE z `identify guilds`, filtrowanie bitów
@@ -2032,7 +2032,7 @@ dedykowanego modułu bez ręcznego zaufania do danych użytkownika.
 - szczegóły zweryfikowanego serwera pozwalają utworzyć tenant Freemium, przypisać
   lokalne konto jako `guild_owner`/`guild_admin`, sprawdzić obecność bota i użyć
   przypiętego zaproszenia `bot applications.commands`,
-- podniesiono `econify` do 1.1.0 bez zmiany schematu bazy.
+- podniesiono `econizer` do 1.1.0 bez zmiany schematu bazy.
 - lokalny plik developerski ma tryb `0640` i grupę `www-data`, ponieważ jego
   właścicielem jest administrator; instalator zachowuje `0600`, gdy zapisuje go
   bezpośrednio jako użytkownik procesu WWW.
@@ -2193,71 +2193,96 @@ pozycje; przycisk logowania/panelu pozostaje osobną akcją po nim.
 uruchomiono lint zmienionych plików PHP, pełne testy repozytorium, pełny lint PHP,
 przebudowę czystej dystrybucji, migracje Core oraz `git diff --check`.
 
-### Sesja: 2026-06-23 - Dokumentacja modułu Econify
+### Sesja: 2026-06-23 - Dokumentacja modułu Econizer
 
-**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, dokumentacja
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer, dokumentacja
 części publicznej oraz panelu administracyjnego.
 
-**Wykonano:** dodano `docs/ECONIFY_MODULE.md` z opisem celu modułu, poziomów
-dostępu, widoków `/econify`, `/econify/shop`, `/econify/market`,
-`/econify/server`, panelu `/admin/econify`, onboardingu Discord, endpointu bota,
+**Wykonano:** dodano `docs/ECONIZER_MODULE.md` z opisem celu modułu, poziomów
+dostępu, widoków `/econizer`, `/econizer/shop`, `/econizer/market`,
+`/econizer/server`, panelu `/admin/econizer`, onboardingu Discord, endpointu bota,
 pliku `.env`, tabel bazy oraz granic bezpieczeństwa. README wskazuje nowy dokument
 w mapie dokumentacji projektu.
 
-**Weryfikacja:** porównano dokument z aktualnym `EconifyModule`,
-`EconifyRepository`, `EconifyConfig`, `EconifyDiscordGateway`, `info.json` oraz
+**Weryfikacja:** porównano dokument z aktualnym `EconizerModule`,
+`EconizerRepository`, `EconizerConfig`, `EconizerDiscordGateway`, `info.json` oraz
 `install.sql`; uruchomiono kontrolę spójności Markdown przez podgląd diffu.
 
-### Sesja: 2026-06-23 - Bot-first onboarding serwerów Econify
+### Sesja: 2026-06-23 - Bot-first onboarding serwerów Econizer
 
-**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, rozdzielenie
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer, rozdzielenie
 zarządzania serwerem Discord od konta gracza.
 
-**Wykonano:** podniesiono `econify` do 1.2.0. Dodano publiczny flow
-`/econify/servers` dla właścicieli i administratorów Discord, którzy pobierają
+**Wykonano:** podniesiono `econizer` do 1.2.0. Dodano publiczny flow
+`/econizer/servers` dla właścicieli i administratorów Discord, którzy pobierają
 zarządzane serwery przez OAuth `identify guilds`. Portal nie tworzy już tenantów
-przez ręczne aktywowanie Guild ID; nowy endpoint `/api/econify/guilds` przyjmuje
+przez ręczne aktywowanie Guild ID; nowy endpoint `/api/econizer/guilds` przyjmuje
 zgłoszenie bota `installed`/`removed` i dopiero taki rekord można połączyć z
 lokalnym kontem jako `guild_owner` albo `guild_admin`. `owner_user_id` w
-`econify_guilds` jest opcjonalny, bo bot może zgłosić serwer przed połączeniem
+`econizer_guilds` jest opcjonalny, bo bot może zgłosić serwer przed połączeniem
 lokalnego właściciela. Sklep, giełda, portfele i transakcje pozostają przypisane
 do konkretnego serwera Discord.
 
 **Weryfikacja:** lint zmienionych plików PHP, pełne testy repozytorium, pełny
-lint PHP, przebudowa dystrybucji, lint plików Econify w `install/cms`, migracje
+lint PHP, przebudowa dystrybucji, lint plików Econizer w `install/cms`, migracje
 Core, `git diff --check` oraz kontrolowana aktualizacja produkcyjnego stanu
-`econify` z 1.1.0 do 1.2.0 przez `ModuleInstaller`.
+`econizer` z 1.1.0 do 1.2.0 przez `ModuleInstaller`.
 
-### Sesja: 2026-06-23 - Usunięcie ręcznego wiązania użytkowników Econify
+### Sesja: 2026-06-23 - Usunięcie ręcznego wiązania użytkowników Econizer
 
-**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econify, separacja graczy
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer, separacja graczy
 Discord od administracji serwera Discord.
 
-**Wykonano:** podniesiono `econify` do 1.2.1. Usunięto z ustawień serwera kartę
-`Powiąż użytkownika`, trasę `/econify/server/member` oraz administracyjne trasy
-Discord OAuth z `/admin/econify/*`. Panel administracyjny Econify jest teraz
+**Wykonano:** podniesiono `econizer` do 1.2.1. Usunięto z ustawień serwera kartę
+`Powiąż użytkownika`, trasę `/econizer/server/member` oraz administracyjne trasy
+Discord OAuth z `/admin/econizer/*`. Panel administracyjny Econizer jest teraz
 diagnostyką platformy i listą tenantów zgłoszonych przez bota, bez flow zapraszania
 bota z panelu. Właściciel lub administrator Discord korzysta z publicznego
-`/econify/servers`, a gracz jest przypisywany automatycznie po zdarzeniu bota,
+`/econizer/servers`, a gracz jest przypisywany automatycznie po zdarzeniu bota,
 jeśli jego lokalne konto miniPORTAL ma tożsamość Discord zgodną z `discord_user_id`.
 
 **Weryfikacja:** lint zmienionych plików PHP, pełne testy repozytorium, pełny
-lint PHP, przebudowa dystrybucji, lint plików Econify w `install/cms`, kontrolowana
-aktualizacja produkcyjnego stanu `econify` z 1.2.0 do 1.2.1 bez migracji, migracje
+lint PHP, przebudowa dystrybucji, lint plików Econizer w `install/cms`, kontrolowana
+aktualizacja produkcyjnego stanu `econizer` z 1.2.0 do 1.2.1 bez migracji, migracje
 Core oraz `git diff --check`.
 
-### Sesja: 2026-06-23 - Ikona Econify w stylu Future
+### Sesja: 2026-06-23 - Ikona Econizer w stylu Future
 
 **Faza i krok specyfikacji:** Krok 8 - identyfikacja wizualna dedykowanego modułu
-Econify, zgodna z motywem Future.
+Econizer, zgodna z motywem Future.
 
-**Wykonano:** wygenerowano dużą bitmapową ikonę Econify 1254x1254 px z grafitowym
+**Wykonano:** wygenerowano dużą bitmapową ikonę Econizer 1254x1254 px z grafitowym
 tłem, neonowym cyan/lime/magenta, motywem tokena ekonomii, bota i wykresu wzrostu.
-Asset zapisano jako `modules/Econify/assets/brand/econify-icon-future-1254.png`
+Asset zapisano jako `modules/Econizer/assets/brand/econizer-icon-future-1254.png`
 i przebudowano czystą dystrybucję, aby trafił również do `install/cms`.
 Po ocenie jako zbyt modułowo-dashboardowej wygenerowano drugą, prostszą wersję
-avatarową dla Discorda: `modules/Econify/assets/brand/econify-discord-bot-icon-v2.png`.
+avatarową dla Discorda: `modules/Econizer/assets/brand/econizer-discord-bot-icon-v2.png`.
 
 **Weryfikacja:** sprawdzono rozdzielczość pliku i podgląd wizualny wygenerowanej
 ikony; lokalne narzędzia do automatycznego skalowania PNG nie są dostępne w
 środowisku.
+### Sesja: 2026-06-24 - Produkcyjny rebranding Econizer
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer, aktualizacja
+ukończonego modułu i jego kontraktu produkcyjnego.
+
+**Wykonano:** zmieniono markę bota i modułu na Econizer we wszystkich bieżących
+widokach, treściach startowych, dokumentacji, testach i assetach. Kontrakt runtime
+używa teraz katalogu `modules/Econizer`, klas `Econizer*`, identyfikatora
+`econizer`, tras `/econizer`, endpointów `/api/econizer/*`, zmiennych
+`ECONIZER_*`, nagłówka `X-Econizer-Token` oraz tabel `econizer_*`. Dodano migrację
+stanu managera modułów, migrację danych domenowych i uprawnień, migrację nazw
+ograniczeń oraz indeksów i migrację treści `core_pages`. Podniesiono wersje
+`econizer` i `core_pages` do 1.3.1. Historyczna migracja z 2026-06-23 zachowała
+niezmienioną treść i SHA-256.
+
+Dedykowane bitmapy nie zawierały tekstu marki, dlatego zachowano ich piksele i
+bezstratnie zmieniono nazwy plików oraz odwołania na warianty `econizer-*`.
+
+**Weryfikacja:** pełne `php tests/run.php`, lint 254 plików PHP, `node --check`
+dla plików JavaScript, przebudowa `install/cms`, `git diff --check`, kontrola
+manifestów JSON, ponowne uruchomienie migracji bez oczekujących zmian oraz smoke
+test tras `/econizer`, `/econizer/servers` i `/admin/econizer` na izolowanym
+serwerze PHP. Produkcyjna baza ma aktywny `econizer` 1.3.1, 11 tabel
+`econizer_*`, nowe uprawnienia oraz zero starych nazw tabel, indeksów, ograniczeń
+i treści CMS.

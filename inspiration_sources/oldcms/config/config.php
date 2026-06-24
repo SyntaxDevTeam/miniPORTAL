@@ -6,7 +6,7 @@ const APP_NAME = 'SyntaxDevBots';
 const APP_URL = '';
 
 const DB_HOST = 'localhost';
-const DB_NAME = 'econify';
+const DB_NAME = 'econizer';
 const DB_USER = 'cms_default';
 const DB_PASS = 'Ark@ntis2009#';
 const DB_CHARSET = 'utf8mb4';

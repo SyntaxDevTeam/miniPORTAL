@@ -1,7 +1,7 @@
-# Econify Control Center
+# Econizer Control Center
 
-Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econify.
-Wersja 1.2.1 obejmuje trzy niezależne poziomy dostępu:
+Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econizer.
+Wersja 1.3.1 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
@@ -12,30 +12,30 @@ Wersja 1.2.1 obejmuje trzy niezależne poziomy dostępu:
 
 ## Integracja bota
 
-Moduł czyta własny plik `modules/Econify/.env`, niezależny od
+Moduł czyta własny plik `modules/Econizer/.env`, niezależny od
 `config/installed.env` i `/etc/miniportal/miniportal.env`. Zacznij od
 `.env.example`, zapisz wynik jako `.env` i ustaw prawa `0600`, gdy plik należy do
 procesu WWW, albo `0640` z grupą serwera WWW w instalacji zarządzanej przez
 administratora systemu. W testach lub CI
-możesz wskazać inną lokalizację zmienną procesu `ECONIFY_ENV_FILE`; ma ona
+możesz wskazać inną lokalizację zmienną procesu `ECONIZER_ENV_FILE`; ma ona
 najwyższy priorytet. Jeśli lokalny plik nie istnieje, loader zachowuje zgodność
 wsteczną i odczytuje zmienne procesu.
 
 Plik zawiera:
 
-- `ECONIFY_API_TOKEN` - sekret endpointu zdarzeń,
-- `ECONIFY_DISCORD_CLIENT_ID` i `ECONIFY_DISCORD_CLIENT_SECRET` - dedykowaną
+- `ECONIZER_API_TOKEN` - sekret endpointu zdarzeń,
+- `ECONIZER_DISCORD_CLIENT_ID` i `ECONIZER_DISCORD_CLIENT_SECRET` - dedykowaną
   aplikację Discord używaną przez przyszły onboarding serwerów,
-- `ECONIFY_DISCORD_BOT_TOKEN` - opcjonalny token runtime bota; portal nie
+- `ECONIZER_DISCORD_BOT_TOKEN` - opcjonalny token runtime bota; portal nie
   wyświetla go ani nie zapisuje w bazie,
-- `ECONIFY_DISCORD_CALLBACK_URL` - callback instalacji Econify,
-- `ECONIFY_DISCORD_BOT_PERMISSIONS` - minimalną liczbową maskę uprawnień.
+- `ECONIZER_DISCORD_CALLBACK_URL` - callback instalacji Econizer,
+- `ECONIZER_DISCORD_BOT_PERMISSIONS` - minimalną liczbową maskę uprawnień.
 
 Bot wysyła:
 
 ```http
-POST /api/econify/events
-X-Econify-Token: <sekret>
+POST /api/econizer/events
+X-Econizer-Token: <sekret>
 Content-Type: application/json
 ```
 
@@ -62,8 +62,8 @@ tokenów, sekretu klienta ani ścieżki wskazanej dla środowiska testowego.
 Bot zgłasza swoją obecność na serwerze osobnym endpointem:
 
 ```http
-POST /api/econify/guilds
-X-Econify-Token: <sekret>
+POST /api/econizer/guilds
+X-Econizer-Token: <sekret>
 Content-Type: application/json
 ```
 
@@ -78,7 +78,7 @@ Content-Type: application/json
 `action=installed` tworzy lub reaktywuje tenant serwera. `action=removed` oznacza
 tenant jako nieaktywny. Dopiero po takim zgłoszeniu zweryfikowany właściciel albo
 administrator Discord może połączyć konto miniPORTAL z serwerem i przejść do
-ustawień Econify.
+ustawień Econizer.
 
 Ustawienia serwera nie pozwalają wybierać dowolnych użytkowników miniPORTAL.
 Gracz jest przypisywany automatycznie przy zdarzeniu bota, jeśli jego Discord User
@@ -93,21 +93,21 @@ zachowuje tylko serwery z Owner, Administrator albo Manage Guild, a token
 użytkownika natychmiast odrzuca.
 
 Lista jest przechowywana w sesji przez 10 minut. Dla serwera bez zgłoszenia bota
-użytkownik widzi link `Zaproś Econify na serwer`. Dla serwera już zgłoszonego
+użytkownik widzi link `Zaproś Econizer na serwer`. Dla serwera już zgłoszonego
 przez bota może połączyć konto z tenantem jako `guild_owner` albo `guild_admin`
 i przejść do ustawień ekonomii. Przycisk zaproszenia używa oficjalnego flow
 Discord `bot applications.commands`, blokuje wybór do zweryfikowanego Guild ID
-i prosi wyłącznie o maskę `ECONIFY_DISCORD_BOT_PERMISSIONS`.
+i prosi wyłącznie o maskę `ECONIZER_DISCORD_BOT_PERMISSIONS`.
 
-Panel `/admin/econify` jest diagnostyką platformy i listą tenantów zgłoszonych
+Panel `/admin/econizer` jest diagnostyką platformy i listą tenantów zgłoszonych
 przez bota. Nie zaprasza bota ani nie tworzy serwera ręcznie.
 
 W Discord Developer Portal trzeba dodać dokładną wartość
-`ECONIFY_DISCORD_CALLBACK_URL` do Redirects aplikacji Econify.
+`ECONIZER_DISCORD_CALLBACK_URL` do Redirects aplikacji Econizer.
 Ten sam rekord aplikacji określa wygląd ekranu autoryzacji Discord: użytkownik
-zobaczy nazwę, ikonę i opis aplikacji przypisanej do `ECONIFY_DISCORD_CLIENT_ID`.
+zobaczy nazwę, ikonę i opis aplikacji przypisanej do `ECONIZER_DISCORD_CLIENT_ID`.
 Dlatego aplikacja nie powinna nazywać się roboczo `NewMain`; ustaw nazwę i ikonę
-na Econify albo inną docelową markę bota.
+na Econizer albo inną docelową markę bota.
 
 Sekretnych kodów sklepu nie należy przechowywać w miniPORTAL. Pole referencji
 wskazuje identyfikator roli albo bezpieczny klucz rekordu należącego do bota.
@@ -116,5 +116,5 @@ wskazuje identyfikator roli albo bezpieczny klucz rekordu należącego do bota.
 
 Sklep i giełda są częścią jednego modułu, ponieważ zakup, saldo i historia muszą
 być rozliczane w jednej transakcji bazodanowej. Tabele mają osobne prefiksy
-`econify_shop_*` i `econify_market_*`, więc późniejsze wydzielenie interfejsów lub
+`econizer_shop_*` i `econizer_market_*`, więc późniejsze wydzielenie interfejsów lub
 osobnego procesu wyceny nie wymaga zmiany danych gracza.

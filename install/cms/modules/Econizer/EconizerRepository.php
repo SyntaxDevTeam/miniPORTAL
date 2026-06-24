@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace SyntaxDevTeam\Cms\Modules\Econify;
+namespace SyntaxDevTeam\Cms\Modules\Econizer;
 
 use PDO;
 use RuntimeException;
 use SyntaxDevTeam\Cms\Database\CrudApp;
 
-final class EconifyRepository
+final class EconizerRepository
 {
     public function __construct(private readonly CrudApp $database)
     {
@@ -17,20 +17,20 @@ final class EconifyRepository
     /** @return list<array<string, mixed>> */
     public function features(): array
     {
-        return $this->rows('SELECT feature_key, label, description, is_enabled, sort_order FROM econify_features ORDER BY sort_order, feature_key');
+        return $this->rows('SELECT feature_key, label, description, is_enabled, sort_order FROM econizer_features ORDER BY sort_order, feature_key');
     }
 
     public function featureEnabled(string $key): bool
     {
         return (int) ($this->database->query(
-            'SELECT is_enabled FROM econify_features WHERE feature_key = :feature_key',
+            'SELECT is_enabled FROM econizer_features WHERE feature_key = :feature_key',
             [':feature_key' => $key]
         )?->fetchColumn() ?? 0) === 1;
     }
 
     public function setFeature(string $key, bool $enabled, int $userId): bool
     {
-        $statement = $this->database->update('econify_features', [
+        $statement = $this->database->update('econizer_features', [
             'is_enabled' => $enabled ? 1 : 0,
             'updated_by' => $userId,
         ], ['feature_key' => $key]);
@@ -41,14 +41,14 @@ final class EconifyRepository
     /** @return array<string, mixed> */
     public function platformSettings(): array
     {
-        return $this->row('SELECT default_locale, default_daily_amount, default_work_min, default_work_max, freemium_shop_limit FROM econify_platform_settings WHERE id = 1')
+        return $this->row('SELECT default_locale, default_daily_amount, default_work_min, default_work_max, freemium_shop_limit FROM econizer_platform_settings WHERE id = 1')
             ?? ['default_locale' => 'pl', 'default_daily_amount' => 250, 'default_work_min' => 50, 'default_work_max' => 150, 'freemium_shop_limit' => 5];
     }
 
     /** @param array<string, mixed> $settings */
     public function updatePlatformSettings(array $settings, int $userId): void
     {
-        $this->database->update('econify_platform_settings', $settings + ['updated_by' => $userId], ['id' => 1]);
+        $this->database->update('econizer_platform_settings', $settings + ['updated_by' => $userId], ['id' => 1]);
     }
 
     /** @return list<array<string, mixed>> */
@@ -56,8 +56,8 @@ final class EconifyRepository
     {
         return $this->rows(
             "SELECT g.*, COALESCE(u.display_name, 'Nieprzypisany') AS owner_name, "
-            . '(SELECT COUNT(*) FROM econify_memberships m WHERE m.guild_id = g.id AND m.is_active = 1) AS member_count '
-            . 'FROM econify_guilds g LEFT JOIN users u ON u.id = g.owner_user_id ORDER BY g.created_at DESC'
+            . '(SELECT COUNT(*) FROM econizer_memberships m WHERE m.guild_id = g.id AND m.is_active = 1) AS member_count '
+            . 'FROM econizer_guilds g LEFT JOIN users u ON u.id = g.owner_user_id ORDER BY g.created_at DESC'
         );
     }
 
@@ -74,7 +74,7 @@ final class EconifyRepository
     {
         $defaults = $this->platformSettings();
         $this->database->query(
-            'INSERT INTO econify_guilds (discord_guild_id, name, owner_user_id, plan, locale, daily_amount, work_min, work_max, is_active) '
+            'INSERT INTO econizer_guilds (discord_guild_id, name, owner_user_id, plan, locale, daily_amount, work_min, work_max, is_active) '
             . 'VALUES (:discord_guild_id, :name, NULL, :plan, :locale, :daily_amount, :work_min, :work_max, :is_active) '
             . 'ON DUPLICATE KEY UPDATE name = VALUES(name), is_active = VALUES(is_active)',
             [
@@ -95,13 +95,13 @@ final class EconifyRepository
     /** @return array<string, mixed>|null */
     public function guild(int $guildId): ?array
     {
-        return $this->row('SELECT * FROM econify_guilds WHERE id = :id', [':id' => $guildId]);
+        return $this->row('SELECT * FROM econizer_guilds WHERE id = :id', [':id' => $guildId]);
     }
 
     /** @return array<string, mixed>|null */
     public function guildByDiscordId(string $discordGuildId): ?array
     {
-        return $this->row('SELECT * FROM econify_guilds WHERE discord_guild_id = :discord_guild_id', [':discord_guild_id' => $discordGuildId]);
+        return $this->row('SELECT * FROM econizer_guilds WHERE discord_guild_id = :discord_guild_id', [':discord_guild_id' => $discordGuildId]);
     }
 
     /** @return list<array<string, mixed>> */
@@ -109,8 +109,8 @@ final class EconifyRepository
     {
         return $this->rows(
             'SELECT m.guild_id, m.access_role, m.discord_user_id, g.name, g.plan, g.currency_name, '
-            . 'g.shop_enabled, g.market_enabled, g.is_active FROM econify_memberships m '
-            . 'JOIN econify_guilds g ON g.id = m.guild_id WHERE m.user_id = :user_id AND m.is_active = 1 '
+            . 'g.shop_enabled, g.market_enabled, g.is_active FROM econizer_memberships m '
+            . 'JOIN econizer_guilds g ON g.id = m.guild_id WHERE m.user_id = :user_id AND m.is_active = 1 '
             . 'AND g.is_active = 1 ORDER BY g.name',
             [':user_id' => $userId]
         );
@@ -122,7 +122,7 @@ final class EconifyRepository
         return $this->row(
             'SELECT m.*, g.name, g.plan, g.currency_name, g.locale, g.daily_amount, g.work_min, g.work_max, '
             . 'g.transfer_tax_bps, g.vip_role_id, g.vip_daily_amount, g.shop_enabled, g.market_enabled '
-            . 'FROM econify_memberships m JOIN econify_guilds g ON g.id = m.guild_id '
+            . 'FROM econizer_memberships m JOIN econizer_guilds g ON g.id = m.guild_id '
             . 'WHERE m.guild_id = :guild_id AND m.user_id = :user_id AND m.is_active = 1 AND g.is_active = 1',
             [':guild_id' => $guildId, ':user_id' => $userId]
         );
@@ -132,7 +132,7 @@ final class EconifyRepository
     public function identity(string $discordGuildId, string $discordUserId): ?array
     {
         $row = $this->row(
-            'SELECT m.guild_id, m.user_id FROM econify_memberships m JOIN econify_guilds g ON g.id = m.guild_id '
+            'SELECT m.guild_id, m.user_id FROM econizer_memberships m JOIN econizer_guilds g ON g.id = m.guild_id '
             . 'WHERE g.discord_guild_id = :guild AND m.discord_user_id = :user AND g.is_active = 1 AND m.is_active = 1',
             [':guild' => $discordGuildId, ':user' => $discordUserId]
         );
@@ -141,7 +141,7 @@ final class EconifyRepository
         }
 
         $linked = $this->row(
-            "SELECT g.id AS guild_id, i.user_id FROM econify_guilds g JOIN user_identities i "
+            "SELECT g.id AS guild_id, i.user_id FROM econizer_guilds g JOIN user_identities i "
             . "ON i.provider = 'discord' AND i.provider_subject = :user "
             . 'WHERE g.discord_guild_id = :guild AND g.is_active = 1 LIMIT 1',
             [':guild' => $discordGuildId, ':user' => $discordUserId]
@@ -160,20 +160,20 @@ final class EconifyRepository
     /** @param array<string, mixed> $settings */
     public function updateGuild(int $guildId, array $settings): bool
     {
-        $statement = $this->database->update('econify_guilds', $settings, ['id' => $guildId]);
+        $statement = $this->database->update('econizer_guilds', $settings, ['id' => $guildId]);
         return $statement !== null;
     }
 
     public function addMembership(int $guildId, int $userId, string $discordUserId, string $role): void
     {
         $this->database->query(
-            'INSERT INTO econify_memberships (guild_id, user_id, discord_user_id, access_role, is_active) '
+            'INSERT INTO econizer_memberships (guild_id, user_id, discord_user_id, access_role, is_active) '
             . 'VALUES (:guild_id, :user_id, :discord_user_id, :access_role, 1) '
             . 'ON DUPLICATE KEY UPDATE discord_user_id = VALUES(discord_user_id), access_role = VALUES(access_role), is_active = 1',
             [':guild_id' => $guildId, ':user_id' => $userId, ':discord_user_id' => $discordUserId, ':access_role' => $role]
         );
         if ($role === 'guild_owner') {
-            $this->database->update('econify_guilds', ['owner_user_id' => $userId], ['id' => $guildId]);
+            $this->database->update('econizer_guilds', ['owner_user_id' => $userId], ['id' => $guildId]);
         }
         $this->ensureWallet($guildId, $userId);
     }
@@ -183,7 +183,7 @@ final class EconifyRepository
     {
         $this->ensureWallet($guildId, $userId);
         return $this->row(
-            'SELECT balance, experience, level, updated_at FROM econify_wallets WHERE guild_id = :guild_id AND user_id = :user_id',
+            'SELECT balance, experience, level, updated_at FROM econizer_wallets WHERE guild_id = :guild_id AND user_id = :user_id',
             [':guild_id' => $guildId, ':user_id' => $userId]
         ) ?? ['balance' => 0, 'experience' => 0, 'level' => 1, 'updated_at' => ''];
     }
@@ -193,7 +193,7 @@ final class EconifyRepository
     {
         $limit = max(1, min(100, $limit));
         return $this->rows(
-            'SELECT transaction_type, amount, balance_after, description, created_at FROM econify_transactions '
+            'SELECT transaction_type, amount, balance_after, description, created_at FROM econizer_transactions '
             . 'WHERE guild_id = :guild_id AND user_id = :user_id ORDER BY id DESC LIMIT ' . $limit,
             [':guild_id' => $guildId, ':user_id' => $userId]
         );
@@ -203,7 +203,7 @@ final class EconifyRepository
     public function shopItems(int $guildId, bool $activeOnly = true): array
     {
         return $this->rows(
-            'SELECT id, name, description, price, stock, delivery_type, delivery_reference, is_active FROM econify_shop_items '
+            'SELECT id, name, description, price, stock, delivery_type, delivery_reference, is_active FROM econizer_shop_items '
             . 'WHERE guild_id = :guild_id' . ($activeOnly ? ' AND is_active = 1' : '') . ' ORDER BY price, name',
             [':guild_id' => $guildId]
         );
@@ -211,7 +211,7 @@ final class EconifyRepository
 
     public function addShopItem(int $guildId, string $name, string $description, int $price, ?int $stock, string $deliveryType, ?string $reference): int
     {
-        return (int) $this->database->create('econify_shop_items', [
+        return (int) $this->database->create('econizer_shop_items', [
             'guild_id' => $guildId,
             'name' => $name,
             'description' => $description,
@@ -224,7 +224,7 @@ final class EconifyRepository
 
     public function activeShopItemCount(int $guildId): int
     {
-        return (int) $this->database->count('econify_shop_items', ['guild_id' => $guildId, 'is_active' => 1]);
+        return (int) $this->database->count('econizer_shop_items', ['guild_id' => $guildId, 'is_active' => 1]);
     }
 
     public function purchaseItem(int $guildId, int $userId, int $itemId): int
@@ -232,11 +232,11 @@ final class EconifyRepository
         $orderId = 0;
         $this->database->action(function () use ($guildId, $userId, $itemId, &$orderId): void {
             $item = $this->row(
-                'SELECT id, name, price, stock FROM econify_shop_items WHERE id = :id AND guild_id = :guild_id AND is_active = 1 FOR UPDATE',
+                'SELECT id, name, price, stock FROM econizer_shop_items WHERE id = :id AND guild_id = :guild_id AND is_active = 1 FOR UPDATE',
                 [':id' => $itemId, ':guild_id' => $guildId]
             );
             $wallet = $this->row(
-                'SELECT balance FROM econify_wallets WHERE guild_id = :guild_id AND user_id = :user_id FOR UPDATE',
+                'SELECT balance FROM econizer_wallets WHERE guild_id = :guild_id AND user_id = :user_id FOR UPDATE',
                 [':guild_id' => $guildId, ':user_id' => $userId]
             );
             if ($item === null || $wallet === null) {
@@ -250,11 +250,11 @@ final class EconifyRepository
                 throw new RuntimeException('Przedmiot jest wyprzedany.');
             }
             $balance = (int) $wallet['balance'] - $price;
-            $this->database->update('econify_wallets', ['balance' => $balance], ['guild_id' => $guildId, 'user_id' => $userId]);
+            $this->database->update('econizer_wallets', ['balance' => $balance], ['guild_id' => $guildId, 'user_id' => $userId]);
             if ($item['stock'] !== null) {
-                $this->database->update('econify_shop_items', ['stock' => (int) $item['stock'] - 1], ['id' => $itemId]);
+                $this->database->update('econizer_shop_items', ['stock' => (int) $item['stock'] - 1], ['id' => $itemId]);
             }
-            $orderId = (int) $this->database->create('econify_shop_orders', [
+            $orderId = (int) $this->database->create('econizer_shop_orders', [
                 'guild_id' => $guildId, 'item_id' => $itemId, 'user_id' => $userId, 'price' => $price,
             ]);
             $this->recordTransaction($guildId, $userId, 'shop_purchase', -$price, $balance, 'Zakup: ' . (string) $item['name'], 'shop:' . $orderId);
@@ -268,8 +268,8 @@ final class EconifyRepository
     {
         return $this->rows(
             'SELECT a.id, a.symbol, a.name, a.current_price, COALESCE(h.quantity, 0) AS quantity, '
-            . 'COALESCE(h.average_price, 0) AS average_price FROM econify_market_assets a '
-            . 'LEFT JOIN econify_market_holdings h ON h.asset_id = a.id AND h.user_id = :user_id '
+            . 'COALESCE(h.average_price, 0) AS average_price FROM econizer_market_assets a '
+            . 'LEFT JOIN econizer_market_holdings h ON h.asset_id = a.id AND h.user_id = :user_id '
             . 'WHERE a.guild_id = :guild_id AND a.is_active = 1 ORDER BY a.symbol',
             [':user_id' => $userId, ':guild_id' => $guildId]
         );
@@ -279,7 +279,7 @@ final class EconifyRepository
     public function quotes(int $assetId): array
     {
         return $this->rows(
-            'SELECT price, quoted_at FROM econify_market_quotes WHERE asset_id = :asset_id ORDER BY quoted_at DESC, id DESC LIMIT 30',
+            'SELECT price, quoted_at FROM econizer_market_quotes WHERE asset_id = :asset_id ORDER BY quoted_at DESC, id DESC LIMIT 30',
             [':asset_id' => $assetId]
         );
     }
@@ -290,12 +290,12 @@ final class EconifyRepository
             throw new RuntimeException('Nieprawidłowa liczba jednostek.');
         }
         $this->database->action(function () use ($guildId, $userId, $assetId, $quantity, $buy): void {
-            $asset = $this->row('SELECT id, symbol, current_price FROM econify_market_assets WHERE id = :id AND guild_id = :guild_id AND is_active = 1 FOR UPDATE', [':id' => $assetId, ':guild_id' => $guildId]);
-            $wallet = $this->row('SELECT balance FROM econify_wallets WHERE guild_id = :guild_id AND user_id = :user_id FOR UPDATE', [':guild_id' => $guildId, ':user_id' => $userId]);
+            $asset = $this->row('SELECT id, symbol, current_price FROM econizer_market_assets WHERE id = :id AND guild_id = :guild_id AND is_active = 1 FOR UPDATE', [':id' => $assetId, ':guild_id' => $guildId]);
+            $wallet = $this->row('SELECT balance FROM econizer_wallets WHERE guild_id = :guild_id AND user_id = :user_id FOR UPDATE', [':guild_id' => $guildId, ':user_id' => $userId]);
             if ($asset === null || $wallet === null) {
                 throw new RuntimeException('Aktywo lub portfel nie istnieje.');
             }
-            $holding = $this->row('SELECT quantity, average_price FROM econify_market_holdings WHERE asset_id = :asset_id AND user_id = :user_id FOR UPDATE', [':asset_id' => $assetId, ':user_id' => $userId]);
+            $holding = $this->row('SELECT quantity, average_price FROM econizer_market_holdings WHERE asset_id = :asset_id AND user_id = :user_id FOR UPDATE', [':asset_id' => $assetId, ':user_id' => $userId]);
             $owned = (int) ($holding['quantity'] ?? 0);
             $price = (int) $asset['current_price'];
             $value = $price * $quantity;
@@ -310,29 +310,29 @@ final class EconifyRepository
             $newBalance = $buy ? $balance - $value : $balance + $value;
             $average = $buy ? (int) round(((int) ($holding['average_price'] ?? 0) * $owned + $value) / $newQuantity) : (int) ($holding['average_price'] ?? 0);
             $this->database->query(
-                'INSERT INTO econify_market_holdings (asset_id, user_id, quantity, average_price) VALUES (:asset_id, :user_id, :quantity, :average_price) '
+                'INSERT INTO econizer_market_holdings (asset_id, user_id, quantity, average_price) VALUES (:asset_id, :user_id, :quantity, :average_price) '
                 . 'ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), average_price = VALUES(average_price)',
                 [':asset_id' => $assetId, ':user_id' => $userId, ':quantity' => $newQuantity, ':average_price' => $average]
             );
-            $this->database->update('econify_wallets', ['balance' => $newBalance], ['guild_id' => $guildId, 'user_id' => $userId]);
+            $this->database->update('econizer_wallets', ['balance' => $newBalance], ['guild_id' => $guildId, 'user_id' => $userId]);
             $this->recordTransaction($guildId, $userId, $buy ? 'market_buy' : 'market_sell', $buy ? -$value : $value, $newBalance, ($buy ? 'Kupno ' : 'Sprzedaż ') . $quantity . ' ' . (string) $asset['symbol']);
         });
     }
 
     public function addAsset(int $guildId, string $symbol, string $name, int $price): int
     {
-        $id = (int) $this->database->create('econify_market_assets', ['guild_id' => $guildId, 'symbol' => $symbol, 'name' => $name, 'current_price' => $price]);
-        $this->database->create('econify_market_quotes', ['asset_id' => $id, 'price' => $price]);
+        $id = (int) $this->database->create('econizer_market_assets', ['guild_id' => $guildId, 'symbol' => $symbol, 'name' => $name, 'current_price' => $price]);
+        $this->database->create('econizer_market_quotes', ['asset_id' => $id, 'price' => $price]);
         return $id;
     }
 
     public function updateAssetPrice(int $guildId, int $assetId, int $price): bool
     {
-        $statement = $this->database->update('econify_market_assets', ['current_price' => $price], ['id' => $assetId, 'guild_id' => $guildId]);
+        $statement = $this->database->update('econizer_market_assets', ['current_price' => $price], ['id' => $assetId, 'guild_id' => $guildId]);
         if ($statement === null || $statement->rowCount() !== 1) {
             return false;
         }
-        $this->database->create('econify_market_quotes', ['asset_id' => $assetId, 'price' => $price]);
+        $this->database->create('econizer_market_quotes', ['asset_id' => $assetId, 'price' => $price]);
         return true;
     }
 
@@ -341,12 +341,12 @@ final class EconifyRepository
         $created = false;
         $this->database->action(function () use ($guildId, $userId, $type, $amount, $experience, $level, $reference, $description, &$created): void {
             $this->ensureWallet($guildId, $userId);
-            if ($this->database->count('econify_transactions', ['guild_id' => $guildId, 'external_reference' => $reference]) > 0) {
+            if ($this->database->count('econizer_transactions', ['guild_id' => $guildId, 'external_reference' => $reference]) > 0) {
                 return;
             }
             $wallet = $this->wallet($guildId, $userId);
             $balance = max(0, (int) $wallet['balance'] + $amount);
-            $this->database->update('econify_wallets', ['balance' => $balance, 'experience' => $experience, 'level' => $level], ['guild_id' => $guildId, 'user_id' => $userId]);
+            $this->database->update('econizer_wallets', ['balance' => $balance, 'experience' => $experience, 'level' => $level], ['guild_id' => $guildId, 'user_id' => $userId]);
             $this->recordTransaction($guildId, $userId, $type, $amount, $balance, $description, $reference);
             $created = true;
         });
@@ -357,24 +357,24 @@ final class EconifyRepository
     public function stats(): array
     {
         return [
-            'guilds' => (int) $this->database->count('econify_guilds', ['is_active' => 1]),
-            'players' => (int) $this->database->count('econify_memberships', ['is_active' => 1]),
-            'orders' => (int) $this->database->count('econify_shop_orders'),
-            'volume' => (int) ($this->database->query('SELECT COALESCE(SUM(price), 0) FROM econify_shop_orders')?->fetchColumn() ?? 0),
+            'guilds' => (int) $this->database->count('econizer_guilds', ['is_active' => 1]),
+            'players' => (int) $this->database->count('econizer_memberships', ['is_active' => 1]),
+            'orders' => (int) $this->database->count('econizer_shop_orders'),
+            'volume' => (int) ($this->database->query('SELECT COALESCE(SUM(price), 0) FROM econizer_shop_orders')?->fetchColumn() ?? 0),
         ];
     }
 
     private function ensureWallet(int $guildId, int $userId): void
     {
         $this->database->query(
-            'INSERT IGNORE INTO econify_wallets (guild_id, user_id) VALUES (:guild_id, :user_id)',
+            'INSERT IGNORE INTO econizer_wallets (guild_id, user_id) VALUES (:guild_id, :user_id)',
             [':guild_id' => $guildId, ':user_id' => $userId]
         );
     }
 
     private function recordTransaction(int $guildId, int $userId, string $type, int $amount, int $balance, string $description, ?string $reference = null): void
     {
-        $this->database->create('econify_transactions', [
+        $this->database->create('econizer_transactions', [
             'guild_id' => $guildId, 'user_id' => $userId, 'transaction_type' => $type,
             'amount' => $amount, 'balance_after' => $balance, 'description' => $description,
             'external_reference' => $reference,
