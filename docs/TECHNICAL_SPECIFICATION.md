@@ -490,7 +490,8 @@ Stan managera:
 - manager pozwala eksportować każdy zainstalowany moduł, w tym chronione moduły
   `core` i `system`, do ZIP z jednym top-level katalogiem pakietu; eksport wymaga
   ACL/CSRF, jest audytowany i blokuje dowiązania symboliczne oraz ukryte segmenty
-  ścieżek.
+  ścieżek; lokalny `.env` jest pomijany, a `.env.example` jest jedynym dozwolonym
+  ukrytym plikiem konfiguracyjnym pakietu.
 - dashboard panelu pokazuje syntetyczne metryki modułów, rozszerzeń, migracji,
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby

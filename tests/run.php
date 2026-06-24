@@ -2010,17 +2010,26 @@ $test('Module package exporter creates an importable ZIP archive', static functi
         'install' => null,
     ], JSON_THROW_ON_ERROR));
     file_put_contents($source . '/Module.php', "<?php\n");
+    file_put_contents($source . '/.env', "SECRET=must-not-leak\n");
+    file_put_contents($source . '/.env.example', "SECRET=\n");
 
     try {
         $manifest = (new ModuleManifestValidator('0.1.0'))->validate($source);
         $export = (new ModulePackageExporter())->exportZip($manifest, $exports);
         $assert($export['filename'] === 'export_module-1.2.3.zip');
         $assert(is_file($export['path']) && filesize($export['path']) > 0);
+        $listing = shell_exec('unzip -Z1 ' . escapeshellarg($export['path']) . ' 2>/dev/null');
+        if (is_string($listing)) {
+            $assert(str_contains($listing, 'ExportModule/.env.example'));
+            $assert(!preg_match('~(^|\R)ExportModule/\.env(\R|$)~', $listing));
+        }
 
         $import = (new ModuleArchiveImporter($quarantine, new ModuleManifestValidator('0.1.0')))
             ->importFile($export['path'], $export['filename']);
         $assert($import['manifest'] !== null && $import['manifest']->id === 'export_module');
         $assert(is_file($import['directory'] . '/source/ExportModule/info.json'));
+        $assert(is_file($import['directory'] . '/source/ExportModule/.env.example'));
+        $assert(!is_file($import['directory'] . '/source/ExportModule/.env'));
     } finally {
         $files = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),

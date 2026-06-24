@@ -39,7 +39,8 @@ Każdy zainstalowany moduł, również chroniony `core` lub `system`, można eks
 z managera do archiwum ZIP. Import wyższej wersji istniejącego pakietu atomowo
 podmienia kod i uruchamia kontrolowane migracje; błąd przywraca poprzednią wersję.
 Eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
-top-level katalog modułu z `info.json`.
+top-level katalog modułu z `info.json`. Lokalny `.env` jest zawsze pomijany;
+bezpieczny plik wzorcowy `.env.example` może wejść do pakietu.
 
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.

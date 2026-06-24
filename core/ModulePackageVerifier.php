@@ -132,8 +132,14 @@ final class ModulePackageVerifier
             if ($relative === $signatureFile) {
                 continue;
             }
-            foreach (explode('/', $relative) as $segment) {
-                if (str_starts_with($segment, '.')) {
+            $segments = explode('/', $relative);
+            foreach ($segments as $index => $segment) {
+                $isEnvExample = $index === count($segments) - 1 && $segment === '.env.example';
+                if (
+                    $segment === ''
+                    || preg_match('/[\x00-\x1F\x7F]/', $segment) === 1
+                    || (str_starts_with($segment, '.') && !$isEnvExample)
+                ) {
                     throw new RuntimeException('Pakiet nie może zawierać ukrytych plików ani katalogów.');
                 }
             }

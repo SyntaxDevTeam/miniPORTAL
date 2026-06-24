@@ -327,8 +327,14 @@ final class ModuleArchiveImporter
         if ($path === '' || str_starts_with($path, '/') || str_contains($path, '../') || str_contains($path, '/..')) {
             throw new RuntimeException('Archiwum zawiera niebezpieczną ścieżkę.');
         }
-        foreach (explode('/', trim($path, '/')) as $segment) {
-            if ($segment === '' || str_starts_with($segment, '.')) {
+        $segments = explode('/', trim($path, '/'));
+        foreach ($segments as $index => $segment) {
+            $isEnvExample = $index === count($segments) - 1 && $segment === '.env.example';
+            if (
+                $segment === ''
+                || preg_match('/[\x00-\x1F\x7F]/', $segment) === 1
+                || (str_starts_with($segment, '.') && !$isEnvExample)
+            ) {
                 throw new RuntimeException('Archiwum zawiera ukryty albo pusty segment ścieżki.');
             }
         }

@@ -2372,3 +2372,20 @@ kodu po symulowanym błędzie migracji. Uruchomiono dwukrotnie pełne
 `php tests/run.php`, pełny lint PHP, `node --check`, `php bin/migrate-core.php`,
 `git diff --check` oraz przebudowę `install/cms`. Wygenerowana dystrybucja zawiera
 `system_admin` 1.9.0 i nowy przepływ importu chronionych aktualizacji.
+
+### Sesja: 2026-06-24 - Bezpieczny eksport konfiguracji przykładowej modułu
+
+**Faza i krok specyfikacji:** Krok 6 - system modułów, eksport pakietów; Krok 8 -
+izolowana konfiguracja Econizer.
+
+**Wykonano:** naprawiono eksport Econizera blokowany przez `.env.example`.
+Eksporter pomija teraz lokalny `.env` bez umieszczania sekretów w archiwum,
+dopuszcza wyłącznie bezpieczny plik wzorcowy `.env.example` i nadal odrzuca
+pozostałe ukryte pliki, ukryte katalogi, znaki kontrolne oraz dowiązania
+symboliczne. Importer i weryfikator podpisów stosują tę samą regułę, dzięki czemu
+wyeksportowany pakiet może przejść pełny import do kwarantanny.
+
+**Weryfikacja:** wykonano rzeczywisty eksport `econizer` 1.3.1 i sprawdzono listę
+ZIP: zawiera `Econizer/.env.example`, ale nie zawiera `Econizer/.env`. Dodano test
+regresji eksportu i ponownego importu, uruchomiono pełne `php tests/run.php`, lint
+zmienionych plików, `git diff --check` oraz przebudowę `install/cms`.
