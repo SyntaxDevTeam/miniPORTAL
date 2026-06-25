@@ -1,13 +1,39 @@
 {
     "releases": [
         {
+            "version": "0.2.2",
+            "released_at": "2026-06-24T18:10:31+00:00",
+            "minimum_version": "0.2.0",
+            "filename": "miniportal-0.2.2.zip",
+            "checksum": "5add2cf0e7a3ba0ea530eae1c2807dcf29b09f495e2c14f5b023c49f0a0502c8",
+            "changelog": [
+                "Dodano kontrolowane publiczne endpointy centralnego katalogu wyda\u0144 i archiw\u00f3w ZIP.",
+                "Naprawiono b\u0142\u0119dny komunikat o najnowszej wersji przy pustym lub nieskonfigurowanym kanale.",
+                "Nowe instalacje automatycznie korzystaj\u0105 z oficjalnego katalogu wyda\u0144 SyntaxDevTeam.",
+                "Publiczna instancja Econizera zosta\u0142a pod\u0142\u0105czona do centralnego kana\u0142u aktualizacji."
+            ]
+        },
+        {
+            "version": "0.2.1",
+            "released_at": "2026-06-24T18:01:41+00:00",
+            "minimum_version": "0.2.0",
+            "filename": "miniportal-0.2.1.zip",
+            "checksum": "d0b47946023c4b21c537bfdaaae3a5b46e3dd52c60ff2dd90c75136f42d37792",
+            "changelog": [
+                "System pe\u0142nej jedno-klikowej aktualizacji CORE bez konieczno\u015bci ingerencji w pliki czy kod projektu.",
+                "Pierwsza pr\u00f3bna aktualizacja"
+            ]
+        },
+        {
             "version": "0.2.0",
-            "released_at": "2026-06-24T17:04:01+00:00",
+            "released_at": "2026-06-24T17:53:08+00:00",
             "minimum_version": "0.1.0",
             "filename": "miniportal-0.2.0.zip",
-            "checksum": "a2fed9073d017ba74c5528deca7700640da5b2d606860bc6a12fe40109402d1a",
+            "checksum": "7c858d73acd2598ae7f302d74b938a43eeb92796b433a4adac9a7709060a7fea",
             "changelog": [
                 "Dodano panelowy aktualizator ca\u0142ego miniPORTALu z katalogiem wyda\u0144 i list\u0105 zmian.",
+                "Owner instalacji macierzystej mo\u017ce budowa\u0107 w\u0142asne releasy bezpo\u015brednio z panelu Aktualizacje.",
+                "Naprawiono uruchamianie generatora przez PHP-FPM i neutralny opis przycisku publikacji.",
                 "Dodano staging, kontrol\u0119 SHA-256, kopi\u0119 bezpiecze\u0144stwa i rollback plik\u00f3w.",
                 "Aktualizacja uruchamia migracje Core oraz kontrolowane aktualizacje zainstalowanych modu\u0142\u00f3w.",
                 "Dodano eksport i aktualizacj\u0119 modu\u0142\u00f3w chronionych bez mo\u017cliwo\u015bci ich wy\u0142\u0105czenia lub usuni\u0119cia.",

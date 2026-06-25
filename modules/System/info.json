@@ -1,7 +1,7 @@
 {
   "id": "system_admin",
   "name": "System Admin i Manager Modułów",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "type": "system",
   "author": "SyntaxDevTeam",
   "requires": {

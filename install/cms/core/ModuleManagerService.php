@@ -178,6 +178,9 @@ final class ModuleManagerService
      */
     public function exportPackage(string $moduleId): array
     {
+        if ($this->packageSigner === null) {
+            throw new RuntimeException('Eksport modułów jest dostępny wyłącznie na skonfigurowanej instancji wydawniczej.');
+        }
         $manifest = $this->manifest($moduleId);
         $state = $this->states->find($moduleId);
         if ($state === null || !$state->isInstalled()) {

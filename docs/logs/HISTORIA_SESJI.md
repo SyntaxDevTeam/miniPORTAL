@@ -2442,3 +2442,104 @@ potrzebuje wyłącznie zgodnego identyfikatora i klucza publicznego.
 **Weryfikacja:** dodano test automatycznie podpisanego eksportu, ponownego importu
 ze statusem `verified` oraz braku zmian w źródłowym module. Uruchomiono lint
 zmienionych plików PHP, pełne testy repozytorium i `git diff --check`.
+
+### Sesja: 2026-06-24 - Kotwica zaufania w czystym instalatorze
+
+**Faza i krok specyfikacji:** Krok 6 - pochodzenie i podpisy pakietów; Krok 7 -
+bezpieczna czysta dystrybucja oraz preflight kreatora.
+
+**Wykonano:** oficjalny publiczny klucz `syntaxdevteam-modules-2026` dodano do
+wersjonowanego `config/keys/` i aktywnego rejestru `module_publishers.php`.
+Generator czystej dystrybucji przenosi klucz razem z konfiguracją, więc nowa
+instalacja zna wydawcę przed pierwszym importem modułu. Kreator sprawdza, czy klucz
+jest czytelny i poprawnie parsowany przez OpenSSL; brak albo podmiana na błędny PEM
+blokuje rozpoczęcie instalacji jako niespełnione wymaganie środowiska.
+
+Klucz prywatny nadal istnieje wyłącznie poza projektem macierzystym i służy do
+automatycznego podpisywania eksportów. Archiwum modułu nie może dostarczyć własnej
+kotwicy zaufania ani zastąpić klucza publicznego instalacji.
+
+**Weryfikacja:** rozszerzono test czystej dystrybucji o obecność klucza i wpisu
+wydawcy, dodano test kryptograficznej poprawności PEM oraz preflight instalatora,
+przebudowano `install/cms`, uruchomiono pełne testy i lint PHP.
+
+### Sesja: 2026-06-24 - Utwardzenie produkcyjnego lifecycle modułów
+
+**Faza i krok specyfikacji:** Krok 6 - dystrybucja, kwarantanna i lifecycle
+modułów; Krok 7 - wymagania czystej instalacji.
+
+**Wykonano:** eksport modułów ograniczono do instancji wydawniczej posiadającej
+skonfigurowany prywatny klucz. Na zwykłej instalacji produkcyjnej przycisk nie jest
+renderowany, a bezpośrednie żądanie endpointu zostaje odrzucone i audytowane.
+
+Każdy import ma akcję trwałego usunięcia z kwarantanny. Dodano także audytowane
+czyszczenie wpisów starszych niż 1-365 dni, domyślnie 7 dni przez
+`MODULE_QUARANTINE_RETENTION_DAYS`. Operacje zachowują ACL `modules.install`,
+CSRF i walidację identyfikatora katalogu importu.
+
+Manager modułów pokazuje przed zatwierdzeniem, że nadrzędny `modules/` nie jest
+zapisywalny, wraz z poleceniami `chgrp`, `chmod 2775` i testem jako `www-data`.
+Ten sam katalog dołączono do preflight czystego instalatora, aby błąd nie pojawiał
+się dopiero podczas pierwszej aktualizacji. `system_admin` podniesiono do 2.0.1.
+
+**Weryfikacja:** dodano test indywidualnego usuwania i retencji kwarantanny,
+kontrole blokady eksportu oraz instrukcji uprawnień, przebudowano czystą
+dystrybucję, uruchomiono pełne testy, pełny lint PHP i `git diff --check`.
+
+### Sesja: 2026-06-24 - Publikowanie release z panelu Ownera
+
+**Faza i krok specyfikacji:** Krok 7 - dystrybucja i katalog wydań platformy.
+
+**Wykonano:** instalacja macierzysta pokazuje Ownerowi w
+`/admin/system-updates` formularz budowy własnego wydania. Formularz przyjmuje
+wersję SemVer, minimalną obsługiwaną wersję bazową i listę zmian po jednej pozycji
+w wierszu. Może przebudować bieżącą wersję albo opublikować wyższą.
+
+Panel korzysta z tej samej implementacji co CLI:
+`bin/build-platform-release.php`. Przed budową aktualizuje wersję w
+`config/config.php` i źródle instalatora; przy błędzie przywraca poprzednie pliki.
+Operacja wymaga wildcarda Ownera, CSRF, jest audytowana i pozostaje niewidoczna w
+czystej dystrybucji, z której generator jest usuwany.
+
+**Weryfikacja:** dodano test delegowania do generatora, walidacji wersji bazowej
+i trwałej aktualizacji wersji źródłowej po sukcesie. Uruchomiono pełne testy,
+lint zmienionych plików i `git diff --check`.
+
+### Sesja: 2026-06-24 - Poprawka panelowego generatora release
+
+**Faza i krok specyfikacji:** Krok 7 - panel publikacji wydań platformy.
+
+**Wykonano:** usunięto zależność publikatora od wartości `PHP_BINARY` dostępnej
+w PHP-FPM. Pusta wartość prowadziła do wykonania pustej komendy przez `/bin/sh`
+i błędu `sh: 1: : Permission denied`. Publikator wybiera teraz jawnie wykonywalne
+PHP CLI i przekazuje `proc_open()` tablicę argumentów bez udziału powłoki.
+
+Przycisk formularza nie zakłada już wersji przed zatwierdzeniem pól. Neutralny
+tekst `Zbuduj wskazany release` odpowiada numerowi wpisanemu w polu
+`Publikowana wersja`, a komunikat wyjaśnia możliwość przebudowy bieżącej wersji.
+
+**Weryfikacja:** lint zmienionych plików, `git diff --check` oraz rzeczywiste
+zbudowanie wydania 0.2.0 przez `PlatformReleasePublisher` uruchomiony jako
+użytkownik `www-data`.
+
+### Sesja: 2026-06-24 - Centralny kanał wydań 0.2.2
+
+**Faza i krok specyfikacji:** Krok 7 - dystrybucja wydań pomiędzy niezależnymi
+instalacjami miniPORTAL.
+
+**Wykonano:** naprawiono sytuację, w której publiczna instancja z pustym lokalnym
+`releases/catalog.json` zgłaszała najnowszą wersję mimo wydań istniejących w
+projekcie macierzystym. Dodano read-only endpointy
+`/api/platform-releases/catalog` oraz `/api/platform-releases/{filename}`.
+Archiwum jest dostępne tylko wtedy, gdy jego nazwa znajduje się w zwalidowanym
+katalogu; fizyczny katalog `releases/` nadal zwraca 403.
+
+Instancja Econizera została skonfigurowana przez
+`PLATFORM_RELEASE_CATALOG_URL=https://new.syntaxdevteam.pl/api/platform-releases/catalog`.
+Kreator nowych instalacji zapisuje oficjalny URL automatycznie. Pusty kanał jest
+teraz raportowany jako brak konfiguracji lub brak wydań, nie jako aktualny system.
+Zbudowano wydanie miniPORTAL 0.2.2.
+
+**Weryfikacja:** centralny endpoint zwraca wersje 0.2.2, 0.2.1 i 0.2.0.
+Repozytorium aktualizacji Econizera wykrywa przejście 0.2.0 → 0.2.2. Pobrany przez
+HTTPS ZIP 0.2.2 ma SHA-256 zgodne z katalogiem.

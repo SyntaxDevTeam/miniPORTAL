@@ -12,6 +12,7 @@ use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformReleasePublisher;
 use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
@@ -47,6 +48,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly PlatformReleaseRepository $platformReleases,
         private readonly PlatformUpdater $platformUpdater,
         private readonly ?CoreMigrationRunner $coreMigrationRunner,
+        private readonly PlatformReleasePublisher $platformReleasePublisher,
     ) {
     }
 
@@ -57,7 +59,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.0.0';
+        return '2.0.2';
     }
 
     public function dependencies(): array
@@ -86,6 +88,11 @@ final class SystemAdminModule implements ModuleInterface
 
     public function registerRoutes(Router $router): void
     {
+        $router->get('/api/platform-releases/catalog', fn () => $this->servePlatformReleaseCatalog());
+        $router->get(
+            '/api/platform-releases/{filename}',
+            fn (Request $request) => $this->servePlatformReleaseArchive($request)
+        );
         $router->get('/admin', fn (Request $request) => $this->guard($request, 'admin.access', fn () => $this->renderDashboard()));
         $router->get('/admin/modules', fn (Request $request) => $this->guard(
             $request,
@@ -132,6 +139,16 @@ final class SystemAdminModule implements ModuleInterface
             'modules.install',
             fn () => $this->approveModuleArchive($request)
         ));
+        $router->post('/admin/modules/quarantine/delete', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->deleteQuarantineImport($request)
+        ));
+        $router->post('/admin/modules/quarantine/cleanup', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->cleanupQuarantine($request)
+        ));
         $router->post('/admin/modules/export', fn (Request $request) => $this->guard(
             $request,
             'modules.install',
@@ -146,6 +163,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'settings.manage',
             fn () => $this->applyPlatformUpdate($request)
+        ));
+        $router->post('/admin/system-updates/publish', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->publishPlatformRelease($request)
         ));
         $router->get('/admin/settings', fn (Request $request) => $this->guard(
             $request,
@@ -352,7 +374,14 @@ final class SystemAdminModule implements ModuleInterface
             $releases = $this->platformReleases->all();
             $latest = $this->platformReleases->latestFor($currentVersion);
             $this->theme->start_admin_panel('Stan platformy', 'Wersja ' . $currentVersion);
-            if ($latest === null) {
+            if ($releases === []) {
+                $this->theme->render_alert(
+                    $this->platformReleases->usesRemoteCatalog()
+                        ? 'Skonfigurowany centralny katalog wydań nie zawiera żadnych wersji.'
+                        : 'Ta instalacja nie ma skonfigurowanego centralnego kanału wydań, a lokalny katalog jest pusty.',
+                    'warning'
+                );
+            } elseif ($latest === null) {
                 $this->theme->render_alert('Ta instalacja korzysta z najnowszego dostępnego wydania.', 'success');
             } else {
                 $this->theme->render_alert(
@@ -393,10 +422,99 @@ final class SystemAdminModule implements ModuleInterface
                 )
             );
             $this->theme->end_admin_panel();
+
+            if ($this->isOwner() && $this->platformReleasePublisher->available()) {
+                $this->theme->start_admin_panel(
+                    'Opublikuj własne wydanie',
+                    'Instalacja macierzysta / Owner'
+                );
+                $this->theme->render_alert(
+                    'Wpisz numer nowego wydania albo pozostaw ' . $currentVersion
+                    . ', aby przebudować bieżącą wersję. Generator zaktualizuje releases/catalog.json.',
+                    'info'
+                );
+                $this->theme->render_form(
+                    'index.php?route=/admin/system-updates/publish',
+                    [
+                        [
+                            'name' => 'version',
+                            'label' => 'Publikowana wersja',
+                            'value' => $currentVersion,
+                            'placeholder' => '0.3.0',
+                            'help' => 'Możesz przebudować bieżącą wersję albo wpisać wyższą wersję SemVer.',
+                        ],
+                        [
+                            'name' => 'minimum_version',
+                            'label' => 'Najstarsza wersja obsługiwana przez aktualizację',
+                            'value' => $currentVersion,
+                            'placeholder' => '0.2.0',
+                            'help' => 'Instalacje starsze od tej wersji będą wymagały wydania pośredniego.',
+                        ],
+                        [
+                            'name' => 'changelog',
+                            'label' => 'Lista zmian',
+                            'type' => 'textarea',
+                            'rows' => 8,
+                            'placeholder' => "Dodano nową funkcję.\nNaprawiono błąd aktualizacji.\nPoprawiono bezpieczeństwo.",
+                            'help' => 'Jedna zmiana w każdym wierszu; maksymalnie 50 pozycji.',
+                        ],
+                    ],
+                    'Zbuduj wskazany release',
+                    $this->security->csrfToken()
+                );
+                $this->theme->end_admin_panel();
+            }
         } catch (\Throwable $exception) {
             $this->theme->render_alert($exception->getMessage(), 'danger');
         }
         $this->endPage();
+    }
+
+    private function servePlatformReleaseCatalog(): void
+    {
+        try {
+            $payload = json_encode(
+                ['releases' => $this->platformReleases->all()],
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            ) . PHP_EOL;
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=UTF-8');
+                header('Content-Length: ' . strlen($payload));
+                header('Cache-Control: public, max-age=300');
+                header('X-Content-Type-Options: nosniff');
+            }
+            echo $payload;
+        } catch (\Throwable) {
+            http_response_code(503);
+            echo '{"releases":[]}';
+        }
+    }
+
+    private function servePlatformReleaseArchive(Request $request): void
+    {
+        $filename = $request->routeString('filename');
+        $release = $this->platformReleases->findByFilename($filename);
+        if ($release === null) {
+            http_response_code(404);
+            return;
+        }
+        try {
+            $path = $this->platformReleases->archivePath($release);
+            if (!is_file($path)) {
+                throw new \RuntimeException('Archiwum wydania jest niedostępne.');
+            }
+            if (!headers_sent()) {
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $release['filename'] . '"');
+                header('Content-Length: ' . (string) filesize($path));
+                header('Cache-Control: public, max-age=86400, immutable');
+                header('X-Content-Type-Options: nosniff');
+                header('X-Release-SHA256: ' . $release['checksum']);
+            }
+            readfile($path);
+        } catch (\Throwable) {
+            http_response_code(503);
+        }
     }
 
     private function applyPlatformUpdate(Request $request): void
@@ -464,6 +582,54 @@ final class SystemAdminModule implements ModuleInterface
         }
     }
 
+    private function publishPlatformRelease(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $version = $request->postString('version');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'platform_release_publish', 'invalid_csrf', $version, $actor?->id);
+            http_response_code(403);
+            $this->renderPlatformUpdates('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        if (!$this->isOwner()) {
+            $this->audit->record($request, 'platform_release_publish', 'forbidden', $version, $actor?->id);
+            http_response_code(403);
+            $this->renderPlatformUpdates('Publikowanie wydań wymaga roli Owner.', 'danger');
+            return;
+        }
+
+        try {
+            $minimumVersion = trim($request->postString('minimum_version'));
+            $changelog = preg_split('/\R/', $request->postString('changelog')) ?: [];
+            $output = $this->platformReleasePublisher->publish(
+                $version,
+                $minimumVersion,
+                array_values(array_map('trim', $changelog))
+            );
+            $this->audit->record(
+                $request,
+                'platform_release_publish',
+                'success',
+                $version . ' / entries:' . count(array_filter($changelog, static fn (string $item): bool => trim($item) !== '')),
+                $actor?->id
+            );
+            $this->renderPlatformUpdates(
+                'Wydanie ' . $version . ' zostało zbudowane. ' . $output
+                . ' Odśwież panel, aby zobaczyć nową wersję runtime.',
+                'success'
+            );
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'platform_release_publish', 'failed', $version, $actor?->id);
+            $this->renderPlatformUpdates($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function isOwner(): bool
+    {
+        return in_array('*', $this->auth->user()?->permissions ?? [], true);
+    }
+
     private function renderModules(string $message = '', string $variant = 'info'): void
     {
         $this->startPage(
@@ -479,15 +645,11 @@ final class SystemAdminModule implements ModuleInterface
             $this->endPage();
             return;
         }
-        if ($this->moduleManager->signsExportsAutomatically()) {
+        $publisherMode = $this->moduleManager->signsExportsAutomatically();
+        if ($publisherMode) {
             $this->theme->render_alert(
-                'Automatyczny podpis eksportów jest aktywny. Eksportuj ZIP utworzy podpisaną kopię pakietu.',
+                'Tryb wydawniczy jest aktywny. Eksportuj ZIP utworzy podpisaną kopię pakietu.',
                 'success'
-            );
-        } else {
-            $this->theme->render_alert(
-                'Eksporty nie są automatycznie podpisywane. Skonfiguruj MODULE_SIGNING_* lub użyj bin/sign-module.php.',
-                'warning'
             );
         }
 
@@ -581,6 +743,7 @@ final class SystemAdminModule implements ModuleInterface
             }
             if (
                 $state->isInstalled()
+                && $publisherMode
                 && $allows('modules.install')
             ) {
                 $actions[] = [
@@ -640,6 +803,17 @@ final class SystemAdminModule implements ModuleInterface
         $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel('Import archiwum do kwarantanny', 'Bez instalacji i bez wykonania kodu');
+        $modulesPath = dirname(__DIR__, 2) . '/modules';
+        if (!is_dir($modulesPath) || !is_writable($modulesPath)) {
+            $this->theme->render_alert(
+                "PHP nie może zapisywać w katalogu aktywnych modułów.\n"
+                . "Na Debianie/Ubuntu wykonaj w katalogu miniPORTAL:\n"
+                . "sudo chgrp www-data modules\n"
+                . "sudo chmod 2775 modules\n"
+                . "Następnie sprawdź: sudo -u www-data test -w modules && echo \"modules/ jest zapisywalny\"",
+                'warning'
+            );
+        }
         $this->theme->render_form(
             'index.php?route=/admin/modules/import',
             [[
@@ -666,6 +840,28 @@ final class SystemAdminModule implements ModuleInterface
                             )
                             && $allows('modules.install');
 
+                        $actions = [];
+                        if ($approvable) {
+                            $actions[] = [
+                                'label' => 'Zatwierdź pakiet',
+                                'action' => 'index.php?route=/admin/modules/approve',
+                                'fields' => ['import_directory' => $import['directory']],
+                                'variant' => 'primary',
+                                'confirm' => $manifest->protected
+                                    ? 'Zaktualizować chroniony moduł? Kod zostanie podmieniony atomowo, migracje wykonane od razu, a błąd przywróci poprzednią wersję.'
+                                    : 'Zatwierdzić pakiet? Nowy moduł zostanie przeniesiony do modules/, a istniejący zaktualizowany atomowo wraz z migracjami.',
+                            ];
+                        }
+                        if ($allows('modules.install')) {
+                            $actions[] = [
+                                'label' => 'Usuń z kwarantanny',
+                                'action' => 'index.php?route=/admin/modules/quarantine/delete',
+                                'fields' => ['import_directory' => $import['directory']],
+                                'variant' => 'outline-danger',
+                                'confirm' => 'Trwale usunąć ten import z kwarantanny?',
+                            ];
+                        }
+
                         return [
                             'cells' => [
                                 $import['directory'],
@@ -675,21 +871,29 @@ final class SystemAdminModule implements ModuleInterface
                                     : 'Błąd: ' . (string) $import['error'],
                                 $import['imported_at'],
                             ],
-                            'actions' => $approvable ? [[
-                                'label' => 'Zatwierdź pakiet',
-                                'action' => 'index.php?route=/admin/modules/approve',
-                                'fields' => ['import_directory' => $import['directory']],
-                                'variant' => 'primary',
-                                'confirm' => $manifest->protected
-                                    ? 'Zaktualizować chroniony moduł? Kod zostanie podmieniony atomowo, migracje wykonane od razu, a błąd przywróci poprzednią wersję.'
-                                    : 'Zatwierdzić pakiet? Nowy moduł zostanie przeniesiony do modules/, a istniejący zaktualizowany atomowo wraz z migracjami.',
-                            ]] : [],
+                            'actions' => $actions,
                         ];
                     },
                     $imports
                 ),
                 $this->security->csrfToken()
             );
+            if ($allows('modules.install')) {
+                $retentionDays = (int) ($this->config['modules']['quarantine_retention_days'] ?? 7);
+                $this->theme->render_form(
+                    'index.php?route=/admin/modules/quarantine/cleanup',
+                    [[
+                        'name' => 'retention_days',
+                        'label' => 'Usuń importy starsze niż liczba dni',
+                        'type' => 'number',
+                        'value' => (string) $retentionDays,
+                        'min' => '1',
+                        'max' => '365',
+                    ]],
+                    'Wyczyść starą kwarantannę',
+                    $this->security->csrfToken()
+                );
+            }
         }
         $this->theme->end_admin_panel();
         $this->endPage();
@@ -888,6 +1092,59 @@ final class SystemAdminModule implements ModuleInterface
             );
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'module_archive_approve', 'failed', $importDirectory, $actor?->id);
+            $message = $exception->getMessage();
+            if (str_contains($message, 'katalog modułów nie jest zapisywalny')) {
+                $message .= "\nNaprawa na Debianie/Ubuntu:\n"
+                    . "sudo chgrp www-data modules\n"
+                    . "sudo chmod 2775 modules\n"
+                    . "sudo -u www-data test -w modules && echo \"modules/ jest zapisywalny\"";
+            }
+            $this->renderModules($message, 'danger');
+        }
+    }
+
+    private function deleteQuarantineImport(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $importDirectory = $request->postString('import_directory');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_quarantine_delete', 'invalid_csrf', $importDirectory, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $this->moduleArchiveImporter->remove($importDirectory);
+            $this->audit->record($request, 'module_quarantine_delete', 'success', $importDirectory, $actor?->id);
+            $this->renderModules('Import został usunięty z kwarantanny.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'module_quarantine_delete', 'failed', $importDirectory, $actor?->id);
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function cleanupQuarantine(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $days = max(1, min(365, $request->postInt('retention_days', 7) ?? 7));
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_quarantine_cleanup', 'invalid_csrf', (string) $days, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $removed = $this->moduleArchiveImporter->removeOlderThan($days);
+            $detail = 'days:' . $days . ' / removed:' . count($removed);
+            $this->audit->record($request, 'module_quarantine_cleanup', 'success', $detail, $actor?->id);
+            $this->renderModules(
+                $removed === []
+                    ? 'Brak importów starszych niż ' . $days . ' dni.'
+                    : 'Usunięto z kwarantanny ' . count($removed) . ' starych importów.',
+                'success'
+            );
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'module_quarantine_cleanup', 'failed', (string) $days, $actor?->id);
             $this->renderModules($exception->getMessage(), 'danger');
         }
     }
@@ -909,6 +1166,11 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         try {
+            if (!$this->moduleManager->signsExportsAutomatically()) {
+                throw new \RuntimeException(
+                    'Eksport modułów jest wyłączony na tej instalacji produkcyjnej.'
+                );
+            }
             $export = $this->moduleManager->exportPackage($moduleId);
             $this->audit->record($request, 'module_export', 'success', $moduleId, $actor?->id);
             if (!headers_sent()) {

@@ -11,7 +11,8 @@
 ## Uruchomienie
 
 1. Skopiuj zawartość tego katalogu do katalogu publicznego domeny.
-2. Nadaj użytkownikowi PHP prawo zapisu do katalogów `config/`, `cache/` i `uploads/branding/`.
+2. Nadaj użytkownikowi PHP prawo zapisu do katalogów `config/`, `cache/`,
+   `uploads/branding/` oraz nadrzędnego katalogu `modules/`.
    Na Debianie/Ubuntu, gdzie PHP-FPM lub Apache działa w grupie `www-data`, wykonaj
    poniższe polecenia z głównego katalogu miniPORTAL:
 
@@ -19,6 +20,8 @@
    sudo chgrp -R www-data config cache uploads/branding
    sudo find config cache uploads/branding -type d -exec chmod 2770 {} \;
    sudo find config cache uploads/branding -type f -exec chmod 0660 {} \;
+   sudo chgrp www-data modules
+   sudo chmod 2775 modules
    ```
 
    Bit `2` w prawach katalogów powoduje dziedziczenie grupy `www-data` przez nowe
@@ -31,6 +34,9 @@
 Kreator przyjmuje wyłącznie pustą bazę, sam uruchamia migracje, tworzy pierwszego
 Ownera, zapisuje sekrety w `config/installed.env` i blokuje ponowne uruchomienie
 plikiem `config/installed.lock`. Oba pliki są chronione przez dołączony `.htaccess`.
+Dystrybucja zawiera oficjalny publiczny klucz wydawcy modułów SyntaxDevTeam.
+Kreator sprawdza go przed instalacją, a manager używa go później do weryfikacji
+podpisanych aktualizacji. Klucz prywatny nie jest częścią dystrybucji.
 Każda kopia miniPORTAL korzysta domyślnie wyłącznie z własnego
 `config/installed.env`. Zewnętrzny plik można wskazać zmienną
 `MINIPORTAL_ENV_FILE` ustawioną osobno dla danego virtual hosta.

@@ -21,6 +21,7 @@ use SyntaxDevTeam\Cms\Core\ModulePackageSigner;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleStateRepository;
 use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformReleasePublisher;
 use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
 use SyntaxDevTeam\Cms\Core\Request;
@@ -210,6 +211,10 @@ $platformReleases = new PlatformReleaseRepository(
     (int) ($updatesConfig['archive_max_bytes'] ?? 52428800)
 );
 $platformUpdater = new PlatformUpdater(__DIR__, __DIR__ . '/cache/platform-updates');
+$platformReleasePublisher = new PlatformReleasePublisher(
+    __DIR__,
+    __DIR__ . '/cache/platform-updates/publisher'
+);
 $coreMigrationRunner = $application->database() !== null
     ? new CoreMigrationRunner($application->database(), __DIR__ . '/core/migrations')
     : null;
@@ -234,6 +239,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'module_archive_importer' => $moduleArchiveImporter,
     'platform_releases' => $platformReleases,
     'platform_updater' => $platformUpdater,
+    'platform_release_publisher' => $platformReleasePublisher,
     'core_migration_runner' => $coreMigrationRunner,
     'config' => $application->config(),
     'diagnostics' => $application->diagnostics(),

@@ -197,6 +197,10 @@ wartości nadal wykonuje się w `/etc/miniportal/miniportal.env`.
 
 Publiczne klucze wydawców są rejestrowane przez `config/module_publishers.php`.
 Klucz prywatny nie może trafić do repozytorium, katalogu WWW ani panelu.
+Oficjalny publiczny klucz `syntaxdevteam-modules-2026` jest częścią czystej
+dystrybucji w `config/keys/`. Kreator sprawdza jego obecność i poprawność przed
+instalacją, dzięki czemu nowa instancja od początku ufa wyłącznie paczkom
+podpisanym odpowiadającym mu kluczem prywatnym projektu macierzystego.
 
 Projekt macierzysty może skonfigurować automatyczne podpisywanie eksportów jednym
 poleceniem:
@@ -211,6 +215,7 @@ Następnie wartości pokazane przez skrypt należy dodać do pliku środowiskowe
 MODULE_SIGNING_KEY_ID=syntaxdevteam-modules-2026
 MODULE_SIGNING_PRIVATE_KEY_FILE=/etc/miniportal/module-signing/syntaxdevteam-modules-2026-private.pem
 MODULE_SIGNING_PUBLIC_KEY_FILE=/etc/miniportal/module-signing/syntaxdevteam-modules-2026-public.pem
+MODULE_QUARANTINE_RETENTION_DAYS=7
 ```
 
 Od tego momentu panelowa akcja `Eksportuj ZIP` automatycznie tworzy podpisaną
@@ -218,6 +223,9 @@ kopię pakietu. Nie zmienia katalogu źródłowego modułu i nie zapisuje prywat
 klucza w archiwum. Proces PHP musi mieć prawo odczytu klucza prywatnego. Instalacja
 odbierająca paczki potrzebuje tego samego `MODULE_SIGNING_KEY_ID` i kopii wyłącznie
 klucza publicznego; zmienna klucza prywatnego może tam pozostać pusta.
+Eksport jest funkcją instancji wydawniczej i bez prywatnego klucza nie pojawia się
+w panelu. Kwarantanna pozwala usuwać pojedyncze importy oraz audytowanie czyścić
+wpisy starsze niż ustawiony limit wieku.
 
 Przykładowe podpisanie wydania:
 
@@ -247,6 +255,9 @@ sudo chgrp www-data modules
 sudo chmod 2775 modules
 ```
 
+Manager pokazuje te polecenia bezpośrednio przy imporcie, jeżeli proces PHP nie
+ma prawa tworzyć lub atomowo podmieniać katalogów modułów.
+
 ## Aktualizacja całego miniPORTALu z panelu
 
 Jednoklikowa aktualizacja runtime wymaga, aby proces PHP mógł zapisywać kod
@@ -271,6 +282,18 @@ Sekrety powinny nadal znajdować się poza kodem w `/etc/miniportal/miniportal.e
 albo lokalnym `config/installed.env`. Aktualizator nigdy nie umieszcza tych plików
 w wydaniu i ich nie nadpisuje. Powyższe polecenia celowo nie zmieniają praw
 `config/installed.env` ani plików w `config/modules/`.
+
+Jeżeli Owner ma budować release przez panel instalacji macierzystej, proces PHP
+musi dodatkowo zapisywać katalog `releases/` i źródło wersji instalatora:
+
+```bash
+sudo chgrp -R www-data releases install/cms-source
+sudo find releases install/cms-source -type d -exec chmod 2770 {} \;
+sudo find releases install/cms-source -type f -exec chmod 0660 {} \;
+```
+
+Formularz publikacji jest pokazywany tylko wtedy, gdy istnieje
+`bin/build-platform-release.php`; generator nie trafia do czystej dystrybucji.
 
 Centralny kanał wydań można włączyć bez zmiany kodu:
 

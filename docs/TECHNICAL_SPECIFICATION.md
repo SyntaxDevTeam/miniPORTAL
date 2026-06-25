@@ -499,6 +499,18 @@ Stan managera:
 - `bin/sign-module.php` pozostaje interfejsem CLI/CI i korzysta z tej samej klasy
   podpisującej co eksport panelowy; `bin/setup-module-signing.php` tworzy parę
   kluczy oraz wypisuje gotową konfigurację środowiskową.
+- oficjalny publiczny klucz projektu `syntaxdevteam-modules-2026` należy do
+  wersjonowanej konfiguracji `config/keys/` i czystej dystrybucji; instalator
+  sprawdza jego poprawność kryptograficzną w preflight, a lokalny rejestr
+  wydawców używa go jako kotwicy zaufania bez pobierania klucza z archiwum modułu.
+- eksport pakietów jest dostępny wyłącznie w trybie wydawniczym z czytelnym
+  prywatnym kluczem; zwykła instalacja produkcyjna ukrywa akcję i odrzuca
+  bezpośrednie żądanie endpointu eksportu,
+- każdy import kwarantanny można jawnie usunąć, a audytowana retencja usuwa wpisy
+  starsze niż `MODULE_QUARANTINE_RETENTION_DAYS`; operacje wymagają ACL i CSRF,
+- manager pokazuje stan zapisu nadrzędnego `modules/` oraz konkretne polecenia
+  naprawy dla grupy procesu WWW; czysty instalator sprawdza ten katalog już
+  podczas preflight.
 - dashboard panelu pokazuje syntetyczne metryki modułów, rozszerzeń, migracji,
   aktywności dziennej, sygnały operacyjne i ostatnie zdarzenia audit logu.
 - `ThemeInterface` udostępnia responsywną siatkę paneli administracyjnych, aby
@@ -797,6 +809,15 @@ Stan 1.3.1:
     kanał jest lokalny, a opcjonalne `PLATFORM_RELEASE_CATALOG_URL` pozwala pobrać
     katalog i archiwum z centralnego HTTPS bez przekierowań. Pobrany ZIP trafia do
     chronionego cache i nadal wymaga zgodnej sumy SHA-256.
+12. Instalacja macierzysta zachowuje `bin/build-platform-release.php`. Owner widzi
+    w panelu formularz publikacji wersji, minimalnej wersji bazowej i listy zmian.
+    UI deleguje do tego samego generatora CLI, aktualizuje źródłową wersję
+    `config/config.php` oraz instalatora i cofa te zmiany przy błędzie budowy.
+    Czysta dystrybucja usuwa generator, więc nie może publikować własnych wydań.
+13. Centralna instalacja wydawnicza udostępnia read-only
+    `/api/platform-releases/catalog` i `/api/platform-releases/{filename}`.
+    Endpoint pliku akceptuje wyłącznie nazwę znajdującą się w zwalidowanym katalogu;
+    fizyczny `releases/` nadal jest blokowany przez serwer WWW.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
 MariaDB przez instalację wszystkich modułów i utworzenie jednego Ownera; wersja

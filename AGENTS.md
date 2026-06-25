@@ -175,6 +175,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Kontrolowane zatwierdzanie podpisanego pakietu z kwarantanny do `modules/` bez instalacji i wykonania kodu |
 | [x] | Eksport oraz atomowa aktualizacja modułów chronionych z rollbackiem kodu |
 | [x] | Automatyczne podpisywanie eksportowanych modułów skonfigurowanym kluczem wydawcy |
+| [x] | Oficjalny publiczny klucz wydawcy w czystej dystrybucji i preflight instalatora |
+| [x] | Produkcyjna blokada eksportu, retencja kwarantanny i diagnostyka zapisu `modules/` |
 | [x] | Polityka retencji i archiwizacji audit logu |
 
 ### Krok 7 - dystrybucja i kreator instalacji
@@ -187,6 +189,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Atomowy zapis konfiguracji i blokada ponownej instalacji |
 | [x] | Integracyjna instalacja wszystkich modułów na czystej bazie |
 | [x] | Katalog wydań i jednoklikowa aktualizacja całego runtime miniPORTAL |
+| [x] | Panel Ownera do budowania własnych wydań w instalacji macierzystej |
 | [x] | Zbalansowany, responsywny układ paneli strony Ustawienia |
 | [x] | Rozszerzalny indeks wyszukiwania panelu z ACL i słowami kluczowymi modułów |
 | [x] | Kolejność linków publicznej nawigacji modułów |
@@ -215,9 +218,8 @@ tekstu interfejsu ani osobnych tłumaczeń treści CMS.
 
 ## Następne kroki
 
-1. Dodać czyszczenie starych importów kwarantanny z audytem i limitem wieku.
-2. Rozważyć osobny widok przeglądania `auth_events_archive`.
-3. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
+1. Rozważyć osobny widok przeglądania `auth_events_archive`.
+2. Dodać automatyczne zadanie retencji uruchamiane przez CLI/cron.
 
 ## Uwagi / blokery
 
@@ -329,7 +331,11 @@ Brak aktywnych blokerów.
 | 2026-06-24 | Produkcyjna marka bota i modułu została zmieniona na Econizer. Bieżący kontrakt używa katalogu `modules/Econizer`, identyfikatora `econizer`, tras `/econizer`, endpointów `/api/econizer/*`, zmiennych `ECONIZER_*`, nagłówka `X-Econizer-Token` i tabel `econizer_*`; migracje zachowują dane istniejącej instalacji. |
 | 2026-06-24 | Manager eksportuje także chronione moduły `core` i `system`. Import wyższej wersji istniejącego pakietu zachowuje jego tożsamość, atomowo podmienia katalog i wykonuje standardową aktualizację migracji; błąd przywraca poprzedni kod. Ochrona przed wyłączeniem i odinstalowaniem pozostaje niezależna od możliwości aktualizacji. |
 | 2026-06-24 | Opcjonalna konfiguracja `MODULE_SIGNING_*` automatycznie podpisuje kopię pakietu podczas panelowego eksportu. Klucz prywatny pozostaje poza projektem, źródłowy katalog modułu nie jest modyfikowany, a `bin/sign-module.php` korzysta z tej samej implementacji dla CLI i CI. |
+| 2026-06-24 | Czysta dystrybucja zawiera oficjalny publiczny klucz `syntaxdevteam-modules-2026`. Kreator waliduje go w preflight, a `module_publishers.php` rejestruje go jako aktywną kotwicę zaufania dla aktualizacji modułów; prywatny klucz nigdy nie trafia do paczki instalacyjnej. |
+| 2026-06-24 | Eksport modułów jest funkcją wyłącznie instancji wydawniczej z prywatnym kluczem. Kwarantanna obsługuje audytowane usuwanie pojedynczych i starych importów, a manager oraz instalator diagnozują brak zapisu do nadrzędnego `modules/` i pokazują polecenia naprawcze. |
 | 2026-06-24 | miniPORTAL 0.2.0 ma osobny lifecycle aktualizacji platformy. Chroniony katalog `releases/` przechowuje katalog wersji, SHA-256 i listę zmian; panel wykonuje staging, backup, podmianę runtime, migracje Core i aktualizacje modułów bez pakowania treści, uploadów ani sekretów. |
+| 2026-06-24 | Owner instalacji macierzystej może zbudować release w `/admin/system-updates`. Formularz ustawia wersję SemVer, minimalną wersję bazową i changelog, po czym uruchamia wspólny generator CLI; funkcja nie występuje w czystej dystrybucji. |
+| 2026-06-24 | Wydanie 0.2.2 dodaje centralny kanał read-only `/api/platform-releases/*`. Nowe instalacje otrzymują jego URL z kreatora, a pusty lokalny katalog bez kanału jest raportowany jako brak konfiguracji zamiast „najnowszej wersji”. |
 
 ## Historia sesji
 

@@ -1,0 +1,9 @@
+{
+  "minimum_version": "0.2.0",
+  "changelog": [
+    "Dodano kontrolowane publiczne endpointy centralnego katalogu wydań i archiwów ZIP.",
+    "Naprawiono błędny komunikat o najnowszej wersji przy pustym lub nieskonfigurowanym kanale.",
+    "Nowe instalacje automatycznie korzystają z oficjalnego katalogu wydań SyntaxDevTeam.",
+    "Publiczna instancja Econizera została podłączona do centralnego kanału aktualizacji."
+  ]
+}

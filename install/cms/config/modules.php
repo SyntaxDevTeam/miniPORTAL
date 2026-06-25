@@ -248,6 +248,7 @@ return [
             $services['platform_releases'],
             $services['platform_updater'],
             $services['core_migration_runner'],
+            $services['platform_release_publisher'],
         ),
     ],
 ];

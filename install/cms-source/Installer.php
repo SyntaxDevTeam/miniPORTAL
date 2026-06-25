@@ -43,6 +43,14 @@ final class Installer
                 'detail' => extension_loaded($extension) ? 'Dostępne' : 'Brak',
             ];
         }
+        $publisherKey = $this->root . '/config/keys/syntaxdevteam-modules-2026-public.pem';
+        $publisherKeyValid = is_readable($publisherKey)
+            && openssl_pkey_get_public((string) file_get_contents($publisherKey)) !== false;
+        $checks[] = [
+            'label' => 'Zaufany klucz wydawcy modułów',
+            'ok' => $publisherKeyValid,
+            'detail' => $publisherKeyValid ? 'SyntaxDevTeam 2026' : 'Brak lub nieprawidłowy',
+        ];
         foreach (FilesystemPermissions::installerDirectories() as $directory) {
             $path = $this->root . '/' . $directory;
             $checks[] = [
@@ -453,6 +461,8 @@ final class Installer
             'DB_LOGGING' => 'false',
             'BUILD_UPLOAD_MAX_BYTES' => '20971520',
             'BUILD_CI_TOKEN' => bin2hex(random_bytes(32)),
+            'PLATFORM_RELEASE_CATALOG_URL' => 'https://new.syntaxdevteam.pl/api/platform-releases/catalog',
+            'PLATFORM_RELEASE_MAX_BYTES' => '52428800',
         ];
         $lines = ['# Wygenerowano przez kreator miniPORTAL.'];
         foreach ($values as $key => $value) {
@@ -520,7 +530,7 @@ final class Installer
     {
         $content = json_encode([
             'installed_at' => gmdate(DATE_ATOM),
-            'version' => '0.2.0',
+            'version' => '0.2.2',
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zablokować instalatora po instalacji.');

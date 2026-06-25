@@ -15,7 +15,7 @@ final class FilesystemPermissions
     /** @return list<string> */
     public static function installerDirectories(): array
     {
-        return ['config', 'config/modules', ...self::requiredDirectories()];
+        return ['config', 'config/modules', 'modules', ...self::requiredDirectories()];
     }
 
     /** @return list<string> */
@@ -38,6 +38,8 @@ final class FilesystemPermissions
             'sudo chgrp -R www-data config cache uploads/branding',
             'sudo find config cache uploads/branding -type d -exec chmod 2770 {} \;',
             'sudo find config cache uploads/branding -type f -exec chmod 0660 {} \;',
+            'sudo chgrp www-data modules',
+            'sudo chmod 2775 modules',
         ]);
     }
 }

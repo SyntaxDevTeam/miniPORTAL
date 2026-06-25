@@ -21,6 +21,7 @@ use SyntaxDevTeam\Cms\Core\ModuleManifestValidator;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleState;
 use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
+use SyntaxDevTeam\Cms\Core\PlatformReleasePublisher;
 use SyntaxDevTeam\Cms\Core\PlatformUpdater;
 use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
@@ -1470,10 +1471,25 @@ $test('CMS distribution contains installer and excludes local state', static fun
     $assert((glob($distribution . '/modules/*/migrations') ?: []) === []);
     $assert(is_dir($distribution . '/cache/platform-updates'));
     $assert(is_file($distribution . '/releases/.htaccess'));
+    $assert(is_file($distribution . '/config/keys/syntaxdevteam-modules-2026-public.pem'));
+    $distributionPublishers = require $distribution . '/config/module_publishers.php';
+    $assert(isset($distributionPublishers['syntaxdevteam-modules-2026']));
     $assert(json_decode((string) file_get_contents($distribution . '/releases/catalog.json'), true) === ['releases' => []]);
     $distributionBuilder = (string) file_get_contents(dirname(__DIR__) . '/bin/build-cms-distribution.php');
     $assert(str_contains($distributionBuilder, "\$basename === '.env'"));
     $assert(str_contains($distributionBuilder, "\$basename !== '.env.example'"));
+});
+
+$test('Clean installer validates the bundled trusted module publisher key', static function () use ($assert): void {
+    $installerSource = (string) file_get_contents(dirname(__DIR__) . '/install/cms-source/Installer.php');
+    $assert(str_contains($installerSource, 'syntaxdevteam-modules-2026-public.pem'));
+    $assert(str_contains($installerSource, 'Zaufany klucz wydawcy modułów'));
+
+    $publishers = require dirname(__DIR__) . '/config/module_publishers.php';
+    $publisher = $publishers['syntaxdevteam-modules-2026'] ?? null;
+    $assert(is_array($publisher));
+    $assert(($publisher['status'] ?? null) === 'active');
+    $assert(openssl_pkey_get_public((string) ($publisher['public_key'] ?? '')) !== false);
 });
 
 $test('Connected identities page returns to profile', static function () use ($assert): void {
@@ -1520,7 +1536,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '2.0.0');
+    $assert($system->version === '2.0.2');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -1642,9 +1658,16 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '2.0.0';"));
+    $assert(str_contains($systemSource, "return '2.0.2';"));
+    $assert(str_contains($systemSource, "'/api/platform-releases/catalog'"));
+    $assert(str_contains($systemSource, "'/api/platform-releases/{filename}'"));
+    $assert(str_contains($systemSource, 'nie ma skonfigurowanego centralnego kanału wydań'));
     $assert(!str_contains($systemSource, "'/admin/design-system'"));
     $assert(!str_contains($systemSource, 'Admin stylebook'));
+    $assert(str_contains($systemSource, 'Eksport modułów jest wyłączony na tej instalacji produkcyjnej.'));
+    $assert(str_contains($systemSource, 'sudo chmod 2775 modules'));
+    $assert(str_contains($systemSource, '/admin/modules/quarantine/delete'));
+    $assert(str_contains($systemSource, '/admin/modules/quarantine/cleanup'));
 
     $databaseInstallSql = (string) file_get_contents(dirname(__DIR__) . '/modules/DatabaseManager/install.sql');
     $databaseMigrationSql = (string) file_get_contents(
@@ -1867,6 +1890,41 @@ $test('Module archive import extracts only to quarantine and inspects manifest',
             $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
         }
         rmdir($root);
+    }
+});
+
+$test('Module quarantine supports individual deletion and age-based cleanup', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-quarantine-cleanup-' . bin2hex(random_bytes(6));
+    $quarantine = $root . '/quarantine';
+    mkdir($quarantine, 0700, true);
+    $old = $quarantine . '/import-20260101-000000-aabbccdd';
+    $fresh = $quarantine . '/import-20260624-120000-11223344';
+    mkdir($old . '/source', 0700, true);
+    mkdir($fresh . '/source', 0700, true);
+    file_put_contents($old . '/source/file.txt', 'old');
+    file_put_contents($fresh . '/source/file.txt', 'fresh');
+    touch($old, time() - (10 * 86400));
+
+    try {
+        $importer = new ModuleArchiveImporter($quarantine, new ModuleManifestValidator('0.2.0'));
+        $removed = $importer->removeOlderThan(7);
+        $assert($removed === ['import-20260101-000000-aabbccdd']);
+        $assert(!is_dir($old));
+        $assert(is_dir($fresh));
+
+        $importer->remove('import-20260624-120000-11223344');
+        $assert(!is_dir($fresh));
+    } finally {
+        if (is_dir($root)) {
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+            }
+            rmdir($root);
+        }
     }
 });
 
@@ -2141,6 +2199,52 @@ $test('Platform release catalog selects a compatible newer version', static func
     } finally {
         unlink($directory . '/catalog.json');
         rmdir($directory);
+    }
+});
+
+$test('Platform release publisher validates data and delegates to the source generator', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-release-publisher-' . bin2hex(random_bytes(6));
+    mkdir($root . '/bin', 0700, true);
+    mkdir($root . '/cache', 0700, true);
+    mkdir($root . '/config', 0700, true);
+    file_put_contents($root . '/config/config.php', "<?php return ['app' => ['version' => '0.2.0']];\n");
+    file_put_contents(
+        $root . '/bin/build-platform-release.php',
+        <<<'PHP'
+<?php
+$notes = json_decode((string) file_get_contents($argv[2]), true, 8, JSON_THROW_ON_ERROR);
+if ($argv[1] !== '0.3.0' || ($notes['minimum_version'] ?? '') !== '0.2.0') {
+    exit(2);
+}
+echo 'release-built:' . count($notes['changelog']);
+PHP
+    );
+
+    try {
+        $publisher = new PlatformReleasePublisher($root, $root . '/cache/publisher');
+        $assert($publisher->available());
+        $assert(
+            $publisher->publish('0.3.0', '0.2.0', ['Pierwsza zmiana', '', 'Druga zmiana'])
+            === 'release-built:2'
+        );
+        $assert(str_contains((string) file_get_contents($root . '/config/config.php'), "'version' => '0.3.0'"));
+        try {
+            $publisher->publish('0.3.0', '0.4.0', ['Nieprawidłowe wymaganie']);
+            $assert(false, 'Zaakceptowano minimalną wersję wyższą od wydania');
+        } catch (RuntimeException $exception) {
+            $assert(str_contains($exception->getMessage(), 'Minimalna wersja'));
+        }
+    } finally {
+        if (is_dir($root)) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($root);
+        }
     }
 });
 

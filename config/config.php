@@ -53,7 +53,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.2.0',
+        'version' => '0.2.2',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'theme' => (string) $env('APP_THEME', 'default'),
@@ -98,6 +98,7 @@ return [
     ],
     'modules' => [
         'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
+        'quarantine_retention_days' => $envInt('MODULE_QUARANTINE_RETENTION_DAYS', 7, 1),
         'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
         'build_ci_token' => (string) $env('BUILD_CI_TOKEN', ''),
         'signing_key_id' => trim((string) $env('MODULE_SIGNING_KEY_ID', '')),

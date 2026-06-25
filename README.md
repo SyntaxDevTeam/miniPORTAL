@@ -32,6 +32,9 @@ Core i aktualizacje zainstalowanych modułów.
 Opcjonalne `PLATFORM_RELEASE_CATALOG_URL` wskazuje centralny `catalog.json` przez
 HTTPS; wtedy panel pobiera archiwum do chronionego cache. Bez tego ustawienia
 korzysta z lokalnego katalogu `releases/`.
+Instalacja macierzysta udostępnia katalog i wyłącznie wpisane w nim archiwa przez
+`/api/platform-releases/catalog` oraz `/api/platform-releases/{filename}`; sam
+katalog `releases/` pozostaje niedostępny bezpośrednio przez HTTP.
 
 Pakiet nie zawiera treści bazy, uploadów, cache, `config/installed.env`,
 `config/installed.lock` ani konfiguracji modułowych z sekretami. Wydanie tworzy:
@@ -39,6 +42,11 @@ Pakiet nie zawiera treści bazy, uploadów, cache, `config/installed.env`,
 ```bash
 php bin/build-platform-release.php 0.2.0 releases/notes-0.2.0.json
 ```
+
+W instalacji macierzystej ten sam generator jest dostępny dla Ownera w
+`/admin/system-updates`. Formularz przyjmuje wersję SemVer, najstarszą obsługiwaną
+wersję i listę zmian. Może przebudować bieżące wydanie albo ustawić wyższą wersję.
+Czysta dystrybucja nie zawiera generatora ani formularza publikacji.
 
 ## Weryfikacja
 
@@ -59,10 +67,13 @@ z managera do archiwum ZIP. Import wyższej wersji istniejącego pakietu atomowo
 podmienia kod i uruchamia kontrolowane migracje; błąd przywraca poprzednią wersję.
 Po jednorazowym skonfigurowaniu lokalnego wydawcy przez
 `bin/setup-module-signing.php` panelowy eksport automatycznie podpisuje kopię
-pakietu bez modyfikowania źródłowego katalogu modułu.
+pakietu bez modyfikowania źródłowego katalogu modułu. Instalacja produkcyjna bez
+prywatnego klucza wydawcy nie pokazuje ani nie wykonuje eksportu modułów.
 Eksport blokuje dowiązania symboliczne i ukryte ścieżki, a paczka zachowuje
 top-level katalog modułu z `info.json`. Lokalny `.env` jest zawsze pomijany;
 bezpieczny plik wzorcowy `.env.example` może wejść do pakietu.
+Kwarantanna pozwala usunąć pojedynczy import oraz audytowanie wyczyścić wpisy
+starsze niż skonfigurowane `MODULE_QUARANTINE_RETENTION_DAYS`.
 
 Anonimowa strona główna korzysta z tagowego cache szablonów w `cache/templates`.
 Publiczne podstrony i artykuły używają tego samego cache z granularnymi tagami.

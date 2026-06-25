@@ -109,6 +109,38 @@ final class ModuleArchiveImporter
         return $imports;
     }
 
+    public function remove(string $importDirectory): void
+    {
+        $path = $this->importPath($importDirectory);
+        if (!is_dir($path) || is_link($path)) {
+            throw new RuntimeException('Nie znaleziono wskazanego importu w kwarantannie.');
+        }
+        $this->removeDirectory($path);
+        if (is_dir($path)) {
+            throw new RuntimeException('Nie można usunąć importu z kwarantanny.');
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function removeOlderThan(int $days): array
+    {
+        $days = max(1, min(365, $days));
+        $threshold = time() - ($days * 86400);
+        $removed = [];
+        foreach (glob(rtrim($this->quarantinePath, '/') . '/import-*') ?: [] as $path) {
+            if (!is_dir($path) || is_link($path) || (int) filemtime($path) >= $threshold) {
+                continue;
+            }
+            $directory = basename($path);
+            $this->remove($directory);
+            $removed[] = $directory;
+        }
+
+        return $removed;
+    }
+
     /**
      * @param null|callable(ModuleManifest): void $updateInstalled
      * @return array{directory: string, manifest: ModuleManifest, operation: string}
@@ -119,12 +151,7 @@ final class ModuleArchiveImporter
         ?callable $updateInstalled = null,
     ): array
     {
-        if (preg_match('/^import-\d{8}-\d{6}-[a-f0-9]{8}$/', $importDirectory) !== 1) {
-            throw new RuntimeException('Identyfikator importu z kwarantanny jest nieprawidłowy.');
-        }
-
-        $quarantine = rtrim($this->quarantinePath, '/');
-        $importPath = $quarantine . '/' . $importDirectory;
+        $importPath = $this->importPath($importDirectory);
         if (!is_dir($importPath) || is_link($importPath)) {
             throw new RuntimeException('Nie znaleziono wskazanego importu w kwarantannie.');
         }
@@ -232,6 +259,15 @@ final class ModuleArchiveImporter
         if (!in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)) {
             throw new RuntimeException('Zatwierdzenie wymaga poprawnego podpisu zaufanego wydawcy.');
         }
+    }
+
+    private function importPath(string $importDirectory): string
+    {
+        if (preg_match('/^import-\d{8}-\d{6}-[a-f0-9]{8}$/', $importDirectory) !== 1) {
+            throw new RuntimeException('Identyfikator importu z kwarantanny jest nieprawidłowy.');
+        }
+
+        return rtrim($this->quarantinePath, '/') . '/' . $importDirectory;
     }
 
     private function archiveExtension(string $name): string

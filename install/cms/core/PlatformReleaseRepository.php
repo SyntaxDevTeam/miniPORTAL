@@ -111,6 +111,25 @@ final class PlatformReleaseRepository
         return null;
     }
 
+    public function findByFilename(string $filename): ?array
+    {
+        if (basename($filename) !== $filename) {
+            return null;
+        }
+        foreach ($this->all() as $release) {
+            if ($release['filename'] === $filename) {
+                return $release;
+            }
+        }
+
+        return null;
+    }
+
+    public function usesRemoteCatalog(): bool
+    {
+        return trim($this->catalogUrl) !== '';
+    }
+
     public function archivePath(array $release): string
     {
         $local = rtrim($this->releasesPath, '/') . '/' . $release['filename'];

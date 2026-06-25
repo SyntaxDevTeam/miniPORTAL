@@ -68,12 +68,17 @@ $econizerEnvironment = $root . '/config/modules/econizer.env';
 $econizerValues = is_file($econizerEnvironment)
     ? parse_ini_file($econizerEnvironment, false, INI_SCANNER_RAW)
     : false;
+$installedValues = is_file($root . '/config/installed.env')
+    ? parse_ini_file($root . '/config/installed.env', false, INI_SCANNER_RAW)
+    : false;
 
 if ($ownerCount !== 1
     || $activeModules !== count($modules)
     || $result['installed_modules'] !== count($modules)
     || !is_file($root . '/config/installed.env')
     || !is_file($root . '/config/installed.lock')
+    || !is_array($installedValues)
+    || ($installedValues['PLATFORM_RELEASE_CATALOG_URL'] ?? '') !== 'https://new.syntaxdevteam.pl/api/platform-releases/catalog'
     || !is_array($econizerValues)
     || strlen((string) ($econizerValues['ECONIZER_API_TOKEN'] ?? '')) < 32
     || ((fileperms($econizerEnvironment) ?: 0) & 0777) !== 0600) {
