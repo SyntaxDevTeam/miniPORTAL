@@ -336,6 +336,7 @@ Brak aktywnych blokerów.
 | 2026-06-24 | miniPORTAL 0.2.0 ma osobny lifecycle aktualizacji platformy. Chroniony katalog `releases/` przechowuje katalog wersji, SHA-256 i listę zmian; panel wykonuje staging, backup, podmianę runtime, migracje Core i aktualizacje modułów bez pakowania treści, uploadów ani sekretów. |
 | 2026-06-24 | Owner instalacji macierzystej może zbudować release w `/admin/system-updates`. Formularz ustawia wersję SemVer, minimalną wersję bazową i changelog, po czym uruchamia wspólny generator CLI; funkcja nie występuje w czystej dystrybucji. |
 | 2026-06-24 | Wydanie 0.2.2 dodaje centralny kanał read-only `/api/platform-releases/*`. Nowe instalacje otrzymują jego URL z kreatora, a pusty lokalny katalog bez kanału jest raportowany jako brak konfiguracji zamiast „najnowszej wersji”. |
+| 2026-06-25 | Wydanie 0.2.3 dodaje pełny preflight praw zapisu platformy. Atomowa aktualizacja wymaga zapisu katalogu głównego oraz zarządzanego runtime; panel i kreator pokazują problem przed podmianą plików, bez zmiany praw sekretów. |
 
 ## Historia sesji
 

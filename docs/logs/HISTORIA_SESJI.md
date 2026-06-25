@@ -2543,3 +2543,25 @@ Zbudowano wydanie miniPORTAL 0.2.2.
 **Weryfikacja:** centralny endpoint zwraca wersje 0.2.2, 0.2.1 i 0.2.0.
 Repozytorium aktualizacji Econizera wykrywa przejście 0.2.0 → 0.2.2. Pobrany przez
 HTTPS ZIP 0.2.2 ma SHA-256 zgodne z katalogiem.
+
+### Sesja: 2026-06-25 - Preflight praw aktualizacji platformy 0.2.3
+
+**Faza i krok specyfikacji:** Krok 7 - bezpieczna aktualizacja istniejącej
+instalacji.
+
+**Wykonano:** instancja Econizera nie mogła podmienić `.htaccess`, ponieważ plik
+i katalog główny nie były zapisywalne dla `www-data`. Atomowa podmiana tworzy
+plik tymczasowy obok celu, dlatego samo prawo zapisu do pliku nie wystarcza.
+Przygotowano grupowe prawa zapisu dla katalogu głównego i zarządzanego runtime,
+bez zmiany `config/installed.env`, `config/installed.lock`, `config/modules/`,
+uploadów ani danych.
+
+Dodano `FilesystemPermissions::platformUpdateIssues()` i kompletne polecenie
+naprawcze. Panel blokuje przycisk aktualizacji i pokazuje wszystkie wykryte
+problemy przed podmianą. Kreator sprawdza gotowość runtime do przyszłych
+aktualizacji. `system_admin` podniesiono do 2.0.3.
+
+**Weryfikacja:** wykonano aktualizację produkcyjnego Econizera jako `www-data`
+z 0.2.0 do 0.2.2: podmieniono 279 plików, zapisano backup, zaktualizowano
+`system_admin` i uzyskano HTTP 200. Dodano test preflightu oraz uruchomiono pełne
+testy repozytorium i lint zmienionych plików.

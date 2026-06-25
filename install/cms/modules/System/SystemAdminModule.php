@@ -8,6 +8,7 @@ use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
@@ -59,7 +60,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.0.2';
+        return '2.0.3';
     }
 
     public function dependencies(): array
@@ -373,6 +374,7 @@ final class SystemAdminModule implements ModuleInterface
         try {
             $releases = $this->platformReleases->all();
             $latest = $this->platformReleases->latestFor($currentVersion);
+            $permissionIssues = FilesystemPermissions::platformUpdateIssues(dirname(__DIR__, 2));
             $this->theme->start_admin_panel('Stan platformy', 'Wersja ' . $currentVersion);
             if ($releases === []) {
                 $this->theme->render_alert(
@@ -392,17 +394,26 @@ final class SystemAdminModule implements ModuleInterface
                     ['Lista zmian'],
                     array_map(static fn (string $item): array => [$item], $latest['changelog'])
                 );
-                $this->theme->render_form(
-                    'index.php?route=/admin/system-updates/apply',
-                    [[
-                        'name' => 'version',
-                        'label' => 'Wersja docelowa',
-                        'type' => 'hidden',
-                        'value' => $latest['version'],
-                    ]],
-                    'Pobierz i zaktualizuj do ' . $latest['version'],
-                    $this->security->csrfToken()
-                );
+                if ($permissionIssues === []) {
+                    $this->theme->render_form(
+                        'index.php?route=/admin/system-updates/apply',
+                        [[
+                            'name' => 'version',
+                            'label' => 'Wersja docelowa',
+                            'type' => 'hidden',
+                            'value' => $latest['version'],
+                        ]],
+                        'Pobierz i zaktualizuj do ' . $latest['version'],
+                        $this->security->csrfToken()
+                    );
+                } else {
+                    $this->theme->render_alert(
+                        'Aktualizacja wymaga jednorazowego przygotowania praw zapisu. '
+                        . 'Brak dostępu: ' . implode(', ', array_slice($permissionIssues, 0, 8))
+                        . "\n\n" . FilesystemPermissions::platformUpdateRemediationCommand(dirname(__DIR__, 2)),
+                        'danger'
+                    );
+                }
             }
             $this->theme->end_admin_panel();
 

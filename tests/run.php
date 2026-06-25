@@ -9,6 +9,7 @@ use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\FileTemplateCache;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\HookProviderInterface;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\InstallationState;
@@ -1536,7 +1537,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '2.0.2');
+    $assert($system->version === '2.0.3');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
@@ -1658,7 +1659,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '2.0.2';"));
+    $assert(str_contains($systemSource, "return '2.0.3';"));
     $assert(str_contains($systemSource, "'/api/platform-releases/catalog'"));
     $assert(str_contains($systemSource, "'/api/platform-releases/{filename}'"));
     $assert(str_contains($systemSource, 'nie ma skonfigurowanego centralnego kanału wydań'));
@@ -2245,6 +2246,33 @@ PHP
             }
             rmdir($root);
         }
+    }
+});
+
+$test('Platform update permissions report the atomic root requirement', static function () use ($assert): void {
+    $root = sys_get_temp_dir() . '/miniportal-platform-permissions-' . bin2hex(random_bytes(6));
+    foreach (['core', 'modules', 'templates', 'config', 'bin', 'tools'] as $directory) {
+        mkdir($root . '/' . $directory, 0700, true);
+    }
+    file_put_contents($root . '/index.php', "<?php\n");
+    file_put_contents($root . '/.htaccess', "Options -Indexes\n");
+    file_put_contents($root . '/config/config.php', "<?php return [];\n");
+
+    try {
+        $assert(FilesystemPermissions::platformUpdateIssues($root) === []);
+        $command = FilesystemPermissions::platformUpdateRemediationCommand($root);
+        $assert(str_contains($command, 'sudo chmod 2775 .'));
+        $assert(str_contains($command, '! -name "installed.env"'));
+        $assert(str_contains($command, 'cache/platform-updates'));
+    } finally {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($root);
     }
 });
 

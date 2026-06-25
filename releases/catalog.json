@@ -1,6 +1,19 @@
 {
     "releases": [
         {
+            "version": "0.2.3",
+            "released_at": "2026-06-25T05:51:03+00:00",
+            "minimum_version": "0.2.0",
+            "filename": "miniportal-0.2.3.zip",
+            "checksum": "1a4fefa78c2f8757069398160e6315362e4d65fdbf30a6625eb88d611b84b290",
+            "changelog": [
+                "Dodano pe\u0142ny preflight praw zapisu runtime przed aktualizacj\u0105 platformy.",
+                "Panel pokazuje kompletne polecenie przygotowania uprawnie\u0144 zamiast zatrzymywa\u0107 si\u0119 kolejno na plikach.",
+                "Kreator instalacji sprawdza gotowo\u015b\u0107 runtime do przysz\u0142ych aktualizacji.",
+                "Naprawiono prawa atomowej podmiany plik\u00f3w g\u0142\u00f3wnych, w tym .htaccess i index.php."
+            ]
+        },
+        {
             "version": "0.2.2",
             "released_at": "2026-06-24T18:10:31+00:00",
             "minimum_version": "0.2.0",

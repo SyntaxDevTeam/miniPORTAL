@@ -818,6 +818,11 @@ Stan 1.3.1:
     `/api/platform-releases/catalog` i `/api/platform-releases/{filename}`.
     Endpoint pliku akceptuje wyłącznie nazwę znajdującą się w zwalidowanym katalogu;
     fizyczny `releases/` nadal jest blokowany przez serwer WWW.
+14. Preflight aktualizacji sprawdza zapis katalogu głównego, plików wejściowych,
+    wszystkich katalogów runtime i zarządzanej konfiguracji. Katalog główny jest
+    wymagany do utworzenia pliku tymczasowego i atomowego `rename()` dla
+    `.htaccess` oraz `index.php`. Panel pokazuje kompletne polecenie naprawcze,
+    nie rozpoczyna aktualizacji częściowej.
 
 Stan Kroku 7: ukończony. Silnik został zweryfikowany integracyjnie na czystej
 MariaDB przez instalację wszystkich modułów i utworzenie jednego Ownera; wersja

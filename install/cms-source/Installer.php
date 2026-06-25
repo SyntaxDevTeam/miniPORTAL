@@ -59,6 +59,14 @@ final class Installer
                 'detail' => is_writable($path) ? 'Dostępny' : 'Brak uprawnień',
             ];
         }
+        $platformIssues = FilesystemPermissions::platformUpdateIssues($this->root);
+        $checks[] = [
+            'label' => 'Runtime gotowy do aktualizacji z panelu',
+            'ok' => $platformIssues === [],
+            'detail' => $platformIssues === []
+                ? 'Dostępny'
+                : 'Brak zapisu: ' . implode(', ', array_slice($platformIssues, 0, 5)),
+        ];
 
         return $checks;
     }
@@ -530,7 +538,7 @@ final class Installer
     {
         $content = json_encode([
             'installed_at' => gmdate(DATE_ATOM),
-            'version' => '0.2.2',
+            'version' => '0.2.3',
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zablokować instalatora po instalacji.');

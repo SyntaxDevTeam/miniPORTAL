@@ -267,6 +267,8 @@ aktualizator z ACL, CSRF, stagingiem, SHA-256 i kopią bezpieczeństwa.
 
 ```bash
 cd /var/www/syntaxdevteam.pl/new
+sudo chgrp www-data .
+sudo chmod 2775 .
 sudo chgrp -R www-data core modules templates bin tools
 sudo find core modules templates bin tools -type d -exec chmod 2775 {} \;
 sudo find core modules templates bin tools -type f -exec chmod 0664 {} \;

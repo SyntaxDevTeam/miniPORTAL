@@ -1,0 +1,9 @@
+{
+  "minimum_version": "0.2.0",
+  "changelog": [
+    "Dodano pełny preflight praw zapisu runtime przed aktualizacją platformy.",
+    "Panel pokazuje kompletne polecenie przygotowania uprawnień zamiast zatrzymywać się kolejno na plikach.",
+    "Kreator instalacji sprawdza gotowość runtime do przyszłych aktualizacji.",
+    "Naprawiono prawa atomowej podmiany plików głównych, w tym .htaccess i index.php."
+  ]
+}
