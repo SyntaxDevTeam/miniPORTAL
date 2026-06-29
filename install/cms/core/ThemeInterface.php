@@ -317,7 +317,7 @@ interface ThemeInterface
         int $status,
         string $title,
         string $message,
-        string $actionLabel = 'Wróć do strony głównej',
+        string $actionLabel = 'Back to home',
         string $actionHref = '/',
     ): void;
 

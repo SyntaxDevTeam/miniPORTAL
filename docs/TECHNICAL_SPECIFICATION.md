@@ -281,8 +281,11 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   głównego menu, stopki, obu obszarów albo ukryć,
 - `ThemeInterface::set_public_navigation()` przekazuje wspólne menu i stopkę do
   wszystkich publicznych widoków modułów, nie tylko do strony głównej,
-- publiczne widoki poza stroną główną pokazują wspólne pozycje `Home`, `Kontakt`,
+- publiczne widoki poza stroną główną pokazują wspólne pozycje `Home`, `Contact`,
   linki modułów przypięte w ustawieniach oraz przycisk logowania albo panelu,
+- publiczny interfejs i domyślne fallbacki tekstowe motywów oraz modułów są po
+  angielsku; panel administracyjny `/admin/*` pozostaje po polsku. Projekt nadal
+  nie wprowadza publicznego i18n, prefiksów locale ani katalogów tłumaczeń CMS,
 - Front Controller renderuje publiczne 404 i 405 przez komponent motywu zamiast
   technicznego alertu z odnośnikiem do dashboardu,
 - moduły `wikipedia` i `articles` deklarują publiczne linki startowe do `/wiki` oraz
@@ -756,7 +759,7 @@ Discord oraz własność portfela gracza. Samo uprawnienie CMS nie zastępuje
 kontroli `guild_id` i aktywnego członkostwa.
 
 Stan 1.0.0:
-- Owner platformy zarządza flagami funkcji, polskim językiem, domyślnymi
+- Owner platformy zarządza flagami funkcji, domyślnym językiem bota, domyślnymi
   wartościami `/daily` i `/work`, limitem Freemium, planami i tenantami,
 - właściciel serwera zarządza walutą, podatkiem w punktach bazowych, VIP daily,
   użytkownikami, sklepem, aktywami i notowaniami wyłącznie swojego serwera,

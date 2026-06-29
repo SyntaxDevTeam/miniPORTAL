@@ -183,13 +183,13 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($user === null) { return; }
         $memberships = $this->econizer->memberships($user->id);
         $membership = $this->selectedMembership($memberships, $request->queryInt('guild_id'));
-        $this->startPublic('Econizer', 'Twoje centrum ekonomii Discord: saldo, poziom, historia, sklep i giełda.');
+        $this->startPublic('Econizer', 'Your Discord economy hub: balance, level, history, shop and market.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         if ($membership === null) {
-            $this->theme->render_alert('Twoje konto nie jest jeszcze powiązane z żadnym serwerem Econizer.', 'warning');
-            $this->theme->start_card('Serwery Discord', 'Wybierz serwer, którym zarządzasz');
+            $this->theme->render_alert('Your account is not linked to any Econizer server yet.', 'warning');
+            $this->theme->start_card('Discord servers', 'Choose a server you manage');
             $this->theme->render_link_list([
-                ['label' => 'Pokaż moje serwery Discord', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Owner, Administrator albo Manage Guild'],
+                ['label' => 'Show my Discord servers', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Owner, Administrator or Manage Guild'],
             ]);
             $this->theme->end_card();
             $this->endPublic(); return;
@@ -198,21 +198,21 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $wallet = $this->econizer->wallet($guildId, $user->id);
         $nextLevel = max(100, (int) $wallet['level'] * 1000);
         $this->theme->start_grid();
-        $this->theme->start_column('4'); $this->theme->start_card('Saldo', $membership['currency_name']); $this->theme->render_text(number_format((int) $wallet['balance'], 0, ',', ' ')); $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->start_column('4'); $this->theme->start_card('Poziom', 'Level'); $this->theme->render_text((string) $wallet['level']); $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->start_column('4'); $this->theme->start_card('Doświadczenie', 'Postęp'); $this->theme->render_text((int) $wallet['experience'] . ' / ' . $nextLevel . ' EXP'); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('4'); $this->theme->start_card('Balance', $membership['currency_name']); $this->theme->render_text(number_format((int) $wallet['balance'], 0, '.', ' ')); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('4'); $this->theme->start_card('Level', 'Level'); $this->theme->render_text((string) $wallet['level']); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('4'); $this->theme->start_card('Experience', 'Progress'); $this->theme->render_text((int) $wallet['experience'] . ' / ' . $nextLevel . ' EXP'); $this->theme->end_card(); $this->theme->end_column();
         $this->theme->end_grid();
         $links = [
-            ['label' => 'Moje serwery Discord', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Instalacja bota i ustawienia zarządzanych serwerów'],
-            ['label' => 'Sklep serwerowy', 'href' => 'index.php?route=/econizer/shop&guild_id=' . $guildId, 'meta' => 'Kup rangi, kody i nagrody'],
-            ['label' => 'Giełda', 'href' => 'index.php?route=/econizer/market&guild_id=' . $guildId, 'meta' => 'Aktywa i portfel inwestycyjny'],
+            ['label' => 'My Discord servers', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Bot installation and managed server settings'],
+            ['label' => 'Server shop', 'href' => 'index.php?route=/econizer/shop&guild_id=' . $guildId, 'meta' => 'Buy ranks, codes and rewards'],
+            ['label' => 'Market', 'href' => 'index.php?route=/econizer/market&guild_id=' . $guildId, 'meta' => 'Assets and investment portfolio'],
         ];
         if (in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true)) {
-            $links[] = ['label' => 'Zarządzaj serwerem', 'href' => 'index.php?route=/econizer/server&guild_id=' . $guildId, 'meta' => 'Waluta, podatki, VIP i katalog'];
+            $links[] = ['label' => 'Manage server', 'href' => 'index.php?route=/econizer/server&guild_id=' . $guildId, 'meta' => 'Currency, taxes, VIP and catalog'];
         }
-        $this->theme->start_card('Szybkie akcje', (string) $membership['name']); $this->theme->render_link_list($links); $this->theme->end_card();
+        $this->theme->start_card('Quick actions', (string) $membership['name']); $this->theme->render_link_list($links); $this->theme->end_card();
         $rows = array_map(static fn (array $tx): array => [$tx['created_at'], $tx['transaction_type'], $tx['description'], (int) $tx['amount'], (int) $tx['balance_after']], $this->econizer->transactions($guildId, $user->id));
-        $this->theme->start_card('Historia transakcji', 'Ostatnie operacje'); $this->theme->render_table(['Data', 'Typ', 'Opis', 'Zmiana', 'Saldo'], $rows); $this->theme->end_card();
+        $this->theme->start_card('Transaction history', 'Recent operations'); $this->theme->render_table(['Date', 'Type', 'Description', 'Change', 'Balance'], $rows); $this->theme->end_card();
         $this->endPublic();
     }
 
@@ -221,60 +221,60 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $context = $this->serverContext($request);
         if ($context === null) { return; }
         [$user, $membership] = $context; $guildId = (int) $membership['guild_id'];
-        $this->startPublic('Ustawienia serwera ' . $membership['name'], 'Konfiguracja ekonomii, członków, sklepu i rynku.');
+        $this->startPublic($membership['name'] . ' server settings', 'Configure economy, members, shop and market.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         $this->theme->start_grid();
         $this->theme->start_column('6');
-        $this->theme->start_card('Ekonomia i automatyzacje', strtoupper((string) $membership['plan']));
+        $this->theme->start_card('Economy and automation', strtoupper((string) $membership['plan']));
         $this->theme->render_form('index.php?route=/econizer/server/settings', [
-            ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-            ['name' => 'currency_name', 'label' => 'Nazwa waluty', 'value' => (string) $membership['currency_name']],
-            ['name' => 'daily_amount', 'label' => 'Nagroda /daily', 'type' => 'number', 'value' => (string) $membership['daily_amount']],
-            ['name' => 'work_min', 'label' => 'Minimalna nagroda /work', 'type' => 'number', 'value' => (string) $membership['work_min']],
-            ['name' => 'work_max', 'label' => 'Maksymalna nagroda /work', 'type' => 'number', 'value' => (string) $membership['work_max']],
-            ['name' => 'transfer_tax_percent', 'label' => 'Podatek od przelewu (%)', 'type' => 'number', 'value' => $this->percent((int) $membership['transfer_tax_bps']), 'help' => 'Zakres 0-25%, zapisywany precyzyjnie w punktach bazowych.'],
-            ['name' => 'vip_role_id', 'label' => 'Discord Role ID dla VIP', 'value' => (string) ($membership['vip_role_id'] ?? '')],
-            ['name' => 'vip_daily_amount', 'label' => 'VIP daily o północy', 'type' => 'number', 'value' => (string) $membership['vip_daily_amount']],
-            ['name' => 'shop_enabled', 'label' => 'Sklep włączony', 'type' => 'checkbox', 'checked' => (int) $membership['shop_enabled'] === 1],
-            ['name' => 'market_enabled', 'label' => 'Giełda włączona', 'type' => 'checkbox', 'checked' => (int) $membership['market_enabled'] === 1],
-        ], 'Zapisz ustawienia', $this->security->csrfToken());
+            ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'currency_name', 'label' => 'Currency name', 'value' => (string) $membership['currency_name']],
+            ['name' => 'daily_amount', 'label' => '/daily reward', 'type' => 'number', 'value' => (string) $membership['daily_amount']],
+            ['name' => 'work_min', 'label' => 'Minimum /work reward', 'type' => 'number', 'value' => (string) $membership['work_min']],
+            ['name' => 'work_max', 'label' => 'Maximum /work reward', 'type' => 'number', 'value' => (string) $membership['work_max']],
+            ['name' => 'transfer_tax_percent', 'label' => 'Transfer tax (%)', 'type' => 'number', 'value' => $this->percent((int) $membership['transfer_tax_bps']), 'help' => 'Range 0-25%, stored precisely in basis points.'],
+            ['name' => 'vip_role_id', 'label' => 'Discord Role ID for VIP', 'value' => (string) ($membership['vip_role_id'] ?? '')],
+            ['name' => 'vip_daily_amount', 'label' => 'VIP daily at midnight', 'type' => 'number', 'value' => (string) $membership['vip_daily_amount']],
+            ['name' => 'shop_enabled', 'label' => 'Shop enabled', 'type' => 'checkbox', 'checked' => (int) $membership['shop_enabled'] === 1],
+            ['name' => 'market_enabled', 'label' => 'Market enabled', 'type' => 'checkbox', 'checked' => (int) $membership['market_enabled'] === 1],
+        ], 'Save settings', $this->security->csrfToken());
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->start_column('6');
-        $this->theme->start_card('Użytkownicy Discord', 'Bez ręcznego wyboru kont miniPORTAL');
-        $this->theme->render_text('Gracze są wiązani z serwerem przez ich Discord User ID. Jeśli użytkownik zalogował się do miniPORTAL przez Discord, pierwsze zdarzenie bota dla tego Discord ID automatycznie przypisze go do właściwego serwera jako gracza. Właściciel lub administrator serwera łączy swoje konto w widoku Moje serwery Discord.');
+        $this->theme->start_card('Discord users', 'No manual miniPORTAL account selection');
+        $this->theme->render_text('Players are linked to the server by their Discord User ID. If a user signed in to miniPORTAL through Discord, the first bot event for that Discord ID automatically assigns them to the correct server as a player. The server owner or administrator links their own account in My Discord servers.');
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->end_grid();
 
         $this->theme->start_grid();
         $limit = (int) $this->econizer->platformSettings()['freemium_shop_limit'];
-        $this->theme->start_column('6'); $this->theme->start_card('Dodaj przedmiot', $membership['plan'] === 'freemium' ? 'Limit ' . $limit . ' aktywnych pozycji' : 'Katalog bez limitu');
+        $this->theme->start_column('6'); $this->theme->start_card('Add item', $membership['plan'] === 'freemium' ? 'Limit: ' . $limit . ' active items' : 'Unlimited catalog');
         $this->theme->render_form('index.php?route=/econizer/server/shop', [
-            ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-            ['name' => 'name', 'label' => 'Nazwa'], ['name' => 'description', 'label' => 'Opis', 'type' => 'textarea'],
-            ['name' => 'price', 'label' => 'Cena', 'type' => 'number'], ['name' => 'stock', 'label' => 'Stan (puste = bez limitu)', 'type' => 'number'],
-            ['name' => 'delivery_type', 'label' => 'Realizacja', 'type' => 'select', 'options' => ['discord_role' => 'Ranga Discord', 'code' => 'Kod zewnętrzny', 'manual' => 'Ręczna']],
-            ['name' => 'delivery_reference', 'label' => 'ID roli / bezpieczna referencja', 'help' => 'Nie wpisuj sekretnego kodu; przechowuj identyfikator w systemie bota.'],
-        ], 'Dodaj do sklepu', $this->security->csrfToken()); $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->start_column('6'); $this->theme->start_card('Aktywa i notowania', 'Początkowa cena lub kolejne punkty historii');
+            ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'name', 'label' => 'Name'], ['name' => 'description', 'label' => 'Description', 'type' => 'textarea'],
+            ['name' => 'price', 'label' => 'Price', 'type' => 'number'], ['name' => 'stock', 'label' => 'Stock (empty = unlimited)', 'type' => 'number'],
+            ['name' => 'delivery_type', 'label' => 'Delivery', 'type' => 'select', 'options' => ['discord_role' => 'Discord role', 'code' => 'External code', 'manual' => 'Manual']],
+            ['name' => 'delivery_reference', 'label' => 'Role ID / safe reference', 'help' => 'Do not enter a secret code; keep the identifier in the bot system.'],
+        ], 'Add to shop', $this->security->csrfToken()); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('6'); $this->theme->start_card('Assets and quotes', 'Initial price or new history points');
         $this->theme->render_form('index.php?route=/econizer/server/asset', [
-            ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-            ['name' => 'symbol', 'label' => 'Symbol', 'help' => '2-12 wielkich liter lub cyfr.'], ['name' => 'name', 'label' => 'Nazwa aktywa'],
-            ['name' => 'price', 'label' => 'Cena początkowa', 'type' => 'number'],
-        ], 'Dodaj aktywo', $this->security->csrfToken());
+            ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'symbol', 'label' => 'Symbol', 'help' => '2-12 uppercase letters or digits.'], ['name' => 'name', 'label' => 'Asset name'],
+            ['name' => 'price', 'label' => 'Initial price', 'type' => 'number'],
+        ], 'Add asset', $this->security->csrfToken());
         $assetOptions = []; foreach ($this->econizer->market($guildId, $user->id) as $asset) { $assetOptions[(string) $asset['id']] = $asset['symbol'] . ' - ' . $asset['name']; }
         if ($assetOptions !== []) {
             $this->theme->render_form('index.php?route=/econizer/server/quote', [
-                ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-                ['name' => 'asset_id', 'label' => 'Aktywo', 'type' => 'select', 'options' => $assetOptions],
-                ['name' => 'price', 'label' => 'Nowa cena', 'type' => 'number'],
-            ], 'Dodaj notowanie', $this->security->csrfToken());
+                ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+                ['name' => 'asset_id', 'label' => 'Asset', 'type' => 'select', 'options' => $assetOptions],
+                ['name' => 'price', 'label' => 'New price', 'type' => 'number'],
+            ], 'Add quote', $this->security->csrfToken());
         }
         $this->theme->end_card(); $this->theme->end_column();
         $this->theme->end_grid();
-        $this->theme->start_card('Katalog sklepu', $this->econizer->activeShopItemCount($guildId) . ' aktywnych');
-        $this->theme->render_table(['Nazwa', 'Cena', 'Stan', 'Realizacja'], array_map(static fn (array $item): array => [$item['name'], $item['price'], $item['stock'] ?? 'bez limitu', $item['delivery_type']], $this->econizer->shopItems($guildId, false)));
+        $this->theme->start_card('Shop catalog', $this->econizer->activeShopItemCount($guildId) . ' active');
+        $this->theme->render_table(['Name', 'Price', 'Stock', 'Delivery'], array_map(static fn (array $item): array => [$item['name'], $item['price'], $item['stock'] ?? 'unlimited', $item['delivery_type']], $this->econizer->shopItems($guildId, false)));
         $this->theme->end_card();
         $this->endPublic();
     }
@@ -283,17 +283,17 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     {
         $context = $this->playerContext($request); if ($context === null) { return; }
         [$user, $membership] = $context; $guildId = (int) $membership['guild_id'];
-        $this->startPublic('Sklep ' . $membership['name'], 'Nagrody serwerowe rozliczane w walucie ' . $membership['currency_name'] . '.');
+        $this->startPublic($membership['name'] . ' shop', 'Server rewards priced in ' . $membership['currency_name'] . '.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
-        if (!$this->econizer->featureEnabled('shop') || (int) $membership['shop_enabled'] !== 1) { $this->theme->render_alert('Sklep jest obecnie wyłączony.', 'warning'); $this->endPublic(); return; }
-        $wallet = $this->econizer->wallet($guildId, $user->id); $this->theme->render_alert('Dostępne saldo: ' . $wallet['balance'] . ' ' . $membership['currency_name'], 'info');
+        if (!$this->econizer->featureEnabled('shop') || (int) $membership['shop_enabled'] !== 1) { $this->theme->render_alert('The shop is currently disabled.', 'warning'); $this->endPublic(); return; }
+        $wallet = $this->econizer->wallet($guildId, $user->id); $this->theme->render_alert('Available balance: ' . $wallet['balance'] . ' ' . $membership['currency_name'], 'info');
         foreach ($this->econizer->shopItems($guildId) as $item) {
             $this->theme->start_card((string) $item['name'], $item['price'] . ' ' . $membership['currency_name']);
             $this->theme->render_text((string) $item['description']);
             $this->theme->render_form('index.php?route=/econizer/shop/buy', [
-                ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-                ['name' => 'item_id', 'label' => 'Przedmiot', 'type' => 'hidden', 'value' => (string) $item['id']],
-            ], 'Kup', $this->security->csrfToken()); $this->theme->end_card();
+                ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+                ['name' => 'item_id', 'label' => 'Item', 'type' => 'hidden', 'value' => (string) $item['id']],
+            ], 'Buy', $this->security->csrfToken()); $this->theme->end_card();
         }
         $this->endPublic();
     }
@@ -302,27 +302,27 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     {
         $context = $this->playerContext($request); if ($context === null) { return; }
         [$user, $membership] = $context; $guildId = (int) $membership['guild_id'];
-        $this->startPublic('Giełda ' . $membership['name'], 'Wirtualne aktywa serwera i Twój portfel.');
+        $this->startPublic($membership['name'] . ' market', 'Virtual server assets and your portfolio.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
-        if (!$this->econizer->featureEnabled('market') || (int) $membership['market_enabled'] !== 1) { $this->theme->render_alert('Giełda jest obecnie wyłączona.', 'warning'); $this->endPublic(); return; }
-        $wallet = $this->econizer->wallet($guildId, $user->id); $this->theme->render_alert('Gotówka: ' . $wallet['balance'] . ' ' . $membership['currency_name'], 'info');
+        if (!$this->econizer->featureEnabled('market') || (int) $membership['market_enabled'] !== 1) { $this->theme->render_alert('The market is currently disabled.', 'warning'); $this->endPublic(); return; }
+        $wallet = $this->econizer->wallet($guildId, $user->id); $this->theme->render_alert('Cash: ' . $wallet['balance'] . ' ' . $membership['currency_name'], 'info');
         foreach ($this->econizer->market($guildId, $user->id) as $asset) {
-            $this->theme->start_card($asset['symbol'] . ' - ' . $asset['name'], 'Cena ' . $asset['current_price']);
+            $this->theme->start_card($asset['symbol'] . ' - ' . $asset['name'], 'Price ' . $asset['current_price']);
             $this->theme->render_admin_fact_grid([
-                ['label' => 'Posiadane jednostki', 'value' => (string) $asset['quantity']],
-                ['label' => 'Średnia cena', 'value' => (string) $asset['average_price']],
-                ['label' => 'Wartość portfela', 'value' => (string) ((int) $asset['quantity'] * (int) $asset['current_price'])],
+                ['label' => 'Units owned', 'value' => (string) $asset['quantity']],
+                ['label' => 'Average price', 'value' => (string) $asset['average_price']],
+                ['label' => 'Portfolio value', 'value' => (string) ((int) $asset['quantity'] * (int) $asset['current_price'])],
             ]);
             $quoteData = array_reverse($this->econizer->quotes((int) $asset['id']));
-            $this->theme->render_line_chart(array_map(static fn (array $quote): array => ['label' => (string) $quote['quoted_at'], 'value' => (int) $quote['price']], $quoteData), 'Historia ceny ' . $asset['symbol']);
+            $this->theme->render_line_chart(array_map(static fn (array $quote): array => ['label' => (string) $quote['quoted_at'], 'value' => (int) $quote['price']], $quoteData), $asset['symbol'] . ' price history');
             $quotes = array_map(static fn (array $quote): array => [$quote['quoted_at'], $quote['price']], array_reverse($quoteData));
-            $this->theme->render_table(['Notowanie', 'Cena'], $quotes);
+            $this->theme->render_table(['Quote', 'Price'], $quotes);
             $this->theme->render_form('index.php?route=/econizer/market/trade', [
-                ['name' => 'guild_id', 'label' => 'Serwer', 'type' => 'hidden', 'value' => (string) $guildId],
-                ['name' => 'asset_id', 'label' => 'Aktywo', 'type' => 'hidden', 'value' => (string) $asset['id']],
-                ['name' => 'quantity', 'label' => 'Liczba jednostek', 'type' => 'number', 'value' => '1'],
-                ['name' => 'side', 'label' => 'Operacja', 'type' => 'select', 'options' => ['buy' => 'Kup', 'sell' => 'Sprzedaj']],
-            ], 'Złóż zlecenie', $this->security->csrfToken()); $this->theme->end_card();
+                ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+                ['name' => 'asset_id', 'label' => 'Asset', 'type' => 'hidden', 'value' => (string) $asset['id']],
+                ['name' => 'quantity', 'label' => 'Units', 'type' => 'number', 'value' => '1'],
+                ['name' => 'side', 'label' => 'Operation', 'type' => 'select', 'options' => ['buy' => 'Buy', 'sell' => 'Sell']],
+            ], 'Place order', $this->security->csrfToken()); $this->theme->end_card();
         }
         $this->endPublic();
     }
@@ -354,10 +354,10 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($user === null) { return; }
         if (!$this->oauthLimiter->allowStart('econizer_discord')) {
             $this->audit->record($request, 'econizer_discord_oauth_start', 'rate_limited', 'discord', $user->id);
-            http_response_code(429); $this->renderManagedServers($request, 'Zbyt wiele prób połączenia z Discord. Spróbuj ponownie później.', 'warning'); return;
+            http_response_code(429); $this->renderManagedServers($request, 'Too many Discord connection attempts. Try again later.', 'warning'); return;
         }
         try { $url = $this->discord->discoveryUrl($user->id); }
-        catch (Throwable) { $this->audit->record($request, 'econizer_discord_oauth_start', 'not_configured', 'discord', $user->id); $this->renderManagedServers($request, 'Dedykowana aplikacja Discord Econizer nie jest jeszcze kompletna.', 'danger'); return; }
+        catch (Throwable) { $this->audit->record($request, 'econizer_discord_oauth_start', 'not_configured', 'discord', $user->id); $this->renderManagedServers($request, 'The dedicated Econizer Discord application is not complete yet.', 'danger'); return; }
         $this->audit->record($request, 'econizer_discord_oauth_start', 'success', 'discord', $user->id);
         header('Location: ' . $url, true, 302);
     }
@@ -368,58 +368,58 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($user === null) { return; }
         if (!$this->oauthLimiter->allowCallback('econizer_discord')) {
             $this->audit->record($request, 'econizer_discord_oauth_callback', 'rate_limited', 'discord', $user->id);
-            http_response_code(429); $this->renderManagedServers($request, 'Przekroczono limit odpowiedzi OAuth Discord.', 'warning'); return;
+            http_response_code(429); $this->renderManagedServers($request, 'Discord OAuth callback limit has been exceeded.', 'warning'); return;
         }
         if ($request->queryString('error') !== '') {
             $this->audit->record($request, 'econizer_discord_oauth_callback', 'provider_denied', 'discord', $user->id);
-            $this->renderManagedServers($request, 'Pobieranie listy serwerów zostało anulowane.', 'warning'); return;
+            $this->renderManagedServers($request, 'Fetching the server list was canceled.', 'warning'); return;
         }
         try { $guilds = $this->discord->complete($request->queryString('state'), $request->queryString('code'), $user->id); }
         catch (Throwable $exception) {
             error_log('Econizer Discord OAuth failed: ' . $exception::class);
             $this->audit->record($request, 'econizer_discord_oauth_callback', 'provider_error', 'discord', $user->id);
-            http_response_code(502); $this->renderManagedServers($request, 'Nie udało się bezpiecznie pobrać listy serwerów Discord.', 'danger'); return;
+            http_response_code(502); $this->renderManagedServers($request, 'Could not safely fetch the Discord server list.', 'danger'); return;
         }
         $this->audit->record($request, 'econizer_discord_oauth_callback', 'success', 'discord', $user->id);
-        $this->renderManagedServers($request, 'Pobrano ' . count($guilds) . ' serwerów, którymi możesz zarządzać.', 'success');
+        $this->renderManagedServers($request, 'Fetched ' . count($guilds) . ' servers you can manage.', 'success');
     }
 
     private function renderManagedServers(Request $request, string $message = '', string $variant = 'info'): void
     {
         $user = $this->requireUser();
         if ($user === null) { return; }
-        $this->startPublic('Moje serwery Discord', 'Wybierz serwer, na którym jesteś właścicielem albo administratorem.');
+        $this->startPublic('My Discord servers', 'Choose a server where you are an owner or administrator.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         if (!$this->config->discordApplicationConfigured()) {
-            $this->theme->render_alert('Dedykowana aplikacja Discord Econizer nie jest jeszcze skonfigurowana.', 'warning');
+            $this->theme->render_alert('The dedicated Econizer Discord application is not configured yet.', 'warning');
             $this->endPublic(); return;
         }
         $guilds = $this->discord->guilds($user->id);
         if ($guilds === []) {
-            $this->theme->start_card('Połącz Discord', 'Lista jest przechowywana tylko tymczasowo w sesji');
-            $this->theme->render_text('Pobierz serwery, na których masz Owner, Administrator albo Manage Guild. Token użytkownika Discord nie jest zapisywany.');
+            $this->theme->start_card('Connect Discord', 'The list is stored temporarily in the session only');
+            $this->theme->render_text('Fetch servers where you have Owner, Administrator or Manage Guild access. The Discord user token is not stored.');
             $this->theme->render_link_list([
-                ['label' => 'Pobierz moje serwery Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Authorization Code + PKCE'],
+                ['label' => 'Fetch my Discord servers', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Authorization Code + PKCE'],
             ]);
             $this->theme->end_card();
             $this->endPublic(); return;
         }
         foreach ($guilds as $guild) {
             $registered = $this->econizer->guildByDiscordId($guild['id']);
-            $this->theme->start_card((string) $guild['name'], 'Zweryfikowany dostęp: ' . $guild['access']);
+            $this->theme->start_card((string) $guild['name'], 'Verified access: ' . $guild['access']);
             $this->theme->render_admin_fact_grid([
                 ['label' => 'Discord Guild ID', 'value' => $guild['id']],
-                ['label' => 'Econizer', 'value' => $registered !== null ? 'Bot zgłosił serwer' : 'Bot niezgłoszony', 'variant' => $registered !== null ? 'success' : 'warning'],
+                ['label' => 'Econizer', 'value' => $registered !== null ? 'Bot reported this server' : 'Bot not reported', 'variant' => $registered !== null ? 'success' : 'warning'],
             ]);
             $links = [
-                ['label' => 'Szczegóły serwera', 'href' => 'index.php?route=/econizer/discord/server&guild_id=' . rawurlencode($guild['id']), 'meta' => $registered !== null ? 'Połącz konto i przejdź do ustawień' : 'Zaproś bota Econizer'],
+                ['label' => 'Server details', 'href' => 'index.php?route=/econizer/discord/server&guild_id=' . rawurlencode($guild['id']), 'meta' => $registered !== null ? 'Link account and open settings' : 'Invite the Econizer bot'],
             ];
             $this->theme->render_link_list($links);
             $this->theme->end_card();
         }
-        $this->theme->start_card('Odświeżenie listy', 'Discord OAuth');
+        $this->theme->start_card('Refresh list', 'Discord OAuth');
         $this->theme->render_link_list([
-            ['label' => 'Odśwież listę z Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Ponownie pobierz zarządzane serwery'],
+            ['label' => 'Refresh from Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Fetch managed servers again'],
         ]);
         $this->theme->end_card();
         $this->endPublic();
@@ -431,34 +431,34 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($user === null) { return; }
         $guildId = $request->queryString('guild_id', $request->postString('guild_id'));
         $guild = $this->discord->guild($user->id, $guildId);
-        if ($guild === null) { $this->renderManagedServers($request, 'Serwer nie znajduje się w aktualnej, zweryfikowanej liście Discord. Odśwież listę.', 'warning'); return; }
+        if ($guild === null) { $this->renderManagedServers($request, 'The server is not in the current verified Discord list. Refresh the list.', 'warning'); return; }
         $registered = $this->econizer->guildByDiscordId($guildId);
         try { $botPresent = $this->discord->botPresent($guildId); } catch (Throwable) { $botPresent = false; }
-        $this->startPublic('Serwer Discord: ' . (string) $guild['name'], 'Instalacja bota i ustawienia Econizer dla wybranego serwera.');
+        $this->startPublic('Discord server: ' . (string) $guild['name'], 'Bot installation and Econizer settings for the selected server.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
-        $this->theme->start_card((string) $guild['name'], 'Zweryfikowany dostęp: ' . $guild['access']);
+        $this->theme->start_card((string) $guild['name'], 'Verified access: ' . $guild['access']);
         $this->theme->render_admin_fact_grid([
             ['label' => 'Discord Guild ID', 'value' => $guildId],
-            ['label' => 'Tenant Econizer', 'value' => $registered !== null ? 'Zgłoszony przez bota' : 'Brak zgłoszenia bota', 'variant' => $registered !== null ? 'success' : 'warning'],
-            ['label' => 'Bot na serwerze', 'value' => $botPresent ? 'Połączony' : 'Niepotwierdzony', 'variant' => $botPresent ? 'success' : 'warning'],
-            ['label' => 'Plan', 'value' => $registered !== null ? strtoupper((string) $registered['plan']) : 'FREEMIUM po zgłoszeniu'],
+            ['label' => 'Econizer tenant', 'value' => $registered !== null ? 'Reported by bot' : 'No bot report', 'variant' => $registered !== null ? 'success' : 'warning'],
+            ['label' => 'Bot on server', 'value' => $botPresent ? 'Connected' : 'Unconfirmed', 'variant' => $botPresent ? 'success' : 'warning'],
+            ['label' => 'Plan', 'value' => $registered !== null ? strtoupper((string) $registered['plan']) : 'FREEMIUM after report'],
         ]);
         if ($registered === null) {
-            $this->theme->render_alert('Po zaproszeniu bot wyśle do miniPORTAL informację o serwerze. Dopiero wtedy pojawią się ustawienia Econizer dla tej gildii.', 'info');
+            $this->theme->render_alert('After invitation, the bot will send server information to miniPORTAL. Econizer settings for this guild appear only after that.', 'info');
             $this->theme->render_link_list([
-                ['label' => 'Zaproś Econizer na serwer', 'href' => $this->discord->installationUrl($guildId), 'meta' => 'Discord: bot applications.commands'],
-                ['label' => 'Odśwież listę z Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Sprawdź ponownie po dodaniu bota'],
+                ['label' => 'Invite Econizer to the server', 'href' => $this->discord->installationUrl($guildId), 'meta' => 'Discord: bot applications.commands'],
+                ['label' => 'Refresh from Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Check again after adding the bot'],
             ]);
         } else {
             $membership = $this->econizer->membership((int) $registered['id'], $user->id);
             if ($membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true)) {
                 $this->theme->render_link_list([
-                    ['label' => 'Ustawienia Econizer dla serwera', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Waluta, sklep, giełda i członkowie'],
+                    ['label' => 'Econizer server settings', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Currency, shop, market and members'],
                 ]);
             } else {
                 $this->theme->render_form('index.php?route=/econizer/discord/link', [
-                ['name' => 'guild_id', 'label' => 'Serwer Discord', 'type' => 'hidden', 'value' => $guildId],
-                ], 'Połącz konto i otwórz ustawienia', $this->security->csrfToken());
+                ['name' => 'guild_id', 'label' => 'Discord server', 'type' => 'hidden', 'value' => $guildId],
+                ], 'Link account and open settings', $this->security->csrfToken());
             }
         }
         $this->theme->end_card();
@@ -471,14 +471,14 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $user = $this->requireUser();
         if ($user === null) { return; }
         $guildId = $request->postString('guild_id'); $guild = $this->discord->guild($user->id, $guildId); $discordUserId = $this->discord->discordUserId($user->id);
-        if ($guild === null || $discordUserId === null) { http_response_code(403); $this->renderDiscordGuild($request, 'Nie można połączyć serwera bez świeżej weryfikacji Discord.', 'danger'); return; }
+        if ($guild === null || $discordUserId === null) { http_response_code(403); $this->renderDiscordGuild($request, 'The server cannot be linked without a fresh Discord verification.', 'danger'); return; }
         $registered = $this->econizer->guildByDiscordId($guildId);
-        if ($registered === null) { $this->renderDiscordGuild($request, 'Najpierw zaproś bota. Tenant powstaje dopiero po zgłoszeniu serwera przez Econizer.', 'warning'); return; }
+        if ($registered === null) { $this->renderDiscordGuild($request, 'Invite the bot first. The tenant is created only after Econizer reports the server.', 'warning'); return; }
         try {
             $this->econizer->addMembership((int) $registered['id'], $user->id, $discordUserId, $guild['owner'] ? 'guild_owner' : 'guild_admin');
-        } catch (Throwable) { $this->renderDiscordGuild($request, 'Nie udało się połączyć konta z serwerem Econizer.', 'danger'); return; }
+        } catch (Throwable) { $this->renderDiscordGuild($request, 'Could not link the account with the Econizer server.', 'danger'); return; }
         $this->audit->record($request, 'econizer_discord_link', 'success', 'guild:' . $registered['id'], $user->id);
-        $this->renderServer(Request::fromArrays(['guild_id' => (string) $registered['id']], [], ['REQUEST_METHOD' => 'GET']), 'Połączono konto z serwerem Discord.', 'success');
+        $this->renderServer(Request::fromArrays(['guild_id' => (string) $registered['id']], [], ['REQUEST_METHOD' => 'GET']), 'The account has been linked with the Discord server.', 'success');
     }
 
     private function saveServer(Request $request): void
@@ -488,7 +488,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $vip = $request->postInt('vip_daily_amount', -1) ?? -1; $currency = $request->postString('currency_name'); $tax = $this->basisPoints($request->postString('transfer_tax_percent'));
         $roleId = $request->postString('vip_role_id');
         if ($currency === '' || strlen($currency) > 40 || min($daily, $min, $max, $vip) < 0 || $min > $max || $max > 1000000000 || $tax === null || ($roleId !== '' && preg_match('/^[0-9]{6,32}$/', $roleId) !== 1)) {
-            $this->renderServer($request, 'Nieprawidłowe ustawienia ekonomii.', 'danger'); return;
+            $this->renderServer($request, 'Invalid economy settings.', 'danger'); return;
         }
         $this->econizer->updateGuild((int) $membership['guild_id'], [
             'currency_name' => $currency, 'daily_amount' => $daily, 'work_min' => $min, 'work_max' => $max,
@@ -496,7 +496,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             'shop_enabled' => $request->postBool('shop_enabled') ? 1 : 0, 'market_enabled' => $request->postBool('market_enabled') ? 1 : 0,
         ]);
         $this->audit->record($request, 'econizer_server_update', 'success', 'guild:' . $membership['guild_id'], $this->auth->user()?->id);
-        $this->renderServer($request, 'Ustawienia serwera zostały zapisane.', 'success');
+        $this->renderServer($request, 'Server settings have been saved.', 'success');
     }
 
     private function addShopItem(Request $request): void
@@ -504,33 +504,33 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $context = $this->serverContext($request); if ($context === null || !$this->csrf($request, 'econizer_shop_create')) { return; }
         [, $membership] = $context; $guildId = (int) $membership['guild_id'];
         $freemiumLimit = (int) $this->econizer->platformSettings()['freemium_shop_limit'];
-        if ($membership['plan'] === 'freemium' && $this->econizer->activeShopItemCount($guildId) >= $freemiumLimit) { $this->renderServer($request, 'Plan Freemium pozwala na maksymalnie ' . $freemiumLimit . ' aktywnych pozycji.', 'warning'); return; }
+        if ($membership['plan'] === 'freemium' && $this->econizer->activeShopItemCount($guildId) >= $freemiumLimit) { $this->renderServer($request, 'The Freemium plan allows up to ' . $freemiumLimit . ' active items.', 'warning'); return; }
         $name = $request->postString('name'); $description = $request->postString('description'); $price = $request->postInt('price', 0) ?? 0; $stockRaw = $request->postString('stock');
         $stock = $stockRaw === '' ? null : $request->postInt('stock'); $type = $request->postString('delivery_type'); $reference = $request->postString('delivery_reference');
-        if ($name === '' || strlen($name) > 120 || strlen($description) > 1000 || $price < 1 || ($stock !== null && $stock < 0) || !in_array($type, ['discord_role', 'code', 'manual'], true) || strlen($reference) > 120) { $this->renderServer($request, 'Nieprawidłowe dane przedmiotu.', 'danger'); return; }
+        if ($name === '' || strlen($name) > 120 || strlen($description) > 1000 || $price < 1 || ($stock !== null && $stock < 0) || !in_array($type, ['discord_role', 'code', 'manual'], true) || strlen($reference) > 120) { $this->renderServer($request, 'Invalid item data.', 'danger'); return; }
         $id = $this->econizer->addShopItem($guildId, $name, $description, $price, $stock, $type, $reference === '' ? null : $reference);
         $this->audit->record($request, 'econizer_shop_item_create', 'success', 'item:' . $id, $this->auth->user()?->id);
-        $this->renderServer($request, 'Przedmiot dodano do sklepu.', 'success');
+        $this->renderServer($request, 'The item has been added to the shop.', 'success');
     }
 
     private function addAsset(Request $request): void
     {
         $context = $this->serverContext($request); if ($context === null || !$this->csrf($request, 'econizer_asset_create')) { return; }
         [, $membership] = $context; $symbol = strtoupper($request->postString('symbol')); $name = $request->postString('name'); $price = $request->postInt('price', 0) ?? 0;
-        if (preg_match('/^[A-Z0-9]{2,12}$/', $symbol) !== 1 || $name === '' || strlen($name) > 80 || $price < 1) { $this->renderServer($request, 'Nieprawidłowe dane aktywa.', 'danger'); return; }
+        if (preg_match('/^[A-Z0-9]{2,12}$/', $symbol) !== 1 || $name === '' || strlen($name) > 80 || $price < 1) { $this->renderServer($request, 'Invalid asset data.', 'danger'); return; }
         try { $id = $this->econizer->addAsset((int) $membership['guild_id'], $symbol, $name, $price); }
-        catch (\Throwable) { $this->renderServer($request, 'Symbol aktywa musi być unikalny na serwerze.', 'danger'); return; }
+        catch (\Throwable) { $this->renderServer($request, 'The asset symbol must be unique on this server.', 'danger'); return; }
         $this->audit->record($request, 'econizer_asset_create', 'success', 'asset:' . $id, $this->auth->user()?->id);
-        $this->renderServer($request, 'Aktywo zostało dodane.', 'success');
+        $this->renderServer($request, 'The asset has been added.', 'success');
     }
 
     private function updateQuote(Request $request): void
     {
         $context = $this->serverContext($request); if ($context === null || !$this->csrf($request, 'econizer_quote_create')) { return; }
         [, $membership] = $context; $price = $request->postInt('price', 0) ?? 0; $assetId = $request->postInt('asset_id', 0) ?? 0;
-        if ($price < 1 || $price > 1000000000000 || !$this->econizer->updateAssetPrice((int) $membership['guild_id'], $assetId, $price)) { $this->renderServer($request, 'Nie udało się dodać notowania.', 'danger'); return; }
+        if ($price < 1 || $price > 1000000000000 || !$this->econizer->updateAssetPrice((int) $membership['guild_id'], $assetId, $price)) { $this->renderServer($request, 'Could not add the quote.', 'danger'); return; }
         $this->audit->record($request, 'econizer_quote_create', 'success', 'asset:' . $assetId, $this->auth->user()?->id);
-        $this->renderServer($request, 'Nowe notowanie zostało zapisane.', 'success');
+        $this->renderServer($request, 'The new quote has been saved.', 'success');
     }
 
     private function buyItem(Request $request): void
@@ -540,18 +540,18 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         try { $order = $this->econizer->purchaseItem((int) $membership['guild_id'], $user->id, $request->postInt('item_id', 0) ?? 0); }
         catch (RuntimeException $exception) { $this->renderShop($request, $exception->getMessage(), 'danger'); return; }
         $this->audit->record($request, 'econizer_shop_purchase', 'success', 'order:' . $order, $user->id);
-        $this->renderShop($request, 'Zakup przyjęty. Numer zamówienia: ' . $order . '.', 'success');
+        $this->renderShop($request, 'Purchase accepted. Order number: ' . $order . '.', 'success');
     }
 
     private function trade(Request $request): void
     {
         $context = $this->playerContext($request); if ($context === null || !$this->csrf($request, 'econizer_market_trade')) { return; }
         [$user, $membership] = $context; $side = $request->postString('side');
-        if (!in_array($side, ['buy', 'sell'], true)) { $this->renderMarket($request, 'Nieprawidłowy kierunek zlecenia.', 'danger'); return; }
+        if (!in_array($side, ['buy', 'sell'], true)) { $this->renderMarket($request, 'Invalid order side.', 'danger'); return; }
         try { $this->econizer->trade((int) $membership['guild_id'], $user->id, $request->postInt('asset_id', 0) ?? 0, $request->postInt('quantity', 0) ?? 0, $side === 'buy'); }
         catch (RuntimeException $exception) { $this->renderMarket($request, $exception->getMessage(), 'danger'); return; }
         $this->audit->record($request, 'econizer_market_trade', 'success', 'guild:' . $membership['guild_id'], $user->id);
-        $this->renderMarket($request, 'Zlecenie zostało rozliczone.', 'success');
+        $this->renderMarket($request, 'The order has been settled.', 'success');
     }
 
     private function syncGuild(Request $request): void
@@ -587,7 +587,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     private function serverContext(Request $request): ?array
     {
         $context = $this->playerContext($request); if ($context === null) { return null; }
-        if (!in_array($context[1]['access_role'], ['guild_owner', 'guild_admin'], true)) { http_response_code(403); $this->theme->render_public_error(403, 'Brak dostępu', 'Zarządzanie wymaga roli właściciela lub administratora serwera.', 'Wróć do Econizer', '/econizer'); return null; }
+        if (!in_array($context[1]['access_role'], ['guild_owner', 'guild_admin'], true)) { http_response_code(403); $this->theme->render_public_error(403, 'Access denied', 'Management requires the server owner or administrator role.', 'Back to Econizer', '/econizer'); return null; }
         return $context;
     }
 
@@ -597,7 +597,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $user = $this->requireUser(); if ($user === null) { return null; }
         $guildId = $request->queryInt('guild_id') ?? $request->postInt('guild_id');
         $memberships = $this->econizer->memberships($user->id); $selected = $this->selectedMembership($memberships, $guildId);
-        if ($selected === null) { http_response_code(403); $this->theme->render_public_error(403, 'Brak dostępu', 'Nie masz aktywnego powiązania z tym serwerem Econizer.', 'Wróć do Econizer', '/econizer'); return null; }
+        if ($selected === null) { http_response_code(403); $this->theme->render_public_error(403, 'Access denied', 'You do not have an active link with this Econizer server.', 'Back to Econizer', '/econizer'); return null; }
         $full = $this->econizer->membership((int) $selected['guild_id'], $user->id);
         return $full === null ? null : [$user, $full];
     }
@@ -605,7 +605,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     private function requireUser(): ?User
     {
         $user = $this->auth->user(); if ($user !== null) { return $user; }
-        http_response_code(401); $this->theme->render_public_error(401, 'Zaloguj się', 'Econizer łączy portfel z Twoim lokalnym kontem.', 'Przejdź do logowania', '/admin/login'); return null;
+        http_response_code(401); $this->theme->render_public_error(401, 'Sign in', 'Econizer links the wallet with your local account.', 'Go to sign in', '/admin/login'); return null;
     }
 
     /** @param list<array<string,mixed>> $memberships @return array<string,mixed>|null */
@@ -640,7 +640,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     private function csrf(Request $request, string $event): bool
     {
         if ($this->security->validateCsrfToken($request->postString('_token'))) { return true; }
-        $this->audit->record($request, $event, 'invalid_csrf', null, $this->auth->user()?->id); http_response_code(403); $this->theme->render_public_error(403, 'Nieprawidłowy token', 'Odśwież formularz i spróbuj ponownie.', 'Wróć do Econizer', '/econizer'); return false;
+        $this->audit->record($request, $event, 'invalid_csrf', null, $this->auth->user()?->id); http_response_code(403); $this->theme->render_public_error(403, 'Invalid token', 'Refresh the form and try again.', 'Back to Econizer', '/econizer'); return false;
     }
 
     private function allows(User $user, string $permission): bool { return in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true); }

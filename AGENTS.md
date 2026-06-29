@@ -219,6 +219,9 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 Publiczne i18n PL/EN/DE zostało wycofane decyzją projektową 2026-06-22.
 miniPORTAL pozostaje jednojęzyczny; nie planuje się prefiksów locale, katalogów
 tekstu interfejsu ani osobnych tłumaczeń treści CMS.
+Od 2026-06-29 domyślny interfejs publiczny i zaszyte fallbacki publicznych modułów
+są anglojęzyczne, ponieważ projekty SyntaxDevTeam są używane globalnie. Panel
+administracyjny pozostaje po polsku dla lokalnego zespołu.
 
 ## Następne kroki
 
@@ -344,6 +347,7 @@ Brak aktywnych blokerów.
 | 2026-06-25 | `core_auth` 1.6.0 dodaje Microsoft OAuth, panelową konfigurację providerów w chronionym `config/modules/auth-providers.env` oraz bootstrap Ownera przez pierwsze poprawne logowanie dowolnym providerem. `AdminMenuRegistry` ma stabilne i rozszerzalne sekcje; `system_admin` 2.1.0 udostępnia formularz wyłącznie Ownerowi. |
 | 2026-06-29 | `widgets` 1.1.0 dodaje format treści kart (`html`/`markdown`), rich text w formularzu kart oraz w pełni edytowalny skrypt bootowania terminala Hero. Motywy renderują karty przez `ContentRenderer`, a JavaScript terminala używa linii zapisanych w rekordzie widgetu zamiast zaszytego tekstu startowego. |
 | 2026-06-29 | `widgets` 1.2.0 dodaje typ `uptime` renderowany przez motywy jako panel monitoringu z kafelkami `Etykieta | Wartość | status`. Lista widgetów ma akcję `Włącz`/`Wyłącz`, a migracja rozszerza `widget_type` o `uptime`. |
+| 2026-06-29 | Publiczna warstwa miniPORTAL pozostaje bez systemu i18n, ale jej domyślne zaszyte teksty są po angielsku: motywy, publiczne błędy, nawigacja modułów, core_pages, articles, wikipedia, team, projects, build_explorer, plugin_translator i publiczne widoki Econizer. Panel `/admin/*` pozostaje po polsku. |
 
 ## Historia sesji
 

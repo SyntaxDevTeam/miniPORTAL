@@ -53,7 +53,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main', 56);
+        $navigation->add('build_explorer.index', 'Downloads', '/builds', 'main', 56);
     }
 
     public function registerAdminSearch(AdminSearchRegistry $search): void
@@ -97,19 +97,19 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     private function renderPublicProjects(): void
     {
         $projects = $this->builds->publicProjects();
-        $this->theme->start_page('Build Explorer - SyntaxDevTeam', 'Wersje projektów SyntaxDevTeam do pobrania.');
-        $this->theme->start_header('Build Explorer', 'Wybierz projekt, aby przejść do jego kanałów wydań.', 'Build');
+        $this->theme->start_page('Build Explorer - SyntaxDevTeam', 'Downloadable SyntaxDevTeam project versions.');
+        $this->theme->start_header('Build Explorer', 'Choose a project to browse its release channels.', 'Build');
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->render_breadcrumb($this->buildBreadcrumb());
         if ($projects === []) {
-            $this->theme->render_alert('Nie opublikowano jeszcze żadnych projektów.', 'info');
+            $this->theme->render_alert('No projects have been published yet.', 'info');
         } else {
             $this->theme->start_grid();
             foreach ($projects as $project) {
                 $this->theme->start_column(count($projects) === 1 ? '12' : (count($projects) === 2 || count($projects) === 4 ? 'lg-6' : 'lg-4'));
-                $this->theme->start_card($project['name'], $project['build_count'] . ' publicznych buildów');
-                $this->theme->render_link_list([['label' => 'Kanały wydań', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP']]);
+                $this->theme->start_card($project['name'], $project['build_count'] . ' public builds');
+                $this->theme->render_link_list([['label' => 'Release channels', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP']]);
                 $this->theme->end_card();
                 $this->theme->end_column();
             }
@@ -126,13 +126,13 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         if ($project === null || $builds === []) { $this->publicNotFound(); return; }
         $available = [];
         foreach ($builds as $build) { $available[$build->channel] = ($available[$build->channel] ?? 0) + 1; }
-        $this->theme->start_page($project['name'] . ' - Build Explorer', 'Kanały wydań projektu.');
-        $this->theme->start_header($project['name'], 'Wybierz kanał wydań.', 'Build / ' . $project['name']); $this->theme->end_header();
+        $this->theme->start_page($project['name'] . ' - Build Explorer', 'Project release channels.');
+        $this->theme->start_header($project['name'], 'Choose a release channel.', 'Build / ' . $project['name']); $this->theme->end_header();
         $this->theme->start_section(); $this->theme->render_breadcrumb($this->buildBreadcrumb($project['name'], $slug)); $this->theme->start_grid();
         foreach (self::CHANNELS as $channel => $label) {
             if (!isset($available[$channel])) { continue; }
-            $this->theme->start_column('lg-6'); $this->theme->start_card($label, $available[$channel] . ' buildów');
-            $this->theme->render_link_list([['label' => 'Pokaż wersje', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel, 'meta' => $label]]);
+            $this->theme->start_column('lg-6'); $this->theme->start_card($label, $available[$channel] . ' builds');
+            $this->theme->render_link_list([['label' => 'Show versions', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel, 'meta' => $label]]);
             $this->theme->end_card(); $this->theme->end_column();
         }
         $this->theme->end_grid(); $this->theme->end_section(); $this->theme->end_page();
@@ -145,39 +145,39 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         if ($builds === []) { $this->publicNotFound(); return; }
         $latest = [];
         foreach ($builds as $build) { $latest[$build->versionLabel . "\0" . strtolower($build->serverType)] ??= $build; }
-        $this->theme->start_page($builds[0]->projectName . ' ' . self::CHANNELS[$channel], 'Dostępne wersje projektu.');
-        $this->theme->start_header(self::CHANNELS[$channel] . ': ' . $builds[0]->projectName, 'Każdy wiersz wskazuje najnowszy build danej wersji.', 'Build / ' . $builds[0]->projectName . ' / ' . self::CHANNELS[$channel]); $this->theme->end_header();
+        $this->theme->start_page($builds[0]->projectName . ' ' . self::CHANNELS[$channel], 'Available project versions.');
+        $this->theme->start_header(self::CHANNELS[$channel] . ': ' . $builds[0]->projectName, 'Each row points to the newest build for that version.', 'Build / ' . $builds[0]->projectName . ' / ' . self::CHANNELS[$channel]); $this->theme->end_header();
         $rows = [];
         foreach ($latest as $build) {
-            $rows[] = ['cells' => [$build->versionLabel, $build->serverType, $this->fileSize($build->fileSizeBytes), $build->publishedAt ?? 'Brak daty'], 'actions' => [
-                ['label' => 'Pobierz najnowszy', 'href' => $this->downloadHref($build), 'variant' => 'primary'],
-                ['label' => 'Historia buildów', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel . '/' . rawurlencode($build->versionLabel), 'variant' => 'outline-light'],
+            $rows[] = ['cells' => [$build->versionLabel, $build->serverType, $this->fileSize($build->fileSizeBytes), $build->publishedAt ?? 'No date'], 'actions' => [
+                ['label' => 'Download latest', 'href' => $this->downloadHref($build), 'variant' => 'primary'],
+                ['label' => 'Build history', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel . '/' . rawurlencode($build->versionLabel), 'variant' => 'outline-light'],
             ]];
         }
-        $this->theme->start_section(); $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel)); $this->theme->render_action_table(['Wersja', 'Platforma', 'Rozmiar', 'Data'], $rows); $this->theme->end_section(); $this->theme->end_page();
+        $this->theme->start_section(); $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel)); $this->theme->render_action_table(['Version', 'Platform', 'Size', 'Date'], $rows); $this->theme->end_section(); $this->theme->end_page();
     }
 
     private function renderPublicHistory(string $slug, string $channel, string $version): void
     {
         $builds = array_values(array_filter($this->builds->all(true, $slug), static fn (ProjectBuild $build): bool => $build->channel === $channel && $build->versionLabel === $version));
         if ($builds === []) { $this->publicNotFound(); return; }
-        $this->theme->start_page($builds[0]->projectName . ' ' . $version, 'Historia buildów i commitów.');
-        $this->theme->start_header($builds[0]->projectName . ' ' . $version, 'Historia buildów ' . self::CHANNELS[$channel] . '.', 'Build / ' . $builds[0]->projectName . ' / ' . self::CHANNELS[$channel] . ' / Historia buildów ' . self::CHANNELS[$channel]); $this->theme->end_header();
+        $this->theme->start_page($builds[0]->projectName . ' ' . $version, 'Build and commit history.');
+        $this->theme->start_header($builds[0]->projectName . ' ' . $version, self::CHANNELS[$channel] . ' build history.', 'Build / ' . $builds[0]->projectName . ' / ' . self::CHANNELS[$channel] . ' / ' . self::CHANNELS[$channel] . ' build history'); $this->theme->end_header();
         $this->theme->start_section();
-        $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel, 'Historia buildów ' . self::CHANNELS[$channel]));
+        $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel, self::CHANNELS[$channel] . ' build history'));
         foreach ($builds as $build) {
             $this->theme->render_detail_card(
                 'Build ' . ($build->buildNumber !== '' ? $build->buildNumber : $build->filename),
                 $build->serverType,
                 [
-                    ['label' => 'Plik', 'value' => $build->filename],
-                    ['label' => 'Czas CI', 'value' => $build->ciBuildTime ?? $build->publishedAt ?? 'Brak'],
-                    ['label' => 'SHA-256', 'value' => $build->checksumSha256 ?: 'Brak'],
-                    ['label' => 'Rozmiar', 'value' => $this->fileSize($build->fileSizeBytes)],
+                    ['label' => 'File', 'value' => $build->filename],
+                    ['label' => 'CI time', 'value' => $build->ciBuildTime ?? $build->publishedAt ?? 'None'],
+                    ['label' => 'SHA-256', 'value' => $build->checksumSha256 ?: 'None'],
+                    ['label' => 'Size', 'value' => $this->fileSize($build->fileSizeBytes)],
                 ],
-                $build->commits !== [] ? ['Commit', 'Czas', 'Wiadomość'] : [],
+                $build->commits !== [] ? ['Commit', 'Time', 'Message'] : [],
                 array_map(static fn (array $commit): array => [substr($commit['sha'], 0, 12), $commit['time'], trim($commit['message'])], $build->commits),
-                [['label' => 'Pobierz', 'href' => $this->downloadHref($build), 'variant' => 'primary']]
+                [['label' => 'Download', 'href' => $this->downloadHref($build), 'variant' => 'primary']]
             );
         }
         $this->theme->end_section(); $this->theme->end_page();
@@ -413,7 +413,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     private function publicNotFound(): void
     {
-        $this->theme->render_public_error(404, 'Nie znaleziono buildów', 'Wybrany projekt, kanał albo wersja nie ma publicznych buildów.', 'Wróć do Build Explorera', '/builds');
+        $this->theme->render_public_error(404, 'Builds not found', 'The selected project, channel or version has no public builds.', 'Back to Build Explorer', '/builds');
     }
 
     private function downloadHref(ProjectBuild $build): string
@@ -578,7 +578,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $path = $build instanceof ProjectBuild ? $this->storage->path($build->storageKey) : null;
         if (!$build instanceof ProjectBuild || $path === null) {
             http_response_code(404);
-            $this->theme->render_public_error(404, 'Plik niedostępny', 'Nie znaleziono opublikowanego pliku JAR.', 'Wróć do plików', '/builds'); return;
+            $this->theme->render_public_error(404, 'File unavailable', 'No published JAR file was found.', 'Back to downloads', '/builds'); return;
         }
         header('Content-Type: application/java-archive');
         header('Content-Disposition: attachment; filename="' . $build->filename . '"');

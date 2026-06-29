@@ -29,6 +29,13 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         'paused' => 'Wstrzymany',
     ];
 
+    private const PUBLIC_STATUSES = [
+        'planned' => 'Planned',
+        'development' => 'In development',
+        'released' => 'Publicly released',
+        'paused' => 'Paused',
+    ];
+
     public function __construct(
         private readonly ThemeInterface $theme,
         private readonly AdminMenuRegistry $menu,
@@ -52,7 +59,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('projects.index', 'Projekty', '/projects', 'main', 55);
+        $navigation->add('projects.index', 'Projects', '/projects', 'main', 55);
     }
 
     public function registerAdminSearch(AdminSearchRegistry $search): void
@@ -85,18 +92,18 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     private function renderPublicList(): void
     {
         $projects = $this->projects->all(true);
-        $this->theme->start_page('Projekty - SyntaxDevTeam', 'Publiczne i rozwijane projekty SyntaxDevTeam.');
-        $this->theme->start_header('Projekty', 'Wydane rozwiązania, aktywny rozwój i plany zespołu.', 'SyntaxDevTeam / Projekty');
+        $this->theme->start_page('Projects - SyntaxDevTeam', 'Public and actively developed SyntaxDevTeam projects.');
+        $this->theme->start_header('Projects', 'Released solutions, active development and team plans.', 'SyntaxDevTeam / Projects');
         $this->theme->end_header();
         $this->theme->start_section();
         if ($projects === []) {
-            $this->theme->render_alert('Katalog projektów jest jeszcze pusty.', 'info');
+            $this->theme->render_alert('The project catalog is empty for now.', 'info');
         } else {
             $columnSize = $this->publicColumnSize(count($projects));
             $this->theme->start_grid();
             foreach ($projects as $project) {
                 $this->theme->start_column($columnSize);
-                $this->theme->start_card($project->name, self::STATUSES[$project->lifecycleStatus]);
+                $this->theme->start_card($project->name, self::PUBLIC_STATUSES[$project->lifecycleStatus]);
                 $this->theme->render_link_list($this->publicLinks($project));
                 $this->theme->end_card();
                 $this->theme->end_column();
@@ -111,14 +118,14 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     {
         $project = $this->projects->findPublishedBySlug($slug);
         if (!$project instanceof Project) {
-            $this->theme->render_public_error(404, 'Nie znaleziono projektu', 'Ten projekt nie jest dostępny publicznie.', 'Wróć do projektów', '/projects');
+            $this->theme->render_public_error(404, 'Project not found', 'This project is not publicly available.', 'Back to projects', '/projects');
             return;
         }
-        $this->theme->start_page($project->name . ' - Projekty', 'Powiązane zasoby projektu ' . $project->name . '.');
-        $this->theme->start_header($project->name, self::STATUSES[$project->lifecycleStatus], 'SyntaxDevTeam / Projekty');
+        $this->theme->start_page($project->name . ' - Projects', 'Related resources for ' . $project->name . '.');
+        $this->theme->start_header($project->name, self::PUBLIC_STATUSES[$project->lifecycleStatus], 'SyntaxDevTeam / Projects');
         $this->theme->end_header();
         $this->theme->start_section();
-        $this->theme->start_card('Zasoby projektu', 'Status: ' . self::STATUSES[$project->lifecycleStatus]);
+        $this->theme->start_card('Project resources', 'Status: ' . self::PUBLIC_STATUSES[$project->lifecycleStatus]);
         $this->theme->render_link_list($this->publicLinks($project));
         $this->theme->end_card();
         $this->theme->end_section();
@@ -284,12 +291,12 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     {
         $links = [];
         if ($project->pageStatus === 'published') {
-            $links[] = ['label' => 'Strona projektu', 'href' => '/p/' . rawurlencode($project->pageSlug), 'meta' => $project->pageTitle];
+            $links[] = ['label' => 'Project page', 'href' => '/p/' . rawurlencode($project->pageSlug), 'meta' => $project->pageTitle];
         }
         if ($project->wikiStatus === 'published') {
-            $links[] = ['label' => 'Dokumentacja', 'href' => '/wiki/project/' . rawurlencode($project->wikiSlug), 'meta' => $project->wikiName];
+            $links[] = ['label' => 'Documentation', 'href' => '/wiki/project/' . rawurlencode($project->wikiSlug), 'meta' => $project->wikiName];
         }
-        $links[] = ['label' => 'Build Explorer', 'href' => '/builds/' . rawurlencode($project->slug), 'meta' => 'Wersje i pliki do pobrania'];
+        $links[] = ['label' => 'Build Explorer', 'href' => '/builds/' . rawurlencode($project->slug), 'meta' => 'Versions and downloadable files'];
 
         return $links;
     }

@@ -135,7 +135,7 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
-        echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
+        echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
         echo '<main id="content" tabindex="-1">';
         $heroRendered = false;
@@ -194,18 +194,18 @@ final class Theme implements ThemeInterface
         }
         if ($pages !== [] && array_filter($pages, static fn (array $page): bool => $page['navigation_area'] === 'main') === []) {
             if ($authenticated) {
-                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Podstrony</a></li>';
+                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Pages</a></li>';
             }
         }
         if ($contactSection !== null) {
             echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($contactSection['key']) . '">';
             echo $this->escape($this->navigationLabel($contactSection)) . '</a></li>';
         } else {
-            echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
+            echo '<li class="nav-item"><a class="nav-link" href="/#contact">Contact</a></li>';
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';
         echo $authenticated ? '/admin' : '/admin/login';
-        echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
+        echo '">' . ($authenticated ? 'Open panel' : 'Sign in') . '</a></li></ul></div></div></nav>';
     }
 
     private function renderPublicFooter(array $pages): void
@@ -250,7 +250,7 @@ final class Theme implements ThemeInterface
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
-        echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>';
+        echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
         echo '<main id="content" tabindex="-1">';
     }
@@ -1150,25 +1150,25 @@ final class Theme implements ThemeInterface
         string $eyebrow = '',
     ): void {
         $labels = [
-            'project' => 'Projekt',
-            'legal' => 'Dokument prawny',
-            'standard' => 'Informacje',
+            'project' => 'Project',
+            'legal' => 'Legal document',
+            'standard' => 'Information',
         ];
         $this->start_page($title . ' - ' . $this->publicName, $description !== '' ? $description : $title);
         $this->start_header(
             $title,
-            ($labels[$pageType] ?? $labels['standard']) . ' · Opublikowano: ' . $publishedAt,
+            ($labels[$pageType] ?? $labels['standard']) . ' · Published: ' . $publishedAt,
             $eyebrow
         );
         $this->end_header();
         $this->start_section();
         echo '<article class="showcase-card managed-home-content">';
         if ($content === '') {
-            echo '<p>Ta strona nie ma jeszcze treści.</p>';
+            echo '<p>This page does not have content yet.</p>';
         } else {
             $this->render_rich_content($content, $contentFormat);
         }
-        echo '<a class="btn btn-outline-light" href="/index.php">Wróć do strony głównej</a></article>';
+        echo '<a class="btn btn-outline-light" href="/index.php">Back to home</a></article>';
         $this->end_section();
         $this->end_page();
     }
@@ -1196,7 +1196,7 @@ final class Theme implements ThemeInterface
         int $status,
         string $title,
         string $message,
-        string $actionLabel = 'Wróć do strony głównej',
+        string $actionLabel = 'Back to home',
         string $actionHref = '/',
     ): void
     {
@@ -1205,7 +1205,7 @@ final class Theme implements ThemeInterface
         $this->end_header();
         $this->start_section();
         echo '<article class="showcase-card">';
-        echo '<p class="eyebrow mb-2">Kod odpowiedzi ' . $this->escape((string) $status) . '</p>';
+        echo '<p class="eyebrow mb-2">Response code ' . $this->escape((string) $status) . '</p>';
         echo '<h2 class="h4">' . $this->escape($this->errorSummary($status)) . '</h2>';
         echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
         $this->render_button($actionLabel, $actionHref, 'outline-light');
@@ -1522,7 +1522,7 @@ final class Theme implements ThemeInterface
                 echo '<div class="text-secondary rich-content">' . $itemContent . '</div>';
                 if ($itemHref !== '') {
                     echo '<a class="btn btn-outline-light" href="' . $this->escape($itemHref) . '">';
-                    echo $this->escape($item['button_label'] !== '' ? $item['button_label'] : 'Czytaj więcej') . '</a>';
+                    echo $this->escape($item['button_label'] !== '' ? $item['button_label'] : 'Read more') . '</a>';
                 }
                 echo '</article>';
             }
@@ -1583,18 +1583,18 @@ final class Theme implements ThemeInterface
         }
         echo '</header><div class="contact-hub-grid">';
         echo '<section class="contact-group contact-group-channels"><div class="contact-group-heading">';
-        echo '<p class="eyebrow">Kanały</p><h3>Wybierz najlepszą drogę</h3></div><div class="contact-list">';
+        echo '<p class="eyebrow">Channels</p><h3>Choose the best route</h3></div><div class="contact-list">';
         foreach ($channels as $item) {
             $this->renderContactItem($item, false);
         }
         echo '</div></section>';
         echo '<section class="contact-group contact-group-people"><div class="contact-group-heading">';
-        echo '<p class="eyebrow">Zespół</p><h3>Bezpośredni kontakt</h3></div><div class="contact-list">';
+        echo '<p class="eyebrow">Team</p><h3>Direct contact</h3></div><div class="contact-list">';
         foreach ($people as $item) {
             $this->renderContactItem($item, true);
         }
         if ($people === []) {
-            echo '<p class="contact-empty">Dodaj element typu „Osoba”, aby zbudować listę zespołu.</p>';
+            echo '<p class="contact-empty">Add a person item to build the team contact list.</p>';
         }
         echo '</div></section></div></div>';
     }
@@ -1690,22 +1690,22 @@ final class Theme implements ThemeInterface
     private function errorEyebrow(int $status): string
     {
         return match ($status) {
-            401 => 'Wymagane logowanie',
-            403 => 'Brak dostępu',
-            404 => 'Nie znaleziono',
-            405 => 'Niedozwolona metoda',
-            default => 'Problem z żądaniem',
+            401 => 'Sign-in required',
+            403 => 'Access denied',
+            404 => 'Not found',
+            405 => 'Method not allowed',
+            default => 'Request problem',
         };
     }
 
     private function errorSummary(int $status): string
     {
         return match ($status) {
-            401 => 'Ta część serwisu wymaga zalogowania.',
-            403 => 'Twoje konto nie ma dostępu do tego widoku.',
-            404 => 'Ten adres nie prowadzi do aktywnej strony.',
-            405 => 'Ten adres istnieje, ale oczekuje innego typu żądania.',
-            default => 'Nie udało się poprawnie obsłużyć żądania.',
+            401 => 'This part of the site requires sign-in.',
+            403 => 'Your account cannot access this view.',
+            404 => 'This address does not point to an active page.',
+            405 => 'This address exists, but expects a different request method.',
+            default => 'The request could not be handled correctly.',
         };
     }
 

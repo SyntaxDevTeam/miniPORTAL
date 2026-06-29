@@ -1093,8 +1093,8 @@ final class CorePagesModule implements ModuleInterface
         if ($page === null) {
             http_response_code(404);
             $this->theme->render_page_not_found(
-                'Nie znaleziono strony',
-                'Ta strona nie istnieje albo nie została jeszcze opublikowana.'
+                'Page not found',
+                'This page does not exist or has not been published yet.'
             );
             return;
         }
@@ -1127,27 +1127,27 @@ final class CorePagesModule implements ModuleInterface
                 $pages = $this->pages->published();
                 return $this->capture(function () use ($pages): void {
         $this->theme->start_page(
-            'Podstrony - SyntaxDevTeam',
-            'Projekty, informacje i dokumenty serwisu SyntaxDevTeam.'
+            'Pages - SyntaxDevTeam',
+            'Projects, information and documents from SyntaxDevTeam.'
         );
         $this->theme->start_header(
-            'Podstrony',
-            'Opisy projektów, dodatkowe informacje oraz dokumenty prawne.',
-            'SyntaxDevTeam / Podstrony'
+            'Pages',
+            'Project descriptions, additional information and legal documents.',
+            'SyntaxDevTeam / Pages'
         );
         $this->theme->end_header();
         $this->theme->start_section();
 
         if ($pages === []) {
-            $this->theme->render_alert('Nie opublikowano jeszcze żadnych podstron.', 'info');
+            $this->theme->render_alert('No pages have been published yet.', 'info');
         } else {
             $this->theme->start_grid();
             foreach ($pages as $page) {
                 $this->theme->start_column('md-6');
-                $this->theme->start_card($page->title, $this->pageTypeLabel($page->pageType));
-                $this->theme->render_text($page->summary !== '' ? $page->summary : 'Otwórz stronę, aby przeczytać pełną treść.');
+                $this->theme->start_card($page->title, $this->publicPageTypeLabel($page->pageType));
+                $this->theme->render_text($page->summary !== '' ? $page->summary : 'Open the page to read the full content.');
                 $this->theme->render_button(
-                    'Otwórz',
+                    'Open',
                     '/p/' . rawurlencode($page->slug),
                     'outline-light'
                 );
@@ -1555,6 +1555,15 @@ final class CorePagesModule implements ModuleInterface
             'project' => 'Projekt',
             'legal' => 'Dokument prawny',
             default => 'Informacje',
+        };
+    }
+
+    private function publicPageTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'project' => 'Project',
+            'legal' => 'Legal document',
+            default => 'Information',
         };
     }
 

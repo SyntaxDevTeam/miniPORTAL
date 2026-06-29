@@ -65,7 +65,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('articles.index', 'Artykuły', '/articles', 'none', 50);
+        $navigation->add('articles.index', 'Articles', '/articles', 'none', 50);
     }
 
     public function registerRoutes(Router $router): void
@@ -134,17 +134,17 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                 $articles = $this->articles->published($category !== '' ? $category : null);
 
                 return $this->capture(function () use ($articles, $category): void {
-        $this->theme->start_page('Artykuły - SyntaxDevTeam', 'Opublikowane artykuły SyntaxDevTeam.');
+        $this->theme->start_page('Articles - SyntaxDevTeam', 'Published SyntaxDevTeam articles.');
         $this->theme->start_header(
-            'Artykuły',
-            $category !== '' ? 'Kategoria: ' . $category : 'Wiadomości, poradniki i informacje projektowe.',
-            'SyntaxDevTeam / Artykuły'
+            'Articles',
+            $category !== '' ? 'Category: ' . $category : 'News, tutorials and project updates.',
+            'SyntaxDevTeam / Articles'
         );
         $this->theme->end_header();
         $this->theme->start_section();
 
         if ($articles === []) {
-            $this->theme->render_alert('Brak opublikowanych artykułów w wybranej kategorii.', 'info');
+            $this->theme->render_alert('There are no published articles in the selected category yet.', 'info');
         } else {
             $this->theme->start_grid();
             foreach ($articles as $article) {
@@ -152,7 +152,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                 $this->theme->start_card($article->title, $article->categoryName);
                 $this->theme->render_text($article->summary);
                 $this->theme->render_button(
-                    'Czytaj artykuł',
+                    'Read article',
                     $this->articleHref($article->slug),
                     'outline-light'
                 );
@@ -182,8 +182,8 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         if ($article === null) {
             http_response_code(404);
             $this->theme->render_page_not_found(
-                'Nie znaleziono artykułu',
-                'Ten artykuł nie istnieje albo nie został jeszcze opublikowany.'
+                'Article not found',
+                'This article does not exist or has not been published yet.'
             );
             return;
         }
@@ -194,14 +194,14 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         $this->theme->start_page($article->title . ' - SyntaxDevTeam', $article->summary);
         $this->theme->start_header(
             $article->title,
-            $article->categoryName . ' | Opublikowano: ' . ($article->publishedAt ?? $article->updatedAt),
-            'Artykuł / ' . $article->categoryName
+            $article->categoryName . ' | Published: ' . ($article->publishedAt ?? $article->updatedAt),
+            'Article / ' . $article->categoryName
         );
         $this->theme->end_header();
         $this->theme->start_section();
-        $this->theme->start_card('', 'Artykuł');
+        $this->theme->start_card('', 'Article');
         $this->theme->render_rich_content($article->content, $article->contentFormat);
-        $this->theme->render_button('Wróć do artykułów', '/articles', 'outline-light');
+        $this->theme->render_button('Back to articles', '/articles', 'outline-light');
         $this->theme->end_card();
         $this->theme->end_section();
         $this->theme->end_page();

@@ -66,7 +66,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('team.index', 'Zespół', '/team', 'none', 65);
+        $navigation->add('team.index', 'Team', '/team', 'none', 65);
     }
 
     public function registerAdminSearch(AdminSearchRegistry $search): void
@@ -140,12 +140,12 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
     private function renderPublicList(): void
     {
         $members = $this->team->visible();
-        $this->theme->start_page('Zespół - SyntaxDevTeam', 'Poznaj członków zespołu SyntaxDevTeam.');
-        $this->theme->start_header('Zespół', 'Ludzie stojący za projektami, modułami i wsparciem społeczności.', 'SyntaxDevTeam / Team');
+        $this->theme->start_page('Team - SyntaxDevTeam', 'Meet the SyntaxDevTeam members.');
+        $this->theme->start_header('Team', 'The people behind the projects, modules and community support.', 'SyntaxDevTeam / Team');
         $this->theme->end_header();
         $this->theme->start_section();
         if ($members === []) {
-            $this->theme->render_alert('Publiczna lista zespołu jest jeszcze pusta.', 'info');
+            $this->theme->render_alert('The public team list is empty for now.', 'info');
         } else {
             $this->theme->start_grid();
             foreach ($members as $member) {
@@ -153,7 +153,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
                 $this->theme->start_card($member->publicName, $member->roleLabel);
                 $this->renderPublicAvatar($member);
                 $this->theme->render_text($this->shortBio($member->bio));
-                $this->theme->render_button('Pokaż profil', '/team/member/' . rawurlencode($member->slug), 'primary');
+                $this->theme->render_button('View profile', '/team/member/' . rawurlencode($member->slug), 'primary');
                 $this->theme->end_card();
                 $this->theme->end_column();
             }
@@ -167,33 +167,33 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
     {
         $member = $this->team->findVisibleBySlug($slug);
         if (!$member instanceof TeamMember) {
-            $this->theme->render_public_error(404, 'Nie znaleziono profilu', 'Ten profil zespołu nie jest dostępny publicznie.', 'Wróć do zespołu', '/team');
+            $this->theme->render_public_error(404, 'Profile not found', 'This team profile is not publicly available.', 'Back to team', '/team');
             return;
         }
 
-        $this->theme->start_page($member->publicName . ' - Zespół SyntaxDevTeam', $this->shortBio($member->bio));
-        $this->theme->start_header($member->publicName, $member->roleLabel, 'SyntaxDevTeam / Profil');
+        $this->theme->start_page($member->publicName . ' - SyntaxDevTeam Team', $this->shortBio($member->bio));
+        $this->theme->start_header($member->publicName, $member->roleLabel, 'SyntaxDevTeam / Profile');
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->start_grid();
         $this->theme->start_column('md-4');
-        $this->theme->start_card($member->publicName, 'Profil');
+        $this->theme->start_card($member->publicName, 'Profile');
         $this->renderPublicAvatar($member);
         $this->theme->render_table([
-            'Pole',
-            'Wartość',
+            'Field',
+            'Value',
         ], [
-            ['Rola', $member->roleLabel],
-            ['Profil systemowy', $member->displayName],
-            ['Kontakt', $member->profileUrl !== '' ? $member->profileUrl : 'Przez kanały zespołu'],
+            ['Role', $member->roleLabel],
+            ['System profile', $member->displayName],
+            ['Contact', $member->profileUrl !== '' ? $member->profileUrl : 'Through the team channels'],
         ]);
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->start_column('md-8');
-        $this->theme->start_card('O członku zespołu', 'Opis publiczny');
+        $this->theme->start_card('About this team member', 'Public bio');
         $this->theme->render_text($member->bio);
         if ($member->profileUrl !== '') {
-            $this->theme->render_button('Otwórz link profilu', $member->profileUrl, 'primary');
+            $this->theme->render_button('Open profile link', $member->profileUrl, 'primary');
         }
         $this->theme->end_card();
         $this->theme->end_column();

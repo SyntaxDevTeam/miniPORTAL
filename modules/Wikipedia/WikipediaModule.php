@@ -65,7 +65,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void
     {
-        $navigation->add('wikipedia.index', 'Dokumentacja', '/wiki', 'none', 60);
+        $navigation->add('wikipedia.index', 'Documentation', '/wiki', 'none', 60);
     }
 
     public function registerRoutes(Router $router): void
@@ -151,20 +151,20 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $projects = $this->wiki->publishedProjects();
 
             return $this->capture(function () use ($projects): void {
-                $this->theme->start_page('Dokumentacja projektów - SyntaxDevTeam', 'Baza wiedzy projektów SyntaxDevTeam.');
-                $this->theme->start_header('Dokumentacja projektów', 'Wiedza techniczna, procedury i opisy projektów.', 'SyntaxDevTeam / Wiki');
+                $this->theme->start_page('Project documentation - SyntaxDevTeam', 'Knowledge base for SyntaxDevTeam projects.');
+                $this->theme->start_header('Project documentation', 'Technical knowledge, procedures and project guides.', 'SyntaxDevTeam / Wiki');
                 $this->theme->end_header();
                 $this->theme->start_section();
                 if ($projects === []) {
-                    $this->theme->render_alert('Nie opublikowano jeszcze żadnej dokumentacji projektowej.', 'info');
+                    $this->theme->render_alert('No project documentation has been published yet.', 'info');
                 } else {
                     $this->theme->start_grid();
                     foreach ($projects as $project) {
                         $this->theme->start_column('md-6');
-                        $this->theme->start_card($project->name, 'Projekt');
+                        $this->theme->start_card($project->name, 'Project');
                         $this->theme->render_text($project->summary);
                         $this->theme->render_button(
-                            'Otwórz dokumentację',
+                            'Open documentation',
                             $this->wikiProjectHref($project->slug),
                             'outline-light'
                         );
@@ -189,7 +189,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $project = $slug !== '' ? $this->wiki->findPublishedProjectBySlug($slug) : null;
         if ($project === null) {
             http_response_code(404);
-            $this->theme->render_page_not_found('Nie znaleziono dokumentacji', 'Ten projekt nie istnieje albo nie został opublikowany.');
+            $this->theme->render_page_not_found('Documentation not found', 'This project does not exist or has not been published.');
             return;
         }
 
@@ -197,20 +197,20 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $pages = $this->wiki->publishedPages($project->id);
 
             return $this->capture(function () use ($project, $pages): void {
-                $this->theme->start_page($project->name . ' - dokumentacja', $project->summary);
-                $this->theme->start_header($project->name, $project->summary, 'Wiki / Projekt');
+                $this->theme->start_page($project->name . ' - documentation', $project->summary);
+                $this->theme->start_header($project->name, $project->summary, 'Wiki / Project');
                 $this->theme->end_header();
                 $this->theme->start_section();
                 if ($pages === []) {
-                    $this->theme->render_alert('Projekt nie ma jeszcze opublikowanych stron dokumentacji.', 'info');
+                    $this->theme->render_alert('This project does not have published documentation pages yet.', 'info');
                 } else {
                     $this->theme->start_grid();
                     foreach ($pages as $page) {
                         $this->theme->start_column('md-6');
-                        $this->theme->start_card($page->title, 'Strona dokumentacji');
+                        $this->theme->start_card($page->title, 'Documentation page');
                         $this->theme->render_text($page->summary);
                         $this->theme->render_button(
-                            'Czytaj',
+                            'Read',
                             $this->wikiPageHref($page),
                             'outline-light'
                         );
@@ -219,7 +219,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
                     }
                     $this->theme->end_grid();
                 }
-                $this->theme->render_button('Wróć do dokumentacji', '/wiki', 'outline-light');
+                $this->theme->render_button('Back to documentation', '/wiki', 'outline-light');
                 $this->theme->end_section();
                 $this->theme->end_page();
             });
@@ -241,7 +241,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             : null;
         if ($page === null) {
             http_response_code(404);
-            $this->theme->render_page_not_found('Nie znaleziono strony dokumentacji', 'Ta strona nie istnieje albo nie została opublikowana.');
+            $this->theme->render_page_not_found('Documentation page not found', 'This page does not exist or has not been published.');
             return;
         }
 
@@ -257,7 +257,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             );
             $this->theme->end_header();
             $this->theme->start_section();
-            $this->theme->start_card('', 'Dokumentacja');
+            $this->theme->start_card('', 'Documentation');
             $this->theme->render_rich_content($page->content, $page->contentFormat);
             $this->theme->render_content_navigation($navigation);
             $this->theme->end_card();

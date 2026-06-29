@@ -91,19 +91,19 @@ FROM (
         'top' AS section_key,
         'hero' AS section_type,
         'Minecraft / Discord / Android / Backend' AS eyebrow,
-        'Kod, który zasila społeczności.' AS title,
-        '<p>Projektujemy pluginy serwerowe, automatyzacje Discord, aplikacje mobilne i modułowe systemy WWW, które można rozwijać bez przepisywania wszystkiego od początku.</p>' AS content_html,
+        'Code that powers communities.' AS title,
+        '<p>We build server plugins, Discord automation, mobile apps and modular web systems that can grow without rewriting everything from scratch.</p>' AS content_html,
         'split' AS layout,
-        'Poznaj projekty' AS button_label,
+        'Explore projects' AS button_label,
         '#projects' AS button_url,
         10 AS sort_order
     UNION ALL
     SELECT
         'projects',
         'content',
-        '01 / Wybrane realizacje',
-        'Niezależne projekty. Wspólny standard jakości.',
-        '<h3>PunisherX</h3><p>System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.</p><h3>SyntaxCore</h3><p>Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.</p><h3>Econizer</h3><p>Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.</p><h3>miniPORTAL</h3><p>Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.</p>',
+        '01 / Featured work',
+        'Independent projects. One shared quality standard.',
+        '<h3>PunisherX</h3><p>A moderation system for Paper and Folia: punishments, action history, permissions and API.</p><h3>SyntaxCore</h3><p>A shared library for messages, configuration, logging and integrations.</p><h3>Econizer</h3><p>A Discord bot connecting community economy, tasks, shop and a web panel.</p><h3>miniPORTAL</h3><p>Plain PHP, swappable themes, local ACL and independent content modules.</p>',
         'columns',
         '',
         '',
@@ -112,9 +112,9 @@ FROM (
     SELECT
         'stack',
         'content',
-        '02 / Technologie',
-        'Dobieramy narzędzia do problemu.',
-        '<h3>Paper & Folia</h3><p>Kotlin, Adventure i nowoczesne środowiska serwerowe.</p><h3>Discord & OAuth</h3><p>Boty, logowanie federacyjne, ACL i integracje API.</p><h3>PHP & CrudApp</h3><p>PHP 8.5, Medoo, MySQL i wymienna warstwa Theme.</p>',
+        '02 / Technology',
+        'We choose tools for the problem.',
+        '<h3>Paper & Folia</h3><p>Kotlin, Adventure and modern server environments.</p><h3>Discord & OAuth</h3><p>Bots, federated sign-in, ACL and API integrations.</p><h3>PHP & CrudApp</h3><p>PHP 8.4+, Medoo, MySQL and a swappable Theme layer.</p>',
         'columns',
         '',
         '',
@@ -123,9 +123,9 @@ FROM (
     SELECT
         'contact',
         'cta',
-        'Kontakt i wsparcie',
-        'Pozostańmy w kontakcie.',
-        '<p>Wybierz kanał najlepiej dopasowany do sprawy: Discord do szybkiego kontaktu, GitHub do kodu i zgłoszeń albo e-mail do bezpośredniej rozmowy.</p>',
+        'Contact and support',
+        'Let us stay in touch.',
+        '<p>Choose the best channel for the topic: Discord for quick contact, GitHub for code and issues, or e-mail for direct conversation.</p>',
         'contact',
         '',
         '',
@@ -138,43 +138,43 @@ CROSS JOIN (
 INSERT INTO homepage_section_items
     (section_id, label, title, content, item_kind, icon_key, button_label, button_url, variant, width, sort_order)
 SELECT id, 'PROJECT / 001', 'PunisherX',
-    'System moderacji dla Paper i Folia: kary, historia działań, uprawnienia oraz API.',
-    'card', '', 'Zapytaj o projekt', '#contact', 'primary', 'wide', 10
+    'A moderation system for Paper and Folia: punishments, action history, permissions and API.',
+    'card', '', 'Ask about this project', '#contact', 'primary', 'wide', 10
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 002', 'SyntaxCore',
-    'Wspólna biblioteka komunikatów, konfiguracji, logowania i integracji.',
-    'card', '', 'Zobacz fundamenty', '#contact', 'violet', 'standard', 20
+    'A shared library for messages, configuration, logging and integrations.',
+    'card', '', 'View the foundations', '#contact', 'violet', 'standard', 20
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 003', 'Econizer',
-    'Bot Discord łączący ekonomię społeczności, zadania, sklep i panel WWW.',
-    'card', '', 'Sprawdź możliwości', '#contact', 'violet', 'standard', 30
+    'A Discord bot connecting community economy, tasks, shop and a web panel.',
+    'card', '', 'Explore features', '#contact', 'violet', 'standard', 30
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
 SELECT id, 'PROJECT / 004', 'miniPORTAL',
-    'Czysty PHP, wymienne motywy, lokalne ACL i niezależne moduły treści.',
-    'card', '', 'Poznaj system', '#contact', 'primary', 'wide', 40
+    'Plain PHP, swappable themes, local ACL and independent content modules.',
+    'card', '', 'Discover the system', '#contact', 'primary', 'wide', 40
 FROM homepage_sections WHERE section_key = 'projects'
 UNION ALL
-SELECT id, 'SERWERY', 'Paper & Folia',
-    'Kotlin, Adventure i nowoczesne środowiska serwerowe.',
+SELECT id, 'SERVERS', 'Paper & Folia',
+    'Kotlin, Adventure and modern server environments.',
     'card', '', '', '', 'primary', 'standard', 10
 FROM homepage_sections WHERE section_key = 'stack'
 UNION ALL
-SELECT id, 'AUTOMATYZACJA', 'Discord & OAuth',
-    'Boty, logowanie federacyjne, ACL i integracje API.',
+SELECT id, 'AUTOMATION', 'Discord & OAuth',
+    'Bots, federated sign-in, ACL and API integrations.',
     'card', '', '', '', 'primary', 'standard', 20
 FROM homepage_sections WHERE section_key = 'stack'
 UNION ALL
 SELECT id, 'WEB', 'PHP & CrudApp',
-    'PHP 8.5, Medoo, MySQL i wymienna warstwa Theme.',
+    'PHP 8.4+, Medoo, MySQL and a swappable Theme layer.',
     'card', '', '', '', 'primary', 'standard', 30
 FROM homepage_sections WHERE section_key = 'stack'
 UNION ALL
 SELECT id, 'DISCORD', 'SyntaxDevTeam.pl/Discord',
-    'Szybki kontakt, dyskusje i informacje o społeczności.',
-    'channel', 'discord', 'Dołącz', 'https://syntaxdevteam.pl/discord', 'violet', 'standard', 10
+    'Quick contact, discussions and community updates.',
+    'channel', 'discord', 'Join', 'https://syntaxdevteam.pl/discord', 'violet', 'standard', 10
 FROM homepage_sections WHERE section_key = 'contact'
 UNION ALL
 SELECT id, 'GITHUB', 'SyntaxDevTeam',
@@ -188,9 +188,9 @@ SELECT id, 'E-MAIL', 'Zespół SyntaxDevTeam',
 FROM homepage_sections WHERE section_key = 'contact';
 
 UPDATE homepage_sections
-SET content_html = '<p>Każdy produkt jest osobnym modułem, ale korzysta ze sprawdzonych fundamentów.</p>'
+SET content_html = '<p>Each product is a separate module, built on proven foundations.</p>'
 WHERE section_key = 'projects';
 
 UPDATE homepage_sections
-SET content_html = '<p>Bez zbędnej warstwy abstrakcji, z naciskiem na bezpieczeństwo i utrzymanie.</p>'
+SET content_html = '<p>No unnecessary abstraction, with a focus on security and maintainability.</p>'
 WHERE section_key = 'stack';

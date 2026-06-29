@@ -244,7 +244,7 @@ final class EconizerRepository
             }
             $price = (int) $item['price'];
             if ((int) $wallet['balance'] < $price) {
-                throw new RuntimeException('Brak wystarczających środków.');
+                throw new RuntimeException('Insufficient funds.');
             }
             if ($item['stock'] !== null && (int) $item['stock'] < 1) {
                 throw new RuntimeException('Przedmiot jest wyprzedany.');
@@ -287,7 +287,7 @@ final class EconizerRepository
     public function trade(int $guildId, int $userId, int $assetId, int $quantity, bool $buy): void
     {
         if ($quantity < 1 || $quantity > 100000) {
-            throw new RuntimeException('Nieprawidłowa liczba jednostek.');
+            throw new RuntimeException('Invalid unit quantity.');
         }
         $this->database->action(function () use ($guildId, $userId, $assetId, $quantity, $buy): void {
             $asset = $this->row('SELECT id, symbol, current_price FROM econizer_market_assets WHERE id = :id AND guild_id = :guild_id AND is_active = 1 FOR UPDATE', [':id' => $assetId, ':guild_id' => $guildId]);
@@ -301,10 +301,10 @@ final class EconizerRepository
             $value = $price * $quantity;
             $balance = (int) $wallet['balance'];
             if ($buy && $balance < $value) {
-                throw new RuntimeException('Brak wystarczających środków.');
+                throw new RuntimeException('Insufficient funds.');
             }
             if (!$buy && $owned < $quantity) {
-                throw new RuntimeException('Brak wystarczającej liczby jednostek.');
+                throw new RuntimeException('Not enough units.');
             }
             $newQuantity = $buy ? $owned + $quantity : $owned - $quantity;
             $newBalance = $buy ? $balance - $value : $balance + $value;

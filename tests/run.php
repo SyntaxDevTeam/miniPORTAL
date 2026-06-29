@@ -882,7 +882,7 @@ $test('Articles module exposes a configurable public navigation link', static fu
     $assert(is_subclass_of(ArticlesModule::class, PublicNavigationProviderInterface::class));
 });
 
-$test('Public theme exposes common Home and Kontakt navigation on subpages', static function () use ($assert): void {
+$test('Public theme exposes common Home and Contact navigation on subpages', static function () use ($assert): void {
     $theme = new DefaultTheme([
         'public_path' => '/test',
         'public_name' => 'SyntaxDevTeam',
@@ -895,7 +895,7 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     $html = (string) ob_get_clean();
 
     $assert(str_contains($html, 'href="/">Home</a>'));
-    $assert(str_contains($html, 'href="/#contact">Kontakt</a>'));
+    $assert(str_contains($html, 'href="/#contact">Contact</a>'));
 
     $publicNavigation = [
         [
@@ -909,13 +909,13 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
             'sort_order' => 35,
         ],
         [
-            'title' => 'Projekty',
+            'title' => 'Projects',
             'slug' => '',
             'href' => '/projects',
             'summary' => '',
             'type' => 'module',
             'navigation_area' => 'main',
-            'navigation_label' => 'Projekty',
+            'navigation_label' => 'Projects',
             'sort_order' => 55,
         ],
     ];
@@ -926,14 +926,14 @@ $test('Public theme exposes common Home and Kontakt navigation on subpages', sta
     ob_start();
     $navbar->invoke($theme, $publicNavigation, true, [
         ['type' => 'hero', 'key' => 'hero', 'layout' => 'split', 'eyebrow' => '', 'title' => 'Hero'],
-        ['type' => 'content', 'key' => 'contact', 'layout' => 'contact', 'eyebrow' => '03 / Kontakt', 'title' => 'Kontakt'],
+        ['type' => 'content', 'key' => 'contact', 'layout' => 'contact', 'eyebrow' => '03 / Contact', 'title' => 'Contact'],
     ], true);
     $html = (string) ob_get_clean();
 
     $econizerPosition = strpos($html, '>Econizer</a>');
-    $projectsPosition = strpos($html, '>Projekty</a>');
-    $contactPosition = strpos($html, '>Kontakt</a>');
-    $panelPosition = strpos($html, '>Otwórz panel</a>');
+    $projectsPosition = strpos($html, '>Projects</a>');
+    $contactPosition = strpos($html, '>Contact</a>');
+    $panelPosition = strpos($html, '>Open panel</a>');
     $assert($econizerPosition !== false && $projectsPosition !== false && $contactPosition !== false);
     $assert($econizerPosition < $contactPosition);
     $assert($projectsPosition < $contactPosition);
@@ -1378,11 +1378,11 @@ $test('Public error page is friendly and does not mention dashboard', static fun
     ]);
 
     ob_start();
-    $theme->render_public_error(404, 'Nie znaleziono strony', 'Adres nie pasuje do aktywnego widoku.');
+    $theme->render_public_error(404, 'Page not found', 'The address does not match an active view.');
     $html = (string) ob_get_clean();
 
-    $assert(str_contains($html, 'Kod odpowiedzi 404'));
-    $assert(str_contains($html, 'Wróć do strony głównej'));
+    $assert(str_contains($html, 'Response code 404'));
+    $assert(str_contains($html, 'Back to home'));
     $assert(!str_contains($html, 'dashboard'));
 });
 
@@ -1834,9 +1834,9 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($translatorModuleSource, "'source_filename'"));
     $assert(str_contains($translatorModuleSource, 'Kategorie tłumaczeń'));
     $assert(str_contains($translatorModuleSource, '/admin/plugin-translator/plugins/edit'));
-    $assert(str_contains($translatorModuleSource, 'Moje wersje robocze'));
+    $assert(str_contains($translatorModuleSource, 'My drafts'));
     $assert(str_contains($translatorModuleSource, '/translations/suggest'));
-    $assert(str_contains($translatorModuleSource, 'Zaproponuj poprawkę'));
+    $assert(str_contains($translatorModuleSource, 'Suggest correction'));
     $translatorRepositorySource = (string) file_get_contents(
         dirname(__DIR__) . '/modules/PluginTranslator/PluginTranslationRepository.php'
     );
@@ -1885,7 +1885,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $projectsSource = (string) file_get_contents(dirname(__DIR__) . '/modules/Projects/ProjectsModule.php');
     $assert(str_contains($projectsSource, "\$router->get('/projects'"));
     $assert(str_contains($projectsSource, "\$router->get('/admin/projects'"));
-    $assert(str_contains($projectsSource, "navigation->add('projects.index', 'Projekty', '/projects', 'main'"));
+    $assert(str_contains($projectsSource, "navigation->add('projects.index', 'Projects', '/projects', 'main'"));
     $assert(str_contains($projectsSource, 'render_link_list'));
     $assert(!str_contains($projectsSource, "'name' => 'summary'"));
 
@@ -1922,7 +1922,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsSource, 'render_breadcrumb($this->buildBreadcrumb'));
     $assert(str_contains($buildsSource, "['Projekt', 'Wersja', 'Kanał', 'Plik', 'Rozmiar', 'Publikacja']"));
     $assert(str_contains($buildsSource, '$this->fileSize($build->fileSizeBytes)'));
-    $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main'"));
+    $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Downloads', '/builds', 'main'"));
 });
 
 $test('Build artifact storage generates names and calculates upload metadata', static function () use ($assert): void {
