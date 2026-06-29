@@ -1087,7 +1087,7 @@ final class CorePagesModule implements ModuleInterface
 
     private function renderPublicPage(Request $request): void
     {
-        $slug = $this->normalizeSlug($request->queryString('slug'));
+        $slug = $this->normalizeSlug($request->routeString('slug', $request->queryString('slug')));
         $page = $slug !== '' ? $this->pages->findPublishedBySlug($slug) : null;
 
         if ($page === null) {
