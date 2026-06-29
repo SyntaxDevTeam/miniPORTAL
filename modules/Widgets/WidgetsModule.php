@@ -27,6 +27,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
     private const TYPES = [
         'terminal' => 'Interaktywny terminal',
         'card' => 'Karta informacyjna',
+        'uptime' => 'Panel uptime',
     ];
 
     private const PLACEMENTS = [
@@ -59,7 +60,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
 
     public function version(): string
     {
-        return '1.1.0';
+        return '1.2.0';
     }
 
     public function dependencies(): array
@@ -87,9 +88,9 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         $search->add(
             'widgets.create',
             'Dodaj widget',
-            'Dodaj terminal albo kartę do wybranego slotu strony głównej.',
+            'Dodaj terminal, kartę albo panel uptime do wybranego slotu strony głównej.',
             'index.php?route=/admin/widgets/create',
-            ['widget', 'terminal', 'hero', 'karta', 'motyw', 'sekcja'],
+            ['widget', 'terminal', 'hero', 'karta', 'uptime', 'monitoring', 'motyw', 'sekcja'],
             'widgets.manage',
             'Treść',
             42,
@@ -138,6 +139,10 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
             $request,
             fn () => $this->delete($request)
         ));
+        $router->post('/admin/widgets/toggle', fn (Request $request) => $this->guard(
+            $request,
+            fn () => $this->toggleVisibility($request)
+        ));
     }
 
     private function renderList(string $message = '', string $variant = 'info'): void
@@ -179,6 +184,11 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
                         'href' => 'index.php?route=/admin/widgets/edit&id=' . $widget->id,
                         'variant' => 'primary',
                     ], [
+                        'label' => $widget->visible ? 'Wyłącz' : 'Włącz',
+                        'action' => 'index.php?route=/admin/widgets/toggle',
+                        'variant' => $widget->visible ? 'warning' : 'success',
+                        'fields' => ['id' => $widget->id],
+                    ], [
                         'label' => 'Usuń',
                         'action' => 'index.php?route=/admin/widgets/delete',
                         'variant' => 'danger',
@@ -206,15 +216,22 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         }
         $themeOptions = ['*' => 'Wszystkie motywy'] + $this->availableThemes;
         $this->theme->start_admin_panel('Konfiguracja widgetu', $editing ? $widget->key : 'Nowy element');
+        $type = $widget?->type ?? 'new';
+        $contentHelp = match ($type) {
+            'terminal' => 'Wpisz kolejne linie startowe terminala.',
+            'uptime' => 'Jedna linia to jeden element monitoringu: Etykieta | Wartość | status. Status: up, warn, down albo neutral.',
+            'new' => 'Dla panelu uptime wpisz linie: Etykieta | Wartość | status. Dla terminala wpisz kolejne linie startowe. Karty po zapisaniu można edytować wizualnie.',
+            default => 'Dla karty możesz użyć edytora wizualnego albo Markdown.',
+        };
         $contentField = [
             'name' => 'content',
-            'label' => 'Treść lub powitanie terminala',
-            'type' => ($widget?->type ?? 'card') === 'terminal' ? 'textarea' : 'richtext',
+            'label' => $type === 'uptime' ? 'Elementy monitoringu' : 'Treść lub powitanie terminala',
+            'type' => in_array($type, ['terminal', 'uptime', 'new'], true) ? 'textarea' : 'richtext',
             'value' => $widget?->content ?? '',
             'rows' => 9,
             'format_name' => 'content_format',
             'format_value' => $widget?->contentFormat ?? 'html',
-            'help' => 'Dla terminala wpisz kolejne linie startowe. Dla karty możesz użyć edytora wizualnego albo Markdown.',
+            'help' => $contentHelp,
         ];
         $this->theme->render_form(
             'index.php?route=' . ($editing ? '/admin/widgets/edit' : '/admin/widgets/create'),
@@ -311,8 +328,8 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
             $this->renderForm($widget, 'Dla położenia przed lub po sekcji podaj jej klucz.', 'warning');
             return;
         }
-        if ($type === 'terminal' && $rawContent === '') {
-            $this->renderForm($widget, 'Terminal wymaga tekstu powitalnego.', 'warning');
+        if (in_array($type, ['terminal', 'uptime'], true) && $rawContent === '') {
+            $this->renderForm($widget, 'Ten typ widgetu wymaga uzupełnionej treści.', 'warning');
             return;
         }
         if ($buttonUrl !== '' && !$this->safeUrl($buttonUrl)) {
@@ -327,7 +344,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         $content = $type === 'card'
             ? (new ContentRenderer())->prepareForStorage($rawContent, $contentFormat)
             : $rawContent;
-        if ($type === 'terminal') {
+        if ($type !== 'card') {
             $contentFormat = ContentRenderer::HTML;
         }
 
@@ -377,6 +394,30 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         $this->cache->invalidateTags(['homepage', 'widgets', 'theme']);
         $this->audit->record($request, 'widget_delete', 'success', 'widget:' . $id, $actor?->id);
         $this->renderList('Widget został usunięty.', 'success');
+    }
+
+    private function toggleVisibility(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'widget_toggle', 'invalid_csrf', 'widgets', $actor?->id);
+            $this->renderList('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $id = $request->postInt('id', 0) ?? 0;
+        $widget = $this->widgets->find($id);
+        if (!$widget instanceof Widget) {
+            $this->renderList('Nie znaleziono widgetu.', 'danger');
+            return;
+        }
+        if (!$this->widgets->setVisible($id, !$widget->visible)) {
+            $this->audit->record($request, 'widget_toggle', 'failed', 'widget:' . $id, $actor?->id);
+            $this->renderList('Nie udało się zmienić widoczności widgetu.', 'danger');
+            return;
+        }
+        $this->cache->invalidateTags(['homepage', 'widgets', 'theme']);
+        $this->audit->record($request, 'widget_toggle', 'success', 'widget:' . $id, $actor?->id);
+        $this->renderList($widget->visible ? 'Widget został wyłączony.' : 'Widget został włączony.', 'success');
     }
 
     /** @param callable(): void $handler */

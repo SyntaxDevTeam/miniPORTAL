@@ -149,6 +149,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | `core_pages` 1.1.0: opcjonalny pionowy akrostych dla sekcji Hero / Split. |
 | [x] | `core_pages` 1.2.0: publiczna podstrona projektu miniPORTAL i linkowany podpis stopki. |
 | [x] | `widgets` 1.0.0: hookowe sloty strony głównej, CRUD i terminal wydzielony z motywów. |
+| [x] | `widgets` 1.2.0: panel uptime z elementami monitoringu oraz szybkie włączanie i wyłączanie widgetów. |
 
 ### Krok 6 - system modułów
 
@@ -342,6 +343,7 @@ Brak aktywnych blokerów.
 | 2026-06-25 | Wydanie 0.2.3 dodaje pełny preflight praw zapisu platformy. Atomowa aktualizacja wymaga zapisu katalogu głównego oraz zarządzanego runtime; panel i kreator pokazują problem przed podmianą plików, bez zmiany praw sekretów. |
 | 2026-06-25 | `core_auth` 1.6.0 dodaje Microsoft OAuth, panelową konfigurację providerów w chronionym `config/modules/auth-providers.env` oraz bootstrap Ownera przez pierwsze poprawne logowanie dowolnym providerem. `AdminMenuRegistry` ma stabilne i rozszerzalne sekcje; `system_admin` 2.1.0 udostępnia formularz wyłącznie Ownerowi. |
 | 2026-06-29 | `widgets` 1.1.0 dodaje format treści kart (`html`/`markdown`), rich text w formularzu kart oraz w pełni edytowalny skrypt bootowania terminala Hero. Motywy renderują karty przez `ContentRenderer`, a JavaScript terminala używa linii zapisanych w rekordzie widgetu zamiast zaszytego tekstu startowego. |
+| 2026-06-29 | `widgets` 1.2.0 dodaje typ `uptime` renderowany przez motywy jako panel monitoringu z kafelkami `Etykieta | Wartość | status`. Lista widgetów ma akcję `Włącz`/`Wyłącz`, a migracja rozszerza `widget_type` o `uptime`. |
 
 ## Historia sesji
 

@@ -145,9 +145,11 @@ konfigurowalne metryki oraz panele do Dashboardu.
 Aktywne moduły mogą również implementować `HookProviderInterface`: akcje i filtry
 `HookRegistry` są wykonywane według priorytetu bez modyfikowania modułu-konsumenta.
 Filtr `homepage.sections` zasila moduł `widgets`. Panel `/admin/widgets` pozwala
-umieszczać terminale i karty na początku strony, obok Hero, po Hero, przed albo po
-wskazanej sekcji oraz przed stopką. Widget może działać we wszystkich motywach albo
-tylko w `default`, `glassnight` lub `future`; HTML nadal renderuje aktywny motyw.
+umieszczać terminale, karty i panele uptime na początku strony, obok Hero, po Hero,
+przed albo po wskazanej sekcji oraz przed stopką. Widget może działać we wszystkich
+motywach albo tylko w `default`, `glassnight` lub `future`; HTML nadal renderuje
+aktywny motyw. Panele uptime przyjmują linie `Etykieta | Wartość | status`, gdzie
+status to `up`, `warn`, `down` albo `neutral`.
 `projects` jest katalogiem projektów łączącym status realizacji z istniejącą
 podstroną `core_pages` i dokumentacją `wikipedia`. Udostępnia publiczne adresy
 `/projects` oraz `/projects/{slug}` i nie duplikuje treści należących do tych modułów.

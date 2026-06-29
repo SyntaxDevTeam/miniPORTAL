@@ -1189,6 +1189,47 @@ $test('Homepage renders widget cards safely and has no hardcoded terminal', stat
     $assert(str_contains($html, 'class="col-12 reveal is-visible"'));
 });
 
+$test('Homepage renders uptime widget items from monitored lines', static function () use ($assert): void {
+    $engine = new ThemeEngine(dirname(__DIR__) . '/templates');
+    $section = [
+        'key' => 'top',
+        'type' => 'hero',
+        'eyebrow' => '',
+        'acrostic_words' => '',
+        'title' => 'Hero',
+        'content_html' => '<p>Opis.</p>',
+        'content_format' => 'html',
+        'layout' => 'split',
+        'button_label' => '',
+        'button_url' => '',
+        'items' => [],
+        'widgets_before' => [[
+            'id' => 8,
+            'key' => 'lifecycle',
+            'name' => 'Lifecycle',
+            'type' => 'uptime',
+            'title' => 'Lifecycle',
+            'content' => "Użytkowników | 45879 | up\nStatus bota | Offline | down\nNiepełna linia",
+            'content_format' => 'html',
+            'button_label' => '',
+            'button_url' => '',
+        ]],
+    ];
+
+    foreach (['default', 'glassnight', 'future'] as $name) {
+        ob_start();
+        $engine->load($name)->render_homepage([$section], [], false);
+        $html = (string) ob_get_clean();
+        $assert(str_contains($html, 'class="uptime-widget'), 'Motyw nie renderuje panelu uptime: ' . $name);
+        $assert(str_contains($html, 'data-widget="lifecycle"'), 'Motyw nie oznacza widgetu uptime: ' . $name);
+        $assert(str_contains($html, '<h3>Lifecycle</h3>'), 'Motyw pomija tytuł uptime: ' . $name);
+        $assert(str_contains($html, '<p>Użytkowników</p>'), 'Motyw pomija etykietę uptime: ' . $name);
+        $assert(str_contains($html, '<strong>45879</strong>'), 'Motyw pomija wartość uptime: ' . $name);
+        $assert(str_contains($html, 'data-status="down"'), 'Motyw pomija status uptime: ' . $name);
+        $assert(!str_contains($html, 'Niepełna linia'), 'Motyw renderuje niepełny wpis uptime: ' . $name);
+    }
+});
+
 $test('Every active theme can replace the Hero terminal with another widget', static function () use ($assert): void {
     $engine = new ThemeEngine(dirname(__DIR__) . '/templates');
     $section = [
@@ -1646,7 +1687,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $widgets = $validator->validate(dirname(__DIR__) . '/modules/Widgets');
     $assert($widgets->id === 'widgets');
-    $assert($widgets->version === '1.1.0');
+    $assert($widgets->version === '1.2.0');
     $assert($widgets->type === 'extension');
     $assert($widgets->requiredModules === ['core_auth', 'core_pages']);
     $assert($widgets->installFile === 'install.sql');

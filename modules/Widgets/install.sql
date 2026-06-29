@@ -2,7 +2,7 @@ CREATE TABLE widgets (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     widget_key VARCHAR(64) NOT NULL,
     name VARCHAR(160) NOT NULL,
-    widget_type ENUM('terminal', 'card') NOT NULL DEFAULT 'card',
+    widget_type ENUM('terminal', 'card', 'uptime') NOT NULL DEFAULT 'card',
     placement ENUM('homepage_start', 'hero_aside', 'after_hero', 'before_section', 'after_section', 'before_footer') NOT NULL DEFAULT 'before_footer',
     target_section_key VARCHAR(64) NOT NULL DEFAULT '',
     theme_name VARCHAR(64) NOT NULL DEFAULT '*',

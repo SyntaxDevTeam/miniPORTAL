@@ -98,6 +98,11 @@ final class WidgetRepository
         return $statement !== null && $statement->rowCount() === 1;
     }
 
+    public function setVisible(int $id, bool $visible): bool
+    {
+        return $this->database->update('widgets', ['is_visible' => $visible ? 1 : 0], ['id' => $id]) !== null;
+    }
+
     /** @return array{all:int,visible:int} */
     public function stats(): array
     {

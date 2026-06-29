@@ -2614,3 +2614,19 @@ do dotychczasowego skryptu.
 **Weryfikacja:** `php -l` dla zmienionych plików PHP, `node --check` dla
 publicznych skryptów motywów oraz pełne `php tests/run.php` zakończyły się
 poprawnie.
+
+### Sesja: 2026-06-29 - Widgety uptime i przełączanie widoczności
+
+**Faza i krok specyfikacji:** Krok 5C - moduły treści oraz Krok 6 - system
+modułów przez hooki strony głównej.
+
+**Wykonano:** `widgets` podniesiono do 1.2.0. Dodano typ `Panel uptime`, którego
+treść składa się z linii `Etykieta | Wartość | status`. Motywy `default`,
+`glassnight` i `future` renderują taki widget jako panel z kafelkami monitoringu,
+obsługując statusy `up`, `warn`, `down` i `neutral`. Lista `/admin/widgets`
+otrzymała akcję `Włącz`/`Wyłącz`, która zmienia tylko publiczną widoczność
+pojedynczego widgetu i unieważnia cache strony głównej.
+
+**Weryfikacja:** `php -l` dla zmienionych plików PHP, pełne `php tests/run.php`
+oraz `git diff --check` zakończyły się poprawnie. Dodano test renderowania
+widgetu uptime we wszystkich aktywnych motywach.

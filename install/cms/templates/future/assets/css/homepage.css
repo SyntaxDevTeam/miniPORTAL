@@ -382,6 +382,86 @@
   margin-top: auto;
 }
 
+.uptime-widget {
+  grid-column: span 4;
+  padding: 1.25rem;
+  color: var(--mp-text);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 46%),
+    var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+}
+
+.uptime-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.uptime-widget-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.uptime-widget-dot {
+  width: 0.72rem;
+  height: 0.72rem;
+  flex: 0 0 auto;
+  background: #8df55f;
+  border-radius: 999px;
+  box-shadow: 0 0 1rem rgba(141, 245, 95, 0.55);
+}
+
+.uptime-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.8rem;
+}
+
+.uptime-widget-item {
+  min-width: 0;
+  padding: 0.95rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(151, 200, 255, 0.18);
+  border-radius: 0.45rem;
+}
+
+.uptime-widget-item[data-status="up"] {
+  border-color: rgba(141, 245, 95, 0.34);
+}
+
+.uptime-widget-item[data-status="warn"] {
+  border-color: rgba(255, 198, 87, 0.38);
+}
+
+.uptime-widget-item[data-status="down"] {
+  border-color: rgba(255, 103, 128, 0.42);
+}
+
+.uptime-widget-item p {
+  margin: 0 0 0.45rem;
+  color: var(--mp-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.uptime-widget-item strong {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.12;
+}
+
+.uptime-widget-empty {
+  margin: 0;
+  color: var(--mp-muted);
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -725,7 +805,8 @@
   }
 
   .managed-card,
-  .managed-card-wide {
+  .managed-card-wide,
+  .uptime-widget {
     grid-column: span 6;
   }
 
@@ -761,7 +842,8 @@
   }
 
   .managed-card,
-  .managed-card-wide {
+  .managed-card-wide,
+  .uptime-widget {
     grid-column: 1 / -1;
   }
 

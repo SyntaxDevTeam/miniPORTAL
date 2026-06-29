@@ -604,7 +604,8 @@ pozwala wykonać kontrolowane pełne czyszczenie z audytem.
    - `HookRegistry` rozdziela akcje od filtrów i wykonuje callbacki według priorytetu,
    - aktywny moduł zgłasza hooki opcjonalnym `HookProviderInterface`,
    - `homepage.sections` filtruje strukturalne dane przed renderowaniem przez Theme;
-     moduł `widgets` używa go do osadzania terminali i kart bez generowania HTML.
+     moduł `widgets` używa go do osadzania terminali, kart i paneli uptime bez
+     generowania HTML.
 
 2. Przyjazne adresy URL (Slug Router) [wdrożony]
    - Router mapuje wzorce typu `/article/{slug}` i przekazuje segment przez
@@ -692,10 +693,11 @@ Stan Kroku 5:
   profil obejmuje podgląd, edycję danych, ustawienia avatara i bezpieczeństwo,
   natomiast `core_auth` zachowuje operacje na połączonych kontach,
 - `core_pages` zarządza sekcjami strony głównej, ich kolejnością i układem,
-- `widgets` 1.0.0 zarządza terminalami i kartami w slotach `homepage_start`,
-  `hero_aside`, `after_hero`, `before_section`, `after_section` i `before_footer`;
-  widget może być wspólny albo przypisany do jednego motywu, a pierwszy terminal
-  Hero jest rekordem startowym instalacji zamiast HTML zaszytego w Theme,
+- `widgets` 1.2.0 zarządza terminalami, kartami i panelami uptime w slotach
+  `homepage_start`, `hero_aside`, `after_hero`, `before_section`, `after_section`
+  i `before_footer`; widget może być wspólny albo przypisany do jednego motywu, a
+  pierwszy terminal Hero jest rekordem startowym instalacji zamiast HTML zaszytego
+  w Theme. Pojedyncze widgety można szybko włączać lub wyłączać z listy panelu,
 - elementy sekcji są danymi modułu, natomiast siatka, kolory wariantów i wygląd kart
   pozostają wyłączną odpowiedzialnością aktywnego motywu,
 - sekcja `hero` z układem `split` może przechowywać opcjonalną listę wyrazów

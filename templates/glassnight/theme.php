@@ -1319,6 +1319,10 @@ final class Theme implements ThemeInterface
             $this->renderHomepageTerminalWidget($widget, $authenticated);
             return;
         }
+        if (($widget['type'] ?? '') === 'uptime') {
+            $this->renderHomepageUptimeWidget($widget);
+            return;
+        }
         $title = trim((string) ($widget['title'] ?? '')) ?: (string) ($widget['name'] ?? 'Widget');
         $content = (new ContentRenderer())->render(
             (string) ($widget['content'] ?? ''),
@@ -1335,6 +1339,56 @@ final class Theme implements ThemeInterface
             echo $this->escape((string) $widget['button_label']) . '</a>';
         }
         echo '</article>';
+    }
+
+    /** @param array<string, mixed> $widget */
+    private function renderHomepageUptimeWidget(array $widget): void
+    {
+        $title = trim((string) ($widget['title'] ?? '')) ?: (string) ($widget['name'] ?? 'Lifecycle');
+        $items = $this->parseUptimeItems((string) ($widget['content'] ?? ''));
+        echo '<section class="uptime-widget reveal is-visible" data-widget="' . $this->escape((string) ($widget['key'] ?? 'uptime')) . '">';
+        echo '<header class="uptime-widget-header"><span class="uptime-widget-dot" aria-hidden="true"></span>';
+        echo '<h3>' . $this->escape($title) . '</h3></header>';
+        if ($items === []) {
+            echo '<p class="uptime-widget-empty">Brak elementów monitoringu.</p>';
+        } else {
+            echo '<div class="uptime-widget-grid">';
+            foreach ($items as $item) {
+                echo '<article class="uptime-widget-item" data-status="' . $this->escape($item['status']) . '">';
+                echo '<p>' . $this->escape($item['label']) . '</p>';
+                echo '<strong>' . $this->escape($item['value']) . '</strong>';
+                echo '</article>';
+            }
+            echo '</div>';
+        }
+        echo '</section>';
+    }
+
+    /**
+     * @return list<array{label:string,value:string,status:string}>
+     */
+    private function parseUptimeItems(string $content): array
+    {
+        $items = [];
+        foreach (preg_split('/\R/', trim($content)) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $parts = array_map('trim', explode('|', $line));
+            $label = (string) ($parts[0] ?? '');
+            $value = (string) ($parts[1] ?? '');
+            $status = strtolower((string) ($parts[2] ?? 'neutral'));
+            if ($label === '' || $value === '') {
+                continue;
+            }
+            if (!in_array($status, ['up', 'warn', 'down', 'neutral'], true)) {
+                $status = 'neutral';
+            }
+            $items[] = ['label' => $label, 'value' => $value, 'status' => $status];
+        }
+
+        return $items;
     }
 
     /** @param array<string, mixed> $widget */
