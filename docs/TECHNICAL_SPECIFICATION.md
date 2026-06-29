@@ -410,8 +410,11 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   metadane CI, commity oraz publikację,
 - publiczne `/builds` prowadzi przez projekt, kanał, wersję i historię buildów;
   tabela wersji wskazuje najnowszy plik, a historia DEV/WIP pokazuje commity,
-- `POST /api/builds/ci/{slug}` przyjmuje JSON z CI, uwierzytelnia nagłówkiem
-  `X-Build-Token` lub Bearer i idempotentnie zapisuje artefakty według ID joba,
+- `POST /api/builds/ci/{slug}` przyjmuje `multipart/form-data` z polem
+  `metadata` JSON i plikiem `artifact`, uwierzytelnia nagłówkiem `X-Build-Token`
+  lub Bearer, zapisuje JAR w `cache/build-artifacts`, wylicza rozmiar i SHA-256
+  oraz idempotentnie aktualizuje artefakt według ID joba; starszy wariant JSON
+  z mapą zewnętrznych `downloads` pozostaje kompatybilny,
 - numer buildu jest opcjonalny dla Release i Snapshot; rewizję Snapshot zapisuje
   wersja, np. `1.7.3-R0.1`,
   należące do opublikowanych projektów,
@@ -428,6 +431,11 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   `builds.view` / `builds.manage` i audit log,
 - moduł deklaruje konfigurowalny link `Pliki do pobrania` przez
   `PublicNavigationRegistry`; domyślnym obszarem jest menu główne.
+- Monorepo PunisherX publikuje Paper, Spigot, BungeeCord bridge i Velocity bridge
+  jako osobne projekty `punisherx-paper`, `punisherx-spigot`,
+  `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge`; selekcja w CI
+  odbywa się po zmienionych ścieżkach, a wspólne zmiany publikują wszystkie
+  produkty.
 
 ### Faza 5: Manager modułów (Lego System)
 

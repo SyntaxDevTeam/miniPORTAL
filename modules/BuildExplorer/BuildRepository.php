@@ -61,6 +61,23 @@ final class BuildRepository
         return is_array($row) ? $this->hydrate($row) : null;
     }
 
+    public function findCi(int $projectId, string $channel, string $serverType, int $ciBuildId): ?ProjectBuild
+    {
+        $statement = $this->database->query(
+            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id '
+            . 'WHERE project_builds.project_id = :project_id AND project_builds.channel = :channel '
+            . 'AND project_builds.server_type = :server_type AND project_builds.ci_build_id = :ci_build_id LIMIT 1',
+            [
+                ':project_id' => $projectId,
+                ':channel' => $channel,
+                ':server_type' => $serverType,
+                ':ci_build_id' => $ciBuildId,
+            ]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $this->hydrate($row) : null;
+    }
+
     /** @return array<int, string> */
     public function projectOptions(): array
     {

@@ -314,6 +314,25 @@ sekret z nagłówka i idempotentnie zapisuje artefakty według projektu, kanału
 platformy oraz ID joba. Release i Snapshot nie wymagają numeru buildu; rewizja
 Snapshot może być częścią wersji, np. `1.7.3-R0.1`.
 
+Etap 3.1 gotowy: endpoint CI przyjmuje także `multipart/form-data` z polem
+`metadata` JSON i plikiem `artifact`. BuildExplorer zapisuje przesłany JAR w
+`cache/build-artifacts`, wylicza rozmiar i SHA-256, opcjonalnie porównuje je z
+danymi CI, publikuje rekord oraz przy ponownym wysłaniu tego samego ID joba
+podmienia poprzedni lokalny artefakt. Dokumentacja zawiera gotowy przykład
+GitHub Actions dla PunisherX.
+
+Etap 3.2 gotowy: PunisherX jest opisany jako monorepo czterech osobno
+publikowanych projektów BuildExplorera: `punisherx-paper`, `punisherx-spigot`,
+`punisherx-bungeecord-bridge` i `punisherx-velocity-bridge`. Przykładowy workflow
+GitHub Actions wykrywa dotknięte ścieżki, buduje tylko właściwą macierz produktów,
+a zmiany wspólne Gradle/common publikują wszystkie cztery artefakty.
+
+Etap 3.2.1 gotowy: przykład CI dopasowano do faktycznych katalogów repozytorium
+PunisherX z gałęzi `experimental-spigot-version`: `punisherx-paper`,
+`punisherx-spigot`, `bungee-bridge` i `velocity-bridge`. Dodano także
+`.github/workflows/` do ścieżek wspólnych, aby pierwszy commit instalujący workflow
+nie kończył publikacji jako `skipped`.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 

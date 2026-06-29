@@ -5,6 +5,7 @@ Autorski mini-CMS w systemie modularnym
 - [Pierwotny zarys - koncepcja](docs/SZKIC.md)
 - [Specyfikacja techniczna i plan rozwoju](docs/TECHNICAL_SPECIFICATION.md)
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
+- [Publikacja buildów PunisherX z GitHub Actions](docs/CI_BUILDEXPLORER_PUNISHERX.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
 - [Opis modułu Econizer](docs/ECONIZER_MODULE.md)
 - [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
@@ -156,7 +157,12 @@ nazwa ma postać `<projekt>-<serwer>-<wersja>-<typ>[-<build>].jar`, ale administ
 może ją edytować. Release i Snapshot nie wymagają numeru buildu. Publiczny katalog
 prowadzi przez projekt, kanał, wersję i historię buildów pod `/builds`.
 GitHub Actions może publikować DEV/WIP przez `POST /api/builds/ci/{slug-projektu}`
-z JSON-em oraz sekretem `BUILD_CI_TOKEN` w `X-Build-Token` lub Bearer.
+z `multipart/form-data`: polem `metadata` JSON, plikiem `artifact` oraz sekretem
+`BUILD_CI_TOKEN` w `X-Build-Token` lub Bearer. Starszy import JSON z zewnętrznym
+adresem HTTPS pozostaje kompatybilny.
+Monorepo PunisherX publikuje docelowo cztery osobne projekty BuildExplorera:
+`punisherx-paper`, `punisherx-spigot`, `punisherx-bungeecord-bridge` i
+`punisherx-velocity-bridge`; workflow wybiera produkt po zmienionych ścieżkach.
 
 `econizer` jest dedykowanym, wieloserwerowym centrum bota ekonomicznego Discord.
 Rozdziela właściciela platformy, administrację konkretnego serwera i gracza,

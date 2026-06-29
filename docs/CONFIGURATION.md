@@ -351,20 +351,30 @@ Secret, callback i maskę uprawnień. Testy mogą wskazać osobny plik przez
 obsługiwana wyłącznie dla istniejących instalacji. Szczegółowy kontrakt znajduje
 się w README modułu.
 
-Przykładowe wywołanie z GitHub Actions:
+Przykładowe wywołanie z GitHub Actions przesyłające plik pod kontrolę
+BuildExplorera:
 
 ```bash
 curl --fail-with-body \
-  -X POST "https://new.syntaxdevteam.pl/api/builds/ci/punisherx" \
-  -H "Content-Type: application/json" \
+  -X POST "https://new.syntaxdevteam.pl/api/builds/ci/punisherx-paper" \
   -H "X-Build-Token: ${{ secrets.BUILD_CI_TOKEN }}" \
-  --data-binary @build-info.json
+  -F "metadata=<build-info.json;type=application/json" \
+  -F "artifact=@punisherx-paper/build/libs/PunisherX-Paper.jar;type=application/java-archive"
 ```
 
-JSON wymaga dodatniego `id`, czasu ISO-8601, kanału `DEV` albo `WIP`, listy
-commitów oraz mapy `downloads`. Każdy plik wymaga nazwy `.jar`, SHA-256, rozmiaru
-w bajtach i adresu HTTPS. Powtórzenie tego samego ID joba aktualizuje rekord dla
-tej samej platformy zamiast tworzyć duplikat.
+`metadata` wymaga dodatniego `id`, czasu ISO-8601, kanału `DEV` albo `WIP`,
+platformy `server`, wersji `version`, opcjonalnej publicznej nazwy `filename` oraz
+listy commitów. BuildExplorer zapisuje przesłany `.jar`, wylicza rozmiar i
+SHA-256, publikuje rekord i przy powtórzeniu tego samego ID joba aktualizuje
+rekord dla tej samej platformy zamiast tworzyć duplikat. Opcjonalne pola
+`sha256` i `size` są traktowane jako kontrola zgodności z przesłanym plikiem.
+
+Pełny przykład workflow dla PunisherX znajduje się w
+[`docs/CI_BUILDEXPLORER_PUNISHERX.md`](CI_BUILDEXPLORER_PUNISHERX.md).
+
+Starszy wariant JSON z mapą `downloads` nadal działa dla instalacji, które chcą
+publikować bez kopiowania pliku do miniPORTAL. W tym trybie każdy wpis wymaga
+nazwy `.jar`, SHA-256, rozmiaru w bajtach i zewnętrznego adresu HTTPS.
 
 Pliki JAR trafiają do `cache/build-artifacts`, który pozostaje zablokowany przez
 główny `.htaccess`. Katalog musi należeć do grupy procesu WWW:

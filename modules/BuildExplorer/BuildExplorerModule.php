@@ -41,7 +41,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '1.3.0'; }
+    public function version(): string { return '1.4.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -187,9 +187,9 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $this->jsonResponse(401, ['error' => 'Invalid build token.']); return;
         }
         $project = $this->builds->projectBySlug($projectSlug);
-        $payload = $request->json();
+        $payload = $this->ciPayload($request);
         if ($project === null || $payload === null) {
-            $this->jsonResponse(400, ['error' => 'Project or JSON payload is invalid.']); return;
+            $this->jsonResponse(400, ['error' => 'Project or CI payload is invalid.']); return;
         }
         try {
             $buildId = filter_var($payload['id'] ?? null, FILTER_VALIDATE_INT);
@@ -199,6 +199,13 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                 throw new \RuntimeException('CI build id and DEV/WIP channel are required.');
             }
             $commits = $this->validateCommits($payload['commits'] ?? []);
+            $artifact = $request->file('artifact');
+            if ($artifact !== null && $artifact['error'] !== UPLOAD_ERR_NO_FILE) {
+                $id = $this->importCiArtifact($project, (int) $buildId, $channel, $time, $commits, $payload, $artifact);
+                $this->audit->record($request, 'build_ci_import', 'success', 'project:' . $projectSlug . ':build:' . $buildId, null);
+                $this->jsonResponse(200, ['status' => 'ok', 'build_id' => (int) $buildId, 'records' => [$id], 'mode' => 'artifact']);
+                return;
+            }
             $downloads = $payload['downloads'] ?? null;
             if (!is_array($downloads) || $downloads === [] || array_is_list($downloads)) {
                 throw new \RuntimeException('At least one named download is required.');
@@ -233,6 +240,90 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $this->audit->record($request, 'build_ci_import', 'failed', 'project:' . $projectSlug, null);
             $this->jsonResponse(422, ['error' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * @param array{id: int, name: string, slug: string} $project
+     * @param list<array{sha: string, time: string, message: string}> $commits
+     * @param array<string, mixed> $payload
+     * @param array{name: string, type: string, tmp_name: string, error: int, size: int} $artifact
+     */
+    private function importCiArtifact(
+        array $project,
+        int $buildId,
+        string $channel,
+        \DateTimeImmutable $time,
+        array $commits,
+        array $payload,
+        array $artifact,
+    ): int {
+        $server = $this->bounded((string) ($payload['server'] ?? $payload['server_type'] ?? ''), 80);
+        $version = $this->bounded((string) ($payload['version'] ?? $payload['version_label'] ?? ''), 120);
+        $buildNumber = $this->bounded((string) ($payload['build_number'] ?? $buildId), 80);
+        $filename = basename(trim((string) ($payload['filename'] ?? '')));
+        $sourceFilename = basename($artifact['name']);
+        if ($server === '') { throw new \RuntimeException('CI artifact server/platform is required.'); }
+        if ($version === '') { $version = $this->versionFromFilename($project['name'], $server, $filename !== '' ? $filename : $sourceFilename, $channel); }
+        if ($version === '') { throw new \RuntimeException('CI artifact version is required.'); }
+        if ($filename === '') {
+            $filename = BuildArtifactStorage::filename($project['name'], $server, $version, $channel, $buildNumber);
+        }
+        if (basename($filename) !== $filename || preg_match('/^[A-Za-z0-9._-]{1,251}\.jar$/i', $filename) !== 1) {
+            throw new \RuntimeException('CI artifact filename must be a safe .jar basename.');
+        }
+
+        $stored = $this->storage->store($artifact);
+        $expectedChecksum = strtolower(trim((string) ($payload['sha256'] ?? $payload['checksum_sha256'] ?? '')));
+        $hasExpectedSize = array_key_exists('size', $payload) || array_key_exists('file_size_bytes', $payload);
+        $expectedSize = filter_var($payload['size'] ?? $payload['file_size_bytes'] ?? null, FILTER_VALIDATE_INT);
+        if ($expectedChecksum !== '' && (!preg_match('/^[a-f0-9]{64}$/', $expectedChecksum) || !hash_equals($expectedChecksum, $stored['checksum']))) {
+            $this->storage->delete($stored['storage_key']);
+            throw new \RuntimeException('CI artifact SHA-256 does not match uploaded file.');
+        }
+        if ($hasExpectedSize && ($expectedSize === false || (int) $expectedSize < 1)) {
+            $this->storage->delete($stored['storage_key']);
+            throw new \RuntimeException('CI artifact size is invalid.');
+        }
+        if ($hasExpectedSize && (int) $expectedSize !== $stored['size']) {
+            $this->storage->delete($stored['storage_key']);
+            throw new \RuntimeException('CI artifact size does not match uploaded file.');
+        }
+
+        $serverType = ucfirst($server);
+        $previous = $this->builds->findCi((int) $project['id'], $channel, $serverType, $buildId);
+        try {
+            $id = $this->builds->upsertCi([
+                'project_id' => $project['id'], 'server_type' => $serverType, 'version_label' => $version,
+                'channel' => $channel, 'build_number' => $buildNumber, 'filename' => $filename,
+                'storage_key' => $stored['storage_key'], 'download_url' => null, 'checksum_sha256' => $stored['checksum'],
+                'file_size_bytes' => $stored['size'], 'changelog' => implode("\n", array_column($commits, 'message')),
+                'is_published' => 1, 'published_at' => $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                'ci_build_id' => $buildId, 'ci_build_time' => $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                'commits_json' => json_encode($commits, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            ]);
+        } catch (\Throwable $exception) {
+            $this->storage->delete($stored['storage_key']);
+            throw $exception;
+        }
+        if ($previous instanceof ProjectBuild && $previous->storageKey !== $stored['storage_key']) {
+            $this->storage->delete($previous->storageKey);
+        }
+        return $id;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function ciPayload(Request $request): ?array
+    {
+        $payload = $request->json();
+        if ($payload !== null) { return $payload; }
+        $metadata = $request->postString('metadata');
+        if ($metadata === '' || strlen($metadata) > 1048576) { return null; }
+        try {
+            $decoded = json_decode($metadata, true, 32, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+        return is_array($decoded) && !array_is_list($decoded) ? $decoded : null;
     }
 
     /** @return list<array{sha: string, time: string, message: string}> */
