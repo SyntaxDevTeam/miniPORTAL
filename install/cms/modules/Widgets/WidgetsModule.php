@@ -7,6 +7,7 @@ namespace SyntaxDevTeam\Cms\Modules\Widgets;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\AdminSearchProviderInterface;
 use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
+use SyntaxDevTeam\Cms\Core\ContentRenderer;
 use SyntaxDevTeam\Cms\Core\DashboardProviderInterface;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\HookProviderInterface;
@@ -58,7 +59,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -205,6 +206,16 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         }
         $themeOptions = ['*' => 'Wszystkie motywy'] + $this->availableThemes;
         $this->theme->start_admin_panel('Konfiguracja widgetu', $editing ? $widget->key : 'Nowy element');
+        $contentField = [
+            'name' => 'content',
+            'label' => 'Treść lub powitanie terminala',
+            'type' => ($widget?->type ?? 'card') === 'terminal' ? 'textarea' : 'richtext',
+            'value' => $widget?->content ?? '',
+            'rows' => 9,
+            'format_name' => 'content_format',
+            'format_value' => $widget?->contentFormat ?? 'html',
+            'help' => 'Dla terminala wpisz kolejne linie startowe. Dla karty możesz użyć edytora wizualnego albo Markdown.',
+        ];
         $this->theme->render_form(
             'index.php?route=' . ($editing ? '/admin/widgets/edit' : '/admin/widgets/create'),
             array_merge($editing ? [[
@@ -229,10 +240,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
                 'value' => $widget?->themeName ?? '*', 'options' => $themeOptions,
             ], [
                 'name' => 'title', 'label' => 'Tytuł lub pasek terminala', 'value' => $widget?->title ?? '',
-            ], [
-                'name' => 'content', 'label' => 'Treść lub powitanie terminala', 'type' => 'textarea',
-                'value' => $widget?->content ?? '', 'rows' => 7,
-            ], [
+            ], $contentField, [
                 'name' => 'button_label', 'label' => 'Etykieta przycisku karty', 'value' => $widget?->buttonLabel ?? '',
             ], [
                 'name' => 'button_url', 'label' => 'Adres przycisku karty', 'value' => $widget?->buttonUrl ?? '',
@@ -286,7 +294,8 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
         $target = $this->widgetKey($request->postString('target_section_key'));
         $themeName = $request->postString('theme_name', '*');
         $title = $this->bounded($request->postString('title'), 180);
-        $content = $this->bounded($request->postString('content'), 4000);
+        $rawContent = $this->bounded($request->postString('content'), 4000);
+        $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format', 'html'));
         $buttonLabel = $this->bounded($request->postString('button_label'), 120);
         $buttonUrl = $this->bounded($request->postString('button_url'), 500);
         $sortOrder = max(0, min(65535, $request->postInt('sort_order', 100) ?? 100));
@@ -302,7 +311,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
             $this->renderForm($widget, 'Dla położenia przed lub po sekcji podaj jej klucz.', 'warning');
             return;
         }
-        if ($type === 'terminal' && $content === '') {
+        if ($type === 'terminal' && $rawContent === '') {
             $this->renderForm($widget, 'Terminal wymaga tekstu powitalnego.', 'warning');
             return;
         }
@@ -315,6 +324,13 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
             return;
         }
 
+        $content = $type === 'card'
+            ? (new ContentRenderer())->prepareForStorage($rawContent, $contentFormat)
+            : $rawContent;
+        if ($type === 'terminal') {
+            $contentFormat = ContentRenderer::HTML;
+        }
+
         $data = [
             'widget_key' => $key,
             'name' => $name,
@@ -324,6 +340,7 @@ final class WidgetsModule implements ModuleInterface, HookProviderInterface, Adm
             'theme_name' => $themeName,
             'title' => $title,
             'content' => $content,
+            'content_format' => $contentFormat,
             'button_label' => $buttonLabel,
             'button_url' => $buttonUrl,
             'sort_order' => $sortOrder,

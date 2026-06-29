@@ -2596,3 +2596,21 @@ a Translator YAML i Manager SQL do `Narzędzia`. Wersje po zmianie:
 przeszedł, a publiczny ekran logowania zwrócił HTTP 200. Integracyjny test pustej
 bazy został zaktualizowany, ale nie uruchomiony w tej sesji z powodu braku
 wydzielonych zmiennych `TEST_DB_*`.
+
+### Sesja: 2026-06-29 - Widgety terminala i kart
+
+**Faza i krok specyfikacji:** Krok 5C - moduły treści oraz Krok 6 - system
+modułów przez hooki strony głównej.
+
+**Wykonano:** `widgets` podniesiono do 1.1.0. Dodano `content_format` dla kart,
+formularz rich text/Markdown dla typu `Karta informacyjna` oraz migrację
+`20260629_widget_content_format.sql`. Domyślny terminal zachowuje dotychczasowy
+widok startowy, ale jego linie bootowania są teraz zapisane w treści widgetu i
+mogą być edytowane w panelu, łącznie z „Uruchamianie SyntaxDevTerminal...”.
+Motywy `default`, `glassnight` i `future` renderują karty przez `ContentRenderer`,
+a JavaScript terminala używa `data-terminal-boot` z rekordu widgetu z fallbackiem
+do dotychczasowego skryptu.
+
+**Weryfikacja:** `php -l` dla zmienionych plików PHP, `node --check` dla
+publicznych skryptów motywów oraz pełne `php tests/run.php` zakończyły się
+poprawnie.

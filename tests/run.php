@@ -1072,7 +1072,8 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
             'name' => 'Terminal SyntaxDevTeam',
             'type' => 'terminal',
             'title' => 'syntaxdevteam.pl/build',
-            'content' => 'Witaj w SyntaxDevTerminal 0.1.5.',
+            'content' => "Start testowy\nCoreAuth          READY\nWitaj w SyntaxDevTerminal 0.1.5.",
+            'content_format' => 'html',
             'button_label' => '',
             'button_url' => '',
         ]],
@@ -1085,7 +1086,8 @@ $test('Hero split renders a vertical acrostic from configured words', static fun
     $assert(str_contains($html, 'class="terminal"'));
     $assert(str_contains($html, 'data-home-terminal data-authenticated="false"'));
     $assert(str_contains($html, 'data-terminal-output role="log" aria-live="polite"'));
-    $assert(str_contains($html, '<template data-terminal-welcome>Witaj w SyntaxDevTerminal 0.1.5.</template>'));
+    $assert(str_contains($html, '<template data-terminal-boot>Start testowy'));
+    $assert(str_contains($html, 'CoreAuth          READY'));
     $assert(str_contains($html, 'id="widget-terminal-syntax-terminal-1-command"'));
     $assert(!str_contains($html, '>Panel administracyjny</a>'));
     $assert(!str_contains($html, '>Przejdź do panelu</a>'));
@@ -1125,6 +1127,7 @@ $test('Widget layout attaches terminal and cards to named homepage slots', stati
         $theme,
         ucfirst($key),
         'Treść widgetu',
+        'html',
         '',
         '',
         10,
@@ -1167,7 +1170,8 @@ $test('Homepage renders widget cards safely and has no hardcoded terminal', stat
             'name' => 'Karta',
             'type' => 'card',
             'title' => '<script>alert(1)</script>',
-            'content' => '<img src=x onerror=alert(1)>',
+            'content' => '<h2>Bezpieczny nagłówek</h2><img src=x onerror=alert(1)><script>alert(2)</script>',
+            'content_format' => 'html',
             'button_label' => 'Zobacz',
             'button_url' => 'javascript:alert(1)',
         ]],
@@ -1177,7 +1181,9 @@ $test('Homepage renders widget cards safely and has no hardcoded terminal', stat
     $html = (string) ob_get_clean();
 
     $assert(str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;'));
-    $assert(str_contains($html, '&lt;img src=x onerror=alert(1)&gt;'));
+    $assert(str_contains($html, '<div class="managed-home-content text-secondary"><h2>Bezpieczny nagłówek</h2></div>'));
+    $assert(!str_contains($html, 'onerror'));
+    $assert(!str_contains($html, 'alert(2)'));
     $assert(!str_contains($html, 'javascript:'));
     $assert(!str_contains($html, 'data-home-terminal'));
     $assert(str_contains($html, 'class="col-12 reveal is-visible"'));
@@ -1203,7 +1209,8 @@ $test('Every active theme can replace the Hero terminal with another widget', st
             'name' => 'Zamiennik terminala',
             'type' => 'card',
             'title' => 'Widget motywu',
-            'content' => 'Ta karta zastępuje terminal.',
+            'content' => '**Ta karta zastępuje terminal.**',
+            'content_format' => 'markdown',
             'button_label' => '',
             'button_url' => '',
         ]],
@@ -1639,7 +1646,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $widgets = $validator->validate(dirname(__DIR__) . '/modules/Widgets');
     $assert($widgets->id === 'widgets');
-    $assert($widgets->version === '1.0.0');
+    $assert($widgets->version === '1.1.0');
     $assert($widgets->type === 'extension');
     $assert($widgets->requiredModules === ['core_auth', 'core_pages']);
     $assert($widgets->installFile === 'install.sql');

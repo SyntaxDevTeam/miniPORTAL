@@ -1315,9 +1315,15 @@ final class Theme implements ThemeInterface
         }
 
         $title = trim((string) ($widget['title'] ?? '')) ?: (string) ($widget['name'] ?? 'Widget');
+        $content = (new ContentRenderer())->render(
+            (string) ($widget['content'] ?? ''),
+            (string) ($widget['content_format'] ?? 'html')
+        );
         echo '<article class="showcase-card managed-card reveal is-visible" data-widget="' . $this->escape((string) ($widget['key'] ?? 'card')) . '">';
         echo '<p class="managed-card-label">WIDGET</p><h3>' . $this->escape($title) . '</h3>';
-        echo '<p class="text-secondary">' . nl2br($this->escape((string) ($widget['content'] ?? ''))) . '</p>';
+        if ($content !== '') {
+            echo '<div class="managed-home-content text-secondary">' . $content . '</div>';
+        }
         $href = $this->safeHref((string) ($widget['button_url'] ?? ''));
         if ($href !== '' && trim((string) ($widget['button_label'] ?? '')) !== '') {
             echo '<a class="btn btn-outline-light" href="' . $this->escape($href) . '">';
@@ -1347,6 +1353,7 @@ final class Theme implements ThemeInterface
         echo ' inputmode="text" autocapitalize="none" spellcheck="false" maxlength="80" aria-describedby="' . $hintId . '">';
         echo '<button type="submit" class="visually-hidden">Wykonaj</button></form>';
         echo '<p id="' . $hintId . '" class="visually-hidden">Wpisz help i naciśnij Enter. Historia komend jest dostępna strzałkami.</p>';
+        echo '<template data-terminal-boot>' . $this->escape((string) ($widget['content'] ?? '')) . '</template>';
         echo '<template data-terminal-welcome>' . $this->escape((string) ($widget['content'] ?? '')) . '</template></div>';
     }
 

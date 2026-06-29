@@ -8,6 +8,7 @@ CREATE TABLE widgets (
     theme_name VARCHAR(64) NOT NULL DEFAULT '*',
     title VARCHAR(180) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
+    content_format ENUM('html', 'markdown') NOT NULL DEFAULT 'html',
     button_label VARCHAR(120) NOT NULL DEFAULT '',
     button_url VARCHAR(500) NOT NULL DEFAULT '',
     sort_order INT UNSIGNED NOT NULL DEFAULT 100,
@@ -20,12 +21,20 @@ CREATE TABLE widgets (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO widgets
-    (widget_key, name, widget_type, placement, theme_name, title, content, sort_order, is_visible)
+    (widget_key, name, widget_type, placement, theme_name, title, content, content_format, sort_order, is_visible)
 VALUES
     ('syntax-terminal', 'Terminal SyntaxDevTeam', 'terminal', 'hero_aside', '*',
      'syntaxdevteam.pl/build',
-     'Witaj w SyntaxDevTerminal 0.1.5. Wpisz help i naciśnij Enter, aby zobaczyć dostępne komendy.',
-     10, 1);
+     'Uruchamianie SyntaxDevTerminal...
+CoreAuth          READY
+CorePages         READY
+ThemeEngine       ONLINE
+SyntaxCrudApp     CONNECTED
+architecture:     MODULAR
+security:         ENABLED
+status:           READY_TO_USE
+Witaj w SyntaxDevTerminal 0.1.5. Wpisz help i naciśnij Enter, aby zobaczyć dostępne komendy.',
+     'html', 10, 1);
 
 INSERT IGNORE INTO permissions (name, label) VALUES
     ('widgets.manage', 'Zarządzanie widgetami publicznymi');

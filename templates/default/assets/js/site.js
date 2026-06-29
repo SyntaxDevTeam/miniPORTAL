@@ -62,7 +62,17 @@ document.querySelectorAll("[data-home-terminal]").forEach((terminal) => {
   const form = terminal.querySelector("[data-terminal-form]");
   const input = terminal.querySelector("[data-terminal-input]");
   const authenticated = terminal.dataset.authenticated === "true";
-  const welcome = terminal.querySelector("[data-terminal-welcome]")?.textContent.trim()
+  const templateText = (selector) => {
+    const element = terminal.querySelector(selector);
+    if (!element) return "";
+    return element instanceof HTMLTemplateElement ? element.content.textContent || "" : element.textContent || "";
+  };
+  const bootSource = templateText("[data-terminal-boot]");
+  const bootLines = bootSource
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== "") || [];
+  const welcome = templateText("[data-terminal-welcome]").trim()
     || "Wpisz help i naciśnij Enter, aby zobaczyć dostępne komendy.";
   const history = [];
   let historyIndex = 0;
@@ -77,17 +87,24 @@ document.querySelectorAll("[data-home-terminal]").forEach((terminal) => {
     ["status:         ", "READY_TO_USE"],
   ];
 
-  const bootSteps = [
-    { text: "Uruchamianie SyntaxDevTerminal..." },
+  const defaultBootSteps = [
+    { text: "Starting SyntaxDevTerminal..." },
     ...statusLines.map(([label, value]) => ({ label, value })),
     {
       text: welcome,
       className: "terminal-welcome",
     },
   ];
+  const bootSteps = bootLines.length > 0
+    ? bootLines.map((line, index) => {
+      const status = line.match(/^(.+?)\s{2,}(.+)$/);
+      if (status) return { label: status[1].trimEnd().padEnd(17, " "), value: status[2].trim() };
+      return { text: line, className: index === bootLines.length - 1 ? "terminal-welcome" : "" };
+    })
+    : defaultBootSteps;
 
   const helpText = [
-    "Dostępne komendy:",
+    "Available commands:",
     "  help       lista komend",
     "  status     stan miniPORTAL",
     "  ls         publiczne obszary serwisu",

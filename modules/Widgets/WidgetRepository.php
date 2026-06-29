@@ -10,8 +10,7 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class WidgetRepository
 {
-    private const COLUMNS = 'id, widget_key, name, widget_type, placement, target_section_key, theme_name, '
-        . 'title, content, button_label, button_url, sort_order, is_visible, created_at, updated_at';
+    private ?bool $contentFormatColumn = null;
 
     public function __construct(private readonly CrudApp $database)
     {
@@ -21,7 +20,7 @@ final class WidgetRepository
     public function all(): array
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM widgets ORDER BY placement ASC, sort_order ASC, name ASC'
+            'SELECT ' . $this->columns() . ' FROM widgets ORDER BY placement ASC, sort_order ASC, name ASC'
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać listy widgetów.');
@@ -34,7 +33,7 @@ final class WidgetRepository
     public function visibleForTheme(string $theme): array
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM widgets '
+            'SELECT ' . $this->columns() . ' FROM widgets '
             . "WHERE is_visible = 1 AND (theme_name = '*' OR theme_name = :theme) "
             . 'ORDER BY (theme_name = :theme_order) DESC, sort_order ASC, id ASC',
             [':theme' => $theme, ':theme_order' => $theme]
@@ -49,7 +48,7 @@ final class WidgetRepository
     public function find(int $id): ?Widget
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM widgets WHERE id = :id LIMIT 1',
+            'SELECT ' . $this->columns() . ' FROM widgets WHERE id = :id LIMIT 1',
             [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -72,6 +71,9 @@ final class WidgetRepository
     /** @param array<string, scalar|null> $data */
     public function create(array $data): int
     {
+        if (!$this->hasContentFormatColumn()) {
+            unset($data['content_format']);
+        }
         $id = (int) $this->database->create('widgets', $data);
         if ($id < 1) {
             throw new RuntimeException('Nie można utworzyć widgetu.');
@@ -83,6 +85,9 @@ final class WidgetRepository
     /** @param array<string, scalar|null> $data */
     public function update(int $id, array $data): bool
     {
+        if (!$this->hasContentFormatColumn()) {
+            unset($data['content_format']);
+        }
         return $this->database->update('widgets', $data, ['id' => $id]) !== null;
     }
 
@@ -115,6 +120,7 @@ final class WidgetRepository
             (string) $row['theme_name'],
             (string) $row['title'],
             (string) $row['content'],
+            (string) ($row['content_format'] ?? 'html'),
             (string) $row['button_label'],
             (string) $row['button_url'],
             (int) $row['sort_order'],
@@ -122,5 +128,25 @@ final class WidgetRepository
             (string) $row['created_at'],
             (string) $row['updated_at'],
         );
+    }
+
+    private function columns(): string
+    {
+        $contentFormat = $this->hasContentFormatColumn()
+            ? 'content_format'
+            : "'html' AS content_format";
+
+        return 'id, widget_key, name, widget_type, placement, target_section_key, theme_name, '
+            . 'title, content, ' . $contentFormat . ', button_label, button_url, sort_order, is_visible, created_at, updated_at';
+    }
+
+    private function hasContentFormatColumn(): bool
+    {
+        if ($this->contentFormatColumn !== null) {
+            return $this->contentFormatColumn;
+        }
+        $statement = $this->database->query("SHOW COLUMNS FROM widgets LIKE 'content_format'");
+
+        return $this->contentFormatColumn = $statement !== null && $statement->fetch(PDO::FETCH_ASSOC) !== false;
     }
 }
