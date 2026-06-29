@@ -66,8 +66,11 @@ miniPORTAL/
   `HookRegistry`; hook przekazuje dane domenowe lub prezentacyjne, ale nie omija Theme
 - `ThemeInterface` udostępnia komponenty ogólne, a nie metody nazwane według modułów;
   moduły składają widoki z layoutu, formularzy, alertów i tabel akcji
-- widoczność pozycji panelu wynika z lokalnych uprawnień przekazanych do `AdminMenuRegistry`
-- `CoreAuth` przechowuje konto lokalnie, a dostawców GitHub, Discord i Google traktuje
+- widoczność pozycji panelu wynika z lokalnych uprawnień przekazanych do `AdminMenuRegistry`;
+  rejestr utrzymuje stabilny porządek sekcji `Przestrzeń robocza`, `Core`, `Treść`,
+  `Narzędzia`, `Dedykowane` i `System`, a moduły mogą deklarować kolejne sekcje
+  przez `defineSection()` bez zmian w motywie
+- `CoreAuth` przechowuje konto lokalnie, a dostawców GitHub, Discord, Google i Microsoft traktuje
   jako zewnętrzne tożsamości przypięte przez parę `(provider, provider_subject)`
 - testowe repozytorium pamięciowe może działać wyłącznie po jawnym ustawieniu
   `AUTH_DEMO_ENABLED=1`; konfiguracja publiczna używa `AUTH_STORAGE=database`
@@ -188,7 +191,7 @@ Szczegółowy plan znajduje się w `docs/ADMIN_PANEL_PLAN.md`.
 
 - prototyp panelu zgodny z Outside-In
 - wspólny model użytkownika i wielu zewnętrznych tożsamości
-- logowanie GitHub, Discord i Google przez adaptery dostawców
+- logowanie GitHub, Discord, Google i Microsoft przez adaptery dostawców
 - lokalne role i uprawnienia niezależne od dostawcy logowania
 - konta oczekujące tworzone po pierwszej zweryfikowanej tożsamości i akceptowane
   przez administratora
@@ -209,6 +212,10 @@ Google używa OpenID Connect z lokalną walidacją podpisu ID tokenu, `nonce`,
 issuer, audience i czasu ważności. Łączenie providerów wymaga aktywnej sesji,
 a operacje uwierzytelniania i ACL trafiają do `auth_events`. Próby rozpoczęcia
 i callbacku OAuth są ograniczane osobno dla każdego providera i sesji.
+Microsoft używa Authorization Code, PKCE i Microsoft Graph `User.Read`.
+Owner może włączać, wyłączać i uzupełniać providerów w ustawieniach panelu.
+Sekrety nie trafiają do bazy ani HTML; są zapisywane atomowo z trybem `0600`
+w `config/modules/auth-providers.env`, a puste pole sekretu zachowuje wartość.
 Nieznana tożsamość tworzy nieaktywne konto `pending` z domyślną rolą `user`.
 Aktywacja jest decyzją lokalnego administratora; system nadal nie łączy kont
 automatycznie po zgodnym adresie e-mail. Po poprawnym pierwszym logowaniu konto
@@ -783,8 +790,13 @@ Stan 1.3.1:
    bieżących `core/install.sql` i modułowych `install.sql`. Generator zapisuje
    wyłącznie manifest nazw i SHA-256 migracji wchłoniętych przez schemat bazowy,
    aby późniejsze aktualizacje nie wykonywały ponownie historycznego SQL.
-4. Pierwszy Owner jest wiązany ze stałym numerycznym ID konta GitHub.
-5. Sekrety trafiają do lokalnego `config/installed.env`, a ponowne użycie kreatora
+4. Kreator wymaga co najmniej jednego dowolnego providera spośród GitHub, Discord,
+   Google i Microsoft. Pierwsze poprawne logowanie po instalacji atomowo tworzy
+   pierwszego Ownera pod blokadą bazodanową; kolejne nieznane tożsamości tworzą
+   standardowe konta oczekujące.
+5. Sekrety providerów trafiają do lokalnego
+   `config/modules/auth-providers.env`, pozostałe sekrety instalacji do
+   `config/installed.env`, a ponowne użycie kreatora
    blokuje `config/installed.lock`; oba pliki pozostają poza dystrybucją.
    Istniejące instancje bez blokady pozostają rozpoznawane po poprawnej konfiguracji
    wskazanej przez `MINIPORTAL_ENV_FILE` albo zgodnościowy

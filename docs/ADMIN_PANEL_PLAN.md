@@ -8,7 +8,7 @@ i wspólne komponenty; moduły rejestrują własne pozycje menu, trasy i uprawni
 
 - panel działa pod trasami `/admin/*`,
 - dostęp wymaga aktywnej sesji użytkownika i odpowiedniego uprawnienia,
-- GitHub, Discord i Google są adapterami jednego kontraktu logowania,
+- GitHub, Discord, Google i Microsoft są adapterami jednego kontraktu logowania,
 - konto użytkownika jest oddzielone od zewnętrznej tożsamości,
 - jedna osoba może połączyć kilka tożsamości z jednym kontem,
 - adres e-mail nie jest samodzielnym identyfikatorem konta,
@@ -125,6 +125,7 @@ Minimalne dane:
 | GitHub | OAuth 2.0 / GitHub App user authorization | identyfikator, login, avatar, zweryfikowany e-mail jeśli wymagany |
 | Discord | OAuth 2.0 Authorization Code | scope `identify`, opcjonalnie `email` |
 | Google | OpenID Connect | scope `openid email profile`, walidowany ID token |
+| Microsoft | OAuth 2.0 Authorization Code + PKCE | scope `openid profile email User.Read`, profil z Microsoft Graph |
 
 Przed implementacją GitHub należy podjąć decyzję: GitHub App albo klasyczna OAuth App.
 GitHub rekomenduje GitHub Apps dla nowych integracji; do samego logowania oba warianty
@@ -147,7 +148,7 @@ Rejestracja dostawców nie jest potrzebna do wykonania statycznego prototypu pan
 3. Tabele, filtry, formularze edycji, paginacja i modal potwierdzenia.
 4. Stany: ładowanie, pusto, sukces, błąd, 403, 404.
 5. Responsywna nawigacja i dostępność klawiaturą.
-6. Przyciski logowania GitHub, Discord i Google z jednolitym komponentem.
+6. Przyciski logowania GitHub, Discord, Google i Microsoft z jednolitym komponentem.
 
 ### 5.2 Kontrakt panelu i modułów
 
@@ -177,10 +178,11 @@ Stan implementacji:
 4. Adapter GitHub.
 5. Adapter Discord.
 6. Adapter Google OIDC.
-7. Łączenie i odłączanie dodatkowej tożsamości.
-8. Wylogowanie, blokowanie konta i unieważnianie sesji.
-9. Bootstrap pierwszego Ownera.
-10. Rejestr zdarzeń bezpieczeństwa.
+7. Adapter Microsoft OAuth z PKCE i Microsoft Graph.
+8. Łączenie i odłączanie dodatkowej tożsamości.
+9. Wylogowanie, blokowanie konta i unieważnianie sesji.
+10. Bootstrap pierwszego Ownera.
+11. Rejestr zdarzeń bezpieczeństwa.
 
 Opcjonalne logowanie lokalne z Argon2id należy traktować jako konto awaryjne, nie
 domyślną ścieżkę panelu. Wymaga osobnej decyzji i polityki odzyskiwania dostępu.

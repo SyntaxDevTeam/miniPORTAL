@@ -36,7 +36,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.5.1';
+        return '1.6.0';
     }
 
     public function dependencies(): array
@@ -56,8 +56,8 @@ final class CoreAuthModule implements ModuleInterface
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
-        $menu->add('System', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
-        $menu->add('System', 'Role i uprawnienia', '/admin/roles', 'RL', 'roles.view', 45);
+        $menu->add('Core', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
+        $menu->add('Core', 'Role i uprawnienia', '/admin/roles', 'RL', 'roles.view', 45);
     }
 
     public function registerRoutes(Router $router): void

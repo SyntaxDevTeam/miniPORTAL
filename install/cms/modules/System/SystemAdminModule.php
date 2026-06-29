@@ -24,6 +24,7 @@ use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
 
 final class SystemAdminModule implements ModuleInterface
 {
@@ -50,6 +51,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly PlatformUpdater $platformUpdater,
         private readonly ?CoreMigrationRunner $coreMigrationRunner,
         private readonly PlatformReleasePublisher $platformReleasePublisher,
+        private readonly AuthProviderConfigStore $authProviderConfigStore,
     ) {
     }
 
@@ -60,7 +62,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.0.3';
+        return '2.1.0';
     }
 
     public function dependencies(): array
@@ -1600,6 +1602,59 @@ final class SystemAdminModule implements ModuleInterface
 
         $this->theme->end_admin_panel_grid();
 
+        if (in_array('*', $this->auth->user()?->permissions ?? [], true)) {
+            $auth = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
+            $providerConfig = is_array($auth['providers'] ?? null) ? $auth['providers'] : [];
+            $providerLabels = [
+                'github' => 'GitHub',
+                'discord' => 'Discord',
+                'google' => 'Google',
+                'microsoft' => 'Microsoft',
+            ];
+            $oauthFields = [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'oauth'],
+            ];
+            foreach ($providerLabels as $provider => $label) {
+                $providerValues = is_array($providerConfig[$provider] ?? null) ? $providerConfig[$provider] : [];
+                $oauthFields[] = [
+                    'name' => 'oauth_' . $provider . '_enabled',
+                    'label' => 'Włącz logowanie przez ' . $label,
+                    'type' => 'checkbox',
+                    'checked' => ($providerValues['enabled'] ?? false) === true,
+                    'help' => 'Callback: ' . (string) ($providerValues['callback_url'] ?? ''),
+                ];
+                $oauthFields[] = [
+                    'name' => 'oauth_' . $provider . '_client_id',
+                    'label' => $label . ' Client ID',
+                    'value' => (string) ($providerValues['client_id'] ?? ''),
+                    'maxlength' => 255,
+                ];
+                $oauthFields[] = [
+                    'name' => 'oauth_' . $provider . '_client_secret',
+                    'label' => $label . ' Client Secret',
+                    'type' => 'password',
+                    'value' => '',
+                    'maxlength' => 2048,
+                    'autocomplete' => 'new-password',
+                    'help' => $this->configured($providerValues['client_secret'] ?? '') === 'Ustawiono'
+                        ? 'Sekret jest ustawiony. Pozostaw puste, aby go zachować.'
+                        : 'Sekret nie jest jeszcze ustawiony.',
+                ];
+            }
+            $this->theme->start_admin_panel('Dostawcy logowania', 'Chroniona konfiguracja OAuth');
+            $this->theme->render_alert(
+                'Zmiana zacznie obowiązywać od następnego żądania. Sekrety są zapisywane poza bazą i nigdy nie wracają do formularza.',
+                'info'
+            );
+            $this->theme->render_form(
+                'index.php?route=/admin/settings',
+                $oauthFields,
+                'Zapisz dostawców logowania',
+                $this->security->csrfToken()
+            );
+            $this->theme->end_admin_panel();
+        }
+
         $this->theme->start_admin_panel_grid('system');
         $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
         $this->theme->render_alert(
@@ -1723,6 +1778,21 @@ final class SystemAdminModule implements ModuleInterface
                     );
                 }
                 $this->settings->saveDashboardWidgetSettings($dashboardSettings, $actor->id);
+            } elseif ($scope === 'oauth') {
+                if (!in_array('*', $actor->permissions, true)) {
+                    throw new \RuntimeException('Tylko Owner może zmieniać dostawców logowania.');
+                }
+                $providers = [];
+                foreach (['github', 'discord', 'google', 'microsoft'] as $provider) {
+                    $providers[$provider] = [
+                        'enabled' => $request->postBool('oauth_' . $provider . '_enabled'),
+                        'client_id' => $request->postString('oauth_' . $provider . '_client_id'),
+                        'client_secret' => $request->postString('oauth_' . $provider . '_client_secret'),
+                    ];
+                }
+                $auth = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
+                $fallback = is_array($auth['providers'] ?? null) ? $auth['providers'] : [];
+                $this->authProviderConfigStore->save($providers, $fallback);
             } else {
                 throw new \RuntimeException('Nieznany zakres ustawień.');
             }
@@ -1971,8 +2041,14 @@ final class SystemAdminModule implements ModuleInterface
             ['Uwierzytelnianie', 'Magazyn', (string) ($auth['storage'] ?? 'Nieznany')],
             ['Uwierzytelnianie', 'Klucz HMAC audytu', $this->configured($auth['audit_hash_key'] ?? '')],
         ];
-        foreach (['github' => 'GitHub', 'discord' => 'Discord', 'google' => 'Google'] as $key => $label) {
+        foreach ([
+            'github' => 'GitHub',
+            'discord' => 'Discord',
+            'google' => 'Google',
+            'microsoft' => 'Microsoft',
+        ] as $key => $label) {
             $provider = is_array($providers[$key] ?? null) ? $providers[$key] : [];
+            $rows[] = ['OAuth', "{$label} aktywny", ($provider['enabled'] ?? false) ? 'Tak' : 'Nie'];
             $rows[] = ['OAuth', "{$label} Client ID", $this->configured($provider['client_id'] ?? '')];
             $rows[] = ['OAuth', "{$label} Client Secret", $this->configured($provider['client_secret'] ?? '')];
             $rows[] = ['OAuth', "{$label} callback", (string) ($provider['callback_url'] ?? 'Nieustawiony')];

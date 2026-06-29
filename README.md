@@ -14,7 +14,11 @@ Autorski mini-CMS w systemie modularnym
 
 Folder `install/cms` jest gotową, pozbawioną lokalnych danych kopią miniPORTAL.
 Po wgraniu na serwer wystarczy otworzyć `install.php`; kreator sprawdza środowisko,
-tworzy schemat pustej bazy, instaluje wybrane moduły i zakłada pierwszego Ownera.
+tworzy schemat pustej bazy, instaluje wybrane moduły i przygotowuje bootstrap
+pierwszego Ownera.
+Kreator pozwala wybrać GitHub, Discord, Google lub Microsoft; pierwsze poprawne
+logowanie przez włączonego dostawcę atomowo przejmuje rolę Ownera. Kolejnych
+dostawców można później skonfigurować w panelu bez ręcznej edycji `.env`.
 Pakiet można odtworzyć po każdej zmianie poleceniem:
 
 ```bash

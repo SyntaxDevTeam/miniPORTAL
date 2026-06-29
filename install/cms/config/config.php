@@ -24,6 +24,15 @@ if (is_readable($environmentFile)) {
     $environment = $parsedEnvironment;
 }
 
+$authProvidersFile = dirname(__DIR__) . '/config/modules/auth-providers.env';
+if (is_readable($authProvidersFile)) {
+    $authProvidersEnvironment = parse_ini_file($authProvidersFile, false, INI_SCANNER_RAW);
+    if ($authProvidersEnvironment === false) {
+        throw new RuntimeException("Nie można odczytać konfiguracji dostawców logowania: {$authProvidersFile}");
+    }
+    $environment = array_replace($environment, $authProvidersEnvironment);
+}
+
 $env = static function (string $name, mixed $default = null) use ($environment): mixed {
     if (array_key_exists($name, $environment)) {
         return $environment[$name];
@@ -50,6 +59,8 @@ return [
     'meta' => [
         'environment_file' => $environmentFile,
         'environment_readable' => is_readable($environmentFile),
+        'auth_providers_file' => $authProvidersFile,
+        'auth_providers_readable' => is_readable($authProvidersFile),
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
@@ -120,6 +131,7 @@ return [
         'audit_archive_limit' => $envInt('AUTH_AUDIT_ARCHIVE_LIMIT', 5000, 1),
         'providers' => [
             'github' => [
+                'enabled' => $envBool('GITHUB_ENABLED', (string) $env('GITHUB_CLIENT_ID', '') !== ''),
                 'client_id' => (string) $env('GITHUB_CLIENT_ID', ''),
                 'client_secret' => (string) $env('GITHUB_CLIENT_SECRET', ''),
                 'callback_url' => (string) $env(
@@ -128,6 +140,7 @@ return [
                 ),
             ],
             'discord' => [
+                'enabled' => $envBool('DISCORD_ENABLED', (string) $env('DISCORD_CLIENT_ID', '') !== ''),
                 'client_id' => (string) $env('DISCORD_CLIENT_ID', ''),
                 'client_secret' => (string) $env('DISCORD_CLIENT_SECRET', ''),
                 'callback_url' => (string) $env(
@@ -136,11 +149,21 @@ return [
                 ),
             ],
             'google' => [
+                'enabled' => $envBool('GOOGLE_ENABLED', (string) $env('GOOGLE_CLIENT_ID', '') !== ''),
                 'client_id' => (string) $env('GOOGLE_CLIENT_ID', ''),
                 'client_secret' => (string) $env('GOOGLE_CLIENT_SECRET', ''),
                 'callback_url' => (string) $env(
                     'GOOGLE_CALLBACK_URL',
                     'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/google/callback'
+                ),
+            ],
+            'microsoft' => [
+                'enabled' => $envBool('MICROSOFT_ENABLED', (string) $env('MICROSOFT_CLIENT_ID', '') !== ''),
+                'client_id' => (string) $env('MICROSOFT_CLIENT_ID', ''),
+                'client_secret' => (string) $env('MICROSOFT_CLIENT_SECRET', ''),
+                'callback_url' => (string) $env(
+                    'MICROSOFT_CALLBACK_URL',
+                    'https://new.syntaxdevteam.pl/index.php?route=/admin/auth/microsoft/callback'
                 ),
             ],
         ],

@@ -29,14 +29,17 @@ use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\DiscordIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\GitHubIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\GoogleIdentityProvider;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\FirstAdminBootstrapper;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\IdentityProviderRegistry;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\InMemoryUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\MicrosoftIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UnavailableUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
@@ -112,7 +115,10 @@ $userRepository = match ($authStorage) {
         : new UnavailableUserRepository(),
     default => throw new RuntimeException('Nieobsługiwany magazyn AUTH_STORAGE.'),
 };
-$auth = new AuthService($userRepository, $security);
+$firstOwnerBootstrapper = $application->database() !== null
+    ? new FirstAdminBootstrapper($application->database())
+    : null;
+$auth = new AuthService($userRepository, $security, $firstOwnerBootstrapper);
 $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
 $audit = new AuditLogService(
@@ -123,26 +129,43 @@ $providerConfig = is_array($authConfig['providers'] ?? null) ? $authConfig['prov
 $githubConfig = is_array($providerConfig['github'] ?? null) ? $providerConfig['github'] : [];
 $discordConfig = is_array($providerConfig['discord'] ?? null) ? $providerConfig['discord'] : [];
 $googleConfig = is_array($providerConfig['google'] ?? null) ? $providerConfig['google'] : [];
+$microsoftConfig = is_array($providerConfig['microsoft'] ?? null) ? $providerConfig['microsoft'] : [];
 $providers = new IdentityProviderRegistry();
 $httpClient = new NativeHttpClient();
+$providerCredentials = static fn (array $provider): array => ($provider['enabled'] ?? false) === true
+    ? [(string) ($provider['client_id'] ?? ''), (string) ($provider['client_secret'] ?? '')]
+    : ['', ''];
+[$githubClientId, $githubClientSecret] = $providerCredentials($githubConfig);
+[$discordClientId, $discordClientSecret] = $providerCredentials($discordConfig);
+[$googleClientId, $googleClientSecret] = $providerCredentials($googleConfig);
+[$microsoftClientId, $microsoftClientSecret] = $providerCredentials($microsoftConfig);
 $providers->add(new GitHubIdentityProvider(
     $httpClient,
-    (string) ($githubConfig['client_id'] ?? ''),
-    (string) ($githubConfig['client_secret'] ?? ''),
+    $githubClientId,
+    $githubClientSecret,
     (string) ($githubConfig['callback_url'] ?? '')
 ));
 $providers->add(new DiscordIdentityProvider(
     $httpClient,
-    (string) ($discordConfig['client_id'] ?? ''),
-    (string) ($discordConfig['client_secret'] ?? ''),
+    $discordClientId,
+    $discordClientSecret,
     (string) ($discordConfig['callback_url'] ?? '')
 ));
 $providers->add(new GoogleIdentityProvider(
     $httpClient,
-    (string) ($googleConfig['client_id'] ?? ''),
-    (string) ($googleConfig['client_secret'] ?? ''),
+    $googleClientId,
+    $googleClientSecret,
     (string) ($googleConfig['callback_url'] ?? '')
 ));
+$providers->add(new MicrosoftIdentityProvider(
+    $httpClient,
+    $microsoftClientId,
+    $microsoftClientSecret,
+    (string) ($microsoftConfig['callback_url'] ?? '')
+));
+$authProviderConfigStore = new AuthProviderConfigStore(
+    (string) ($config['meta']['auth_providers_file'] ?? (__DIR__ . '/config/modules/auth-providers.env'))
+);
 $pageRepository = $application->database() !== null
     ? new PageRepository($application->database())
     : null;
@@ -235,6 +258,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'database' => $application->database(),
     'auth_config' => $authConfig,
     'auth_demo_enabled' => $authDemoEnabled,
+    'auth_provider_config_store' => $authProviderConfigStore,
     'module_manager' => $moduleManager,
     'module_archive_importer' => $moduleArchiveImporter,
     'platform_releases' => $platformReleases,

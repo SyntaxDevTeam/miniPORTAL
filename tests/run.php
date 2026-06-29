@@ -32,10 +32,12 @@ use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeEngine;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpClientInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\HttpResponse;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\MicrosoftIdentityProvider;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
 use SyntaxDevTeam\Cms\Modules\System\AuditCsvExporter;
@@ -677,6 +679,72 @@ $test('Admin menu keeps entries from the same section together', static function
         'Użytkownicy',
         'Role',
     ]);
+});
+
+$test('Admin menu supports stable core and tools sections', static function () use ($assert): void {
+    $menu = new AdminMenuRegistry();
+    $menu->add('System', 'Ustawienia', '/admin/settings', 'ST', 'settings.manage', 10);
+    $menu->add('Narzędzia', 'Translator YAML', '/admin/translator', 'TR', 'tools.use', 10);
+    $menu->add('Core', 'Użytkownicy', '/admin/users', 'US', 'users.view', 10);
+    $menu->defineSection('Integracje', 45);
+    $menu->add('Integracje', 'Webhooki', '/admin/webhooks', 'WH', 'webhooks.view', 10);
+
+    $assert(array_column($menu->visibleFor(['*']), 'section') === [
+        'Core',
+        'Narzędzia',
+        'Integracje',
+        'System',
+    ]);
+});
+
+$test('OAuth provider configuration is atomically stored outside database', static function () use ($assert): void {
+    $directory = sys_get_temp_dir() . '/miniportal-auth-' . bin2hex(random_bytes(5));
+    mkdir($directory, 0700, true);
+    $file = $directory . '/auth-providers.env';
+    try {
+        $store = new AuthProviderConfigStore($file);
+        $store->save([
+            'github' => ['enabled' => false, 'client_id' => '', 'client_secret' => ''],
+            'discord' => ['enabled' => true, 'client_id' => 'discord-id', 'client_secret' => 'discord-secret'],
+            'google' => ['enabled' => false, 'client_id' => '', 'client_secret' => ''],
+            'microsoft' => ['enabled' => false, 'client_id' => '', 'client_secret' => ''],
+        ]);
+        $values = $store->read();
+        $assert($values['discord']['enabled']);
+        $assert($values['discord']['client_secret'] === 'discord-secret');
+        $assert(((fileperms($file) ?: 0) & 0777) === 0600);
+    } finally {
+        @unlink($file);
+        @rmdir($directory);
+    }
+});
+
+$test('Microsoft provider uses PKCE and Graph identity', static function () use ($assert): void {
+    $http = new class implements HttpClientInterface {
+        public function request(string $method, string $url, array $headers = [], array $form = []): HttpResponse
+        {
+            if (str_contains($url, '/token')) {
+                return new HttpResponse(200, json_encode(['access_token' => 'token'], JSON_THROW_ON_ERROR));
+            }
+            return new HttpResponse(200, json_encode([
+                'id' => 'microsoft-subject',
+                'displayName' => 'Owner Microsoft',
+                'mail' => 'owner@example.test',
+            ], JSON_THROW_ON_ERROR));
+        }
+    };
+    $provider = new MicrosoftIdentityProvider(
+        $http,
+        'client-id',
+        'client-secret',
+        'https://portal.example.test/index.php?route=/admin/auth/microsoft/callback'
+    );
+    $authorizationUrl = $provider->authorizationUrl('state', 'challenge', 'nonce');
+    $identity = $provider->resolveIdentity('code', 'verifier', 'nonce');
+
+    $assert(str_contains($authorizationUrl, 'code_challenge=challenge'));
+    $assert($identity->provider === 'microsoft');
+    $assert($identity->subject === 'microsoft-subject');
 });
 
 $test('Public navigation supports custom labels and multiple placements', static function () use ($assert): void {
@@ -1537,17 +1605,17 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $system = $validator->validate(dirname(__DIR__) . '/modules/System');
     $assert($system->id === 'system_admin');
-    $assert($system->version === '2.0.3');
+    $assert($system->version === '2.1.0');
     $assert($system->protected);
 
     $coreAuth = $validator->validate(dirname(__DIR__) . '/modules/CoreAuth');
     $assert($coreAuth->id === 'core_auth');
-    $assert($coreAuth->version === '1.5.1');
+    $assert($coreAuth->version === '1.6.0');
     $assert($coreAuth->protected);
 
     $database = $validator->validate(dirname(__DIR__) . '/modules/DatabaseManager');
     $assert($database->id === 'database_manager');
-    $assert($database->version === '1.4.0');
+    $assert($database->version === '1.4.1');
     $assert($database->type === 'extension');
     $assert($database->installFile === 'install.sql');
     $assert($database->uninstallFile === 'uninstall.sql');
@@ -1555,7 +1623,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $translator = $validator->validate(dirname(__DIR__) . '/modules/PluginTranslator');
     $assert($translator->id === 'plugin_translator');
-    $assert($translator->version === '1.4.0');
+    $assert($translator->version === '1.4.1');
     $assert($translator->type === 'extension');
     $assert($translator->installFile === 'install.sql');
     $assert($translator->uninstallFile === 'uninstall.sql');
@@ -1659,7 +1727,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($authSource, 'Nie można zmienić ostatniego aktywnego Ownera.'));
 
     $systemSource = (string) file_get_contents(dirname(__DIR__) . '/modules/System/SystemAdminModule.php');
-    $assert(str_contains($systemSource, "return '2.0.3';"));
+    $assert(str_contains($systemSource, "return '2.1.0';"));
     $assert(str_contains($systemSource, "'/api/platform-releases/catalog'"));
     $assert(str_contains($systemSource, "'/api/platform-releases/{filename}'"));
     $assert(str_contains($systemSource, 'nie ma skonfigurowanego centralnego kanału wydań'));

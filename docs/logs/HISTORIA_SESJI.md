@@ -2565,3 +2565,34 @@ aktualizacji. `system_admin` podniesiono do 2.0.3.
 z 0.2.0 do 0.2.2: podmieniono 279 plików, zapisano backup, zaktualizowano
 `system_admin` i uzyskano HTTP 200. Dodano test preflightu oraz uruchomiono pełne
 testy repozytorium i lint zmienionych plików.
+
+### Sesja: 2026-06-25 - Providerzy logowania i rozszerzalne sekcje menu
+
+**Faza i krok specyfikacji:** Krok 5B - kontrakt uwierzytelniania i ochrona
+pierwszego Ownera; Krok 6 - deklaratywna rejestracja elementów modułów; Krok 7 -
+instalacja zerowej konfiguracji.
+
+**Wykonano:** `core_auth` 1.6.0 dodaje adapter Microsoft Authorization Code z
+PKCE i profilem Microsoft Graph. GitHub, Discord, Google i Microsoft można
+włączać oraz konfigurować z panelu Ustawienia bez edycji `.env`. Formularz jest
+dostępny wyłącznie Ownerowi, nie zwraca zapisanych sekretów do HTML, a atomowy
+zapis trafia do `config/modules/auth-providers.env` z trybem `0600`.
+
+Instalator nie wymaga już GitHuba. Wymaga co najmniej jednego dowolnego providera,
+a pierwsze poprawne logowanie po instalacji atomowo tworzy pierwszego Ownera pod
+istniejącą blokadą bazodanową. Sekrety OAuth nie trafiają do
+`config/installed.env`. Czysta dystrybucja i test integracyjny zostały
+zaktualizowane.
+
+`AdminMenuRegistry` utrzymuje stabilne sekcje `Przestrzeń robocza`, `Core`,
+`Treść`, `Narzędzia`, `Dedykowane` i `System` oraz pozwala modułom deklarować
+dalsze sekcje przez `defineSection()`. Użytkownicy i role przeniesiono do `Core`,
+a Translator YAML i Manager SQL do `Narzędzia`. Wersje po zmianie:
+`system_admin` 2.1.0, `database_manager` 1.4.1 i `plugin_translator` 1.4.1.
+
+**Weryfikacja:** pełne `php tests/run.php` przeszło po zmianie i po przebudowie
+`install/cms`; pełny lint PHP i `node --check` zakończyły się poprawnie,
+`php bin/migrate-core.php` nie wykrył zaległych migracji, `git diff --check`
+przeszedł, a publiczny ekran logowania zwrócił HTTP 200. Integracyjny test pustej
+bazy został zaktualizowany, ale nie uruchomiony w tej sesji z powodu braku
+wydzielonych zmiennych `TEST_DB_*`.

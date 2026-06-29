@@ -125,7 +125,7 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
     <section class="panel">
       <div class="alert alert-success" role="status">Instalacja została ukończona.</div>
       <h2>Witaj, <?= $escape($result['owner']) ?></h2>
-      <p>Zainstalowano <?= $escape($result['installed_modules']) ?> modułów. Instalator został zablokowany plikiem w katalogu <code>config/</code>.</p>
+      <p>Zainstalowano <?= $escape($result['installed_modules']) ?> modułów. Pierwsza osoba, która poprawnie zaloguje się przez skonfigurowanego dostawcę, zostanie Ownerem. Instalator został zablokowany plikiem w katalogu <code>config/</code>.</p>
       <a class="button" href="<?= $escape($result['login_url']) ?>">Przejdź do logowania</a>
     </section>
   <?php elseif ($installer->isInstalled()): ?>
@@ -178,17 +178,17 @@ $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
         </section>
 
         <section class="panel wizard-step" data-step="4">
-          <h2>4. GitHub i pierwszy Owner</h2>
-          <p>Konto zostanie rozpoznane po stałym numerycznym ID GitHub.</p>
-          <label>Login GitHub <input name="github_login" required maxlength="39" value="<?= $escape($old('github_login')) ?>"></label>
-          <label>GitHub Client ID <input name="github_client_id" required value="<?= $escape($old('github_client_id')) ?>"></label>
-          <label>GitHub Client Secret <input name="github_client_secret" type="password" required autocomplete="new-password"></label>
-          <details><summary>Opcjonalnie Discord i Google</summary>
-            <label>Discord Client ID <input name="discord_client_id" value="<?= $escape($old('discord_client_id')) ?>"></label>
-            <label>Discord Client Secret <input name="discord_client_secret" type="password" autocomplete="new-password"></label>
-            <label>Google Client ID <input name="google_client_id" value="<?= $escape($old('google_client_id')) ?>"></label>
-            <label>Google Client Secret <input name="google_client_secret" type="password" autocomplete="new-password"></label>
-          </details>
+          <h2>4. Logowanie i pierwszy Owner</h2>
+          <p>Włącz co najmniej jednego dostawcę. Pierwsze poprawne logowanie zostanie atomowo przypisane do roli Owner.</p>
+          <?php foreach (['github' => 'GitHub', 'discord' => 'Discord', 'google' => 'Google', 'microsoft' => 'Microsoft'] as $provider => $label): ?>
+            <fieldset class="panel">
+              <legend><?= $escape($label) ?></legend>
+              <label class="check"><input name="<?= $escape($provider) ?>_enabled" type="checkbox" value="1"<?= isset($_POST[$provider . '_enabled']) || ($_SERVER['REQUEST_METHOD'] !== 'POST' && $provider === 'github') ? ' checked' : '' ?>> Włącz logowanie przez <?= $escape($label) ?></label>
+              <label><?= $escape($label) ?> Client ID <input name="<?= $escape($provider) ?>_client_id" value="<?= $escape($old($provider . '_client_id')) ?>"></label>
+              <label><?= $escape($label) ?> Client Secret <input name="<?= $escape($provider) ?>_client_secret" type="password" autocomplete="new-password"></label>
+              <small>Callback: <?= $escape($old('site_url', $defaultUrl)) ?>/index.php?route=/admin/auth/<?= $escape($provider) ?>/callback</small>
+            </fieldset>
+          <?php endforeach; ?>
           <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back>Wstecz</button><button type="button" data-next>Dalej</button></div></div>
         </section>
 

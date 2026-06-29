@@ -8,24 +8,14 @@ use PDO;
 use RuntimeException;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\InstallationState;
-use SyntaxDevTeam\Cms\Database\CrudApp;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\ExternalIdentity;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\FirstAdminBootstrapper;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\NativeHttpClient;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
 use Throwable;
 
 final class Installer
 {
-    /** @var null|\Closure(string): ExternalIdentity */
-    private readonly ?\Closure $identityResolver;
-
     public function __construct(
         private readonly string $root,
-        ?callable $identityResolver = null,
     ) {
-        $this->identityResolver = $identityResolver !== null
-            ? \Closure::fromCallable($identityResolver)
-            : null;
     }
 
     /** @return list<array{label: string, ok: bool, detail: string}> */
@@ -106,7 +96,6 @@ final class Installer
         }
 
         $data = $this->validate($input);
-        $identity = $this->resolveGitHubIdentity($data['github_login']);
         $environment = $this->environmentContent($data);
         if (!is_array(parse_ini_string($environment, false, INI_SCANNER_RAW))) {
             throw new RuntimeException('Wygenerowana konfiguracja środowiska jest nieprawidłowa.');
@@ -122,27 +111,18 @@ final class Installer
             }
 
             $this->installSchema($pdo, $data['selected_modules']);
-            $database = CrudApp::make([
-                'database_type' => 'mysql',
-                'server' => $data['db_host'],
-                'database_name' => $data['db_name'],
-                'username' => $data['db_user'],
-                'password' => $data['db_pass'],
-                'charset' => 'utf8mb4',
-                'collation' => 'utf8mb4_general_ci',
-                'port' => $data['db_port'],
-                'logging' => false,
-            ]);
-            $owner = (new FirstAdminBootstrapper($database))->bootstrap($identity, $identity->login);
-            $this->saveSiteSettings($pdo, $owner->id, $data);
+            $this->saveSiteSettings($pdo, null, $data);
             $this->writeEnvironment($environment);
+            (new AuthProviderConfigStore(
+                $this->root . '/config/modules/auth-providers.env'
+            ))->save($data['providers']);
             if (in_array('econizer', $data['selected_modules'], true)) {
                 $this->writeEconizerEnvironment($this->econizerEnvironmentContent($data));
             }
             $this->writeLock();
 
             return [
-                'owner' => $owner->displayName,
+                'owner' => 'Pierwszy użytkownik wybranego logowania',
                 'login_url' => $data['site_url'] . '/admin/login',
                 'installed_modules' => count($data['selected_modules']),
             ];
@@ -189,12 +169,25 @@ final class Installer
             || preg_match('/^[A-Za-z0-9_]{1,64}$/', $dbName) !== 1 || $dbUser === '' || $dbPass === '') {
             throw new RuntimeException('Uzupełnij poprawne dane połączenia z bazą MySQL.');
         }
-        $githubLogin = trim((string) ($input['github_login'] ?? ''));
-        $githubClientId = trim((string) ($input['github_client_id'] ?? ''));
-        $githubClientSecret = trim((string) ($input['github_client_secret'] ?? ''));
-        if (preg_match('/^[A-Za-z0-9-]{1,39}$/', $githubLogin) !== 1
-            || $githubClientId === '' || $githubClientSecret === '') {
-            throw new RuntimeException('GitHub login, Client ID i Client Secret są wymagane.');
+        $providers = [];
+        foreach (['github', 'discord', 'google', 'microsoft'] as $provider) {
+            $providers[$provider] = [
+                'enabled' => filter_var($input[$provider . '_enabled'] ?? false, FILTER_VALIDATE_BOOL),
+                'client_id' => trim((string) ($input[$provider . '_client_id'] ?? '')),
+                'client_secret' => (string) ($input[$provider . '_client_secret'] ?? ''),
+            ];
+        }
+        $enabledProviders = array_filter(
+            $providers,
+            static fn (array $provider): bool => $provider['enabled']
+        );
+        if ($enabledProviders === []) {
+            throw new RuntimeException('Wybierz i skonfiguruj co najmniej jednego dostawcę logowania.');
+        }
+        foreach ($enabledProviders as $name => $provider) {
+            if ($provider['client_id'] === '' || $provider['client_secret'] === '') {
+                throw new RuntimeException("Dostawca {$name} wymaga Client ID i Client Secret.");
+            }
         }
 
         $catalog = $this->moduleCatalog();
@@ -221,55 +214,9 @@ final class Installer
             'db_user' => $dbUser,
             'db_pass' => $dbPass,
             'create_database' => filter_var($input['create_database'] ?? false, FILTER_VALIDATE_BOOL),
-            'github_login' => $githubLogin,
-            'github_client_id' => $githubClientId,
-            'github_client_secret' => $githubClientSecret,
-            'discord_client_id' => trim((string) ($input['discord_client_id'] ?? '')),
-            'discord_client_secret' => trim((string) ($input['discord_client_secret'] ?? '')),
-            'google_client_id' => trim((string) ($input['google_client_id'] ?? '')),
-            'google_client_secret' => trim((string) ($input['google_client_secret'] ?? '')),
+            'providers' => $providers,
             'selected_modules' => $selected,
         ];
-    }
-
-    private function resolveGitHubIdentity(string $login): ExternalIdentity
-    {
-        if ($this->identityResolver !== null) {
-            $identity = ($this->identityResolver)($login);
-            if (!$identity instanceof ExternalIdentity || $identity->provider !== 'github') {
-                throw new RuntimeException('Resolver pierwszego Ownera zwrócił nieprawidłową tożsamość.');
-            }
-
-            return $identity;
-        }
-
-        $response = (new NativeHttpClient())->request(
-            'GET',
-            'https://api.github.com/users/' . rawurlencode($login),
-            [
-                'Accept' => 'application/vnd.github+json',
-                'X-GitHub-Api-Version' => '2022-11-28',
-                'User-Agent' => 'miniPORTAL Installer',
-            ]
-        );
-        if ($response->status !== 200) {
-            throw new RuntimeException('Nie można potwierdzić wskazanego konta GitHub.');
-        }
-        $profile = $response->json();
-        $subject = $profile['id'] ?? null;
-        $resolvedLogin = $profile['login'] ?? null;
-        if ((!is_int($subject) && !is_string($subject)) || !is_string($resolvedLogin)) {
-            throw new RuntimeException('Odpowiedź GitHub nie zawiera identyfikatora konta.');
-        }
-
-        return new ExternalIdentity(
-            'github',
-            (string) $subject,
-            $resolvedLogin,
-            is_string($profile['email'] ?? null) ? $profile['email'] : null,
-            false,
-            is_string($profile['avatar_url'] ?? null) ? $profile['avatar_url'] : null,
-        );
     }
 
     /** @param array<string, mixed> $data */
@@ -395,7 +342,7 @@ final class Installer
     }
 
     /** @param array<string, mixed> $data */
-    private function saveSiteSettings(PDO $pdo, int $ownerId, array $data): void
+    private function saveSiteSettings(PDO $pdo, ?int $ownerId, array $data): void
     {
         $values = [
             'theme' => $data['theme'],
@@ -448,15 +395,10 @@ final class Installer
             'AUTH_OAUTH_WINDOW_SECONDS' => '600',
             'AUTH_OAUTH_START_LIMIT' => '10',
             'AUTH_OAUTH_CALLBACK_LIMIT' => '20',
-            'GITHUB_CLIENT_ID' => $data['github_client_id'],
-            'GITHUB_CLIENT_SECRET' => $data['github_client_secret'],
             'GITHUB_CALLBACK_URL' => $callback . 'github/callback',
-            'DISCORD_CLIENT_ID' => $data['discord_client_id'],
-            'DISCORD_CLIENT_SECRET' => $data['discord_client_secret'],
             'DISCORD_CALLBACK_URL' => $callback . 'discord/callback',
-            'GOOGLE_CLIENT_ID' => $data['google_client_id'],
-            'GOOGLE_CLIENT_SECRET' => $data['google_client_secret'],
             'GOOGLE_CALLBACK_URL' => $callback . 'google/callback',
+            'MICROSOFT_CALLBACK_URL' => $callback . 'microsoft/callback',
             'DB_ENABLED' => 'true',
             'DB_DRIVER' => 'mysql',
             'DB_HOST' => $data['db_host'],
@@ -538,7 +480,7 @@ final class Installer
     {
         $content = json_encode([
             'installed_at' => gmdate(DATE_ATOM),
-            'version' => '0.2.3',
+            'version' => '0.2.4',
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zablokować instalatora po instalacji.');

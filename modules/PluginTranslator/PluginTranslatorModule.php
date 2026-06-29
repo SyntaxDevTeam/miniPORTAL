@@ -39,7 +39,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function version(): string
     {
-        return '1.4.0';
+        return '1.4.1';
     }
 
     public function dependencies(): array
@@ -59,7 +59,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
-        $menu->add('System', 'Translator YAML', '/admin/plugin-translator', 'TR', 'plugin_translator.review', 59);
+        $menu->add('Narzędzia', 'Translator YAML', '/admin/plugin-translator', 'TR', 'plugin_translator.review', 10);
     }
 
     public function registerPublicNavigation(PublicNavigationRegistry $navigation): void

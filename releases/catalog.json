@@ -1,6 +1,18 @@
 {
     "releases": [
         {
+            "version": "0.2.4",
+            "released_at": "2026-06-25T15:01:35+00:00",
+            "minimum_version": "0.2.3",
+            "filename": "miniportal-0.2.4.zip",
+            "checksum": "1068dc4e739fe21060a623271c126f49d3e97928720a8bb9e9172295ba8ed57d",
+            "changelog": [
+                "Aktualizacja instalatora i menu panelu administratora",
+                "Dodano wa\u017cny podzia\u0142 sekcji dla modu\u0142\u00f3w",
+                "Zaktualizowano dedykowany modu\u0142 Econizer"
+            ]
+        },
+        {
             "version": "0.2.3",
             "released_at": "2026-06-25T05:51:03+00:00",
             "minimum_version": "0.2.0",

@@ -8,6 +8,16 @@ use RuntimeException;
 
 final class AdminMenuRegistry
 {
+    /** @var array<string, int> */
+    private array $sections = [
+        'Przestrzeń robocza' => 10,
+        'Core' => 20,
+        'Treść' => 30,
+        'Narzędzia' => 40,
+        'Dedykowane' => 50,
+        'System' => 60,
+    ];
+
     /**
      * @var list<array{
      *     section: string,
@@ -19,6 +29,15 @@ final class AdminMenuRegistry
      * }>
      */
     private array $items = [];
+
+    public function defineSection(string $name, int $order): void
+    {
+        $name = trim($name);
+        if ($name === '' || $order < 0) {
+            throw new RuntimeException('Sekcja menu wymaga nazwy i nieujemnej kolejności.');
+        }
+        $this->sections[$name] = $order;
+    }
 
     /** @return list<array{section:string,label:string,path:string,icon:string,permission:string,order:int}> */
     public function items(): array
@@ -73,23 +92,21 @@ final class AdminMenuRegistry
                 || in_array($item['permission'], $permissions, true)
         ));
 
-        $sectionOrder = [];
         $sectionPosition = [];
         foreach ($items as $position => $item) {
             $section = $item['section'];
-            $sectionOrder[$section] = min($sectionOrder[$section] ?? PHP_INT_MAX, $item['order']);
             $sectionPosition[$section] ??= $position;
         }
 
         usort(
             $items,
-            static fn (array $left, array $right): int => [
-                $sectionOrder[$left['section']],
+            fn (array $left, array $right): int => [
+                $this->sections[$left['section']] ?? 500,
                 $sectionPosition[$left['section']],
                 $left['order'],
                 $left['label'],
             ] <=> [
-                $sectionOrder[$right['section']],
+                $this->sections[$right['section']] ?? 500,
                 $sectionPosition[$right['section']],
                 $right['order'],
                 $right['label'],

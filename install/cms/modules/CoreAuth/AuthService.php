@@ -13,6 +13,7 @@ final class AuthService
     public function __construct(
         private readonly UserRepositoryInterface $users,
         private readonly Security $security,
+        private readonly ?FirstAdminBootstrapper $firstOwnerBootstrapper = null,
     ) {
     }
 
@@ -39,7 +40,17 @@ final class AuthService
         $user = $this->users->findByIdentity($identity->provider, $identity->subject);
 
         if ($user === null) {
-            $user = $this->users->createPendingFromIdentity($identity);
+            if ($this->firstOwnerBootstrapper?->isAvailable()) {
+                try {
+                    $user = $this->firstOwnerBootstrapper->bootstrap(
+                        $identity,
+                        $identity->login !== '' ? $identity->login : $identity->provider
+                    );
+                } catch (\RuntimeException) {
+                    $user = $this->users->findByIdentity($identity->provider, $identity->subject);
+                }
+            }
+            $user ??= $this->users->createPendingFromIdentity($identity);
         }
         if ($user->status === 'blocked') {
             return null;

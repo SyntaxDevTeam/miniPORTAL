@@ -11,6 +11,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\UserAdministrationRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
 use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
@@ -249,6 +250,7 @@ return [
             $services['platform_updater'],
             $services['core_migration_runner'],
             $services['platform_release_publisher'],
+            $services['auth_provider_config_store'],
         ),
     ],
 ];

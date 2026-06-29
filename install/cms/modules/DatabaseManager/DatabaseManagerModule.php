@@ -35,7 +35,7 @@ final class DatabaseManagerModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.0';
+        return '1.4.1';
     }
 
     public function dependencies(): array
@@ -55,7 +55,7 @@ final class DatabaseManagerModule implements ModuleInterface
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
-        $menu->add('System', 'Manager SQL', '/admin/database', 'SQL', 'database.view', 58);
+        $menu->add('Narzędzia', 'Manager SQL', '/admin/database', 'SQL', 'database.view', 20);
     }
 
     public function registerRoutes(Router $router): void

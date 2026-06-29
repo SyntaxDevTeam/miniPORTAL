@@ -98,4 +98,9 @@ final class FirstAdminBootstrapper
             );
         }
     }
+
+    public function isAvailable(): bool
+    {
+        return $this->database->count('users') === 0;
+    }
 }

@@ -1,6 +1,6 @@
 # Instrukcje pracy nad miniPORTAL
 
-> **Ostatnia aktualizacja:** 2026-06-22 - wycofanie publicznego i18n.
+> **Ostatnia aktualizacja:** 2026-06-25 - providerzy OAuth i sekcje menu panelu.
 
 Plan projektu jest źródłem prawdy. Przed rozpoczęciem każdego etapu przeczytaj:
 
@@ -106,6 +106,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Adapter GitHub OAuth |
 | [x] | Adapter Discord OAuth |
 | [x] | Adapter Google OpenID Connect |
+| [x] | Adapter Microsoft OAuth z PKCE i Microsoft Graph |
+| [x] | Chroniona konfiguracja providerów z panelu bez edycji `.env` |
 | [x] | Łączenie wielu tożsamości z jednym kontem |
 | [x] | Lista użytkowników oraz zmiana lokalnego statusu i roli |
 | [x] | Tworzenie i akceptacja kont oczekujących |
@@ -192,6 +194,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Panel Ownera do budowania własnych wydań w instalacji macierzystej |
 | [x] | Zbalansowany, responsywny układ paneli strony Ustawienia |
 | [x] | Rozszerzalny indeks wyszukiwania panelu z ACL i słowami kluczowymi modułów |
+| [x] | Rozszerzalne sekcje menu panelu: Core, Treść, Narzędzia, Dedykowane i System |
 | [x] | Kolejność linków publicznej nawigacji modułów |
 | [x] | DashboardRegistry z konfigurowalnymi metrykami i panelami modułów |
 | [x] | Obsłużony stan błędu formularza Team bez HTTP 500 |
@@ -337,6 +340,7 @@ Brak aktywnych blokerów.
 | 2026-06-24 | Owner instalacji macierzystej może zbudować release w `/admin/system-updates`. Formularz ustawia wersję SemVer, minimalną wersję bazową i changelog, po czym uruchamia wspólny generator CLI; funkcja nie występuje w czystej dystrybucji. |
 | 2026-06-24 | Wydanie 0.2.2 dodaje centralny kanał read-only `/api/platform-releases/*`. Nowe instalacje otrzymują jego URL z kreatora, a pusty lokalny katalog bez kanału jest raportowany jako brak konfiguracji zamiast „najnowszej wersji”. |
 | 2026-06-25 | Wydanie 0.2.3 dodaje pełny preflight praw zapisu platformy. Atomowa aktualizacja wymaga zapisu katalogu głównego oraz zarządzanego runtime; panel i kreator pokazują problem przed podmianą plików, bez zmiany praw sekretów. |
+| 2026-06-25 | `core_auth` 1.6.0 dodaje Microsoft OAuth, panelową konfigurację providerów w chronionym `config/modules/auth-providers.env` oraz bootstrap Ownera przez pierwsze poprawne logowanie dowolnym providerem. `AdminMenuRegistry` ma stabilne i rozszerzalne sekcje; `system_admin` 2.1.0 udostępnia formularz wyłącznie Ownerowi. |
 
 ## Historia sesji
 

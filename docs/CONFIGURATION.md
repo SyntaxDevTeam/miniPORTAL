@@ -404,19 +404,24 @@ W ustawieniach GitHub App lub OAuth App wpisz dokładnie:
 https://new.syntaxdevteam.pl/index.php?route=/admin/auth/github/callback
 ```
 
-Po otrzymaniu Client ID i sekretu uzupełnij `GITHUB_CLIENT_ID` oraz
-`GITHUB_CLIENT_SECRET` w `/etc/miniportal/miniportal.env`, a następnie przeładuj
-Apache. Bez obu wartości przycisk GitHub pozostaje niewidoczny.
+Po otrzymaniu Client ID i sekretu Owner może uzupełnić provider w panelu
+`Ustawienia`. Sekrety trafiają do `config/modules/auth-providers.env` z trybem
+`0600`; ręczna konfiguracja przez zmienne środowiskowe pozostaje zgodnością
+wsteczną.
 
 ## Bootstrap pierwszego Ownera
 
-Gotowa dystrybucja `install/cms` wykonuje te czynności automatycznie przez
-`install.php` i zapisuje konfigurację w `config/installed.env`. Jawna zmienna
+Gotowa dystrybucja `install/cms` wymaga co najmniej jednego dowolnego providera.
+Pierwsze poprawne logowanie po instalacji atomowo tworzy pierwszego Ownera,
+wyłącznie gdy tabela `users` pozostaje pusta. Konfiguracja providerów jest
+zapisywana w `config/modules/auth-providers.env`, a pozostała konfiguracja w
+`config/installed.env`. Jawna zmienna
 `MINIPORTAL_ENV_FILE` ma najwyższy priorytet; bez niej aplikacja wybiera lokalny
 plik instalacji, a dopiero następnie `/etc/miniportal/miniportal.env`. Pozwala to
 utrzymywać kilka niezależnych instalacji na jednym serwerze.
 
-Mechanizm działa wyłącznie, gdy tabela `users` jest pusta. Najpierw sprawdź,
+Awaryjna komenda CLI nadal działa wyłącznie, gdy tabela `users` jest pusta.
+Najpierw sprawdź,
 jakie konto i niezmienny identyfikator GitHub zostaną użyte:
 
 ```bash
@@ -444,6 +449,18 @@ https://new.syntaxdevteam.pl/index.php?route=/admin/auth/discord/callback
 Następnie ustaw `DISCORD_CLIENT_ID` i `DISCORD_CLIENT_SECRET`. Adapter prosi
 wyłącznie o zakresy `identify email`, waliduje jednorazowy `state` i nie zapisuje
 tokenów dostawcy.
+
+## Konfiguracja Microsoft
+
+W Microsoft Entra zarejestruj aplikację Web i callback:
+
+```text
+https://new.syntaxdevteam.pl/index.php?route=/admin/auth/microsoft/callback
+```
+
+Provider używa Authorization Code, PKCE, zakresu `User.Read` i pobiera stały
+identyfikator konta przez Microsoft Graph. Client ID i sekret można zapisać w
+panelu `Ustawienia`.
 
 ## Konfiguracja Google OpenID Connect
 

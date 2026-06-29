@@ -46,8 +46,21 @@ dotykowych do 44 px. (gotowe)
 
 Czysta dystrybucja znajduje się w `install/cms`. Kreator `install.php` sprawdza
 środowisko, konfiguruje stronę i OAuth, instaluje wybrane moduły w pustej bazie,
-tworzy pierwszego Ownera oraz generuje lokalne sekrety bez ręcznej edycji plików.
+przygotowuje bezpieczny bootstrap pierwszego Ownera oraz generuje lokalne sekrety
+bez ręcznej edycji plików.
 Pakiet jest odtwarzany przez `bin/build-cms-distribution.php`. (gotowe)
+
+Konfiguracja logowania nie wymaga już późniejszej edycji `.env`. Owner może w
+Ustawieniach włączyć i skonfigurować GitHub, Discord, Google albo Microsoft;
+sekrety trafiają do chronionego `config/modules/auth-providers.env` i nie są
+odczytywane z powrotem do formularza. Instalator wymaga co najmniej jednego
+dowolnego providera zamiast obowiązkowego GitHuba, a pierwsze poprawne logowanie
+atomowo przejmuje rolę Ownera. (gotowe)
+
+Menu panelu ma stabilne, rozszerzalne sekcje `Przestrzeń robocza`, `Core`,
+`Treść`, `Narzędzia`, `Dedykowane` i `System`. Moduły mogą deklarować kolejne
+sekcje bez zmian w motywie; użytkownicy i role należą do `Core`, natomiast
+Translator YAML i Manager SQL do `Narzędzia`. (gotowe)
 
 Sekcja strony głównej `Hero / Split` ma opcjonalne pole akrostychu. Wartość może
 być wpisana ze spacjami lub po jednym wyrazie w linii; zapis normalizuje ją do
