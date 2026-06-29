@@ -49,7 +49,7 @@ final class PlatformReleasePublisher
         }
         $items = [];
         foreach ($changelog as $item) {
-            $item = trim($item);
+            $item = trim($this->normalizeUtf8($item));
             if ($item === '') {
                 continue;
             }
@@ -68,7 +68,7 @@ final class PlatformReleasePublisher
         file_put_contents($notes, json_encode([
             'minimum_version' => $minimumVersion,
             'changelog' => $items,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
         @chmod($notes, 0660);
 
         $versionFiles = [$configFile];
@@ -134,6 +134,20 @@ final class PlatformReleasePublisher
     private function generatorPath(): string
     {
         return rtrim($this->applicationRoot, '/') . '/bin/build-platform-release.php';
+    }
+
+    private function normalizeUtf8(string $value): string
+    {
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+        if (is_string($clean) && preg_match('//u', $clean) === 1) {
+            return $clean;
+        }
+
+        return '';
     }
 
     private function phpBinary(): string

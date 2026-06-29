@@ -1,6 +1,17 @@
 {
     "releases": [
         {
+            "version": "0.2.6",
+            "released_at": "2026-06-29T10:53:41+00:00",
+            "minimum_version": "0.2.0",
+            "filename": "miniportal-0.2.6.zip",
+            "checksum": "5973889bc935264e6539e21afadc3e209ed9b79bd7bdbc9c3fe71eec7360a60e",
+            "changelog": [
+                "Aktualizacja wielko\u015bci ikon w kontaktach.",
+                "cej ikony dla modrinth"
+            ]
+        },
+        {
             "version": "0.2.5",
             "released_at": "2026-06-29T10:01:46+00:00",
             "minimum_version": "0.2.4",

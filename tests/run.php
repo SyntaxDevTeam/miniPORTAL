@@ -2300,7 +2300,7 @@ PHP
         $publisher = new PlatformReleasePublisher($root, $root . '/cache/publisher');
         $assert($publisher->available());
         $assert(
-            $publisher->publish('0.3.0', '0.2.0', ['Pierwsza zmiana', '', 'Druga zmiana'])
+            $publisher->publish('0.3.0', '0.2.0', ['Pierwsza zmiana', '', "Druga zmiana\xB3"])
             === 'release-built:2'
         );
         $assert(str_contains((string) file_get_contents($root . '/config/config.php'), "'version' => '0.3.0'"));
