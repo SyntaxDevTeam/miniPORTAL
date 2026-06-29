@@ -606,8 +606,8 @@
 }
 
 .contact-icon svg {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 2.15rem;
+  height: 2.15rem;
   fill: currentColor;
 }
 
@@ -621,6 +621,10 @@
 
 .contact-icon-mail {
   color: var(--mp-primary);
+}
+
+.contact-icon-modrinth {
+  color: #1bd96a;
 }
 
 .contact-item-copy {

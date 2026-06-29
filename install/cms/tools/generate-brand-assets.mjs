@@ -111,6 +111,8 @@ function decodePng(data) {
   let offset = 8;
   let width = 0;
   let height = 0;
+  let colorType = 6;
+  let channels = 4;
   const idat = [];
   while (offset < data.length) {
     const length = data.readUInt32BE(offset);
@@ -120,9 +122,11 @@ function decodePng(data) {
     if (type === 'IHDR') {
       width = chunk.readUInt32BE(0);
       height = chunk.readUInt32BE(4);
-      if (chunk[8] !== 8 || chunk[9] !== 6 || ![0, 1].includes(chunk[12])) {
-        throw new Error('Generator obsluguje PNG RGBA 8-bit w standardowym wariancie PNG.');
+      colorType = chunk[9];
+      if (chunk[8] !== 8 || ![2, 6].includes(colorType) || ![0, 1].includes(chunk[12])) {
+        throw new Error('Generator obsluguje PNG RGB/RGBA 8-bit w standardowym wariancie PNG.');
       }
+      channels = colorType === 6 ? 4 : 3;
       var interlace = chunk[12];
     } else if (type === 'IDAT') {
       idat.push(chunk);
@@ -141,16 +145,16 @@ function decodePng(data) {
     const passWidth = startX >= width ? 0 : Math.ceil((width - startX) / stepX);
     const passHeight = startY >= height ? 0 : Math.ceil((height - startY) / stepY);
     if (passWidth === 0 || passHeight === 0) continue;
-    const stride = passWidth * 4;
+    const stride = passWidth * channels;
     const previous = Buffer.alloc(stride);
     for (let passY = 0; passY < passHeight; passY += 1) {
       const filter = packed[inputOffset++];
       const row = Buffer.alloc(stride);
       for (let byte = 0; byte < stride; byte += 1) {
         const raw = packed[inputOffset++];
-        const left = byte >= 4 ? row[byte - 4] : 0;
+        const left = byte >= channels ? row[byte - channels] : 0;
         const up = previous[byte];
-        const upLeft = byte >= 4 ? previous[byte - 4] : 0;
+        const upLeft = byte >= channels ? previous[byte - channels] : 0;
         const value = filter === 0 ? raw
           : filter === 1 ? raw + left
             : filter === 2 ? raw + up
@@ -163,7 +167,12 @@ function decodePng(data) {
       const targetY = startY + passY * stepY;
       for (let passX = 0; passX < passWidth; passX += 1) {
         const targetX = startX + passX * stepX;
-        row.copy(pixels, (targetY * width + targetX) * 4, passX * 4, passX * 4 + 4);
+        const sourceOffset = passX * channels;
+        const targetOffset = (targetY * width + targetX) * 4;
+        pixels[targetOffset] = row[sourceOffset];
+        pixels[targetOffset + 1] = row[sourceOffset + 1];
+        pixels[targetOffset + 2] = row[sourceOffset + 2];
+        pixels[targetOffset + 3] = colorType === 6 ? row[sourceOffset + 3] : 255;
       }
       row.copy(previous);
     }

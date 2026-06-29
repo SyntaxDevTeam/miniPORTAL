@@ -871,6 +871,7 @@ final class CorePagesModule implements ModuleInterface
                         'github' => 'GitHub',
                         'hangar' => 'Hangar',
                         'mail' => 'E-mail',
+                        'modrinth' => 'Modrinth',
                         'person' => 'Osoba',
                         'web' => 'WWW',
                     ],
@@ -1071,7 +1072,7 @@ final class CorePagesModule implements ModuleInterface
         if (!in_array($itemKind, ['card', 'channel', 'person'], true)) {
             return [$data, 'Wybrano nieprawidłowy typ elementu.'];
         }
-        if (!in_array($iconKey, ['', 'discord', 'github', 'hangar', 'mail', 'person', 'web'], true)) {
+        if (!in_array($iconKey, ['', 'discord', 'github', 'hangar', 'mail', 'modrinth', 'person', 'web'], true)) {
             return [$data, 'Wybrano nieprawidłową ikonę elementu.'];
         }
         if ($buttonUrl !== '' && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $buttonUrl) !== 1) {

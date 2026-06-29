@@ -42,11 +42,10 @@ final class BrandIconGenerator
             throw new RuntimeException('Serwer nie udostępnia procesu wymaganego przez generator ikon.');
         }
 
-        $parent = dirname($this->outputDirectory);
-        if (!is_dir($parent) && !mkdir($parent, 02770, true) && !is_dir($parent)) {
+        if (!is_dir($this->outputDirectory) && !mkdir($this->outputDirectory, 02770, true) && !is_dir($this->outputDirectory)) {
             throw new RuntimeException('Nie można utworzyć katalogu brandingu.');
         }
-        $temporary = $parent . '/.favicon-' . bin2hex(random_bytes(6));
+        $temporary = $this->outputDirectory . '/.favicon-' . bin2hex(random_bytes(6));
         if (!mkdir($temporary, 02770, true)) {
             throw new RuntimeException('Nie można przygotować generatora ikon.');
         }
@@ -80,9 +79,6 @@ final class BrandIconGenerator
                 if (!is_file($temporary . '/' . $name) || filesize($temporary . '/' . $name) < 1) {
                     throw new RuntimeException('Generator nie utworzył kompletnego zestawu ikon.');
                 }
-            }
-            if (!is_dir($this->outputDirectory) && !mkdir($this->outputDirectory, 02770, true) && !is_dir($this->outputDirectory)) {
-                throw new RuntimeException('Nie można utworzyć docelowego katalogu ikon.');
             }
             foreach (self::OUTPUT_FILES as $name) {
                 if (!rename($temporary . '/' . $name, $this->outputDirectory . '/' . $name)) {
