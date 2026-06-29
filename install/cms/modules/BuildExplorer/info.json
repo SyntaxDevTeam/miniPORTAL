@@ -1,7 +1,7 @@
 {
   "id": "build_explorer",
   "name": "Build Explorer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

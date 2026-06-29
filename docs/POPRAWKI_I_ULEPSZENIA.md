@@ -333,6 +333,17 @@ PunisherX z gałęzi `experimental-spigot-version`: `punisherx-paper`,
 `.github/workflows/` do ścieżek wspólnych, aby pierwszy commit instalujący workflow
 nie kończył publikacji jako `skipped`.
 
+Etap 3.3 gotowy: historia buildów korzysta z komponentu szczegółów motywu bez
+zagnieżdżonych kart i ma czytelniejsze odstępy przy tabeli commitów oraz przycisku
+pobierania. Publiczne nagłówki Build Explorera pokazują pełniejszą ścieżkę
+nawigacji. Endpoint CI rozróżnia brak sluga projektu od błędnego payloadu
+`metadata`, a przykład PunisherX pobiera wersję z Gradle zamiast używać SHA
+commita jako podstawowego numeru wersji.
+
+Etap 3.4 gotowy: publiczne widoki Build Explorera renderują linkowany breadcrumb
+`Build / Projekt / Kanał / Historia`, dzięki czemu można wrócić do listy buildów,
+projektu albo kanału bez korzystania z przycisku wstecz przeglądarki.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 

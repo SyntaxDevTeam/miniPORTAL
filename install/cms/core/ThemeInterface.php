@@ -121,6 +121,21 @@ interface ThemeInterface
     public function render_table(array $headers, array $rows): void;
 
     /**
+     * @param list<array{label: string, value: scalar|null}> $facts
+     * @param list<string> $headers
+     * @param list<list<scalar|null>> $rows
+     * @param list<array{label: string, href: string, variant?: string}> $actions
+     */
+    public function render_detail_card(
+        string $title,
+        string $label,
+        array $facts,
+        array $headers = [],
+        array $rows = [],
+        array $actions = [],
+    ): void;
+
+    /**
      * @param list<array{label: string, value: int|float}> $points
      */
     public function render_line_chart(array $points, string $label): void;

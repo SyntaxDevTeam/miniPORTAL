@@ -346,6 +346,26 @@ final class Theme implements ThemeInterface
         echo $this->escape($label) . '</a>';
     }
 
+    public function render_breadcrumb(array $items): void
+    {
+        if ($items === []) { return; }
+        echo '<nav class="public-breadcrumb" aria-label="Ścieżka nawigacji"><ol>';
+        foreach ($items as $index => $item) {
+            $label = (string) ($item['label'] ?? '');
+            if ($label === '') { continue; }
+            $href = $this->safeHref((string) ($item['href'] ?? ''));
+            $isLast = $index === array_key_last($items) || $href === '';
+            echo '<li>';
+            if ($isLast) {
+                echo '<span aria-current="page">' . $this->escape($label) . '</span>';
+            } else {
+                echo '<a href="' . $this->escape($href) . '">' . $this->escape($label) . '</a>';
+            }
+            echo '</li>';
+        }
+        echo '</ol></nav>';
+    }
+
     public function render_link_list(array $links): void
     {
         echo '<nav class="public-link-list" aria-label="Powiązane zasoby">';
@@ -435,6 +455,58 @@ final class Theme implements ThemeInterface
         }
 
         echo '</tbody></table></div>';
+    }
+
+    public function render_detail_card(
+        string $title,
+        string $label,
+        array $facts,
+        array $headers = [],
+        array $rows = [],
+        array $actions = [],
+    ): void {
+        echo '<article class="showcase-card public-detail-card">';
+        if ($label !== '') {
+            echo '<p class="showcase-label">' . $this->escape($label) . '</p>';
+        }
+        if ($title !== '') {
+            echo '<h2 class="h4">' . $this->escape($title) . '</h2>';
+        }
+        if ($facts !== []) {
+            echo '<dl class="public-detail-list">';
+            foreach ($facts as $fact) {
+                echo '<div class="public-detail-row"><dt>' . $this->escape((string) ($fact['label'] ?? '')) . '</dt>';
+                echo '<dd>' . $this->escape((string) ($fact['value'] ?? '')) . '</dd></div>';
+            }
+            echo '</dl>';
+        }
+        if ($headers !== [] && $rows !== []) {
+            echo '<div class="table-responsive public-detail-table-wrap"><table class="table table-hover align-middle public-detail-table"><thead><tr>';
+            foreach ($headers as $header) {
+                echo '<th scope="col">' . $this->escape($header) . '</th>';
+            }
+            echo '</tr></thead><tbody>';
+            foreach ($rows as $row) {
+                echo '<tr>';
+                foreach ($row as $cell) {
+                    echo '<td>' . $this->escape((string) $cell) . '</td>';
+                }
+                echo '</tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+        if ($actions !== []) {
+            echo '<div class="public-detail-actions">';
+            foreach ($actions as $action) {
+                $href = $this->safeHref((string) ($action['href'] ?? ''));
+                if ($href === '') { continue; }
+                $variant = $this->buttonVariant((string) ($action['variant'] ?? 'primary'));
+                echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '">';
+                echo $this->escape((string) ($action['label'] ?? 'Otwórz')) . '</a>';
+            }
+            echo '</div>';
+        }
+        echo '</article>';
     }
 
     public function render_line_chart(array $points, string $label): void

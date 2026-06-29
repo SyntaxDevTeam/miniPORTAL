@@ -94,6 +94,11 @@ interface ThemeInterface
     public function render_button(string $label, string $href, string $variant = 'primary'): void;
 
     /**
+     * @param list<array{label: string, href?: string}> $items
+     */
+    public function render_breadcrumb(array $items): void;
+
+    /**
      * @param list<array{label: string, href: string, meta?: string}> $links
      */
     public function render_link_list(array $links): void;
@@ -119,6 +124,21 @@ interface ThemeInterface
      * @param list<list<scalar|null>> $rows
      */
     public function render_table(array $headers, array $rows): void;
+
+    /**
+     * @param list<array{label: string, value: scalar|null}> $facts
+     * @param list<string> $headers
+     * @param list<list<scalar|null>> $rows
+     * @param list<array{label: string, href: string, variant?: string}> $actions
+     */
+    public function render_detail_card(
+        string $title,
+        string $label,
+        array $facts,
+        array $headers = [],
+        array $rows = [],
+        array $actions = [],
+    ): void;
 
     /**
      * @param list<array{label: string, value: int|float}> $points

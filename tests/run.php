@@ -1655,7 +1655,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $builds = $validator->validate(dirname(__DIR__) . '/modules/BuildExplorer');
     $assert($builds->id === 'build_explorer');
-    $assert($builds->version === '1.4.0');
+    $assert($builds->version === '1.4.1');
     $assert($builds->type === 'extension');
     $assert($builds->requiredModules === ['core_auth', 'projects']);
     $assert($builds->installFile === 'install.sql');
@@ -1870,6 +1870,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsSource, "\$request->postString('metadata')"));
     $assert(str_contains($buildsSource, "'mode' => 'artifact'"));
     $assert(str_contains($buildsSource, "'storage_key' => \$stored['storage_key']"));
+    $assert(str_contains($buildsSource, "BuildExplorer project slug is not published or does not exist."));
     $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main'"));
 });
 

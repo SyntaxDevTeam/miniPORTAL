@@ -246,6 +246,62 @@ a {
   font-size: 1.15rem;
 }
 
+.public-detail-card {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.public-detail-list {
+  display: grid;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+}
+
+.public-detail-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--mp-border);
+}
+
+.public-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.public-detail-row dt {
+  margin: 0;
+  color: var(--mp-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-detail-row dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.public-detail-table-wrap {
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+}
+
+.public-detail-table {
+  margin-bottom: 0;
+}
+
+.public-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.15rem;
+}
+
 .card {
   --bs-card-bg: transparent;
   padding: 0;
@@ -791,6 +847,11 @@ code {
 
   .table {
     min-width: 42rem;
+  }
+
+  .public-detail-row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
 
