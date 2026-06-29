@@ -246,6 +246,53 @@ a {
   font-size: 1.15rem;
 }
 
+.public-breadcrumb {
+  margin-bottom: 1.25rem;
+}
+
+.public-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  color: var(--bs-secondary-color);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.public-breadcrumb li + li::before {
+  margin-right: 0.55rem;
+  color: var(--mp-primary);
+  content: "/";
+}
+
+.public-breadcrumb a {
+  color: var(--mp-primary);
+  text-decoration: none;
+}
+
+.public-breadcrumb a:hover,
+.public-breadcrumb a:focus-visible {
+  color: var(--mp-text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.public-breadcrumb span {
+  overflow-wrap: anywhere;
+}
+
 .public-detail-card {
   display: grid;
   gap: 1.1rem;

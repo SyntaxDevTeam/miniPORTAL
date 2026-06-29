@@ -1871,6 +1871,7 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsSource, "'mode' => 'artifact'"));
     $assert(str_contains($buildsSource, "'storage_key' => \$stored['storage_key']"));
     $assert(str_contains($buildsSource, "BuildExplorer project slug is not published or does not exist."));
+    $assert(str_contains($buildsSource, 'render_breadcrumb($this->buildBreadcrumb'));
     $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main'"));
 });
 

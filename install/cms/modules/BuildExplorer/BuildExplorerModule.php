@@ -101,6 +101,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->theme->start_header('Build Explorer', 'Wybierz projekt, aby przejść do jego kanałów wydań.', 'Build');
         $this->theme->end_header();
         $this->theme->start_section();
+        $this->theme->render_breadcrumb($this->buildBreadcrumb());
         if ($projects === []) {
             $this->theme->render_alert('Nie opublikowano jeszcze żadnych projektów.', 'info');
         } else {
@@ -127,7 +128,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         foreach ($builds as $build) { $available[$build->channel] = ($available[$build->channel] ?? 0) + 1; }
         $this->theme->start_page($project['name'] . ' - Build Explorer', 'Kanały wydań projektu.');
         $this->theme->start_header($project['name'], 'Wybierz kanał wydań.', 'Build / ' . $project['name']); $this->theme->end_header();
-        $this->theme->start_section(); $this->theme->start_grid();
+        $this->theme->start_section(); $this->theme->render_breadcrumb($this->buildBreadcrumb($project['name'], $slug)); $this->theme->start_grid();
         foreach (self::CHANNELS as $channel => $label) {
             if (!isset($available[$channel])) { continue; }
             $this->theme->start_column('lg-6'); $this->theme->start_card($label, $available[$channel] . ' buildów');
@@ -153,7 +154,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                 ['label' => 'Historia buildów', 'href' => '/builds/' . rawurlencode($slug) . '/' . $channel . '/' . rawurlencode($build->versionLabel), 'variant' => 'outline-light'],
             ]];
         }
-        $this->theme->start_section(); $this->theme->render_action_table(['Wersja', 'Platforma', 'Rozmiar', 'Data'], $rows); $this->theme->end_section(); $this->theme->end_page();
+        $this->theme->start_section(); $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel)); $this->theme->render_action_table(['Wersja', 'Platforma', 'Rozmiar', 'Data'], $rows); $this->theme->end_section(); $this->theme->end_page();
     }
 
     private function renderPublicHistory(string $slug, string $channel, string $version): void
@@ -163,6 +164,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->theme->start_page($builds[0]->projectName . ' ' . $version, 'Historia buildów i commitów.');
         $this->theme->start_header($builds[0]->projectName . ' ' . $version, 'Historia buildów ' . self::CHANNELS[$channel] . '.', 'Build / ' . $builds[0]->projectName . ' / ' . self::CHANNELS[$channel] . ' / Historia buildów ' . self::CHANNELS[$channel]); $this->theme->end_header();
         $this->theme->start_section();
+        $this->theme->render_breadcrumb($this->buildBreadcrumb($builds[0]->projectName, $slug, $channel, 'Historia buildów ' . self::CHANNELS[$channel]));
         foreach ($builds as $build) {
             $this->theme->render_detail_card(
                 'Build ' . ($build->buildNumber !== '' ? $build->buildNumber : $build->filename),
@@ -179,6 +181,22 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             );
         }
         $this->theme->end_section(); $this->theme->end_page();
+    }
+
+    /** @return list<array{label: string, href?: string}> */
+    private function buildBreadcrumb(string $projectName = '', string $projectSlug = '', string $channel = '', string $current = ''): array
+    {
+        $items = [['label' => 'Build', 'href' => '/builds']];
+        if ($projectName !== '' && $projectSlug !== '') {
+            $items[] = ['label' => $projectName, 'href' => '/builds/' . rawurlencode($projectSlug)];
+        }
+        if ($channel !== '' && isset(self::CHANNELS[$channel]) && $projectSlug !== '') {
+            $items[] = ['label' => self::CHANNELS[$channel], 'href' => '/builds/' . rawurlencode($projectSlug) . '/' . $channel];
+        }
+        if ($current !== '') {
+            $items[] = ['label' => $current];
+        }
+        return $items;
     }
 
     private function importCi(Request $request, string $projectSlug): void

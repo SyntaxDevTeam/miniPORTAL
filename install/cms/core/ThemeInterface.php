@@ -94,6 +94,11 @@ interface ThemeInterface
     public function render_button(string $label, string $href, string $variant = 'primary'): void;
 
     /**
+     * @param list<array{label: string, href?: string}> $items
+     */
+    public function render_breadcrumb(array $items): void;
+
+    /**
      * @param list<array{label: string, href: string, meta?: string}> $links
      */
     public function render_link_list(array $links): void;

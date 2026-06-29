@@ -346,6 +346,26 @@ final class Theme implements ThemeInterface
         echo $this->escape($label) . '</a>';
     }
 
+    public function render_breadcrumb(array $items): void
+    {
+        if ($items === []) { return; }
+        echo '<nav class="public-breadcrumb" aria-label="Ścieżka nawigacji"><ol>';
+        foreach ($items as $index => $item) {
+            $label = (string) ($item['label'] ?? '');
+            if ($label === '') { continue; }
+            $href = $this->safeHref((string) ($item['href'] ?? ''));
+            $isLast = $index === array_key_last($items) || $href === '';
+            echo '<li>';
+            if ($isLast) {
+                echo '<span aria-current="page">' . $this->escape($label) . '</span>';
+            } else {
+                echo '<a href="' . $this->escape($href) . '">' . $this->escape($label) . '</a>';
+            }
+            echo '</li>';
+        }
+        echo '</ol></nav>';
+    }
+
     public function render_link_list(array $links): void
     {
         echo '<nav class="public-link-list" aria-label="Powiązane zasoby">';
