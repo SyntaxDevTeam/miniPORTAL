@@ -1,6 +1,16 @@
 {
     "releases": [
         {
+            "version": "0.2.5",
+            "released_at": "2026-06-29T10:01:46+00:00",
+            "minimum_version": "0.2.4",
+            "filename": "miniportal-0.2.5.zip",
+            "checksum": "eb7f1302db63598f9fd018abee6d4ac0bcf9adcfa17d0ca0194f44944cf71d87",
+            "changelog": [
+                "Poprawiono systemy API odczytu build explorera"
+            ]
+        },
+        {
             "version": "0.2.4",
             "released_at": "2026-06-25T15:01:35+00:00",
             "minimum_version": "0.2.3",
