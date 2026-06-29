@@ -1552,6 +1552,12 @@ final class Theme implements ThemeInterface
             : $this->safeHref($item['button_url']);
         $description = (new ContentRenderer())->render($item['content'], $item['content_format']);
         $icon = $item['icon_key'] !== '' ? $item['icon_key'] : ($person ? 'person' : 'web');
+        if (!$person && in_array($icon, ['', 'web'], true)) {
+            $fingerprint = strtolower($item['label'] . ' ' . $item['title'] . ' ' . $item['button_url'] . ' ' . $item['page_slug']);
+            if (str_contains($fingerprint, 'modrinth')) {
+                $icon = 'modrinth';
+            }
+        }
 
         echo '<article class="contact-item' . ($person ? ' contact-item-person' : '') . '">';
         echo '<span class="contact-icon contact-icon-' . $this->escape($icon) . '" aria-hidden="true">';

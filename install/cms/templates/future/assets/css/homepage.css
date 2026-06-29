@@ -606,8 +606,8 @@
 }
 
 .contact-icon svg {
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.35rem;
+  height: 2.35rem;
   fill: currentColor;
 }
 
@@ -625,6 +625,13 @@
 
 .contact-icon-modrinth {
   color: #1bd96a;
+}
+
+.contact-icon-discord svg,
+.contact-icon-github svg,
+.contact-icon-modrinth svg {
+  width: 2.48rem;
+  height: 2.48rem;
 }
 
 .contact-item-copy {
