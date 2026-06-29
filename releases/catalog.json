@@ -1,6 +1,16 @@
 {
     "releases": [
         {
+            "version": "0.2.7",
+            "released_at": "2026-06-29T15:29:04+00:00",
+            "minimum_version": "0.2.6",
+            "filename": "miniportal-0.2.7.zip",
+            "checksum": "91f4c14fbf5879146fee1faa5b6250730a04d6cca4655645d61011f11fea93a2",
+            "changelog": [
+                "Aktualizacja szablon\u00f3w i spos\u00f3b wy\u015bwietlania widget\u00f3w"
+            ]
+        },
+        {
             "version": "0.2.6",
             "released_at": "2026-06-29T10:53:41+00:00",
             "minimum_version": "0.2.0",

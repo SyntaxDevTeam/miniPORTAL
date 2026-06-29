@@ -931,3 +931,13 @@ code {
     outline: 3px solid CanvasText !important;
   }
 }
+
+.alert-command {
+  overflow-x: auto;
+  padding: 0.875rem 1rem;
+  color: #dcecff;
+  background: rgba(3, 7, 18, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 0.5rem;
+  white-space: pre;
+}

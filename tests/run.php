@@ -2339,12 +2339,16 @@ $test('Platform update permissions report the atomic root requirement', static f
     file_put_contents($root . '/index.php', "<?php\n");
     file_put_contents($root . '/.htaccess', "Options -Indexes\n");
     file_put_contents($root . '/config/config.php', "<?php return [];\n");
+    mkdir($root . '/modules/Econizer', 0700, true);
+    file_put_contents($root . '/modules/Econizer/.env', "ECONIZER_API_TOKEN=secret\n");
+    chmod($root . '/modules/Econizer/.env', 0400);
 
     try {
         $assert(FilesystemPermissions::platformUpdateIssues($root) === []);
         $command = FilesystemPermissions::platformUpdateRemediationCommand($root);
         $assert(str_contains($command, 'sudo chmod 2775 .'));
         $assert(str_contains($command, '! -name "installed.env"'));
+        $assert(str_contains($command, '! -name ".env"'));
         $assert(str_contains($command, 'cache/platform-updates'));
     } finally {
         $iterator = new RecursiveIteratorIterator(

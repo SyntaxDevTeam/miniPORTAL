@@ -433,7 +433,13 @@ final class Theme implements ThemeInterface
         $allowedVariants = ['success', 'danger', 'warning', 'info'];
         $variant = in_array($variant, $allowedVariants, true) ? $variant : 'info';
 
-        echo '<div class="alert alert-' . $variant . '" role="status">' . $this->escape($message) . '</div>';
+        $parts = preg_split("/\R{2,}/", $message) ?: [$message];
+        echo '<div class="alert alert-' . $variant . '" role="status">';
+        echo '<p class="mb-0">' . nl2br($this->escape(array_shift($parts) ?? ''), false) . '</p>';
+        foreach ($parts as $part) {
+            echo '<pre class="alert-command mt-3 mb-0"><code>' . $this->escape(trim($part)) . '</code></pre>';
+        }
+        echo '</div>';
     }
 
     public function render_table(array $headers, array $rows): void

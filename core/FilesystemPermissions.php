@@ -70,8 +70,12 @@ final class FilesystemPermissions
                 new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
             );
             foreach ($iterator as $item) {
+                $relativePath = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);
+                if ($item->isFile() && self::isLocalSecret($relativePath)) {
+                    continue;
+                }
                 if (($item->isFile() || $item->isDir()) && !$item->isWritable()) {
-                    $issues[] = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);
+                    $issues[] = $relativePath;
                     if (count($issues) >= 20) {
                         return $issues;
                     }
@@ -100,10 +104,17 @@ final class FilesystemPermissions
             'sudo chmod 0664 index.php .htaccess',
             'sudo chgrp -R www-data core modules templates bin tools',
             'sudo find core modules templates bin tools -type d -exec chmod 2775 {} \;',
-            'sudo find core modules templates bin tools -type f -exec chmod 0664 {} \;',
+            'sudo find core modules templates bin tools -type f ! -name ".env" -exec chmod 0664 {} \;',
             'sudo find config -maxdepth 1 -type f ! -name "installed.env" ! -name "installed.lock" -exec chgrp www-data {} \;',
             'sudo find config -maxdepth 1 -type f ! -name "installed.env" ! -name "installed.lock" -exec chmod 0660 {} \;',
             'sudo install -d -m 2770 -o $(stat -c %U .) -g www-data cache/platform-updates',
         ]);
+    }
+
+    private static function isLocalSecret(string $relativePath): bool
+    {
+        $relativePath = str_replace('\\', '/', $relativePath);
+
+        return str_starts_with($relativePath, 'modules/') && str_ends_with($relativePath, '/.env');
     }
 }
