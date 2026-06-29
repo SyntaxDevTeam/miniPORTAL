@@ -706,6 +706,12 @@
   color: #1bd96a;
 }
 
+.contact-icon-hangar img {
+  width: 2.35rem;
+  height: 2.35rem;
+  object-fit: contain;
+}
+
 .contact-icon-discord svg,
 .contact-icon-github svg,
 .contact-icon-modrinth svg {
