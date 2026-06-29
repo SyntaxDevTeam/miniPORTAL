@@ -344,6 +344,13 @@ Etap 3.4 gotowy: publiczne widoki Build Explorera renderują linkowany breadcrum
 `Build / Projekt / Kanał / Historia`, dzięki czemu można wrócić do listy buildów,
 projektu albo kanału bez korzystania z przycisku wstecz przeglądarki.
 
+Etap 3.5 gotowy: przykład CI PunisherX publikuje zacieniony, docelowy JAR zamiast
+technicznego pliku bez zależności. Workflow preferuje artefakty `PunisherX-*.jar`,
+wybiera największy kandydat i tworzy nazwę publikacji z faktycznego basename
+artefaktu, np. `PunisherX-Paper-1.7.3-DEV-5.jar`, bez powielania sluga, platformy
+ani kanału. Panel `/admin/builds` pokazuje teraz także rozmiar pliku w głównej
+tabeli buildów.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 

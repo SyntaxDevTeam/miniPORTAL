@@ -1872,6 +1872,8 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($buildsSource, "'storage_key' => \$stored['storage_key']"));
     $assert(str_contains($buildsSource, "BuildExplorer project slug is not published or does not exist."));
     $assert(str_contains($buildsSource, 'render_breadcrumb($this->buildBreadcrumb'));
+    $assert(str_contains($buildsSource, "['Projekt', 'Wersja', 'Kanał', 'Plik', 'Rozmiar', 'Publikacja']"));
+    $assert(str_contains($buildsSource, '$this->fileSize($build->fileSizeBytes)'));
     $assert(str_contains($buildsSource, "navigation->add('build_explorer.index', 'Pliki do pobrania', '/builds', 'main'"));
 });
 

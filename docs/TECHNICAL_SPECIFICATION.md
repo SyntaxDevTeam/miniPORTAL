@@ -435,7 +435,9 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   jako osobne projekty `punisherx-paper`, `punisherx-spigot`,
   `punisherx-bungeecord-bridge` i `punisherx-velocity-bridge`; selekcja w CI
   odbywa się po zmienionych ścieżkach, a wspólne zmiany publikują wszystkie
-  produkty.
+  produkty. Workflow wybiera zacieniony artefakt JAR, preferując pliki
+  `PunisherX-*.jar` i największy rozmiar, a nazwę publikacji tworzy z basename
+  faktycznie zbudowanego pliku z dopisanym numerem uruchomienia CI.
 
 ### Faza 5: Manager modułów (Lego System)
 

@@ -432,9 +432,9 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         if ($builds === []) {
             $this->theme->render_alert('Nie dodano jeszcze żadnych buildów.', 'info');
         } else {
-            $this->theme->render_admin_action_table(['Projekt', 'Wersja', 'Kanał', 'Plik', 'Publikacja'], array_map(
-                static fn (ProjectBuild $build): array => [
-                    'cells' => [$build->projectName, $build->versionLabel, self::CHANNELS[$build->channel], $build->filename, $build->published ? 'Publiczny' : 'Ukryty'],
+            $this->theme->render_admin_action_table(['Projekt', 'Wersja', 'Kanał', 'Plik', 'Rozmiar', 'Publikacja'], array_map(
+                fn (ProjectBuild $build): array => [
+                    'cells' => [$build->projectName, $build->versionLabel, self::CHANNELS[$build->channel], $build->filename, $this->fileSize($build->fileSizeBytes), $build->published ? 'Publiczny' : 'Ukryty'],
                     'actions' => [[
                         'label' => 'Edytuj', 'href' => 'index.php?route=/admin/builds/edit&id=' . $build->id, 'variant' => 'primary',
                     ], [

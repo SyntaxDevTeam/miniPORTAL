@@ -373,7 +373,9 @@ Pełny przykład workflow dla PunisherX znajduje się w
 [`docs/CI_BUILDEXPLORER_PUNISHERX.md`](CI_BUILDEXPLORER_PUNISHERX.md).
 Workflow pobiera `version` z właściwego projektu Gradle przez zadanie
 `properties`; skrócony SHA commita jest używany wyłącznie jako fallback, gdy
-projekt nie deklaruje wersji.
+projekt nie deklaruje wersji. Dla PunisherX workflow wybiera docelowy, zacieniony
+JAR `PunisherX-*.jar` z `build/libs`, a publikowaną nazwę składa z faktycznej
+nazwy artefaktu i numeru uruchomienia CI.
 
 Starszy wariant JSON z mapą `downloads` nadal działa dla instalacji, które chcą
 publikować bez kopiowania pliku do miniPORTAL. W tym trybie każdy wpis wymaga
