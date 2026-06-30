@@ -6,6 +6,7 @@ Autorski mini-CMS w systemie modularnym
 - [Specyfikacja techniczna i plan rozwoju](docs/TECHNICAL_SPECIFICATION.md)
 - [Konfiguracja środowiska](docs/CONFIGURATION.md)
 - [Publikacja buildów PunisherX z GitHub Actions](docs/CI_BUILDEXPLORER_PUNISHERX.md)
+- [Publikacja buildów pluginów SyntaxDevTeam z GitHub Actions](docs/CI_BUILDEXPLORER_SYNTAXDEVTEAM_PLUGINS.md)
 - [Plan panelu administracyjnego i logowania](docs/ADMIN_PANEL_PLAN.md)
 - [Opis modułu Econizer](docs/ECONIZER_MODULE.md)
 - [Przykładowy moduł edukacyjny](install/mod/LearningModule/README.md)
@@ -165,6 +166,8 @@ adresem HTTPS pozostaje kompatybilny.
 Monorepo PunisherX publikuje docelowo cztery osobne projekty BuildExplorera:
 `punisherx-paper`, `punisherx-spigot`, `punisherx-bungeecord-bridge` i
 `punisherx-velocity-bridge`; workflow wybiera produkt po zmienionych ścieżkach.
+Osobny zestaw workflowów obejmuje CleanerX Paper/Spigot oraz pojedyncze pluginy
+GraveDiggerX, TagsX, PlotsX i EssentialsF.
 
 `econizer` jest dedykowanym, wieloserwerowym centrum bota ekonomicznego Discord.
 Rozdziela właściciela platformy, administrację konkretnego serwera i gracza,

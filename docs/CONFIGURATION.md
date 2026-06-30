@@ -376,6 +376,9 @@ Workflow pobiera `version` z właściwego projektu Gradle przez zadanie
 projekt nie deklaruje wersji. Dla PunisherX workflow wybiera docelowy, zacieniony
 JAR `PunisherX-*.jar` z `build/libs`, a publikowaną nazwę składa z faktycznej
 nazwy artefaktu i numeru uruchomienia CI.
+Gotowe workflowy dla CleanerX Paper/Spigot oraz pluginów GraveDiggerX, TagsX,
+PlotsX i EssentialsF znajdują się w
+[`docs/CI_BUILDEXPLORER_SYNTAXDEVTEAM_PLUGINS.md`](CI_BUILDEXPLORER_SYNTAXDEVTEAM_PLUGINS.md).
 
 Starszy wariant JSON z mapą `downloads` nadal działa dla instalacji, które chcą
 publikować bez kopiowania pliku do miniPORTAL. W tym trybie każdy wpis wymaga

@@ -351,6 +351,12 @@ artefaktu, np. `PunisherX-Paper-1.7.3-DEV-5.jar`, bez powielania sluga, platform
 ani kanału. Panel `/admin/builds` pokazuje teraz także rozmiar pliku w głównej
 tabeli buildów.
 
+Etap 3.6 gotowy: dodano gotowe workflowy GitHub Actions dla CleanerX Paper/Spigot
+oraz pojedynczych pluginów GraveDiggerX, TagsX, PlotsX i EssentialsF. CleanerX
+publikuje osobne projekty `cleanerx-paper` i `cleanerx-spigot`, a pozostałe
+repozytoria korzystają z jednego parametrycznego workflowu z ustawianym slugiem,
+platformą i prefiksem docelowego artefaktu.
+
 ### Projekty
 (Taki pomysł ale trzeba mocno się zastanowić czy to ma sens przy już istniejacych modułach.) Moduł lub modyfikacja instniejących elementów CMSa gdzie można dodawać Projekty które są już publiczne lub w trakcie tworzenia, współpraca z podstonami (powiązanie) i modułem Wiki.
 

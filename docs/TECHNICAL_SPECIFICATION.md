@@ -441,6 +441,11 @@ Role uprzywilejowane mogą być nadawane wyłącznie przez aktora o odpowiedniej
   produkty. Workflow wybiera zacieniony artefakt JAR, preferując pliki
   `PunisherX-*.jar` i największy rozmiar, a nazwę publikacji tworzy z basename
   faktycznie zbudowanego pliku z dopisanym numerem uruchomienia CI.
+- Dodatkowe workflowy BuildExplorera obejmują CleanerX jako dwa osobne produkty
+  `cleanerx-paper` i `cleanerx-spigot` oraz pojedyncze pluginy `gravediggerx`,
+  `tagsx`, `plotsx` i `essentialsf`; wszystkie używają tego samego kontraktu
+  multipart, wybierają docelowy zacieniony JAR po prefiksie artefaktu i publikują
+  plik pod nazwą wynikającą z faktycznie zbudowanego artefaktu.
 
 ### Faza 5: Manager modułów (Lego System)
 
