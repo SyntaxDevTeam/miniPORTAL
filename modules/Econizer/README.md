@@ -1,7 +1,7 @@
 # Econizer Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econizer.
-Wersja 1.4.1 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.5.2 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
@@ -104,6 +104,13 @@ Sklep dla graczy ma jednoznaczny adres per serwer Discord:
 `/econizer/shop/{discord_guild_id}`. Właściciel serwera może podać ten link
 graczom; moduł nadal sprawdza aktywne członkostwo użytkownika w tym tenantcie
 przed pokazaniem katalogu i wykonaniem zakupu.
+
+Zakupy są realizowane w modelu pull. miniPORTAL zapisuje zamówienie jako
+`pending`, a bot pobiera je przez `GET /api/econizer/shop/orders?guild_id=...`
+z nagłówkiem `X-Econizer-Token`. Odpowiedź zawiera `discord_user_id`,
+`delivery_type` oraz `delivery_reference`. Bot nadaje rolę Discord albo zapisuje
+własny wirtualny item, po czym potwierdza realizację przez
+`POST /api/econizer/shop/orders/fulfill`.
 
 Panel `/admin/econizer` jest diagnostyką platformy i listą tenantów zgłoszonych
 przez bota. Nie zaprasza bota ani nie tworzy serwera ręcznie.

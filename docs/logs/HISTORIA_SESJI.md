@@ -2630,3 +2630,56 @@ pojedynczego widgetu i unieważnia cache strony głównej.
 **Weryfikacja:** `php -l` dla zmienionych plików PHP, pełne `php tests/run.php`
 oraz `git diff --check` zakończyły się poprawnie. Dodano test renderowania
 widgetu uptime we wszystkich aktywnych motywach.
+
+### Sesja: 2026-07-01 - Econizer: sklep, zakładki i realizacja zamówień
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer.
+
+**Wykonano:** `econizer` podniesiono do 1.5.0. Ustawienia serwera podzielono na
+zakładki `Overview`, `Shop`, `Market` i `Bot API`. Katalog sklepu właściciela
+serwera renderuje responsywne karty zamiast szerokiej tabeli. Dodano typ
+realizacji `virtual_item` oraz migrację `20260701_shop_delivery_queue.sql`.
+Zakupy sklepu pozostają zamówieniami `pending`, a bot pobiera je przez
+`GET /api/econizer/shop/orders` i potwierdza przez
+`POST /api/econizer/shop/orders/fulfill`. Zakładka giełdy pokazuje aktualne ceny
+aktywów i ostatnie notowania. Zmiana trafiła także do `install/cms`.
+
+**Weryfikacja:** `php -l` dla zmienionych plików PHP, pełne `php tests/run.php`
+oraz kontrola nawiasów CSS zakończyły się poprawnie. Produkcyjny Econizer został
+zaktualizowany do 1.5.0, migracja enumu została wykonana i zapisana w
+`module_migrations`, a trasy publiczne i API zwracają oczekiwane HTTP 401 bez
+sesji lub tokenu.
+
+### Sesja: 2026-07-01 - Econizer 1.5.1: tabele i ponowne zaproszenie bota
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer.
+
+**Wykonano:** `econizer` podniesiono do 1.5.1. Publiczne `render_table()` używa
+teraz wrappera `public-table-wrap` zamiast zagnieżdżonej karty, co usuwa
+nachodzenie historii transakcji na `Quick actions` i ogranicza niepotrzebne
+poziome przewijanie. Style wykresu `line-chart` trafiły do `stylebook.css`,
+który jest ładowany przez publiczne widoki modułu, a wysokość wykresu została
+ograniczona. Widok szczegółów zarządzanego serwera pokazuje ponowne zaproszenie
+bota, gdy tenant istnieje lokalnie, ale Discord API nie potwierdza obecności
+bota na serwerze; przy braku członkostwa pokazuje też akcję `Link local account`.
+
+**Weryfikacja:** `php -l` dla zmienionych plików PHP, kontrola nawiasów CSS,
+pełne `php tests/run.php` oraz `git diff --check` zakończyły się poprawnie.
+Produkcja `/var/www/econizer` została zaktualizowana do 1.5.1; widoki
+`/econizer`, `/econizer/market` i `/econizer/discord/server` zwracają oczekiwane
+HTTP 401 bez sesji.
+
+### Sesja: 2026-07-01 - Econizer 1.5.2: Bot API w panelu platformy
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer.
+
+**Wykonano:** `econizer` podniesiono do 1.5.2. Zakładka `Bot API` została
+usunięta z ustawień pojedynczego serwera Discord. Kontrakt endpointów
+`/api/econizer/*` przeniesiono do panelu `/admin/econizer`, gdzie jest widoczny
+tylko dla użytkownika z uprawnieniem `econizer.platform.manage`. Per serwer
+pozostają zakładki `Overview`, `Shop` i `Market`.
+
+**Weryfikacja:** `php -l` dla zmienionego modułu oraz pełne `php tests/run.php`
+zakończyły się poprawnie. Produkcja `/var/www/econizer` została zaktualizowana
+do 1.5.2; `/econizer/server` i `/admin/econizer` zwracają oczekiwane HTTP 401
+bez sesji.

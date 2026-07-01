@@ -376,6 +376,27 @@ prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
 
 ### Econizer
 
+Etap 10 gotowy: `econizer` 1.5.2 usuwa zakładkę `Bot API` z ustawień
+pojedynczego serwera Discord. Kontrakt endpointów bota jest teraz częścią panelu
+platformowego `/admin/econizer` i jest widoczny tylko dla użytkownika z
+uprawnieniem `econizer.platform.manage`, bo dotyczy właściciela bota oraz
+globalnego tokenu `X-Econizer-Token`.
+
+Etap 9 gotowy: `econizer` 1.5.1 poprawia publiczne tabele i wykres giełdy.
+`Transaction history` oraz notowania rynku nie renderują już zagnieżdżonej karty
+ani nie wymuszają niepotrzebnego poziomego przewijania na desktopie. Podpis
+wykresu ceny ma własny układ i ograniczoną wysokość. Widok szczegółów serwera
+pozwala ponownie zaprosić bota, jeśli tenant istnieje lokalnie, ale bot został
+usunięty z serwera Discord.
+
+Etap 8 gotowy: `econizer` 1.5.0 dzieli ustawienia serwera na zakładki Overview,
+Shop i Market, aby ograniczyć przewijanie jednej długiej strony. Katalog
+sklepu właściciela serwera jest teraz układem kart zamiast szerokiej tabeli,
+typ realizacji dostał `virtual_item`, a role Discord i itemy wirtualne są
+realizowane przez bota przez kolejkę zamówień: `GET /api/econizer/shop/orders`
+i `POST /api/econizer/shop/orders/fulfill`. Zakładka giełdy pokazuje aktualne
+ceny aktywów oraz ostatnie notowania.
+
 Etap 7 gotowy: `econizer` 1.4.1 doprecyzowuje publiczny sklep jako adres
 konkretnego serwera Discord: `/econizer/shop/{discord_guild_id}`. Ustawienia
 serwera pokazują właścicielowi link do przekazania graczom, globalny sklep nie

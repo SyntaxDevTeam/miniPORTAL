@@ -2,7 +2,7 @@
 
 Dokument opisuje moduł `econizer` od strony widocznej dla użytkowników portalu oraz
 od strony panelu administracyjnego. Stan odpowiada modułowi `Econizer Control Center`
-w wersji `1.4.1`.
+w wersji `1.5.2`.
 
 ## Cel modułu
 
@@ -109,11 +109,15 @@ Zakup jest rozliczany transakcyjnie:
 Typ realizacji przedmiotu może być:
 
 - `discord_role` - np. rola Discord,
+- `virtual_item` - wirtualny item widoczny w bazie i realizowany przez bota,
 - `code` - bezpieczna referencja do kodu obsługiwanego po stronie bota,
 - `manual` - ręczna realizacja.
 
 W miniPORTAL nie należy przechowywać sekretnych kodów. Pole referencji ma być
 identyfikatorem roli albo bezpiecznym kluczem rekordu obsługiwanym przez bota.
+Panel nie nadaje ról Discord bezpośrednio. Po zakupie tworzy zamówienie `pending`,
+a bot pobiera kolejkę zamówień, nadaje rolę albo zapisuje wirtualny item i dopiero
+potem potwierdza realizację.
 
 ### `/econizer/market` - giełda
 
@@ -148,12 +152,14 @@ Właściciel lub administrator serwera może tu ustawić:
 - włączenie lub wyłączenie sklepu,
 - włączenie lub wyłączenie giełdy.
 
-Ten sam widok pozwala też:
+Widok jest podzielony na zakładki: przegląd serwera, sklep i giełda. Ten sam
+obszar pozwala też:
 
 - dodać przedmiot do sklepu,
 - dodać aktywo giełdowe,
 - dopisać nowe notowanie aktywa,
-- podejrzeć katalog sklepu serwera.
+- podejrzeć katalog sklepu serwera w kartach zamiast szerokiej tabeli,
+- zobaczyć aktualne ceny aktywów i ostatnie notowania giełdy.
 
 Plan `freemium` ma limit aktywnych pozycji sklepu określony globalnie w ustawieniach
 platformy.
@@ -280,6 +286,31 @@ Content-Type: application/json
 `action` może mieć wartość `installed` albo `removed`. Zgłoszenie `installed`
 tworzy albo ponownie aktywuje tenant serwera. Zgłoszenie `removed` oznacza serwer
 jako nieaktywny.
+
+Oczekujące zakupy sklepu bot pobiera przez:
+
+```http
+GET /api/econizer/shop/orders?guild_id=1266457597385375804
+X-Econizer-Token: <sekret>
+```
+
+Odpowiedź zawiera `order_id`, `discord_user_id`, dane itemu, `delivery_type`,
+`delivery_reference`, cenę oraz datę utworzenia. Bot powinien traktować
+`discord_role` jako nadanie roli Discord, `virtual_item` jako zapis itemu po swojej
+stronie, a `manual` i `code` zgodnie z własną logiką obsługi.
+
+Po wykonaniu zakupu bot potwierdza zmianę statusu przez:
+
+```http
+POST /api/econizer/shop/orders/fulfill
+X-Econizer-Token: <sekret>
+
+guild_id=1266457597385375804&order_id=123&status=fulfilled
+```
+
+Dozwolone statusy to `fulfilled` i `cancelled`. Aktualizacja jest ograniczona do
+zamówień `pending` z podanego serwera, aby bot nie mógł przypadkowo zmienić
+zamówienia innego tenanta.
 
 Zdarzenia ekonomii są synchronizowane osobnym endpointem:
 

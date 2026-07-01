@@ -28,6 +28,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 final class EconizerModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface
 {
     private const ECONOMY_TYPES = ['daily', 'work', 'vip_daily', 'transfer_in', 'transfer_out', 'adjustment'];
+    private const DELIVERY_TYPES = ['discord_role', 'virtual_item', 'code', 'manual'];
 
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -44,7 +45,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'econizer'; }
-    public function version(): string { return '1.4.1'; }
+    public function version(): string { return '1.5.2'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econizer.view', 'econizer.platform.manage']; }
@@ -99,6 +100,8 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $router->get('/econizer/market', fn (Request $request) => $this->renderMarket($request));
         $router->post('/econizer/market/trade', fn (Request $request) => $this->trade($request));
         $router->post('/api/econizer/guilds', fn (Request $request) => $this->syncGuild($request));
+        $router->get('/api/econizer/shop/orders', fn (Request $request) => $this->shopOrders($request));
+        $router->post('/api/econizer/shop/orders/fulfill', fn (Request $request) => $this->fulfillShopOrder($request));
         $router->post('/api/econizer/events', fn (Request $request) => $this->syncEvent($request));
     }
 
@@ -131,6 +134,9 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
                 'variant' => $item['ok'] ? 'success' : 'warning',
             ], $integration));
             $this->theme->end_admin_panel();
+        }
+        if ($this->allows($user, 'econizer.platform.manage')) {
+            $this->renderPlatformBotApi();
         }
 
         $guildRows = array_map(static fn (array $guild): array => [
@@ -229,11 +235,32 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         [$user, $membership] = $context; $guildId = (int) $membership['guild_id'];
         $this->startPublic($membership['name'] . ' server settings', 'Configure economy, members, shop and market.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
+        $tab = $this->serverTab($request);
+        $this->theme->render_tabs($this->serverTabs($guildId, $tab));
+
+        if ($tab === 'shop') {
+            $this->renderServerShop($guildId, $membership);
+            $this->endPublic();
+            return;
+        }
+        if ($tab === 'market') {
+            $this->renderServerMarket($guildId, $user, $membership);
+            $this->endPublic();
+            return;
+        }
+        $this->renderServerOverview($guildId, $membership);
+        $this->endPublic();
+    }
+
+    /** @param array<string,mixed> $membership */
+    private function renderServerOverview(int $guildId, array $membership): void
+    {
         $this->theme->start_grid();
         $this->theme->start_column('6');
         $this->theme->start_card('Economy and automation', strtoupper((string) $membership['plan']));
         $this->theme->render_form('index.php?route=/econizer/server/settings', [
             ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'tab', 'label' => 'Tab', 'type' => 'hidden', 'value' => 'overview'],
             ['name' => 'currency_name', 'label' => 'Currency name', 'value' => (string) $membership['currency_name']],
             ['name' => 'daily_amount', 'label' => '/daily reward', 'type' => 'number', 'value' => (string) $membership['daily_amount']],
             ['name' => 'work_min', 'label' => 'Minimum /work reward', 'type' => 'number', 'value' => (string) $membership['work_min']],
@@ -258,20 +285,69 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->end_grid();
+    }
 
+    /** @param array<string,mixed> $membership */
+    private function renderServerShop(int $guildId, array $membership): void
+    {
         $this->theme->start_grid();
         $limit = (int) $this->econizer->platformSettings()['freemium_shop_limit'];
         $this->theme->start_column('6'); $this->theme->start_card('Add item', $membership['plan'] === 'freemium' ? 'Limit: ' . $limit . ' active items' : 'Unlimited catalog');
         $this->theme->render_form('index.php?route=/econizer/server/shop', [
             ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'tab', 'label' => 'Tab', 'type' => 'hidden', 'value' => 'shop'],
             ['name' => 'name', 'label' => 'Name'], ['name' => 'description', 'label' => 'Description', 'type' => 'textarea'],
             ['name' => 'price', 'label' => 'Price', 'type' => 'number'], ['name' => 'stock', 'label' => 'Stock (empty = unlimited)', 'type' => 'number'],
-            ['name' => 'delivery_type', 'label' => 'Delivery', 'type' => 'select', 'options' => ['discord_role' => 'Discord role', 'code' => 'External code', 'manual' => 'Manual']],
-            ['name' => 'delivery_reference', 'label' => 'Role ID / safe reference', 'help' => 'Do not enter a secret code; keep the identifier in the bot system.'],
+            ['name' => 'delivery_type', 'label' => 'Delivery', 'type' => 'select', 'options' => $this->deliveryOptions()],
+            ['name' => 'delivery_reference', 'label' => 'Role ID / item key / safe reference', 'help' => 'For Discord role enter Role ID. For virtual item enter the bot-side item key/SKU. miniPORTAL stores the order; the bot fulfills it.'],
         ], 'Add to shop', $this->security->csrfToken()); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('6');
+        $this->theme->start_card('Shop fulfillment', 'Bot pulls pending orders');
+        $this->theme->render_text('miniPORTAL creates pending orders and never calls Discord directly. The Econizer bot should poll /api/econizer/shop/orders, grant the Discord role or virtual item, then confirm the order through /api/econizer/shop/orders/fulfill.');
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Discord role', 'value' => 'Bot grants role ID'],
+            ['label' => 'Virtual item', 'value' => 'Bot reads item key'],
+            ['label' => 'Manual/code', 'value' => 'Bot or staff fulfills'],
+        ]);
+        $this->theme->end_card();
+        $this->theme->end_column();
+        $this->theme->end_grid();
+
+        $items = $this->econizer->shopItems($guildId, false);
+        if ($items === []) {
+            $this->theme->start_card('Shop catalog', $this->econizer->activeShopItemCount($guildId) . ' active');
+            $this->theme->render_text('No shop items yet.');
+            $this->theme->end_card();
+            return;
+        }
+        $this->theme->render_alert('Shop catalog: ' . $this->econizer->activeShopItemCount($guildId) . ' active items.', 'info');
+        $this->theme->start_grid();
+        foreach ($items as $item) {
+            $this->theme->start_column('md-6');
+            $this->theme->start_card((string) $item['name'], (int) $item['is_active'] === 1 ? 'Active' : 'Disabled');
+            if ((string) $item['description'] !== '') {
+                $this->theme->render_text((string) $item['description']);
+            }
+            $this->theme->render_admin_fact_grid([
+                ['label' => 'Price', 'value' => (string) $item['price']],
+                ['label' => 'Stock', 'value' => $item['stock'] === null ? 'unlimited' : (string) $item['stock']],
+                ['label' => 'Delivery', 'value' => $this->deliveryLabel((string) $item['delivery_type'])],
+                ['label' => 'Reference', 'value' => (string) ($item['delivery_reference'] ?? 'none')],
+            ]);
+            $this->theme->end_card();
+            $this->theme->end_column();
+        }
+        $this->theme->end_grid();
+    }
+
+    /** @param array<string,mixed> $membership */
+    private function renderServerMarket(int $guildId, User $user, array $membership): void
+    {
+        $this->theme->start_grid();
         $this->theme->start_column('6'); $this->theme->start_card('Assets and quotes', 'Initial price or new history points');
         $this->theme->render_form('index.php?route=/econizer/server/asset', [
             ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+            ['name' => 'tab', 'label' => 'Tab', 'type' => 'hidden', 'value' => 'market'],
             ['name' => 'symbol', 'label' => 'Symbol', 'help' => '2-12 uppercase letters or digits.'], ['name' => 'name', 'label' => 'Asset name'],
             ['name' => 'price', 'label' => 'Initial price', 'type' => 'number'],
         ], 'Add asset', $this->security->csrfToken());
@@ -279,16 +355,43 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($assetOptions !== []) {
             $this->theme->render_form('index.php?route=/econizer/server/quote', [
                 ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => (string) $guildId],
+                ['name' => 'tab', 'label' => 'Tab', 'type' => 'hidden', 'value' => 'market'],
                 ['name' => 'asset_id', 'label' => 'Asset', 'type' => 'select', 'options' => $assetOptions],
                 ['name' => 'price', 'label' => 'New price', 'type' => 'number'],
             ], 'Add quote', $this->security->csrfToken());
         }
         $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->end_grid();
-        $this->theme->start_card('Shop catalog', $this->econizer->activeShopItemCount($guildId) . ' active');
-        $this->theme->render_table(['Name', 'Price', 'Stock', 'Delivery'], array_map(static fn (array $item): array => [$item['name'], $item['price'], $item['stock'] ?? 'unlimited', $item['delivery_type']], $this->econizer->shopItems($guildId, false)));
+        $this->theme->start_column('6');
+        $this->theme->start_card('Current quotes', (int) $membership['market_enabled'] === 1 ? 'Market enabled' : 'Market disabled');
+        $assets = $this->econizer->marketAssets($guildId);
+        if ($assets === []) {
+            $this->theme->render_text('No market assets yet.');
+        } else {
+            foreach ($assets as $asset) {
+                $this->theme->render_admin_fact_grid([
+                    ['label' => (string) $asset['symbol'], 'value' => (string) $asset['current_price'], 'detail' => (string) $asset['name']],
+                    ['label' => 'Last quote', 'value' => (string) ($asset['last_quote_at'] ?? 'none')],
+                    ['label' => 'Status', 'value' => (int) $asset['is_active'] === 1 ? 'Active' : 'Disabled'],
+                ]);
+            }
+        }
         $this->theme->end_card();
-        $this->endPublic();
+        $this->theme->end_column();
+        $this->theme->end_grid();
+    }
+
+    private function renderPlatformBotApi(): void
+    {
+        $this->theme->start_admin_panel('Bot delivery contract', 'Pull-based fulfillment');
+        $this->theme->render_text('Role grants and virtual item delivery are performed by the Discord bot. miniPORTAL stores purchases as pending orders so the bot owner can process them with the dedicated API token, without exposing Discord bot credentials to per-server settings.');
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Fetch pending', 'value' => 'GET /api/econizer/shop/orders?guild_id={discord_guild_id}'],
+            ['label' => 'Confirm order', 'value' => 'POST /api/econizer/shop/orders/fulfill'],
+            ['label' => 'Sync guild', 'value' => 'POST /api/econizer/guilds'],
+            ['label' => 'Sync economy', 'value' => 'POST /api/econizer/events'],
+            ['label' => 'Auth', 'value' => 'X-Econizer-Token'],
+        ]);
+        $this->theme->end_admin_panel();
     }
 
     private function renderShop(Request $request, string $message = '', string $variant = 'info'): void
@@ -478,13 +581,32 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             ]);
         } else {
             $membership = $this->econizer->membership((int) $registered['id'], $user->id);
-            if ($membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true)) {
+            $canManage = $membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true);
+            if (!$botPresent) {
+                $this->theme->render_alert('The bot is not confirmed on this Discord server. You can invite Econizer again, then refresh the server list after the bot reports the guild.', 'warning');
+                $links = [
+                    ['label' => 'Invite Econizer to the server', 'href' => $this->discord->installationUrl($guildId), 'meta' => 'Discord: bot applications.commands'],
+                    ['label' => 'Refresh from Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Check again after adding the bot'],
+                ];
+                if ($canManage) {
+                    $links[] = ['label' => 'Econizer server settings', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Currency, shop, market and members'];
+                }
+                $this->theme->render_link_list($links);
+                if (!$canManage) {
+                    $this->theme->render_form('index.php?route=/econizer/discord/link', [
+                        ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => $guildId],
+                    ], 'Link local account', $this->security->csrfToken());
+                }
+            } elseif ($canManage) {
                 $this->theme->render_alert('Discord confirmed your server management rights, so Econizer access is already linked to this local account.', 'success');
                 $this->theme->render_link_list([
                     ['label' => 'Econizer server settings', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Currency, shop, market and members'],
                 ]);
             } else {
                 $this->theme->render_alert('Discord access was verified, but Econizer could not update the local server membership automatically. Refresh the server list and try again.', 'warning');
+                $this->theme->render_form('index.php?route=/econizer/discord/link', [
+                    ['name' => 'guild_id', 'label' => 'Server', 'type' => 'hidden', 'value' => $guildId],
+                ], 'Link local account', $this->security->csrfToken());
             }
         }
         $this->theme->end_card();
@@ -533,7 +655,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if ($membership['plan'] === 'freemium' && $this->econizer->activeShopItemCount($guildId) >= $freemiumLimit) { $this->renderServer($request, 'The Freemium plan allows up to ' . $freemiumLimit . ' active items.', 'warning'); return; }
         $name = $request->postString('name'); $description = $request->postString('description'); $price = $request->postInt('price', 0) ?? 0; $stockRaw = $request->postString('stock');
         $stock = $stockRaw === '' ? null : $request->postInt('stock'); $type = $request->postString('delivery_type'); $reference = $request->postString('delivery_reference');
-        if ($name === '' || strlen($name) > 120 || strlen($description) > 1000 || $price < 1 || ($stock !== null && $stock < 0) || !in_array($type, ['discord_role', 'code', 'manual'], true) || strlen($reference) > 120) { $this->renderServer($request, 'Invalid item data.', 'danger'); return; }
+        if ($name === '' || strlen($name) > 120 || strlen($description) > 1000 || $price < 1 || ($stock !== null && $stock < 0) || !in_array($type, self::DELIVERY_TYPES, true) || strlen($reference) > 120) { $this->renderServer($request, 'Invalid item data.', 'danger'); return; }
         $id = $this->econizer->addShopItem($guildId, $name, $description, $price, $stock, $type, $reference === '' ? null : $reference);
         $this->audit->record($request, 'econizer_shop_item_create', 'success', 'item:' . $id, $this->auth->user()?->id);
         $this->renderServer($request, 'The item has been added to the shop.', 'success');
@@ -592,6 +714,39 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         }
         $id = $this->econizer->upsertDiscordGuild($guildId, $name, $action === 'installed');
         $this->jsonResponse($id > 0 ? 200 : 500, ['ok' => $id > 0, 'guild_id' => $id, 'active' => $action === 'installed']);
+    }
+
+    private function shopOrders(Request $request): void
+    {
+        if (!$this->config->apiConfigured() || !hash_equals($this->config->apiToken, $request->header('X-Econizer-Token'))) { $this->jsonResponse(401, ['ok' => false, 'error' => 'unauthorized']); return; }
+        $guildId = $request->queryString('guild_id');
+        if (preg_match('/^[0-9]{6,32}$/', $guildId) !== 1) { $this->jsonResponse(422, ['ok' => false, 'error' => 'invalid_guild']); return; }
+        $orders = array_map(static fn (array $order): array => [
+            'order_id' => (int) $order['order_id'],
+            'guild_id' => (string) $order['discord_guild_id'],
+            'discord_user_id' => (string) $order['discord_user_id'],
+            'user_id' => (int) $order['user_id'],
+            'item_id' => (int) $order['item_id'],
+            'name' => (string) $order['name'],
+            'description' => (string) $order['description'],
+            'delivery_type' => (string) $order['delivery_type'],
+            'delivery_reference' => (string) ($order['delivery_reference'] ?? ''),
+            'price' => (int) $order['price'],
+            'created_at' => (string) $order['created_at'],
+        ], $this->econizer->pendingShopOrders($guildId, $request->queryInt('limit', 50) ?? 50));
+        $this->jsonResponse(200, ['ok' => true, 'orders' => $orders]);
+    }
+
+    private function fulfillShopOrder(Request $request): void
+    {
+        if (!$this->config->apiConfigured() || !hash_equals($this->config->apiToken, $request->header('X-Econizer-Token'))) { $this->jsonResponse(401, ['ok' => false, 'error' => 'unauthorized']); return; }
+        $data = $request->json();
+        $guildId = is_array($data) ? (string) ($data['guild_id'] ?? '') : $request->postString('guild_id');
+        $orderId = is_array($data) && is_int($data['order_id'] ?? null) ? (int) $data['order_id'] : ($request->postInt('order_id', 0) ?? 0);
+        $status = is_array($data) ? (string) ($data['status'] ?? 'fulfilled') : $request->postString('status', 'fulfilled');
+        if (preg_match('/^[0-9]{6,32}$/', $guildId) !== 1 || $orderId < 1 || !in_array($status, ['fulfilled', 'cancelled'], true)) { $this->jsonResponse(422, ['ok' => false, 'error' => 'invalid_payload']); return; }
+        $ok = $this->econizer->markShopOrder($guildId, $orderId, $status);
+        $this->jsonResponse($ok ? 200 : 404, ['ok' => $ok]);
     }
 
     private function syncEvent(Request $request): void
@@ -697,6 +852,43 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     private function allows(User $user, string $permission): bool { return in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true); }
     private function basisPoints(string $percent): ?int { if (preg_match('/^(?:[0-9]|1[0-9]|2[0-4])(?:[.,][0-9]{1,2})?$|^25(?:[.,]0{1,2})?$/', $percent) !== 1) { return null; } return (int) round((float) str_replace(',', '.', $percent) * 100); }
     private function percent(int $basisPoints): string { return rtrim(rtrim(number_format($basisPoints / 100, 2, '.', ''), '0'), '.'); }
+
+    /** @return array<string,string> */
+    private function deliveryOptions(): array
+    {
+        return [
+            'discord_role' => 'Discord role',
+            'virtual_item' => 'Virtual item',
+            'code' => 'External code',
+            'manual' => 'Manual',
+        ];
+    }
+
+    private function deliveryLabel(string $type): string
+    {
+        return $this->deliveryOptions()[$type] ?? $type;
+    }
+
+    private function serverTab(Request $request): string
+    {
+        $tab = $request->queryString('tab', $request->postString('tab', 'overview'));
+        return in_array($tab, ['overview', 'shop', 'market'], true) ? $tab : 'overview';
+    }
+
+    /** @return list<array{label:string,href:string,active:bool}> */
+    private function serverTabs(int $guildId, string $active): array
+    {
+        $tabs = ['overview' => 'Overview', 'shop' => 'Shop', 'market' => 'Market'];
+        return array_map(
+            static fn (string $key, string $label): array => [
+                'label' => $label,
+                'href' => 'index.php?route=/econizer/server&guild_id=' . $guildId . '&tab=' . $key,
+                'active' => $key === $active,
+            ],
+            array_keys($tabs),
+            array_values($tabs)
+        );
+    }
 
     /** @param array<string,mixed> $payload */
     private function jsonResponse(int $status, array $payload): void

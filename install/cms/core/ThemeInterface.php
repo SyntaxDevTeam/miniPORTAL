@@ -103,6 +103,11 @@ interface ThemeInterface
      */
     public function render_link_list(array $links): void;
 
+    /**
+     * @param list<array{label: string, href: string, active?: bool}> $tabs
+     */
+    public function render_tabs(array $tabs): void;
+
     public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void;
 
     /**

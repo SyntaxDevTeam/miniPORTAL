@@ -96,7 +96,7 @@ CREATE TABLE econizer_shop_items (
     description VARCHAR(1000) NOT NULL DEFAULT '',
     price BIGINT UNSIGNED NOT NULL,
     stock INT UNSIGNED NULL,
-    delivery_type ENUM('discord_role', 'code', 'manual') NOT NULL DEFAULT 'manual',
+    delivery_type ENUM('discord_role', 'virtual_item', 'code', 'manual') NOT NULL DEFAULT 'manual',
     delivery_reference VARCHAR(120) NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

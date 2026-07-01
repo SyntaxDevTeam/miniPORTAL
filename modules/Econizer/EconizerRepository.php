@@ -251,6 +251,45 @@ final class EconizerRepository
         return (int) $this->database->count('econizer_shop_items', ['guild_id' => $guildId, 'is_active' => 1]);
     }
 
+    /** @return list<array<string, mixed>> */
+    public function pendingShopOrders(string $discordGuildId, int $limit = 50): array
+    {
+        $limit = max(1, min(100, $limit));
+
+        return $this->rows(
+            'SELECT o.id AS order_id, g.discord_guild_id, m.discord_user_id, o.user_id, o.item_id, '
+            . 'i.name, i.description, i.delivery_type, i.delivery_reference, o.price, o.status, o.created_at '
+            . 'FROM econizer_shop_orders o '
+            . 'JOIN econizer_guilds g ON g.id = o.guild_id '
+            . 'JOIN econizer_shop_items i ON i.id = o.item_id '
+            . 'JOIN econizer_memberships m ON m.guild_id = o.guild_id AND m.user_id = o.user_id AND m.is_active = 1 '
+            . 'WHERE g.discord_guild_id = :guild_id AND g.is_active = 1 AND o.status = \'pending\' '
+            . 'ORDER BY o.created_at, o.id LIMIT ' . $limit,
+            [':guild_id' => $discordGuildId]
+        );
+    }
+
+    public function markShopOrder(string $discordGuildId, int $orderId, string $status): bool
+    {
+        if (!in_array($status, ['fulfilled', 'cancelled'], true)) {
+            return false;
+        }
+        $statement = $this->database->query(
+            'UPDATE econizer_shop_orders o '
+            . 'JOIN econizer_guilds g ON g.id = o.guild_id '
+            . 'SET o.status = :status, o.fulfilled_at = CASE WHEN :status_done = \'fulfilled\' THEN NOW() ELSE o.fulfilled_at END '
+            . 'WHERE o.id = :order_id AND g.discord_guild_id = :guild_id AND o.status = \'pending\'',
+            [
+                ':status' => $status,
+                ':status_done' => $status,
+                ':order_id' => $orderId,
+                ':guild_id' => $discordGuildId,
+            ]
+        );
+
+        return $statement !== null && $statement->rowCount() === 1;
+    }
+
     public function purchaseItem(int $guildId, int $userId, int $itemId): int
     {
         $orderId = 0;
@@ -348,6 +387,17 @@ final class EconizerRepository
         $id = (int) $this->database->create('econizer_market_assets', ['guild_id' => $guildId, 'symbol' => $symbol, 'name' => $name, 'current_price' => $price]);
         $this->database->create('econizer_market_quotes', ['asset_id' => $id, 'price' => $price]);
         return $id;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function marketAssets(int $guildId): array
+    {
+        return $this->rows(
+            'SELECT a.id, a.symbol, a.name, a.current_price, a.is_active, a.updated_at, '
+            . '(SELECT q.quoted_at FROM econizer_market_quotes q WHERE q.asset_id = a.id ORDER BY q.quoted_at DESC, q.id DESC LIMIT 1) AS last_quote_at '
+            . 'FROM econizer_market_assets a WHERE a.guild_id = :guild_id ORDER BY a.symbol',
+            [':guild_id' => $guildId]
+        );
     }
 
     public function updateAssetPrice(int $guildId, int $assetId, int $price): bool

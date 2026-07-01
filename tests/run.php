@@ -1325,6 +1325,9 @@ $test('Theme renders an accessible data-only line chart', static function () use
     $assert(str_contains($html, '<polyline points="'));
     $assert(str_contains($html, '<title id="line-chart-title-'));
     $assert(str_contains($html, 'Historia ceny ECO'));
+    $stylebook = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/css/stylebook.css');
+    $assert(str_contains($stylebook, '.line-chart svg'));
+    $assert(str_contains($stylebook, 'max-height: 14rem'));
 });
 
 $test('Public theme renders avatar image component', static function () use ($assert): void {
@@ -1719,7 +1722,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econizer = $validator->validate(dirname(__DIR__) . '/modules/Econizer');
     $assert($econizer->id === 'econizer');
-    $assert($econizer->version === '1.4.1');
+    $assert($econizer->version === '1.5.2');
     $assert($econizer->type === 'extension');
     $assert($econizer->requiredModules === ['core_auth']);
     $assert($econizer->installFile === 'install.sql');
@@ -1854,8 +1857,11 @@ $test('CoreAuth declares database explorer permission', static function () use (
         $assert(str_contains($econizerInstallSql, 'CREATE TABLE ' . $table), 'Brak tabeli Econizer: ' . $table);
     }
     $assert(str_contains($econizerInstallSql, "'econizer.platform.manage'"));
+    $assert(str_contains($econizerInstallSql, "'virtual_item'"));
     $assert(str_contains($econizerSource, "'/api/econizer/events'"));
     $assert(str_contains($econizerSource, "'/api/econizer/guilds'"));
+    $assert(str_contains($econizerSource, "'/api/econizer/shop/orders'"));
+    $assert(str_contains($econizerSource, "'/api/econizer/shop/orders/fulfill'"));
     $assert(str_contains($econizerSource, "hash_equals(\$this->config->apiToken"));
     $assert(str_contains($econizerSource, "\$this->config->apiConfigured()"));
     $assert(str_contains($econizerSource, "? 'unauthenticated' : 'forbidden'"));
@@ -1870,9 +1876,26 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($econizerSource, '/econizer/discord/connect'));
     $assert(str_contains($econizerSource, '/econizer/shop/{discord_guild_id}'));
     $assert(str_contains($econizerSource, 'Player shop link'));
+    $assert(str_contains($econizerSource, 'render_tabs($this->serverTabs'));
+    $assert(str_contains($econizerSource, 'Bot delivery contract'));
+    $assert(str_contains($econizerSource, 'renderPlatformBotApi'));
+    $assert(!str_contains($econizerSource, "'bot' => 'Bot API'"));
+    $assert(!str_contains($econizerSource, "['overview', 'shop', 'market', 'bot']"));
+    $assert(str_contains($econizerSource, 'virtual_item'));
+    $assert(str_contains($econizerSource, 'Current quotes'));
+    $assert(str_contains($econizerSource, 'The bot is not confirmed on this Discord server'));
+    $assert(str_contains($econizerSource, 'Link local account'));
     $assert(str_contains($econizerSource, 'syncManagedDiscordGuilds'));
+    $defaultThemeSource = (string) file_get_contents(dirname(__DIR__) . '/templates/default/theme.php');
+    $defaultStylebookSource = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/css/stylebook.css');
+    $assert(str_contains($defaultThemeSource, 'public-table-wrap'));
+    $assert(!str_contains($defaultThemeSource, "public function render_table(array \$headers, array \$rows): void\n    {\n        echo '<div class=\"table-responsive showcase-card p-0\""));
+    $assert(str_contains($defaultStylebookSource, '.public-table-wrap'));
     $assert(str_contains($econizerRepository, 'user_identities'));
     $assert(str_contains($econizerRepository, 'discord_guild_id'));
+    $assert(str_contains($econizerRepository, 'pendingShopOrders'));
+    $assert(str_contains($econizerRepository, 'markShopOrder'));
+    $assert(str_contains($econizerRepository, 'marketAssets'));
     $assert(str_contains($econizerRepository, 'syncManagedGuildMemberships'));
     $assert(str_contains($econizerRepository, 'user_id = VALUES(user_id)'));
     $assert(str_contains($econizerRepository, 'FOR UPDATE'));

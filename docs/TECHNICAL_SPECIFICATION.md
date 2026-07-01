@@ -820,6 +820,36 @@ Stan 1.4.1:
 - onboarding bota renderuje zarządzane serwery w dwóch kolumnach, odświeżanie na
   pełnej szerokości oraz czytelne karty informacji technicznych.
 
+Stan 1.5.0:
+- ustawienia serwera Econizer są podzielone na zakładki `Overview`, `Shop`,
+  `Market`, aby rozdzielić konfigurację ekonomii, katalog sklepu oraz notowania
+  giełdy,
+- katalog sklepu właściciela serwera renderuje responsywne karty zamiast szerokiej
+  tabeli, więc nie wymusza poziomego przewijania na wąskim ekranie,
+- sklep obsługuje typ realizacji `virtual_item`; zakup nadal zapisuje zamówienie
+  transakcyjnie, ale rola Discord albo item wirtualny są realizowane przez bota,
+- bot pobiera oczekujące zamówienia przez `GET /api/econizer/shop/orders` i
+  potwierdza je przez `POST /api/econizer/shop/orders/fulfill` z tokenem
+  `X-Econizer-Token`,
+- zakładka giełdy pokazuje bieżące ceny aktywów oraz ostatnie notowania obok
+  formularzy dodawania aktywów i nowych cen.
+
+Stan 1.5.1:
+- publiczne tabele Econizera używają lekkiego wrappera tabeli zamiast zagnieżdżać
+  kolejną kartę w karcie, dzięki czemu historia transakcji i notowania giełdy nie
+  nakładają się na sąsiednie sekcje,
+- wykres historii ceny ma style dostępne na zwykłych stronach publicznych oraz
+  ograniczoną wysokość, więc podpis osi czasu nie skleja się z tabelą notowań,
+- szczegóły zarządzanego serwera pokazują ponowne zaproszenie bota, gdy tenant
+  istnieje w bazie, ale Discord API nie potwierdza obecności bota na serwerze.
+
+Stan 1.5.2:
+- zakładka `Bot API` została usunięta z ustawień pojedynczego serwera Discord,
+  ponieważ kontrakt endpointów i token `X-Econizer-Token` należą do właściciela
+  bota/platformy,
+- kontrakt realizacji zamówień bota jest pokazywany w panelu `/admin/econizer`
+  tylko użytkownikom z uprawnieniem `econizer.platform.manage`.
+
 ### Krok 7: dystrybucja i instalacja zerowej konfiguracji
 
 1. Generator tworzy w `install/cms` wyłącznie pliki runtime, migracje i assety.

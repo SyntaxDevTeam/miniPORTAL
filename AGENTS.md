@@ -215,6 +215,7 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | OAuth listy zarządzanych serwerów i przypięta instalacja bota |
 | [x] | Automatyczne przypisanie właściciela/admina Discord do zgłoszonego tenanta Econizer |
 | [x] | Jednoznaczny link sklepu per Discord Guild ID i poprawiony widok zaproszenia bota |
+| [x] | Zakładki ustawień serwera, sklep w kartach, itemy wirtualne i kolejka realizacji zamówień dla bota |
 
 ### Wycofany kierunek - internacjonalizacja
 
@@ -352,6 +353,9 @@ Brak aktywnych blokerów.
 | 2026-06-29 | Publiczna warstwa miniPORTAL pozostaje bez systemu i18n, ale jej domyślne zaszyte teksty są po angielsku: motywy, publiczne błędy, nawigacja modułów, core_pages, articles, wikipedia, team, projects, build_explorer, plugin_translator i publiczne widoki Econizer. Panel `/admin/*` pozostaje po polsku. |
 | 2026-06-30 | `econizer` 1.4.0 automatycznie synchronizuje role `guild_owner` i `guild_admin` dla tenantów zgłoszonych przez bota, gdy świeża lista Discord `identify guilds` potwierdza, że użytkownik zarządza danym serwerem. |
 | 2026-07-01 | `econizer` 1.4.1 dodaje sklep pod `/econizer/shop/{discord_guild_id}`, pokazuje właścicielowi link dla graczy i porządkuje onboarding bota: serwery w dwóch kolumnach, odświeżanie pełną szerokością oraz czytelne informacje techniczne. |
+| 2026-07-01 | `econizer` 1.5.0 rozdziela ustawienia serwera na zakładki, pokazuje katalog sklepu w kartach, dodaje `virtual_item` i kolejkę realizacji zakupów pobieraną przez bota z `/api/econizer/shop/orders`. |
+| 2026-07-01 | `econizer` 1.5.1 poprawia tabele i wykresy publicznych widoków oraz pokazuje ponowne zaproszenie bota, gdy lokalny tenant istnieje, ale bot nie jest potwierdzony na Discordzie. |
+| 2026-07-01 | `econizer` 1.5.2 przenosi kontrakt `Bot API` z ustawień pojedynczego serwera do panelu platformowego `/admin/econizer` dla właściciela bota. |
 
 ## Historia sesji
 

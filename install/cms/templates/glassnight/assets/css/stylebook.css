@@ -246,6 +246,32 @@ a {
   font-size: 1.15rem;
 }
 
+.public-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: 0 0 1.5rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid rgba(126, 231, 255, .16);
+}
+
+.public-tab {
+  padding: .7rem 1rem;
+  border: 1px solid transparent;
+  border-radius: .85rem;
+  color: var(--bs-secondary-color);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.public-tab:hover,
+.public-tab:focus-visible,
+.public-tab.is-active {
+  border-color: rgba(126, 231, 255, .45);
+  background: rgba(126, 231, 255, .09);
+  color: var(--accent-cyan);
+}
+
 .profile-fact-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
@@ -386,6 +412,81 @@ a {
 
 .public-detail-table {
   margin-bottom: 0;
+}
+
+.public-table-wrap {
+  max-width: 100%;
+  margin-top: 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--mp-border);
+  border-radius: var(--mp-radius);
+}
+
+.public-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: auto;
+}
+
+.public-table th,
+.public-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.line-chart {
+  margin: 1rem 0;
+}
+
+.line-chart svg {
+  display: block;
+  width: 100%;
+  height: min(14rem, 34vw);
+  min-height: 9rem;
+  max-height: 14rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--mp-radius);
+  background: rgba(4, 10, 24, 0.45);
+}
+
+.line-chart-axis {
+  stroke: currentColor;
+  stroke-opacity: 0.3;
+  stroke-width: 1;
+}
+
+.line-chart-series {
+  fill: none;
+  stroke: var(--mp-cyan);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-chart figcaption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: .75rem;
+  align-items: center;
+  margin-top: .5rem;
+  color: var(--mp-muted);
+  font-size: .78rem;
+}
+
+.line-chart figcaption span,
+.line-chart figcaption strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.line-chart figcaption strong {
+  color: var(--mp-text);
+  text-align: center;
+}
+
+.line-chart figcaption span:last-child {
+  text-align: right;
 }
 
 .public-detail-actions {

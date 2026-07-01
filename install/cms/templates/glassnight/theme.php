@@ -384,6 +384,24 @@ final class Theme implements ThemeInterface
         echo '</nav>';
     }
 
+    public function render_tabs(array $tabs): void
+    {
+        echo '<nav class="public-tabs" aria-label="Sekcje widoku">';
+        foreach ($tabs as $tab) {
+            $href = $this->safeHref((string) ($tab['href'] ?? ''));
+            if ($href === '') {
+                continue;
+            }
+            $active = ($tab['active'] ?? false) === true;
+            echo '<a class="public-tab' . ($active ? ' is-active' : '') . '" href="' . $this->escape($href) . '"';
+            if ($active) {
+                echo ' aria-current="page"';
+            }
+            echo '>' . $this->escape((string) ($tab['label'] ?? 'Tab')) . '</a>';
+        }
+        echo '</nav>';
+    }
+
     public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void
     {
         $size = in_array($size, ['sm', 'md', 'lg'], true) ? $size : 'md';
@@ -444,7 +462,7 @@ final class Theme implements ThemeInterface
 
     public function render_table(array $headers, array $rows): void
     {
-        echo '<div class="table-responsive showcase-card p-0"><table class="table table-hover align-middle mb-0"><thead><tr>';
+        echo '<div class="table-responsive public-table-wrap"><table class="table table-hover align-middle mb-0 public-table"><thead><tr>';
 
         foreach ($headers as $header) {
             echo '<th scope="col">' . $this->escape($header) . '</th>';
