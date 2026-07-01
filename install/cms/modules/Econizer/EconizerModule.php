@@ -44,7 +44,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'econizer'; }
-    public function version(): string { return '1.3.1'; }
+    public function version(): string { return '1.4.1'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econizer.view', 'econizer.platform.manage']; }
@@ -93,6 +93,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $router->post('/econizer/server/shop', fn (Request $request) => $this->addShopItem($request));
         $router->post('/econizer/server/asset', fn (Request $request) => $this->addAsset($request));
         $router->post('/econizer/server/quote', fn (Request $request) => $this->updateQuote($request));
+        $router->get('/econizer/shop/{discord_guild_id}', fn (Request $request) => $this->renderShop($request));
         $router->get('/econizer/shop', fn (Request $request) => $this->renderShop($request));
         $router->post('/econizer/shop/buy', fn (Request $request) => $this->buyItem($request));
         $router->get('/econizer/market', fn (Request $request) => $this->renderMarket($request));
@@ -186,11 +187,16 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $this->startPublic('Econizer', 'Your Discord economy hub: balance, level, history, shop and market.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         if ($membership === null) {
-            $this->theme->render_alert('Your account is not linked to any Econizer server yet.', 'warning');
-            $this->theme->start_card('Discord servers', 'Choose a server you manage');
-            $this->theme->render_link_list([
-                ['label' => 'Show my Discord servers', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Owner, Administrator or Manage Guild'],
-            ]);
+            $this->theme->render_alert($memberships === [] ? 'Your account is not linked to any Econizer server yet.' : 'Choose the Econizer server you want to open.', $memberships === [] ? 'warning' : 'info');
+            $this->theme->start_card('Discord servers', $memberships === [] ? 'Choose a server you manage' : 'Linked servers');
+            $links = $memberships === []
+                ? [['label' => 'Show my Discord servers', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Owner, Administrator or Manage Guild']]
+                : array_map(static fn (array $item): array => [
+                    'label' => (string) $item['name'],
+                    'href' => 'index.php?route=/econizer&guild_id=' . (int) $item['guild_id'],
+                    'meta' => strtoupper((string) $item['access_role']),
+                ], $memberships);
+            $this->theme->render_link_list($links);
             $this->theme->end_card();
             $this->endPublic(); return;
         }
@@ -242,7 +248,13 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $this->theme->end_column();
         $this->theme->start_column('6');
         $this->theme->start_card('Discord users', 'No manual miniPORTAL account selection');
-        $this->theme->render_text('Players are linked to the server by their Discord User ID. If a user signed in to miniPORTAL through Discord, the first bot event for that Discord ID automatically assigns them to the correct server as a player. The server owner or administrator links their own account in My Discord servers.');
+        $this->theme->render_text('Players are linked to the server by their Discord User ID. If a user signed in to miniPORTAL through Discord, the first bot event for that Discord ID automatically assigns them to the correct server as a player. Server owners and administrators are linked automatically after Discord confirms their managed server list.');
+        $discordGuildId = (string) ($membership['discord_guild_id'] ?? '');
+        if ($discordGuildId !== '') {
+            $this->theme->render_link_list([
+                ['label' => 'Player shop link', 'href' => '/econizer/shop/' . rawurlencode($discordGuildId), 'meta' => 'Share this URL with players linked to this Discord server'],
+            ]);
+        }
         $this->theme->end_card();
         $this->theme->end_column();
         $this->theme->end_grid();
@@ -380,8 +392,13 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             $this->audit->record($request, 'econizer_discord_oauth_callback', 'provider_error', 'discord', $user->id);
             http_response_code(502); $this->renderManagedServers($request, 'Could not safely fetch the Discord server list.', 'danger'); return;
         }
+        $linked = $this->syncManagedDiscordGuilds($user, $guilds);
         $this->audit->record($request, 'econizer_discord_oauth_callback', 'success', 'discord', $user->id);
-        $this->renderManagedServers($request, 'Fetched ' . count($guilds) . ' servers you can manage.', 'success');
+        $message = 'Fetched ' . count($guilds) . ' servers you can manage.';
+        if ($linked > 0) {
+            $message .= ' Econizer access was updated for ' . $linked . ' reported servers.';
+        }
+        $this->renderManagedServers($request, $message, 'success');
     }
 
     private function renderManagedServers(Request $request, string $message = '', string $variant = 'info'): void
@@ -404,24 +421,33 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             $this->theme->end_card();
             $this->endPublic(); return;
         }
+        $this->syncManagedDiscordGuilds($user, $guilds);
+        $this->theme->start_grid();
         foreach ($guilds as $guild) {
             $registered = $this->econizer->guildByDiscordId($guild['id']);
+            $membership = $registered !== null ? $this->econizer->membership((int) $registered['id'], $user->id) : null;
+            $canManage = $membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true);
+            $this->theme->start_column('lg-6');
             $this->theme->start_card((string) $guild['name'], 'Verified access: ' . $guild['access']);
             $this->theme->render_admin_fact_grid([
                 ['label' => 'Discord Guild ID', 'value' => $guild['id']],
                 ['label' => 'Econizer', 'value' => $registered !== null ? 'Bot reported this server' : 'Bot not reported', 'variant' => $registered !== null ? 'success' : 'warning'],
             ]);
-            $links = [
-                ['label' => 'Server details', 'href' => 'index.php?route=/econizer/discord/server&guild_id=' . rawurlencode($guild['id']), 'meta' => $registered !== null ? 'Link account and open settings' : 'Invite the Econizer bot'],
-            ];
+            $links = $canManage
+                ? [['label' => 'Open Econizer settings', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Currency, shop, market and members']]
+                : [['label' => 'Server details', 'href' => 'index.php?route=/econizer/discord/server&guild_id=' . rawurlencode($guild['id']), 'meta' => $registered !== null ? 'Check automatic access' : 'Invite the Econizer bot']];
             $this->theme->render_link_list($links);
             $this->theme->end_card();
+            $this->theme->end_column();
         }
+        $this->theme->start_column('12');
         $this->theme->start_card('Refresh list', 'Discord OAuth');
         $this->theme->render_link_list([
             ['label' => 'Refresh from Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Fetch managed servers again'],
         ]);
         $this->theme->end_card();
+        $this->theme->end_column();
+        $this->theme->end_grid();
         $this->endPublic();
     }
 
@@ -432,6 +458,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $guildId = $request->queryString('guild_id', $request->postString('guild_id'));
         $guild = $this->discord->guild($user->id, $guildId);
         if ($guild === null) { $this->renderManagedServers($request, 'The server is not in the current verified Discord list. Refresh the list.', 'warning'); return; }
+        $this->syncManagedDiscordGuilds($user, [$guild]);
         $registered = $this->econizer->guildByDiscordId($guildId);
         try { $botPresent = $this->discord->botPresent($guildId); } catch (Throwable) { $botPresent = false; }
         $this->startPublic('Discord server: ' . (string) $guild['name'], 'Bot installation and Econizer settings for the selected server.');
@@ -444,7 +471,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             ['label' => 'Plan', 'value' => $registered !== null ? strtoupper((string) $registered['plan']) : 'FREEMIUM after report'],
         ]);
         if ($registered === null) {
-            $this->theme->render_alert('After invitation, the bot will send server information to miniPORTAL. Econizer settings for this guild appear only after that.', 'info');
+            $this->theme->render_alert('Once you invite the bot, the Econizer settings for that guild will appear.', 'info');
             $this->theme->render_link_list([
                 ['label' => 'Invite Econizer to the server', 'href' => $this->discord->installationUrl($guildId), 'meta' => 'Discord: bot applications.commands'],
                 ['label' => 'Refresh from Discord', 'href' => 'index.php?route=/econizer/discord/connect', 'meta' => 'Check again after adding the bot'],
@@ -452,13 +479,12 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         } else {
             $membership = $this->econizer->membership((int) $registered['id'], $user->id);
             if ($membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true)) {
+                $this->theme->render_alert('Discord confirmed your server management rights, so Econizer access is already linked to this local account.', 'success');
                 $this->theme->render_link_list([
                     ['label' => 'Econizer server settings', 'href' => 'index.php?route=/econizer/server&guild_id=' . (int) $registered['id'], 'meta' => 'Currency, shop, market and members'],
                 ]);
             } else {
-                $this->theme->render_form('index.php?route=/econizer/discord/link', [
-                ['name' => 'guild_id', 'label' => 'Discord server', 'type' => 'hidden', 'value' => $guildId],
-                ], 'Link account and open settings', $this->security->csrfToken());
+                $this->theme->render_alert('Discord access was verified, but Econizer could not update the local server membership automatically. Refresh the server list and try again.', 'warning');
             }
         }
         $this->theme->end_card();
@@ -596,10 +622,35 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     {
         $user = $this->requireUser(); if ($user === null) { return null; }
         $guildId = $request->queryInt('guild_id') ?? $request->postInt('guild_id');
+        $routeGuildId = $request->routeString('discord_guild_id');
+        if ($guildId === null && $routeGuildId !== '') {
+            $registered = preg_match('/^[0-9]{6,32}$/', $routeGuildId) === 1 ? $this->econizer->guildByDiscordId($routeGuildId) : null;
+            $guildId = $registered !== null ? (int) $registered['id'] : 0;
+        }
         $memberships = $this->econizer->memberships($user->id); $selected = $this->selectedMembership($memberships, $guildId);
-        if ($selected === null) { http_response_code(403); $this->theme->render_public_error(403, 'Access denied', 'You do not have an active link with this Econizer server.', 'Back to Econizer', '/econizer'); return null; }
+        if ($selected === null) {
+            http_response_code(403);
+            $message = $guildId === null ? 'Choose a server-specific Econizer link from your dashboard or use the shop URL shared by the Discord server owner.' : 'You do not have an active link with this Econizer server.';
+            $this->theme->render_public_error(403, 'Access denied', $message, 'Back to Econizer', '/econizer');
+            return null;
+        }
         $full = $this->econizer->membership((int) $selected['guild_id'], $user->id);
         return $full === null ? null : [$user, $full];
+    }
+
+    /** @param list<array{id:string,owner:bool}> $guilds */
+    private function syncManagedDiscordGuilds(User $user, array $guilds): int
+    {
+        $discordUserId = $this->discord->discordUserId($user->id);
+        if ($discordUserId === null || $guilds === []) {
+            return 0;
+        }
+        try {
+            return count($this->econizer->syncManagedGuildMemberships($user->id, $discordUserId, $guilds));
+        } catch (Throwable $exception) {
+            error_log('Econizer managed guild sync failed: ' . $exception::class);
+            return 0;
+        }
     }
 
     private function requireUser(): ?User
@@ -613,7 +664,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     {
         if ($guildId === null && count($memberships) === 1) { return $memberships[0]; }
         foreach ($memberships as $membership) { if ((int) $membership['guild_id'] === $guildId) { return $membership; } }
-        return $memberships[0] ?? null;
+        return null;
     }
 
     private function startPublic(string $title, string $lead): void

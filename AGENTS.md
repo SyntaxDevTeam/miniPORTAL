@@ -213,6 +213,8 @@ Jeśli kod i dokumentacja są niespójne, wybierz rozwiązanie zgodne ze specyfi
 | [x] | Idempotentny endpoint synchronizacji zdarzeń bota |
 | [x] | Dedykowany `.env` modułu z niezależnymi danymi Discord i API |
 | [x] | OAuth listy zarządzanych serwerów i przypięta instalacja bota |
+| [x] | Automatyczne przypisanie właściciela/admina Discord do zgłoszonego tenanta Econizer |
+| [x] | Jednoznaczny link sklepu per Discord Guild ID i poprawiony widok zaproszenia bota |
 
 ### Wycofany kierunek - internacjonalizacja
 
@@ -348,6 +350,8 @@ Brak aktywnych blokerów.
 | 2026-06-29 | `widgets` 1.1.0 dodaje format treści kart (`html`/`markdown`), rich text w formularzu kart oraz w pełni edytowalny skrypt bootowania terminala Hero. Motywy renderują karty przez `ContentRenderer`, a JavaScript terminala używa linii zapisanych w rekordzie widgetu zamiast zaszytego tekstu startowego. |
 | 2026-06-29 | `widgets` 1.2.0 dodaje typ `uptime` renderowany przez motywy jako panel monitoringu z kafelkami `Etykieta | Wartość | status`. Lista widgetów ma akcję `Włącz`/`Wyłącz`, a migracja rozszerza `widget_type` o `uptime`. |
 | 2026-06-29 | Publiczna warstwa miniPORTAL pozostaje bez systemu i18n, ale jej domyślne zaszyte teksty są po angielsku: motywy, publiczne błędy, nawigacja modułów, core_pages, articles, wikipedia, team, projects, build_explorer, plugin_translator i publiczne widoki Econizer. Panel `/admin/*` pozostaje po polsku. |
+| 2026-06-30 | `econizer` 1.4.0 automatycznie synchronizuje role `guild_owner` i `guild_admin` dla tenantów zgłoszonych przez bota, gdy świeża lista Discord `identify guilds` potwierdza, że użytkownik zarządza danym serwerem. |
+| 2026-07-01 | `econizer` 1.4.1 dodaje sklep pod `/econizer/shop/{discord_guild_id}`, pokazuje właścicielowi link dla graczy i porządkuje onboarding bota: serwery w dwóch kolumnach, odświeżanie pełną szerokością oraz czytelne informacje techniczne. |
 
 ## Historia sesji
 

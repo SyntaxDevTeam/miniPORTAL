@@ -1,14 +1,14 @@
 # Econizer Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econizer.
-Wersja 1.3.1 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.4.1 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.
 - Właściciel lub administrator serwera Discord: waluta, podatek, VIP daily,
   członkowie, katalog sklepu i aktywa rynku wyłącznie własnego serwera.
 - Gracz: saldo, EXP, poziom, historia, zakupy oraz portfel giełdowy wyłącznie
-  w serwerach, z którymi jego konto zostało jawnie powiązane.
+  w serwerach, z którymi jego konto zostało powiązane.
 
 ## Integracja bota
 
@@ -76,9 +76,9 @@ Content-Type: application/json
 ```
 
 `action=installed` tworzy lub reaktywuje tenant serwera. `action=removed` oznacza
-tenant jako nieaktywny. Dopiero po takim zgłoszeniu zweryfikowany właściciel albo
-administrator Discord może połączyć konto miniPORTAL z serwerem i przejść do
-ustawień Econizer.
+tenant jako nieaktywny. Po takim zgłoszeniu zweryfikowany właściciel albo
+administrator Discord jest automatycznie przypisywany do serwera przy najbliższym
+odświeżeniu listy zarządzanych serwerów i może przejść do ustawień Econizer.
 
 Ustawienia serwera nie pozwalają wybierać dowolnych użytkowników miniPORTAL.
 Gracz jest przypisywany automatycznie przy zdarzeniu bota, jeśli jego Discord User
@@ -94,10 +94,16 @@ użytkownika natychmiast odrzuca.
 
 Lista jest przechowywana w sesji przez 10 minut. Dla serwera bez zgłoszenia bota
 użytkownik widzi link `Zaproś Econizer na serwer`. Dla serwera już zgłoszonego
-przez bota może połączyć konto z tenantem jako `guild_owner` albo `guild_admin`
-i przejść do ustawień ekonomii. Przycisk zaproszenia używa oficjalnego flow
+przez bota moduł automatycznie nadaje lokalnemu kontu rolę `guild_owner` albo
+`guild_admin` na podstawie zweryfikowanej odpowiedzi Discord i pokazuje wejście do
+ustawień ekonomii. Przycisk zaproszenia używa oficjalnego flow
 Discord `bot applications.commands`, blokuje wybór do zweryfikowanego Guild ID
 i prosi wyłącznie o maskę `ECONIZER_DISCORD_BOT_PERMISSIONS`.
+
+Sklep dla graczy ma jednoznaczny adres per serwer Discord:
+`/econizer/shop/{discord_guild_id}`. Właściciel serwera może podać ten link
+graczom; moduł nadal sprawdza aktywne członkostwo użytkownika w tym tenantcie
+przed pokazaniem katalogu i wykonaniem zakupu.
 
 Panel `/admin/econizer` jest diagnostyką platformy i listą tenantów zgłoszonych
 przez bota. Nie zaprasza bota ani nie tworzy serwera ręcznie.

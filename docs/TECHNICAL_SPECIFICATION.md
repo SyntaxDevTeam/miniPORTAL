@@ -783,7 +783,8 @@ Stan 1.0.0:
   Guild ID przez `bot applications.commands`,
 - tenant serwera powstaje po zgłoszeniu instalacji przez bota do
   `/api/econizer/guilds`; zweryfikowany właściciel albo administrator Discord
-  może następnie połączyć lokalne konto z istniejącym tenantem,
+  jest automatycznie przypisywany do istniejącego tenanta po odświeżeniu listy
+  zarządzanych serwerów przez OAuth Discord,
 - administrator serwera nie wybiera ręcznie użytkowników miniPORTAL; gracz jest
   przypisywany automatycznie po zdarzeniu bota, jeśli lokalne konto ma tożsamość
   Discord zgodną z `discord_user_id`,
@@ -799,6 +800,25 @@ Stan 1.3.1:
 - migracja aktualizuje stan managera modułów, uprawnienia, dane domenowe,
   ustawienia nawigacji, treści startowe oraz nazwy ograniczeń i indeksów bazy
   bez utraty istniejących danych.
+
+Stan 1.4.0:
+- widok `/econizer/servers` oraz szczegół serwera automatycznie synchronizują
+  członkostwo `guild_owner` albo `guild_admin` dla tenantów zgłoszonych przez bota,
+  jeśli świeża lista Discord `identify guilds` potwierdza Owner, Administrator
+  albo Manage Guild dla bieżącego użytkownika,
+- ręczny formularz łączenia zarządcy serwera nie jest częścią normalnego przepływu;
+  po zaproszeniu bota wystarczy odświeżyć listę serwerów, a wejście do ustawień
+  pojawia się bez przypisywania użytkownika w panelu.
+
+Stan 1.4.1:
+- publiczny sklep ma adres per Discord Guild ID: `/econizer/shop/{discord_guild_id}`;
+  moduł rozwiązuje go do wewnętrznego tenanta i nadal wymaga aktywnego członkostwa
+  lokalnego konta w danym serwerze,
+- widok ustawień serwera pokazuje właścicielowi link sklepu do przekazania graczom,
+  a niejednoznaczny globalny sklep nie wybiera arbitralnie pierwszego serwera przy
+  wielu członkostwach,
+- onboarding bota renderuje zarządzane serwery w dwóch kolumnach, odświeżanie na
+  pełnej szerokości oraz czytelne karty informacji technicznych.
 
 ### Krok 7: dystrybucja i instalacja zerowej konfiguracji
 

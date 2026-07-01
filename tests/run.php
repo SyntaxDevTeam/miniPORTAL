@@ -1719,7 +1719,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econizer = $validator->validate(dirname(__DIR__) . '/modules/Econizer');
     $assert($econizer->id === 'econizer');
-    $assert($econizer->version === '1.3.1');
+    $assert($econizer->version === '1.4.1');
     $assert($econizer->type === 'extension');
     $assert($econizer->requiredModules === ['core_auth']);
     $assert($econizer->installFile === 'install.sql');
@@ -1868,7 +1868,13 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(!str_contains($econizerSource, '/econizer/server/member'));
     $assert(str_contains($econizerSource, '/econizer/servers'));
     $assert(str_contains($econizerSource, '/econizer/discord/connect'));
+    $assert(str_contains($econizerSource, '/econizer/shop/{discord_guild_id}'));
+    $assert(str_contains($econizerSource, 'Player shop link'));
+    $assert(str_contains($econizerSource, 'syncManagedDiscordGuilds'));
     $assert(str_contains($econizerRepository, 'user_identities'));
+    $assert(str_contains($econizerRepository, 'discord_guild_id'));
+    $assert(str_contains($econizerRepository, 'syncManagedGuildMemberships'));
+    $assert(str_contains($econizerRepository, 'user_id = VALUES(user_id)'));
     $assert(str_contains($econizerRepository, 'FOR UPDATE'));
     $assert(str_contains($econizerRepository, 'external_reference'));
     $assert(str_contains($econizerRepository, 'upsertDiscordGuild'));

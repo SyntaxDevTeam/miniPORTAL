@@ -2,7 +2,7 @@
 
 Dokument opisuje moduł `econizer` od strony widocznej dla użytkowników portalu oraz
 od strony panelu administracyjnego. Stan odpowiada modułowi `Econizer Control Center`
-w wersji `1.3.1`.
+w wersji `1.4.1`.
 
 ## Cel modułu
 
@@ -83,13 +83,19 @@ Dla każdego serwera użytkownik widzi:
 - przejście do szczegółów serwera.
 
 Jeśli bot nie zgłosił jeszcze serwera, użytkownik dostaje link `Zaproś Econizer na
-serwer`. Jeśli bot już zgłosił serwer, użytkownik może połączyć swoje lokalne
-konto z tenantem i wejść do ustawień Econizer dla tej gildii.
+serwer`. Jeśli bot już zgłosił serwer, moduł automatycznie przypisuje lokalne
+konto do tenanta jako `guild_owner` albo `guild_admin` na podstawie zweryfikowanej
+odpowiedzi Discord i pokazuje wejście do ustawień Econizer dla tej gildii.
 
-### `/econizer/shop` - sklep serwerowy
+### `/econizer/shop/{discord_guild_id}` - sklep serwerowy
 
-Sklep pokazuje aktywne przedmioty dla wybranego serwera. Użytkownik widzi saldo,
-nazwę przedmiotu, opis, cenę i przycisk zakupu.
+Sklep pokazuje aktywne przedmioty dla wskazanego serwera Discord. Właściciel może
+udostępnić graczom adres z publicznym Discord Guild ID, np.
+`/econizer/shop/1266457597385375804`; moduł zamienia go na wewnętrzny tenant i
+nadal wymaga aktywnego członkostwa lokalnego konta w tym serwerze. Techniczny
+`/econizer/shop?guild_id={id}` pozostaje kompatybilny dla linków generowanych
+wewnątrz panelu. Użytkownik widzi saldo, nazwę przedmiotu, opis, cenę i przycisk
+zakupu.
 
 Zakup jest rozliczany transakcyjnie:
 
@@ -155,7 +161,8 @@ platformy.
 Ustawienia serwera nie zawierają ręcznego wyboru użytkowników miniPORTAL. Gracz
 jest przypisywany automatycznie, gdy bot przyśle zdarzenie dla Discord User ID,
 który ma już lokalne konto miniPORTAL połączone z providerem Discord. Właściciel
-lub administrator serwera łączy swoje konto samodzielnie przez `/econizer/servers`.
+lub administrator serwera jest przypisywany automatycznie przez `/econizer/servers`,
+gdy Discord potwierdza jego prawa do zarządzania gildą.
 
 ## Panel administracyjny
 
@@ -206,7 +213,8 @@ Przycisk `Pobierz moje serwery Discord` uruchamia OAuth Discord z zakresami
 - albo uprawnienie Manage Guild.
 
 Token użytkownika Discord nie jest zapisywany. Lista serwerów jest przechowywana
-w sesji przez 10 minut.
+w sesji przez 10 minut, a widok listy i szczegółów serwera ponawia idempotentną
+synchronizację ról zarządcy dla tenantów zgłoszonych już przez bota.
 
 ### Szczegóły serwera Discord
 
@@ -217,7 +225,7 @@ Widok szczegółów serwera pokazuje:
 - czy bot jest potwierdzony na serwerze,
 - plan serwera,
 - link zaproszenia bota,
-- informację, czy po zgłoszeniu bota można już połączyć konto z tenantem.
+- informację, czy po zgłoszeniu bota konto zostało automatycznie przypisane do tenanta.
 
 Link zaproszenia bota używa flow Discord `bot applications.commands`, przypina
 konkretny `guild_id` i wyłącza wybór innego serwera.
@@ -391,7 +399,7 @@ Najważniejsze zabezpieczenia:
 |-------|----------|--------------|
 | `/econizer` | Gracz, admin serwera | Portfel, poziom, EXP, historia i szybkie akcje |
 | `/econizer/servers` | Właściciel/admin Discord | Lista zarządzanych serwerów, zaproszenie bota i połączenie konta |
-| `/econizer/shop` | Gracz | Zakup przedmiotów z katalogu serwera |
+| `/econizer/shop/{discord_guild_id}` | Gracz | Zakup przedmiotów z katalogu konkretnego serwera |
 | `/econizer/market` | Gracz | Kupno i sprzedaż aktywów giełdowych |
 | `/econizer/server` | `guild_owner`, `guild_admin` | Ustawienia ekonomii, członkowie, sklep i giełda serwera |
 | `/admin/econizer` | Administrator platformy | Diagnostyka, funkcje globalne, domyślna ekonomia i onboarding |

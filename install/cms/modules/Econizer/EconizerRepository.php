@@ -108,7 +108,7 @@ final class EconizerRepository
     public function memberships(int $userId): array
     {
         return $this->rows(
-            'SELECT m.guild_id, m.access_role, m.discord_user_id, g.name, g.plan, g.currency_name, '
+            'SELECT m.guild_id, m.access_role, m.discord_user_id, g.discord_guild_id, g.name, g.plan, g.currency_name, '
             . 'g.shop_enabled, g.market_enabled, g.is_active FROM econizer_memberships m '
             . 'JOIN econizer_guilds g ON g.id = m.guild_id WHERE m.user_id = :user_id AND m.is_active = 1 '
             . 'AND g.is_active = 1 ORDER BY g.name',
@@ -120,7 +120,7 @@ final class EconizerRepository
     public function membership(int $guildId, int $userId): ?array
     {
         return $this->row(
-            'SELECT m.*, g.name, g.plan, g.currency_name, g.locale, g.daily_amount, g.work_min, g.work_max, '
+            'SELECT m.*, g.discord_guild_id, g.name, g.plan, g.currency_name, g.locale, g.daily_amount, g.work_min, g.work_max, '
             . 'g.transfer_tax_bps, g.vip_role_id, g.vip_daily_amount, g.shop_enabled, g.market_enabled '
             . 'FROM econizer_memberships m JOIN econizer_guilds g ON g.id = m.guild_id '
             . 'WHERE m.guild_id = :guild_id AND m.user_id = :user_id AND m.is_active = 1 AND g.is_active = 1',
@@ -169,13 +169,37 @@ final class EconizerRepository
         $this->database->query(
             'INSERT INTO econizer_memberships (guild_id, user_id, discord_user_id, access_role, is_active) '
             . 'VALUES (:guild_id, :user_id, :discord_user_id, :access_role, 1) '
-            . 'ON DUPLICATE KEY UPDATE discord_user_id = VALUES(discord_user_id), access_role = VALUES(access_role), is_active = 1',
+            . 'ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), discord_user_id = VALUES(discord_user_id), access_role = VALUES(access_role), is_active = 1',
             [':guild_id' => $guildId, ':user_id' => $userId, ':discord_user_id' => $discordUserId, ':access_role' => $role]
         );
         if ($role === 'guild_owner') {
             $this->database->update('econizer_guilds', ['owner_user_id' => $userId], ['id' => $guildId]);
         }
         $this->ensureWallet($guildId, $userId);
+    }
+
+    /**
+     * @param list<array{id:string,owner:bool}> $guilds
+     * @return list<int>
+     */
+    public function syncManagedGuildMemberships(int $userId, string $discordUserId, array $guilds): array
+    {
+        $linked = [];
+        foreach ($guilds as $guild) {
+            $discordGuildId = (string) ($guild['id'] ?? '');
+            if (preg_match('/^[0-9]{6,32}$/', $discordGuildId) !== 1) {
+                continue;
+            }
+            $registered = $this->guildByDiscordId($discordGuildId);
+            if ($registered === null || (int) ($registered['is_active'] ?? 0) !== 1) {
+                continue;
+            }
+            $guildId = (int) $registered['id'];
+            $this->addMembership($guildId, $userId, $discordUserId, !empty($guild['owner']) ? 'guild_owner' : 'guild_admin');
+            $linked[] = $guildId;
+        }
+
+        return array_values(array_unique($linked));
     }
 
     /** @return array<string, mixed> */

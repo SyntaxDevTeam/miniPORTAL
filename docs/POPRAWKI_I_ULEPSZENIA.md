@@ -376,6 +376,20 @@ prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
 
 ### Econizer
 
+Etap 7 gotowy: `econizer` 1.4.1 doprecyzowuje publiczny sklep jako adres
+konkretnego serwera Discord: `/econizer/shop/{discord_guild_id}`. Ustawienia
+serwera pokazują właścicielowi link do przekazania graczom, globalny sklep nie
+wybiera już arbitralnie pierwszego tenanta przy wielu członkostwach, a onboarding
+bota ma dwukolumnową listę serwerów, pełnoszerokie odświeżanie, krótszy komunikat
+po zaproszeniu i czytelnie odstępione informacje techniczne.
+
+Etap 6 gotowy: `econizer` 1.4.0 automatycznie przypisuje właściciela albo
+administratora Discord do tenanta zgłoszonego przez bota. Odświeżenie listy
+`/econizer/servers` przez dedykowany OAuth `identify guilds` wystarcza, aby konto
+lokalne dostało rolę `guild_owner` albo `guild_admin` dla serwera, na którym
+Discord potwierdza Owner, Administrator albo Manage Guild. Normalny przepływ nie
+wymaga już ręcznego formularza `Link account` ani przypisywania osoby w panelu.
+
 Etap 5 gotowy: pełny rebranding produkcyjny zmienił nazwę bota i modułu na
 `Econizer`. Zaktualizowano widoki, treści CMS, dokumentację, klasy, katalog,
 manifest, trasy, endpointy API, konfigurację środowiska, nagłówek integracyjny,
