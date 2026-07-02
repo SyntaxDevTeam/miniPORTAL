@@ -41,6 +41,7 @@ return array (
       '20260621_homepage_hero_acrostic.sql' => '659e8617d07d730a03588d4b7c4df24209c987438800bd36196e7ccc3e254464',
       '20260621_miniportal_project_page.sql' => '88b0985bcfe3c0d80d817b3b95683da122bd445b86d7a9bae7ae79372f8fc95e',
       '20260624_econizer_rebrand.sql' => 'd481dca4fa2ea725faad88e3984b8815f73a5196c802243f4f5a11781fb1326d',
+      '20260629_public_english_defaults.sql' => 'cacb178ae8e7b5b01e7cd1a445c9c18b05e84d52832fe6dc2536f357716279de',
     ),
     'database_manager' => 
     array (
@@ -51,6 +52,7 @@ return array (
       '20260623_bot_owned_guilds.sql' => 'f3202df0f23bfaeccc0de9267daedc50108d537fae46992fd0a2712e9d62d34e',
       '20260624_econizer_rebrand.sql' => '511847edf701bf18f86ee2606810484a977bb687a6a1f181e5468fd194183b8f',
       '20260624_econizer_schema_metadata.sql' => '921d1ea10dd04f66dacd24240278f0607485de184db5d9bccb7fd5e3b860aa22',
+      '20260701_shop_delivery_queue.sql' => 'b8476ed13f30f19d1e0259fa764c49765a0e547118b611cbd0abcc233ad3fd16',
     ),
     'plugin_translator' => 
     array (
@@ -74,6 +76,8 @@ return array (
     ),
     'widgets' => 
     array (
+      '20260629_widget_content_format.sql' => '959b991fe2b6ee3ae79637311d3b9c771ba830bf359ed0318af39e1b49bebeab',
+      '20260629_widget_uptime_type.sql' => '9b27ece582c90a5541717a05937a8b33e9e816a6742013b4cf50db4be501527d',
     ),
     'wikipedia' => 
     array (

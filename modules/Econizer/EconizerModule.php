@@ -45,7 +45,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'econizer'; }
-    public function version(): string { return '1.5.3'; }
+    public function version(): string { return '1.5.4'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econizer.view', 'econizer.platform.manage']; }
@@ -83,6 +83,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $router->get('/admin/econizer', fn (Request $request) => $this->guard($request, 'econizer.view', fn () => $this->renderPlatform()));
         $router->post('/admin/econizer/feature', fn (Request $request) => $this->guard($request, 'econizer.platform.manage', fn () => $this->saveFeature($request)));
         $router->post('/admin/econizer/settings', fn (Request $request) => $this->guard($request, 'econizer.platform.manage', fn () => $this->savePlatformSettings($request)));
+        $router->get('/dashboard', fn (Request $request) => $this->redirectToEconizer());
         $router->get('/econizer', fn (Request $request) => $this->renderDashboard($request));
         $router->get('/econizer/servers', fn (Request $request) => $this->renderManagedServers($request));
         $router->get('/econizer/discord/connect', fn (Request $request) => $this->startDiscordDiscovery($request));
@@ -210,9 +211,9 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $wallet = $this->econizer->wallet($guildId, $user->id);
         $nextLevel = max(100, (int) $wallet['level'] * 1000);
         $this->theme->start_grid();
-        $this->theme->start_column('4'); $this->theme->start_card('Balance', $membership['currency_name']); $this->theme->render_text(number_format((int) $wallet['balance'], 0, '.', ' ')); $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->start_column('4'); $this->theme->start_card('Level', 'Level'); $this->theme->render_text((string) $wallet['level']); $this->theme->end_card(); $this->theme->end_column();
-        $this->theme->start_column('4'); $this->theme->start_card('Experience', 'Progress'); $this->theme->render_text((int) $wallet['experience'] . ' / ' . $nextLevel . ' EXP'); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('lg-4'); $this->theme->start_card('Balance', $membership['currency_name']); $this->theme->render_text(number_format((int) $wallet['balance'], 0, '.', ' ')); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('lg-4'); $this->theme->start_card('Level', 'Level'); $this->theme->render_text((string) $wallet['level']); $this->theme->end_card(); $this->theme->end_column();
+        $this->theme->start_column('lg-4'); $this->theme->start_card('Experience', 'Progress'); $this->theme->render_text((int) $wallet['experience'] . ' / ' . $nextLevel . ' EXP'); $this->theme->end_card(); $this->theme->end_column();
         $this->theme->end_grid();
         $links = [
             ['label' => 'My Discord servers', 'href' => 'index.php?route=/econizer/servers', 'meta' => 'Bot installation and managed server settings'],
@@ -222,10 +223,15 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         if (in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true)) {
             $links[] = ['label' => 'Manage server', 'href' => 'index.php?route=/econizer/server&guild_id=' . $guildId, 'meta' => 'Currency, taxes, VIP and catalog'];
         }
-        $this->theme->start_card('Quick actions', (string) $membership['name']); $this->theme->render_link_list($links); $this->theme->end_card();
+        $this->theme->start_card('Quick actions', (string) $membership['name']); $this->theme->render_link_list($links, 'two-column'); $this->theme->end_card();
         $rows = array_map(static fn (array $tx): array => [$tx['created_at'], $tx['transaction_type'], $tx['description'], (int) $tx['amount'], (int) $tx['balance_after']], $this->econizer->transactions($guildId, $user->id));
         $this->theme->start_card('Transaction history', 'Recent operations'); $this->theme->render_table(['Date', 'Type', 'Description', 'Change', 'Balance'], $rows); $this->theme->end_card();
         $this->endPublic();
+    }
+
+    private function redirectToEconizer(): void
+    {
+        header('Location: /econizer', true, 302);
     }
 
     private function renderServer(Request $request, string $message = '', string $variant = 'info'): void

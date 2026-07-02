@@ -1,7 +1,7 @@
 # Econizer Control Center
 
 Dedykowany moduł miniPORTAL dla wieloserwerowego bota ekonomicznego Econizer.
-Wersja 1.5.3 obejmuje trzy niezależne poziomy dostępu:
+Wersja 1.5.4 obejmuje trzy niezależne poziomy dostępu:
 
 - Owner/Administrator miniPORTAL: funkcje platformy, wartości domyślne ekonomii,
   język, limit Freemium, plany i tworzenie tenantów Discord.

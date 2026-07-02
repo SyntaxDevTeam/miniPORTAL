@@ -101,7 +101,7 @@ interface ThemeInterface
     /**
      * @param list<array{label: string, href: string, meta?: string}> $links
      */
-    public function render_link_list(array $links): void;
+    public function render_link_list(array $links, string $variant = 'stacked'): void;
 
     /**
      * @param list<array{label: string, href: string, active?: bool}> $tabs

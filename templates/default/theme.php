@@ -366,9 +366,10 @@ final class Theme implements ThemeInterface
         echo '</ol></nav>';
     }
 
-    public function render_link_list(array $links): void
+    public function render_link_list(array $links, string $variant = 'stacked'): void
     {
-        echo '<nav class="public-link-list" aria-label="Powiązane zasoby">';
+        $variant = $variant === 'two-column' ? ' public-link-list-two-column' : '';
+        echo '<nav class="public-link-list' . $variant . '" aria-label="Powiązane zasoby">';
         foreach ($links as $link) {
             $href = $this->safeHref((string) ($link['href'] ?? ''));
             if ($href === '') {

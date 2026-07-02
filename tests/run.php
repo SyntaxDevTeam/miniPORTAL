@@ -1722,7 +1722,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econizer = $validator->validate(dirname(__DIR__) . '/modules/Econizer');
     $assert($econizer->id === 'econizer');
-    $assert($econizer->version === '1.5.3');
+    $assert($econizer->version === '1.5.4');
     $assert($econizer->type === 'extension');
     $assert($econizer->requiredModules === ['core_auth']);
     $assert($econizer->installFile === 'install.sql');

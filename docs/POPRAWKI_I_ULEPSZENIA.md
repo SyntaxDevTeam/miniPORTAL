@@ -451,6 +451,11 @@ przypisywani automatycznie po zdarzeniu bota, jeśli mają lokalną tożsamość
 Panel `/admin/econizer` nie zawiera już flow zaproszenia bota, tylko diagnostykę
 platformy i listę tenantów zgłoszonych przez bota.
 
+Etap 10 gotowy: `econizer` 1.5.4 dodaje publiczny alias `/dashboard`
+przekierowujący do `/econizer`. Kafle salda, poziomu i doświadczenia na pulpicie
+gracza układają się na szerokich ekranach po trzy w jednej linii, a sekcja
+`Quick actions` używa dwukolumnowej listy linków na desktopie.
+
 ### Ustawienia systemowe
 
 Etap diagnostyki cache i favicon gotowy: licznik cache rozróżnia ważne i wygasłe
