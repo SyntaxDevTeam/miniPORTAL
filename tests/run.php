@@ -1722,7 +1722,7 @@ $test('Module manifests are validated against runtime requirements', static func
 
     $econizer = $validator->validate(dirname(__DIR__) . '/modules/Econizer');
     $assert($econizer->id === 'econizer');
-    $assert($econizer->version === '1.5.2');
+    $assert($econizer->version === '1.5.3');
     $assert($econizer->type === 'extension');
     $assert($econizer->requiredModules === ['core_auth']);
     $assert($econizer->installFile === 'install.sql');
@@ -1885,6 +1885,9 @@ $test('CoreAuth declares database explorer permission', static function () use (
     $assert(str_contains($econizerSource, 'Current quotes'));
     $assert(str_contains($econizerSource, 'The bot is not confirmed on this Discord server'));
     $assert(str_contains($econizerSource, 'Link local account'));
+    $assert(str_contains($econizerSource, 'render_avatar((string) $guild[\'name\'], $this->guildIconUrl($guild), \'md\')'));
+    $assert(str_contains($econizerSource, 'render_avatar((string) $guild[\'name\'], $this->guildIconUrl($guild), \'lg\')'));
+    $assert(str_contains($econizerSource, 'guildIconUrl'));
     $assert(str_contains($econizerSource, 'syncManagedDiscordGuilds'));
     $defaultThemeSource = (string) file_get_contents(dirname(__DIR__) . '/templates/default/theme.php');
     $defaultStylebookSource = (string) file_get_contents(dirname(__DIR__) . '/templates/default/assets/css/stylebook.css');

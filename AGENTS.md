@@ -356,6 +356,7 @@ Brak aktywnych blokerów.
 | 2026-07-01 | `econizer` 1.5.0 rozdziela ustawienia serwera na zakładki, pokazuje katalog sklepu w kartach, dodaje `virtual_item` i kolejkę realizacji zakupów pobieraną przez bota z `/api/econizer/shop/orders`. |
 | 2026-07-01 | `econizer` 1.5.1 poprawia tabele i wykresy publicznych widoków oraz pokazuje ponowne zaproszenie bota, gdy lokalny tenant istnieje, ale bot nie jest potwierdzony na Discordzie. |
 | 2026-07-01 | `econizer` 1.5.2 przenosi kontrakt `Bot API` z ustawień pojedynczego serwera do panelu platformowego `/admin/econizer` dla właściciela bota. |
+| 2026-07-01 | `econizer` 1.5.3 pokazuje ikony serwerów Discord w liście zarządzanych serwerów oraz widoku szczegółów zaproszenia bota. |
 
 ## Historia sesji
 

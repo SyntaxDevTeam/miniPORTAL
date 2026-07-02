@@ -2683,3 +2683,17 @@ pozostają zakładki `Overview`, `Shop` i `Market`.
 zakończyły się poprawnie. Produkcja `/var/www/econizer` została zaktualizowana
 do 1.5.2; `/econizer/server` i `/admin/econizer` zwracają oczekiwane HTTP 401
 bez sesji.
+
+### Sesja: 2026-07-01 - Econizer 1.5.3: ikony serwerów Discord
+
+**Faza i krok specyfikacji:** Krok 8 - moduł dedykowany Econizer.
+
+**Wykonano:** `econizer` podniesiono do 1.5.3. Lista zarządzanych serwerów
+Discord oraz szczegół serwera zaproszenia bota renderują ikonę serwera z
+`icon_url` zwróconego przez Discord OAuth `identify guilds`. Jeśli serwer nie ma
+ikony, aktywny motyw pokazuje fallback z inicjałami nazwy.
+
+**Weryfikacja:** `php -l` dla zmienionego modułu i pełne `php tests/run.php`
+zakończyły się poprawnie. Produkcja `/var/www/econizer` została zaktualizowana
+do 1.5.3; `/econizer/servers` i `/econizer/discord/server` zwracają oczekiwane
+HTTP 401 bez sesji.

@@ -1,7 +1,7 @@
 {
   "id": "econizer",
   "name": "Econizer Control Center",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

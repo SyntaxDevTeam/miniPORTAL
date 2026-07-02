@@ -45,7 +45,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'econizer'; }
-    public function version(): string { return '1.5.2'; }
+    public function version(): string { return '1.5.3'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['econizer.view', 'econizer.platform.manage']; }
@@ -532,6 +532,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
             $canManage = $membership !== null && in_array($membership['access_role'], ['guild_owner', 'guild_admin'], true);
             $this->theme->start_column('lg-6');
             $this->theme->start_card((string) $guild['name'], 'Verified access: ' . $guild['access']);
+            $this->theme->render_avatar((string) $guild['name'], $this->guildIconUrl($guild), 'md');
             $this->theme->render_admin_fact_grid([
                 ['label' => 'Discord Guild ID', 'value' => $guild['id']],
                 ['label' => 'Econizer', 'value' => $registered !== null ? 'Bot reported this server' : 'Bot not reported', 'variant' => $registered !== null ? 'success' : 'warning'],
@@ -567,6 +568,7 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
         $this->startPublic('Discord server: ' . (string) $guild['name'], 'Bot installation and Econizer settings for the selected server.');
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         $this->theme->start_card((string) $guild['name'], 'Verified access: ' . $guild['access']);
+        $this->theme->render_avatar((string) $guild['name'], $this->guildIconUrl($guild), 'lg');
         $this->theme->render_admin_fact_grid([
             ['label' => 'Discord Guild ID', 'value' => $guildId],
             ['label' => 'Econizer tenant', 'value' => $registered !== null ? 'Reported by bot' : 'No bot report', 'variant' => $registered !== null ? 'success' : 'warning'],
@@ -867,6 +869,13 @@ final class EconizerModule implements ModuleInterface, PublicNavigationProviderI
     private function deliveryLabel(string $type): string
     {
         return $this->deliveryOptions()[$type] ?? $type;
+    }
+
+    /** @param array<string,mixed> $guild */
+    private function guildIconUrl(array $guild): ?string
+    {
+        $iconUrl = $guild['icon_url'] ?? null;
+        return is_string($iconUrl) && $iconUrl !== '' ? $iconUrl : null;
     }
 
     private function serverTab(Request $request): string

@@ -2,7 +2,7 @@
 
 Dokument opisuje moduł `econizer` od strony widocznej dla użytkowników portalu oraz
 od strony panelu administracyjnego. Stan odpowiada modułowi `Econizer Control Center`
-w wersji `1.5.2`.
+w wersji `1.5.3`.
 
 ## Cel modułu
 

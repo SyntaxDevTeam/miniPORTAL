@@ -376,6 +376,10 @@ prezentuje odnośniki do powiązanej strony, dokumentacji i Build Explorera.
 
 ### Econizer
 
+Etap 11 gotowy: `econizer` 1.5.3 pokazuje ikonę serwera Discord na liście
+zarządzanych serwerów oraz w szczególe serwera zapraszania bota. Jeśli Discord
+nie zwraca ikony, aktywny motyw pokazuje czytelny fallback z inicjałami nazwy.
+
 Etap 10 gotowy: `econizer` 1.5.2 usuwa zakładkę `Bot API` z ustawień
 pojedynczego serwera Discord. Kontrakt endpointów bota jest teraz częścią panelu
 platformowego `/admin/econizer` i jest widoczny tylko dla użytkownika z

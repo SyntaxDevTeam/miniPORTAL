@@ -850,6 +850,11 @@ Stan 1.5.2:
 - kontrakt realizacji zamówień bota jest pokazywany w panelu `/admin/econizer`
   tylko użytkownikom z uprawnieniem `econizer.platform.manage`.
 
+Stan 1.5.3:
+- lista zarządzanych serwerów Discord i szczegół serwera pokazują ikonę serwera
+  zwróconą przez Discord OAuth `identify guilds`; gdy serwer nie ma ikony, motyw
+  pokazuje inicjały z nazwy serwera.
+
 ### Krok 7: dystrybucja i instalacja zerowej konfiguracji
 
 1. Generator tworzy w `install/cms` wyłącznie pliki runtime, migracje i assety.
