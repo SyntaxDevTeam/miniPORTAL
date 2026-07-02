@@ -899,9 +899,19 @@ body.admin-stylebook {
   min-width: 52rem;
 }
 
+.admin-data-table-single {
+  min-width: 0;
+}
+
 .admin-data-table td,
 .admin-data-table th {
   padding: 0.9rem 1rem;
+}
+
+.admin-data-table-single td,
+.admin-data-table-single th {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .content-title-cell {

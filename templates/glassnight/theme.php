@@ -953,7 +953,8 @@ final class Theme implements ThemeInterface
 
     public function render_admin_table(array $headers, array $rows): void
     {
-        echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table">';
+        $variant = count($headers) === 1 ? ' admin-data-table-single' : '';
+        echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table' . $variant . '">';
         echo '<thead><tr>';
         foreach ($headers as $header) {
             echo '<th scope="col">' . $this->escape($header) . '</th>';
