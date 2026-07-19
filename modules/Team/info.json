@@ -1,0 +1,19 @@
+{
+  "id": "team",
+  "name": "Zespół",
+  "version": "1.2.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.1.0",
+    "modules": ["core_auth"]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

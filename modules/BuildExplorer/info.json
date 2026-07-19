@@ -1,0 +1,19 @@
+{
+  "id": "build_explorer",
+  "name": "Build Explorer",
+  "version": "1.4.1",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.1.0",
+    "modules": ["core_auth", "projects"]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

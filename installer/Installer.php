@@ -1,0 +1,694 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SyntaxDevTeam\Cms\Installer;
+
+use PDO;
+use RuntimeException;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
+use SyntaxDevTeam\Cms\Core\InstallationState;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
+use Throwable;
+
+final class Installer
+{
+    public function __construct(
+        private readonly string $root,
+    ) {
+    }
+
+    /** @return list<array{label: string, ok: bool, detail: string}> */
+    public function preflight(string $language = 'pl'): array
+    {
+        $language = $this->normalizeInstallerLanguage($language);
+        $checks = [[
+            'label' => $this->installerText($language, 'php_requirement'),
+            'ok' => PHP_VERSION_ID >= 80400,
+            'detail' => PHP_VERSION,
+        ]];
+        foreach (['pdo', 'pdo_mysql', 'json', 'openssl', 'session', 'fileinfo'] as $extension) {
+            $checks[] = [
+                'label' => sprintf($this->installerText($language, 'extension'), $extension),
+                'ok' => extension_loaded($extension),
+                'detail' => extension_loaded($extension)
+                    ? $this->installerText($language, 'available')
+                    : $this->installerText($language, 'missing'),
+            ];
+        }
+        $publisherKey = $this->root . '/config/keys/syntaxdevteam-modules-2026-public.pem';
+        $publisherKeyValid = is_readable($publisherKey)
+            && openssl_pkey_get_public((string) file_get_contents($publisherKey)) !== false;
+        $checks[] = [
+            'label' => $this->installerText($language, 'trusted_key'),
+            'ok' => $publisherKeyValid,
+            'detail' => $publisherKeyValid
+                ? 'SyntaxDevTeam 2026'
+                : $this->installerText($language, 'missing_or_invalid'),
+        ];
+        foreach (FilesystemPermissions::installerDirectories() as $directory) {
+            $path = $this->root . '/' . $directory;
+            $checks[] = [
+                'label' => sprintf($this->installerText($language, 'write_access'), $directory),
+                'ok' => is_dir($path) && is_writable($path),
+                'detail' => is_writable($path)
+                    ? $this->installerText($language, 'available')
+                    : $this->installerText($language, 'no_permissions'),
+            ];
+        }
+        $platformIssues = FilesystemPermissions::platformUpdateIssues($this->root);
+        $checks[] = [
+            'label' => $this->installerText($language, 'runtime_updates'),
+            'ok' => $platformIssues === [],
+            'detail' => $platformIssues === []
+                ? $this->installerText($language, 'available')
+                : $this->installerText($language, 'missing_write') . ': ' . implode(', ', array_slice($platformIssues, 0, 5)),
+        ];
+
+        return $checks;
+    }
+
+    public function isInstalled(): bool
+    {
+        return InstallationState::isInstalled($this->root);
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     name: string,
+     *     type: string,
+     *     description: string,
+     *     required: bool,
+     *     dependencies: list<string>
+     * }>
+     */
+    public function moduleOptions(string $language = 'pl'): array
+    {
+        $language = $this->normalizeInstallerLanguage($language);
+        return array_values(array_map(
+            static fn (array $module): array => [
+                'id' => $module['id'],
+                'name' => $module['name'],
+                'type' => $module['type'],
+                'description' => $module['descriptions'][$language] ?? $module['descriptions']['pl'],
+                'required' => $module['protected'],
+                'dependencies' => $module['dependencies'],
+            ],
+            $this->moduleCatalog()
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @return array{owner: string, login_url: string, installed_modules: int}
+     */
+    public function install(array $input): array
+    {
+        if ($this->isInstalled()) {
+            throw new RuntimeException('miniPORTAL jest już zainstalowany.');
+        }
+        foreach ($this->preflight() as $check) {
+            if (!$check['ok']) {
+                throw new RuntimeException('Wymagania środowiska nie są spełnione: ' . $check['label'] . '.');
+            }
+        }
+
+        $data = $this->validate($input);
+        $environment = $this->environmentContent($data);
+        if (!is_array(parse_ini_string($environment, false, INI_SCANNER_RAW))) {
+            throw new RuntimeException('Wygenerowana konfiguracja środowiska jest nieprawidłowa.');
+        }
+
+        $pdo = null;
+        $databaseInitiallyEmpty = false;
+        try {
+            $pdo = $this->connectDatabase($data);
+            $databaseInitiallyEmpty = $this->databaseTableCount($pdo, $data['db_name']) === 0;
+            if (!$databaseInitiallyEmpty) {
+                throw new RuntimeException('Wybrana baza nie jest pusta. Instalator nie nadpisuje istniejących tabel.');
+            }
+
+            $this->installSchema($pdo, $data['selected_modules']);
+            $this->saveSiteSettings($pdo, null, $data);
+            $this->writeEnvironment($environment);
+            (new AuthProviderConfigStore(
+                $this->root . '/config/modules/auth-providers.env'
+            ))->save($data['providers']);
+            if (in_array('econizer', $data['selected_modules'], true)) {
+                $this->writeEconizerEnvironment($this->econizerEnvironmentContent($data));
+            }
+            $this->writeLock();
+
+            return [
+                'owner' => 'Pierwszy użytkownik wybranego logowania',
+                'login_url' => $data['site_url'] . '/admin/login',
+                'installed_modules' => count($data['selected_modules']),
+            ];
+        } catch (Throwable $exception) {
+            if ($pdo instanceof PDO && $databaseInitiallyEmpty) {
+                $this->clearDatabase($pdo);
+            }
+            throw new RuntimeException('Instalacja nie została ukończona: ' . $exception->getMessage(), 0, $exception);
+        }
+    }
+
+    /** @param array<string, mixed> $input @return array<string, mixed> */
+    private function validate(array $input): array
+    {
+        $siteUrl = rtrim(trim((string) ($input['site_url'] ?? '')), '/');
+        if (filter_var($siteUrl, FILTER_VALIDATE_URL) === false
+            || !in_array((string) parse_url($siteUrl, PHP_URL_SCHEME), ['http', 'https'], true)
+            || !in_array((string) parse_url($siteUrl, PHP_URL_PATH), ['', '/'], true)) {
+            throw new RuntimeException('Podaj bazowy adres strony bez dodatkowej ścieżki.');
+        }
+        $siteName = trim((string) ($input['site_name'] ?? ''));
+        if ($siteName === '' || strlen($siteName) > 80) {
+            throw new RuntimeException('Nazwa strony jest wymagana i może mieć maksymalnie 80 znaków.');
+        }
+        $timezone = trim((string) ($input['timezone'] ?? 'Europe/Warsaw'));
+        if (!in_array($timezone, timezone_identifiers_list(), true)) {
+            throw new RuntimeException('Wybrana strefa czasowa jest nieprawidłowa.');
+        }
+        $locale = trim((string) ($input['locale'] ?? 'pl_PL'));
+        if (preg_match('/^[a-z]{2}_[A-Z]{2}$/', $locale) !== 1) {
+            throw new RuntimeException('Locale musi mieć format pl_PL.');
+        }
+        $theme = trim((string) ($input['theme'] ?? 'default'));
+        if (!is_file($this->root . '/templates/' . $theme . '/theme.php')) {
+            throw new RuntimeException('Wybrany motyw nie istnieje.');
+        }
+
+        $dbHost = trim((string) ($input['db_host'] ?? '127.0.0.1'));
+        $dbPort = filter_var($input['db_port'] ?? 3306, FILTER_VALIDATE_INT);
+        $dbName = trim((string) ($input['db_name'] ?? ''));
+        $dbUser = trim((string) ($input['db_user'] ?? ''));
+        $dbPass = (string) ($input['db_pass'] ?? '');
+        if ($dbHost === '' || $dbPort === false || $dbPort < 1 || $dbPort > 65535
+            || preg_match('/^[A-Za-z0-9_]{1,64}$/', $dbName) !== 1 || $dbUser === '' || $dbPass === '') {
+            throw new RuntimeException('Uzupełnij poprawne dane połączenia z bazą MySQL.');
+        }
+        $providers = [];
+        foreach (['github', 'discord', 'google', 'microsoft'] as $provider) {
+            $providers[$provider] = [
+                'enabled' => filter_var($input[$provider . '_enabled'] ?? false, FILTER_VALIDATE_BOOL),
+                'client_id' => trim((string) ($input[$provider . '_client_id'] ?? '')),
+                'client_secret' => (string) ($input[$provider . '_client_secret'] ?? ''),
+            ];
+        }
+        $enabledProviders = array_filter(
+            $providers,
+            static fn (array $provider): bool => $provider['enabled']
+        );
+        if ($enabledProviders === []) {
+            throw new RuntimeException('Wybierz i skonfiguruj co najmniej jednego dostawcę logowania.');
+        }
+        foreach ($enabledProviders as $name => $provider) {
+            if ($provider['client_id'] === '' || $provider['client_secret'] === '') {
+                throw new RuntimeException("Dostawca {$name} wymaga Client ID i Client Secret.");
+            }
+        }
+
+        $catalog = $this->moduleCatalog();
+        $selected = array_values(array_unique(array_filter(
+            array_map('strval', is_array($input['modules'] ?? null) ? $input['modules'] : []),
+            static fn (string $id): bool => isset($catalog[$id])
+        )));
+        foreach ($catalog as $id => $module) {
+            if ($module['protected']) {
+                $selected[] = $id;
+            }
+        }
+        $selected = $this->expandDependencies(array_values(array_unique($selected)), $catalog);
+
+        return [
+            'site_url' => $siteUrl,
+            'site_name' => $siteName,
+            'timezone' => $timezone,
+            'locale' => $locale,
+            'theme' => $theme,
+            'db_host' => $dbHost,
+            'db_port' => (int) $dbPort,
+            'db_name' => $dbName,
+            'db_user' => $dbUser,
+            'db_pass' => $dbPass,
+            'create_database' => filter_var($input['create_database'] ?? false, FILTER_VALIDATE_BOOL),
+            'providers' => $providers,
+            'selected_modules' => $selected,
+        ];
+    }
+
+    /** @param array<string, mixed> $data */
+    private function connectDatabase(array $data): PDO
+    {
+        $baseDsn = sprintf(
+            'mysql:host=%s;port=%d;charset=utf8mb4',
+            $data['db_host'],
+            $data['db_port']
+        );
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+        if ($data['create_database']) {
+            $server = new PDO($baseDsn, $data['db_user'], $data['db_pass'], $options);
+            $server->exec(
+                'CREATE DATABASE IF NOT EXISTS `' . $data['db_name']
+                . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'
+            );
+        }
+
+        return new PDO(
+            $baseDsn . ';dbname=' . $data['db_name'],
+            $data['db_user'],
+            $data['db_pass'],
+            $options
+        );
+    }
+
+    private function databaseTableCount(PDO $pdo, string $database): int
+    {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = :database'
+        );
+        $statement->execute([':database' => $database]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /** @param list<string> $selectedModules */
+    private function installSchema(PDO $pdo, array $selectedModules): void
+    {
+        $this->executeSqlFile($pdo, $this->root . '/core/install.sql');
+        $baseline = $this->migrationBaseline();
+
+        $catalog = $this->moduleCatalog();
+        foreach ($catalog as $id => $module) {
+            if (!in_array($id, $selectedModules, true) || $module['install'] === null) {
+                continue;
+            }
+            $this->executeSqlFile($pdo, $module['directory'] . '/' . $module['install']);
+        }
+
+        $state = $pdo->prepare(
+            'INSERT INTO modules_config '
+            . '(module_id, version, status, is_protected, data_preserved, installed_at) '
+            . 'VALUES (:id, :version, :status, :protected, 0, :installed_at) '
+            . 'ON DUPLICATE KEY UPDATE version = VALUES(version), status = VALUES(status), '
+            . 'is_protected = VALUES(is_protected), data_preserved = 0, installed_at = VALUES(installed_at)'
+        );
+        foreach ($catalog as $id => $module) {
+            $active = in_array($id, $selectedModules, true);
+            $state->execute([
+                ':id' => $id,
+                ':version' => $module['version'],
+                ':status' => $active ? 'active' : 'discovered',
+                ':protected' => $module['protected'] ? 1 : 0,
+                ':installed_at' => $active ? date('Y-m-d H:i:s') : null,
+            ]);
+            if (!$active) {
+                continue;
+            }
+            foreach ($baseline['modules'][$id] ?? [] as $migration => $checksum) {
+                $record = $pdo->prepare(
+                    'INSERT INTO module_migrations (module_id, migration, checksum) '
+                    . 'VALUES (:module_id, :migration, :checksum)'
+                );
+                $record->execute([
+                    ':module_id' => $id,
+                    ':migration' => $migration,
+                    ':checksum' => $checksum,
+                ]);
+            }
+        }
+        $record = $pdo->prepare(
+            'INSERT INTO core_migrations (migration, checksum) VALUES (:migration, :checksum)'
+        );
+        foreach ($baseline['core'] as $migration => $checksum) {
+            $record->execute([':migration' => $migration, ':checksum' => $checksum]);
+        }
+    }
+
+    private function executeSqlFile(PDO $pdo, string $file): void
+    {
+        $sql = trim((string) file_get_contents($file));
+        if ($sql !== '') {
+            $pdo->exec($sql);
+        }
+    }
+
+    /**
+     * @return array{
+     *     core: array<string, string>,
+     *     modules: array<string, array<string, string>>
+     * }
+     */
+    private function migrationBaseline(): array
+    {
+        $file = $this->root . '/installer/migration-baseline.php';
+        if (!is_file($file)) {
+            throw new RuntimeException('Pakiet instalacyjny nie zawiera manifestu stanu migracji.');
+        }
+        $baseline = require $file;
+        if (!is_array($baseline)
+            || !is_array($baseline['core'] ?? null)
+            || !is_array($baseline['modules'] ?? null)) {
+            throw new RuntimeException('Manifest stanu migracji jest nieprawidłowy.');
+        }
+
+        return $baseline;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function saveSiteSettings(PDO $pdo, ?int $ownerId, array $data): void
+    {
+        $values = [
+            'theme' => $data['theme'],
+            'public_url' => $data['site_url'],
+            'public_name' => $data['site_name'],
+            'public_default_title' => $data['site_name'],
+            'public_eyebrow' => 'Software dla społeczności',
+            'public_meta_description' => $data['site_name'],
+            'public_meta_keywords' => '',
+            'public_meta_author' => $data['site_name'],
+            'public_meta_robots' => 'index, follow, max-image-preview:large',
+            'public_locale' => $data['locale'],
+            'public_social_image_url' => '',
+            'public_social_image_alt' => 'Logo ' . $data['site_name'],
+            'public_twitter_site' => '',
+            'public_theme_color' => '#080c12',
+            'public_google_site_verification' => '',
+            'public_bing_site_verification' => '',
+            'public_footer_text' => 'Projektowane modułowo. Rozwijane świadomie.',
+            'public_faststats_enabled' => '0',
+            'public_faststats_site_key' => '',
+            'public_faststats_cookieless' => '1',
+            'public_faststats_web_vitals' => '1',
+            'public_faststats_error_tracking' => '1',
+            'public_faststats_session_replays' => '0',
+            'public_faststats_debug' => '0',
+        ];
+        $statement = $pdo->prepare(
+            'INSERT INTO system_settings (setting_key, setting_value, updated_by) '
+            . 'VALUES (:key, :value, :owner) '
+            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_by = VALUES(updated_by)'
+        );
+        foreach ($values as $key => $value) {
+            $statement->execute([':key' => $key, ':value' => $value, ':owner' => $ownerId]);
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function environmentContent(array $data): string
+    {
+        $callback = $data['site_url'] . '/index.php?route=/admin/auth/';
+        $values = [
+            'APP_NAME' => 'miniPORTAL',
+            'APP_DEBUG' => 'false',
+            'APP_TIMEZONE' => $data['timezone'],
+            'APP_THEME' => $data['theme'],
+            'SITE_URL' => $data['site_url'],
+            'SITE_NAME' => $data['site_name'],
+            'SITE_LOCALE' => $data['locale'],
+            'SESSION_NAME' => 'MINIPORTALSESSID',
+            'SESSION_SAME_SITE' => 'Lax',
+            'TEMPLATE_CACHE_ENABLED' => 'true',
+            'TEMPLATE_CACHE_TTL' => '300',
+            'AUTH_STORAGE' => 'database',
+            'AUTH_DEMO_ENABLED' => 'false',
+            'AUTH_AUDIT_HASH_KEY' => bin2hex(random_bytes(32)),
+            'AUTH_OAUTH_WINDOW_SECONDS' => '600',
+            'AUTH_OAUTH_START_LIMIT' => '10',
+            'AUTH_OAUTH_CALLBACK_LIMIT' => '20',
+            'GITHUB_CALLBACK_URL' => $callback . 'github/callback',
+            'DISCORD_CALLBACK_URL' => $callback . 'discord/callback',
+            'GOOGLE_CALLBACK_URL' => $callback . 'google/callback',
+            'MICROSOFT_CALLBACK_URL' => $callback . 'microsoft/callback',
+            'DB_ENABLED' => 'true',
+            'DB_DRIVER' => 'mysql',
+            'DB_HOST' => $data['db_host'],
+            'DB_PORT' => (string) $data['db_port'],
+            'DB_NAME' => $data['db_name'],
+            'DB_USER' => $data['db_user'],
+            'DB_PASS' => $data['db_pass'],
+            'DB_CHARSET' => 'utf8mb4',
+            'DB_COLLATION' => 'utf8mb4_general_ci',
+            'DB_LOGGING' => 'false',
+            'BUILD_UPLOAD_MAX_BYTES' => '20971520',
+            'BUILD_CI_TOKEN' => bin2hex(random_bytes(32)),
+            'MEDIA_UPLOAD_MAX_BYTES' => '5242880',
+            'TINIFY_ENABLED' => 'false',
+            'TINIFY_API_KEY' => '',
+            'TINIFY_MONTHLY_LIMIT' => '500',
+            'PLATFORM_RELEASE_CATALOG_URL' => 'https://syntaxdevteam.pl/api/platform-releases/catalog',
+            'PLATFORM_RELEASE_MAX_BYTES' => '52428800',
+            'MODULE_UPDATE_CATALOG_URL' => 'https://syntaxdevteam.pl/api/module-updates/catalog',
+            'MODULE_UPDATE_CATALOG_TTL' => '900',
+        ];
+        $lines = ['# Wygenerowano przez kreator miniPORTAL.'];
+        foreach ($values as $key => $value) {
+            $lines[] = $key . '=' . $this->quoteEnvironmentValue((string) $value);
+        }
+
+        return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private function quoteEnvironmentValue(string $value): string
+    {
+        $value = str_replace(["\r", "\n"], ' ', $value);
+        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+
+        return '"' . $value . '"';
+    }
+
+    private function writeEnvironment(string $content): void
+    {
+        $file = $this->root . '/config/installed.env';
+        $temporary = $file . '.tmp-' . bin2hex(random_bytes(4));
+        if (file_put_contents($temporary, $content, LOCK_EX) === false) {
+            throw new RuntimeException('Nie można zapisać konfiguracji środowiska.');
+        }
+        chmod($temporary, 0600);
+        if (!is_array(parse_ini_file($temporary, false, INI_SCANNER_RAW)) || !rename($temporary, $file)) {
+            @unlink($temporary);
+            throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska.');
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function econizerEnvironmentContent(array $data): string
+    {
+        $values = [
+            'ECONIZER_API_TOKEN' => bin2hex(random_bytes(32)),
+            'ECONIZER_DISCORD_CLIENT_ID' => '',
+            'ECONIZER_DISCORD_CLIENT_SECRET' => '',
+            'ECONIZER_DISCORD_BOT_TOKEN' => '',
+            'ECONIZER_DISCORD_CALLBACK_URL' => $data['site_url'] . '/index.php?route=/econizer/discord/callback',
+            'ECONIZER_DISCORD_BOT_PERMISSIONS' => '0',
+        ];
+        $lines = ['# Wygenerowano dla modułu Econizer. Plik nie należy do konfiguracji miniPORTAL.'];
+        foreach ($values as $key => $value) {
+            $lines[] = $key . '=' . $this->quoteEnvironmentValue((string) $value);
+        }
+        return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private function writeEconizerEnvironment(string $content): void
+    {
+        $file = $this->root . '/config/modules/econizer.env';
+        $temporary = $file . '.tmp-' . bin2hex(random_bytes(4));
+        if (!is_dir(dirname($file)) || file_put_contents($temporary, $content, LOCK_EX) === false) {
+            throw new RuntimeException('Nie można zapisać konfiguracji środowiska Econizer.');
+        }
+        chmod($temporary, 0600);
+        if (!is_array(parse_ini_file($temporary, false, INI_SCANNER_RAW)) || !rename($temporary, $file)) {
+            @unlink($temporary);
+            throw new RuntimeException('Nie można zatwierdzić konfiguracji środowiska Econizer.');
+        }
+    }
+
+    private function writeLock(): void
+    {
+        $content = json_encode([
+            'installed_at' => gmdate(DATE_ATOM),
+            'version' => '0.7.1',
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
+            throw new RuntimeException('Nie można zablokować instalatora po instalacji.');
+        }
+        chmod($this->lockFile(), 0600);
+    }
+
+    private function lockFile(): string
+    {
+        return $this->root . '/config/installed.lock';
+    }
+
+    private function clearDatabase(PDO $pdo): void
+    {
+        try {
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+            $tables = $pdo->query('SHOW TABLES')?->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            foreach ($tables as $table) {
+                if (is_string($table) && preg_match('/^[A-Za-z0-9_]+$/', $table) === 1) {
+                    $pdo->exec('DROP TABLE `' . $table . '`');
+                }
+            }
+        } finally {
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        }
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function moduleCatalog(): array
+    {
+        $modules = [];
+        foreach (glob($this->root . '/modules/*/info.json') ?: [] as $file) {
+            $data = json_decode((string) file_get_contents($file), true, 16, JSON_THROW_ON_ERROR);
+            $directory = dirname($file);
+            $modules[(string) $data['id']] = [
+                'id' => (string) $data['id'],
+                'name' => (string) $data['name'],
+                'version' => (string) $data['version'],
+                'type' => (string) ($data['type'] ?? 'extension'),
+                'descriptions' => $this->moduleDescriptions((string) $data['id']),
+                'protected' => (bool) ($data['protected'] ?? false),
+                'dependencies' => array_values(array_map('strval', $data['requires']['modules'] ?? [])),
+                'install' => is_string($data['install'] ?? null) ? $data['install'] : null,
+                'directory' => $directory,
+            ];
+        }
+
+        $sorted = [];
+        $visiting = [];
+        $visit = function (string $id) use (&$visit, &$sorted, &$visiting, $modules): void {
+            if (isset($sorted[$id])) {
+                return;
+            }
+            if (isset($visiting[$id]) || !isset($modules[$id])) {
+                throw new RuntimeException('Nieprawidłowe zależności modułów instalacyjnych.');
+            }
+            $visiting[$id] = true;
+            foreach ($modules[$id]['dependencies'] as $dependency) {
+                $visit($dependency);
+            }
+            unset($visiting[$id]);
+            $sorted[$id] = $modules[$id];
+        };
+        foreach (array_keys($modules) as $id) {
+            $visit($id);
+        }
+
+        return $sorted;
+    }
+
+    private function normalizeInstallerLanguage(string $language): string
+    {
+        return in_array($language, ['pl', 'en', 'de'], true) ? $language : 'pl';
+    }
+
+    private function installerText(string $language, string $key): string
+    {
+        $texts = [
+            'pl' => [
+                'php_requirement' => 'PHP 8.4 lub nowszy',
+                'extension' => 'Rozszerzenie %s',
+                'available' => 'Dostępne',
+                'missing' => 'Brak',
+                'trusted_key' => 'Zaufany klucz wydawcy modułów',
+                'missing_or_invalid' => 'Brak lub nieprawidłowy',
+                'write_access' => 'Zapis do %s/',
+                'no_permissions' => 'Brak uprawnień',
+                'runtime_updates' => 'Runtime gotowy do aktualizacji z panelu',
+                'missing_write' => 'Brak zapisu',
+            ],
+            'en' => [
+                'php_requirement' => 'PHP 8.4 or newer',
+                'extension' => '%s extension',
+                'available' => 'Available',
+                'missing' => 'Missing',
+                'trusted_key' => 'Trusted module publisher key',
+                'missing_or_invalid' => 'Missing or invalid',
+                'write_access' => 'Write access to %s/',
+                'no_permissions' => 'No permissions',
+                'runtime_updates' => 'Runtime ready for panel updates',
+                'missing_write' => 'Missing write access',
+            ],
+            'de' => [
+                'php_requirement' => 'PHP 8.4 oder neuer',
+                'extension' => 'Erweiterung %s',
+                'available' => 'Verfuegbar',
+                'missing' => 'Fehlt',
+                'trusted_key' => 'Vertrauenswuerdiger Modul-Publisher-Schluessel',
+                'missing_or_invalid' => 'Fehlt oder ungueltig',
+                'write_access' => 'Schreibzugriff auf %s/',
+                'no_permissions' => 'Keine Berechtigung',
+                'runtime_updates' => 'Runtime bereit fuer Panel-Updates',
+                'missing_write' => 'Schreibzugriff fehlt',
+            ],
+        ];
+
+        return $texts[$this->normalizeInstallerLanguage($language)][$key] ?? $texts['pl'][$key] ?? $key;
+    }
+
+    /** @return array{pl: string, en: string, de: string} */
+    private function moduleDescriptions(string $id): array
+    {
+        $fallback = [
+            'pl' => 'Moduł rozszerzający funkcje miniPORTAL.',
+            'en' => 'A module that extends miniPORTAL features.',
+            'de' => 'Ein Modul, das miniPORTAL-Funktionen erweitert.',
+        ];
+        $descriptions = [
+            'articles' => ['pl' => 'Artykuły, kategorie i publiczny blog treści.', 'en' => 'Articles, categories and a public content blog.', 'de' => 'Artikel, Kategorien und ein oeffentlicher Inhaltsblog.'],
+            'build_explorer' => ['pl' => 'Katalog wydań JAR z uploadem, kanałami i importem CI.', 'en' => 'JAR release catalog with uploads, channels and CI import.', 'de' => 'JAR-Release-Katalog mit Uploads, Kanaelen und CI-Import.'],
+            'core_auth' => ['pl' => 'Logowanie OAuth, role, uprawnienia, sesje i audit log.', 'en' => 'OAuth login, roles, permissions, sessions and audit log.', 'de' => 'OAuth-Login, Rollen, Berechtigungen, Sitzungen und Audit-Log.'],
+            'core_pages' => ['pl' => 'Strony, sekcje strony głównej, menu publiczne i SEO treści.', 'en' => 'Pages, homepage sections, public menus and content SEO.', 'de' => 'Seiten, Startseitenbereiche, oeffentliche Menues und Inhalts-SEO.'],
+            'database_manager' => ['pl' => 'Panelowy Manager SQL dla uprawnionych administratorów.', 'en' => 'Panel SQL Manager for authorized administrators.', 'de' => 'SQL-Manager im Panel fuer berechtigte Administratoren.'],
+            'econizer' => ['pl' => 'Dedykowane centrum bota ekonomicznego Discord.', 'en' => 'Dedicated control center for the Discord economy bot.', 'de' => 'Dediziertes Kontrollzentrum fuer den Discord-Economy-Bot.'],
+            'licences' => ['pl' => 'Zarządzanie licencjami projektów i pluginów.', 'en' => 'License management for projects and plugins.', 'de' => 'Lizenzverwaltung fuer Projekte und Plugins.'],
+            'media_library' => ['pl' => 'Biblioteka grafik używana przez edytory treści.', 'en' => 'Media library used by content editors.', 'de' => 'Medienbibliothek fuer Inhaltseditoren.'],
+            'minecraft_console' => ['pl' => 'Panel konsoli i plików serwera Minecraft.', 'en' => 'Minecraft server console and file panel.', 'de' => 'Konsole und Dateipanel fuer Minecraft-Server.'],
+            'plugin_stats' => ['pl' => 'Statystyki pluginów SyntaxDevTeam.', 'en' => 'SyntaxDevTeam plugin statistics.', 'de' => 'SyntaxDevTeam-Plugin-Statistiken.'],
+            'plugin_translator' => ['pl' => 'Publiczny i panelowy przepływ tłumaczeń plików YAML.', 'en' => 'Public and admin workflow for YAML translation files.', 'de' => 'Oeffentlicher und administrativer Workflow fuer YAML-Uebersetzungen.'],
+            'projects' => ['pl' => 'Katalog projektów z relacjami do stron, wiki i buildów.', 'en' => 'Project catalog linked to pages, wiki and builds.', 'de' => 'Projektkatalog mit Verknuepfungen zu Seiten, Wiki und Builds.'],
+            'remote_terminal' => ['pl' => 'Prywatny terminal administracyjny przez gateway albo lokalne SSH.', 'en' => 'Private admin terminal through a gateway or local SSH.', 'de' => 'Privates Admin-Terminal ueber Gateway oder lokales SSH.'],
+            'system_admin' => ['pl' => 'Dashboard, ustawienia, manager modułów i aktualizacje systemu.', 'en' => 'Dashboard, settings, module manager and system updates.', 'de' => 'Dashboard, Einstellungen, Modulmanager und Systemupdates.'],
+            'team' => ['pl' => 'Publiczna lista zespołu i profile członków.', 'en' => 'Public team list and member profiles.', 'de' => 'Oeffentliche Teamliste und Mitgliederprofile.'],
+            'uptime' => ['pl' => 'Monitoring heartbeat/event z widgetem statusu.', 'en' => 'Heartbeat/event monitoring with a status widget.', 'de' => 'Heartbeat/Event-Monitoring mit Status-Widget.'],
+            'user_profile' => ['pl' => 'Panel profilu użytkownika, avatar i przegląd bezpieczeństwa.', 'en' => 'User profile panel, avatar and security overview.', 'de' => 'Benutzerprofil, Avatar und Sicherheitsuebersicht.'],
+            'widgets' => ['pl' => 'Sloty i typy widgetów strony głównej.', 'en' => 'Homepage widget slots and widget types.', 'de' => 'Widget-Slots und Widget-Typen fuer die Startseite.'],
+            'wikipedia' => ['pl' => 'Dokumentacja projektowa z publiczną nawigacją wiki.', 'en' => 'Project documentation with public wiki navigation.', 'de' => 'Projektdokumentation mit oeffentlicher Wiki-Navigation.'],
+        ];
+
+        return $descriptions[$id] ?? $fallback;
+    }
+
+    /**
+     * @param list<string> $selected
+     * @param array<string, array<string, mixed>> $catalog
+     * @return list<string>
+     */
+    private function expandDependencies(array $selected, array $catalog): array
+    {
+        $expanded = array_fill_keys($selected, true);
+        $add = function (string $id) use (&$add, &$expanded, $catalog): void {
+            if (!isset($catalog[$id])) {
+                throw new RuntimeException('Brak zależnego modułu: ' . $id . '.');
+            }
+            $expanded[$id] = true;
+            foreach ($catalog[$id]['dependencies'] as $dependency) {
+                $add($dependency);
+            }
+        };
+        foreach ($selected as $id) {
+            $add($id);
+        }
+
+        return array_values(array_filter(
+            array_keys($catalog),
+            static fn (string $id): bool => isset($expanded[$id])
+        ));
+    }
+}

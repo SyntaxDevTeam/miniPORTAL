@@ -1,0 +1,19 @@
+{
+  "id": "uptime",
+  "name": "Uptime",
+  "version": "1.1.4",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.1.0",
+    "modules": ["core_auth", "core_pages", "widgets"]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

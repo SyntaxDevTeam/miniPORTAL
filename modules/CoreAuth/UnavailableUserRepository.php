@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SyntaxDevTeam\Cms\Modules\CoreAuth;
+
+final class UnavailableUserRepository implements UserRepositoryInterface
+{
+    public function findById(int $id): ?User
+    {
+        return null;
+    }
+
+    public function findByIdentity(string $provider, string $subject): ?User
+    {
+        return null;
+    }
+
+    public function createPendingFromIdentity(ExternalIdentity $identity): User
+    {
+        throw new \RuntimeException('Repozytorium użytkowników jest niedostępne.');
+    }
+
+    public function linkIdentity(int $userId, ExternalIdentity $identity): void
+    {
+    }
+
+    public function unlinkIdentity(int $userId, string $provider, string $subject): bool
+    {
+        return false;
+    }
+
+    public function touchIdentity(int $userId, string $provider, string $subject): void
+    {
+    }
+
+    public function updateProfile(int $userId, string $displayName, ?string $email): bool
+    {
+        return false;
+    }
+
+    public function updateAvatar(int $userId, ?string $avatarUrl): bool
+    {
+        return false;
+    }
+}

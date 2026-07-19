@@ -1,0 +1,496 @@
+<?php
+
+declare(strict_types=1);
+
+use SyntaxDevTeam\Cms\Core\Autoloader;
+use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
+use SyntaxDevTeam\Cms\Installer\Installer;
+
+require_once __DIR__ . '/core/Autoloader.php';
+require_once __DIR__ . '/installer/Installer.php';
+
+Autoloader::register();
+
+$https = ($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off';
+session_name('MINIPORTALINSTALL');
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => $https,
+    'samesite' => 'Strict',
+]);
+session_start();
+
+$nonce = base64_encode(random_bytes(18));
+header('Content-Type: text/html; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header("Content-Security-Policy: default-src 'none'; style-src 'nonce-{$nonce}'; script-src 'nonce-{$nonce}'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+
+$installerLanguages = [
+    'pl' => ['label' => 'Polski', 'html' => 'pl-PL'],
+    'en' => ['label' => 'English', 'html' => 'en'],
+    'de' => ['label' => 'Deutsch', 'html' => 'de'],
+];
+$installerLanguage = 'pl';
+foreach ([$_POST['installer_lang'] ?? null, $_GET['installer_lang'] ?? null, $_SESSION['installer_lang'] ?? null] as $candidate) {
+    if (is_string($candidate) && isset($installerLanguages[$candidate])) {
+        $installerLanguage = $candidate;
+        break;
+    }
+}
+$_SESSION['installer_lang'] = $installerLanguage;
+$text = [
+    'pl' => [
+        'csrf' => 'Sesja formularza wygasła. Odśwież stronę i spróbuj ponownie.',
+        'title' => 'Instalacja miniPORTAL',
+        'wizard' => 'Kreator instalacji',
+        'language' => 'Język instalatora',
+        'language_hint' => 'Dotyczy tylko kreatora. Locale instalowanej strony ustawisz w kroku Witryna.',
+        'complete' => 'Instalacja została ukończona.',
+        'hello' => 'Witaj',
+        'installed_modules' => 'Zainstalowano %s modułów. Pierwsza osoba, która poprawnie zaloguje się przez skonfigurowanego dostawcę, zostanie Ownerem. Instalator został zablokowany plikiem w katalogu config/.',
+        'go_login' => 'Przejdź do logowania',
+        'locked' => 'Instalator jest zablokowany',
+        'locked_copy' => 'Ta kopia miniPORTAL została już zainstalowana.',
+        'open_site' => 'Otwórz stronę',
+        'progress' => 'Postęp instalacji',
+        'environment' => 'Środowisko',
+        'site' => 'Witryna',
+        'database' => 'Baza',
+        'login' => 'Logowanie',
+        'modules' => 'Moduły',
+        'environment_copy' => 'Wymagania są sprawdzane przed zmianą bazy.',
+        'permission_title' => 'PHP nie może zapisywać wymaganych katalogów.',
+        'permission_copy' => 'W katalogu instalacji wykonaj:',
+        'fix_first' => 'Najpierw usuń wszystkie wykryte problemy.',
+        'next' => 'Dalej',
+        'back' => 'Wstecz',
+        'site_url' => 'Adres strony',
+        'site_name' => 'Nazwa strony',
+        'timezone' => 'Strefa czasowa',
+        'locale' => 'Język i region',
+        'theme' => 'Motyw',
+        'db_host' => 'Host',
+        'db_port' => 'Port',
+        'db_name' => 'Nazwa bazy',
+        'db_user' => 'Użytkownik',
+        'db_pass' => 'Hasło',
+        'create_database' => 'Utwórz bazę, jeśli nie istnieje',
+        'login_title' => 'Logowanie i pierwszy Owner',
+        'login_copy' => 'Włącz co najmniej jednego dostawcę. Pierwsze poprawne logowanie zostanie atomowo przypisane do roli Owner.',
+        'enable_provider' => 'Włącz logowanie przez %s',
+        'modules_copy' => 'Wybierz typ instalacji. Zależności wybranych modułów zostaną dołączone automatycznie podczas instalacji.',
+        'profile_label' => 'Typ instalacji',
+        'basic' => 'Podstawowa',
+        'basic_copy' => 'Minimum: rdzeń, strony, logowanie i panel systemowy.',
+        'full' => 'Pełna',
+        'full_copy' => 'Instaluje wszystkie moduły dostępne w pakiecie.',
+        'custom' => 'Własna',
+        'custom_copy' => 'Samodzielny wybór modułów z krótkimi opisami.',
+        'required' => 'wymagany',
+        'no_dependencies' => 'bez zależności',
+        'empty_database' => 'Instalator przyjmuje wyłącznie pustą bazę i nie nadpisuje istniejących tabel.',
+        'install' => 'Zainstaluj miniPORTAL',
+    ],
+    'en' => [
+        'csrf' => 'The form session expired. Refresh the page and try again.',
+        'title' => 'miniPORTAL installation',
+        'wizard' => 'Installation wizard',
+        'language' => 'Installer language',
+        'language_hint' => 'Only affects this wizard. The site locale is set in the Site step.',
+        'complete' => 'Installation is complete.',
+        'hello' => 'Welcome',
+        'installed_modules' => 'Installed %s modules. The first person who signs in successfully through a configured provider will become the Owner. The installer has been locked with a file in config/.',
+        'go_login' => 'Go to login',
+        'locked' => 'Installer is locked',
+        'locked_copy' => 'This miniPORTAL copy has already been installed.',
+        'open_site' => 'Open site',
+        'progress' => 'Installation progress',
+        'environment' => 'Environment',
+        'site' => 'Site',
+        'database' => 'Database',
+        'login' => 'Login',
+        'modules' => 'Modules',
+        'environment_copy' => 'Requirements are checked before the database is changed.',
+        'permission_title' => 'PHP cannot write to required directories.',
+        'permission_copy' => 'Run this in the installation directory:',
+        'fix_first' => 'Fix all detected issues first.',
+        'next' => 'Next',
+        'back' => 'Back',
+        'site_url' => 'Site URL',
+        'site_name' => 'Site name',
+        'timezone' => 'Time zone',
+        'locale' => 'Language and region',
+        'theme' => 'Theme',
+        'db_host' => 'Host',
+        'db_port' => 'Port',
+        'db_name' => 'Database name',
+        'db_user' => 'User',
+        'db_pass' => 'Password',
+        'create_database' => 'Create the database if it does not exist',
+        'login_title' => 'Login and first Owner',
+        'login_copy' => 'Enable at least one provider. The first successful login will atomically receive the Owner role.',
+        'enable_provider' => 'Enable %s login',
+        'modules_copy' => 'Choose an installation type. Dependencies of selected modules will be included automatically during installation.',
+        'profile_label' => 'Installation type',
+        'basic' => 'Basic',
+        'basic_copy' => 'Minimum: core, pages, login and system panel.',
+        'full' => 'Full',
+        'full_copy' => 'Installs all modules available in the package.',
+        'custom' => 'Custom',
+        'custom_copy' => 'Choose modules manually with short descriptions.',
+        'required' => 'required',
+        'no_dependencies' => 'no dependencies',
+        'empty_database' => 'The installer accepts only an empty database and does not overwrite existing tables.',
+        'install' => 'Install miniPORTAL',
+    ],
+    'de' => [
+        'csrf' => 'Die Formularsitzung ist abgelaufen. Aktualisiere die Seite und versuche es erneut.',
+        'title' => 'miniPORTAL Installation',
+        'wizard' => 'Installationsassistent',
+        'language' => 'Sprache des Installers',
+        'language_hint' => 'Gilt nur fuer diesen Assistenten. Die Site-Locale wird im Schritt Website gesetzt.',
+        'complete' => 'Die Installation ist abgeschlossen.',
+        'hello' => 'Willkommen',
+        'installed_modules' => '%s Module installiert. Die erste Person, die sich erfolgreich ueber einen konfigurierten Anbieter anmeldet, wird Owner. Der Installer wurde mit einer Datei in config/ gesperrt.',
+        'go_login' => 'Zur Anmeldung',
+        'locked' => 'Installer ist gesperrt',
+        'locked_copy' => 'Diese miniPORTAL-Kopie wurde bereits installiert.',
+        'open_site' => 'Website oeffnen',
+        'progress' => 'Installationsfortschritt',
+        'environment' => 'Umgebung',
+        'site' => 'Website',
+        'database' => 'Datenbank',
+        'login' => 'Anmeldung',
+        'modules' => 'Module',
+        'environment_copy' => 'Anforderungen werden vor Aenderungen an der Datenbank geprueft.',
+        'permission_title' => 'PHP kann nicht in die erforderlichen Verzeichnisse schreiben.',
+        'permission_copy' => 'Fuehre dies im Installationsverzeichnis aus:',
+        'fix_first' => 'Behebe zuerst alle erkannten Probleme.',
+        'next' => 'Weiter',
+        'back' => 'Zurueck',
+        'site_url' => 'Website-Adresse',
+        'site_name' => 'Website-Name',
+        'timezone' => 'Zeitzone',
+        'locale' => 'Sprache und Region',
+        'theme' => 'Theme',
+        'db_host' => 'Host',
+        'db_port' => 'Port',
+        'db_name' => 'Datenbankname',
+        'db_user' => 'Benutzer',
+        'db_pass' => 'Passwort',
+        'create_database' => 'Datenbank erstellen, falls sie nicht existiert',
+        'login_title' => 'Anmeldung und erster Owner',
+        'login_copy' => 'Aktiviere mindestens einen Anbieter. Die erste erfolgreiche Anmeldung erhaelt atomar die Owner-Rolle.',
+        'enable_provider' => '%s-Anmeldung aktivieren',
+        'modules_copy' => 'Waehle einen Installationstyp. Abhaengigkeiten ausgewaehlter Module werden automatisch installiert.',
+        'profile_label' => 'Installationstyp',
+        'basic' => 'Basis',
+        'basic_copy' => 'Minimum: Core, Seiten, Anmeldung und Systempanel.',
+        'full' => 'Vollstaendig',
+        'full_copy' => 'Installiert alle im Paket verfuegbaren Module.',
+        'custom' => 'Benutzerdefiniert',
+        'custom_copy' => 'Module manuell mit kurzen Beschreibungen auswaehlen.',
+        'required' => 'erforderlich',
+        'no_dependencies' => 'keine Abhaengigkeiten',
+        'empty_database' => 'Der Installer akzeptiert nur eine leere Datenbank und ueberschreibt keine vorhandenen Tabellen.',
+        'install' => 'miniPORTAL installieren',
+    ],
+];
+$t = static fn (string $key): string => $text[$installerLanguage][$key] ?? $text['pl'][$key] ?? $key;
+
+$installer = new Installer(__DIR__);
+$checks = $installer->preflight($installerLanguage);
+$modules = $installer->moduleOptions($installerLanguage);
+$token = $_SESSION['installer_csrf'] ??= bin2hex(random_bytes(32));
+$error = '';
+$result = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($token, (string) ($_POST['_token'] ?? ''))) {
+        $error = $t('csrf');
+    } else {
+        try {
+            $result = $installer->install($_POST);
+            unset($_SESSION['installer_csrf']);
+        } catch (Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+    }
+}
+
+$escape = static fn (mixed $value): string => htmlspecialchars(
+    (string) $value,
+    ENT_QUOTES | ENT_SUBSTITUTE,
+    'UTF-8'
+);
+$old = static fn (string $name, string $default = ''): string => isset($_POST[$name])
+    && is_scalar($_POST[$name]) ? trim((string) $_POST[$name]) : $default;
+$profileIds = [
+    'basic' => array_values(array_map(
+        'strval',
+        array_column(array_filter($modules, static fn (array $module): bool => $module['required']), 'id')
+    )),
+    'full' => array_values(array_map('strval', array_column($modules, 'id'))),
+];
+$selectedProfile = in_array($old('install_profile', 'basic'), ['basic', 'full', 'custom'], true)
+    ? $old('install_profile', 'basic')
+    : 'basic';
+$selectedModules = is_array($_POST['modules'] ?? null)
+    ? array_map('strval', $_POST['modules'])
+    : ($profileIds[$selectedProfile] ?? $profileIds['basic']);
+$preflightOk = array_all($checks, static fn (array $check): bool => $check['ok']);
+$permissionIssues = FilesystemPermissions::missing(__DIR__);
+$permissionCommand = FilesystemPermissions::remediationCommand(__DIR__);
+$initialStep = $error !== '' ? 5 : 1;
+$host = preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost')) ?: 'localhost';
+$defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
+$moduleProfileJson = json_encode($profileIds, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+?><!doctype html>
+<html lang="<?= $escape($installerLanguages[$installerLanguage]['html']) ?>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title><?= $escape($t('title')) ?></title>
+  <style nonce="<?= $escape($nonce) ?>">
+    :root { color-scheme: dark; --bg:#07101d; --panel:#101b2b; --line:#29405c; --text:#edf6ff; --muted:#a9b8ca; --accent:#64c7ff; --ok:#61e6a5; --bad:#ff7188; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--text); background:radial-gradient(circle at 80% 0,#12345a 0,transparent 30rem),var(--bg); font:16px/1.55 system-ui,sans-serif; }
+    .shell { width:min(1120px,calc(100% - 2rem)); margin:0 auto; padding:3rem 0; }
+    .hero { display:flex; align-items:center; gap:1rem; margin-bottom:2rem; }
+    .hero-content { flex:1; min-width:0; }
+    .language-picker { width:min(18rem,100%); margin-left:auto; }
+    .language-picker label { margin:0; }
+    .mark { display:grid; width:3.4rem; height:3.4rem; place-items:center; color:#07101d; background:var(--accent); border-radius:1rem; font-weight:900; }
+    h1,h2 { margin:.2rem 0; line-height:1.15; }
+    p { color:var(--muted); }
+    .panel { padding:1.25rem; background:rgba(16,27,43,.94); border:1px solid var(--line); border-radius:1rem; box-shadow:0 1rem 3rem rgba(0,0,0,.22); }
+    .wizard { width:min(760px,100%); margin:0 auto; }
+    .wizard-progress { display:grid; grid-template-columns:repeat(5,1fr); gap:.45rem; margin:0 0 1rem; padding:0; list-style:none; }
+    .wizard-progress li { min-width:0; color:var(--muted); text-align:center; font-size:.82rem; }
+    .wizard-progress span { display:grid; width:2rem; height:2rem; margin:0 auto .35rem; place-items:center; background:#101b2b; border:1px solid var(--line); border-radius:50%; font-weight:850; }
+    .wizard-progress li.active { color:var(--text); }
+    .wizard-progress li.active span { color:#04111d; background:var(--accent); border-color:var(--accent); }
+    .js .wizard-step { display:none; }
+    .js .wizard-step.active { display:block; }
+    label,legend { color:var(--text); font-weight:750; }
+    label { display:grid; gap:.35rem; margin-top:.85rem; }
+    input,select { width:100%; min-height:2.8rem; padding:.65rem .75rem; color:var(--text); background:#081424; border:1px solid var(--line); border-radius:.55rem; font:inherit; }
+    input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    fieldset { margin:0; padding:0; border:0; }
+    .checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:1rem; }
+    .profiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin:1rem 0; }
+    .check { display:flex; align-items:flex-start; gap:.55rem; margin:0; padding:.7rem; background:#0a1626; border:1px solid var(--line); border-radius:.55rem; font-weight:650; }
+    .check input { width:1.2rem; min-height:1.2rem; margin:.2rem 0 0; }
+    .profile { min-height:100%; }
+    .profile strong { display:block; }
+    .module-list .check { align-items:stretch; }
+    .module-meta { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.35rem; }
+    .pill { display:inline-flex; align-items:center; min-height:1.35rem; padding:.1rem .42rem; border:1px solid rgba(100,199,255,.35); border-radius:999px; color:#cdeeff; font-size:.72rem; font-weight:750; text-transform:uppercase; }
+    .status { display:flex; justify-content:space-between; gap:1rem; padding:.5rem 0; border-bottom:1px solid rgba(255,255,255,.08); }
+    .status:last-child { border:0; }
+    .ok { color:var(--ok); } .bad { color:var(--bad); }
+    .alert { margin-bottom:1rem; padding:1rem; border:1px solid currentColor; border-radius:.7rem; }
+    .alert-error { color:#ffd7de; background:#381421; }
+    .alert-success { color:#d8ffed; background:#103326; }
+    .actions { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1.25rem; }
+    .action-group { display:flex; gap:.65rem; margin-left:auto; }
+    button,.button { display:inline-flex; min-height:2.8rem; align-items:center; justify-content:center; padding:.65rem 1rem; color:#04111d; background:var(--accent); border:0; border-radius:.6rem; font:inherit; font-weight:850; text-decoration:none; cursor:pointer; }
+    button.secondary { color:var(--text); background:#1b2a3d; border:1px solid var(--line); }
+    button:disabled { cursor:not-allowed; opacity:.45; }
+    small { color:var(--muted); font-weight:450; }
+    code { color:var(--accent); }
+    pre { overflow:auto; padding:1rem; background:#050b13; border:1px solid var(--line); border-radius:.55rem; white-space:pre-wrap; }
+    @media (max-width:760px) { .hero { align-items:flex-start; flex-direction:column; } .language-picker { width:100%; margin-left:0; } .checks,.profiles { grid-template-columns:1fr; } .wizard-progress li { font-size:0; } .wizard-progress span { font-size:.82rem; } .actions { align-items:stretch; flex-direction:column; } .action-group { width:100%; margin:0; } .action-group button { flex:1; } }
+  </style>
+  <script nonce="<?= $escape($nonce) ?>">document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <span class="mark" aria-hidden="true">&lt;/&gt;</span>
+    <div class="hero-content"><p>miniPORTAL <?= $escape('0.1.0') ?></p><h1><?= $escape($t('wizard')) ?></h1></div>
+    <form class="language-picker" method="get" action="install.php">
+      <label><?= $escape($t('language')) ?>
+        <select name="installer_lang" data-language-select>
+          <?php foreach ($installerLanguages as $code => $language): ?>
+            <option value="<?= $escape($code) ?>"<?= $installerLanguage === $code ? ' selected' : '' ?>><?= $escape($language['label']) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <small><?= $escape($t('language_hint')) ?></small>
+      </label>
+    </form>
+  </header>
+
+  <?php if ($result !== null): ?>
+    <section class="panel">
+      <div class="alert alert-success" role="status"><?= $escape($t('complete')) ?></div>
+      <h2><?= $escape($t('hello')) ?>, <?= $escape($result['owner']) ?></h2>
+      <p><?= $escape(sprintf($t('installed_modules'), (string) $result['installed_modules'])) ?></p>
+      <a class="button" href="<?= $escape($result['login_url']) ?>"><?= $escape($t('go_login')) ?></a>
+    </section>
+  <?php elseif ($installer->isInstalled()): ?>
+    <?php http_response_code(410); ?>
+    <section class="panel"><h2><?= $escape($t('locked')) ?></h2><p><?= $escape($t('locked_copy')) ?></p><a class="button" href="/"><?= $escape($t('open_site')) ?></a></section>
+  <?php else: ?>
+    <?php if ($error !== ''): ?><div class="alert alert-error" role="alert"><?= $escape($error) ?></div><?php endif; ?>
+    <form class="wizard" method="post" action="install.php" autocomplete="off" novalidate data-initial-step="<?= $initialStep ?>">
+      <input type="hidden" name="_token" value="<?= $escape($token) ?>">
+      <input type="hidden" name="installer_lang" value="<?= $escape($installerLanguage) ?>">
+      <ol class="wizard-progress" aria-label="<?= $escape($t('progress')) ?>">
+        <li><span>1</span><?= $escape($t('environment')) ?></li><li><span>2</span><?= $escape($t('site')) ?></li>
+        <li><span>3</span><?= $escape($t('database')) ?></li><li><span>4</span><?= $escape($t('login')) ?></li><li><span>5</span><?= $escape($t('modules')) ?></li>
+      </ol>
+      <div>
+        <section class="panel wizard-step" data-step="1">
+          <h2>1. <?= $escape($t('environment')) ?></h2>
+          <p><?= $escape($t('environment_copy')) ?></p>
+          <?php foreach ($checks as $check): ?>
+            <div class="status"><span><?= $escape($check['label']) ?></span><strong class="<?= $check['ok'] ? 'ok' : 'bad' ?>"><?= $escape($check['detail']) ?></strong></div>
+          <?php endforeach; ?>
+          <?php if ($permissionIssues !== []): ?>
+            <div class="alert alert-error" role="alert">
+              <strong><?= $escape($t('permission_title')) ?></strong>
+              <p><?= $escape($t('permission_copy')) ?></p>
+              <pre><code><?= $escape($permissionCommand) ?></code></pre>
+            </div>
+          <?php endif; ?>
+          <div class="actions"><small><?= $escape($t('fix_first')) ?></small><div class="action-group"><button type="button" data-next<?= $preflightOk ? '' : ' disabled' ?>><?= $escape($t('next')) ?></button></div></div>
+        </section>
+
+        <section class="panel wizard-step" data-step="2">
+          <h2>2. <?= $escape($t('site')) ?></h2>
+          <label><?= $escape($t('site_url')) ?> <input name="site_url" type="url" required maxlength="255" value="<?= $escape($old('site_url', $defaultUrl)) ?>"></label>
+          <label><?= $escape($t('site_name')) ?> <input name="site_name" required maxlength="80" value="<?= $escape($old('site_name', 'miniPORTAL')) ?>"></label>
+          <label><?= $escape($t('timezone')) ?> <input name="timezone" required value="<?= $escape($old('timezone', 'Europe/Warsaw')) ?>"></label>
+          <label><?= $escape($t('locale')) ?> <input name="locale" required maxlength="5" value="<?= $escape($old('locale', 'pl_PL')) ?>"></label>
+          <label><?= $escape($t('theme')) ?> <select name="theme"><option value="default"<?= $old('theme', 'default') === 'default' ? ' selected' : '' ?>>Default</option><option value="future"<?= $old('theme') === 'future' ? ' selected' : '' ?>>Future</option><option value="glassnight"<?= $old('theme') === 'glassnight' ? ' selected' : '' ?>>Glassnight</option><option value="minecraft"<?= $old('theme') === 'minecraft' ? ' selected' : '' ?>>Minecraft</option></select></label>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back><?= $escape($t('back')) ?></button><button type="button" data-next><?= $escape($t('next')) ?></button></div></div>
+        </section>
+
+        <section class="panel wizard-step" data-step="3">
+          <h2>3. <?= $escape($t('database')) ?> MySQL</h2>
+          <label><?= $escape($t('db_host')) ?> <input name="db_host" required value="<?= $escape($old('db_host', '127.0.0.1')) ?>"></label>
+          <label><?= $escape($t('db_port')) ?> <input name="db_port" type="number" min="1" max="65535" required value="<?= $escape($old('db_port', '3306')) ?>"></label>
+          <label><?= $escape($t('db_name')) ?> <input name="db_name" required pattern="[A-Za-z0-9_]+" value="<?= $escape($old('db_name', 'miniportal')) ?>"></label>
+          <label><?= $escape($t('db_user')) ?> <input name="db_user" required autocomplete="username" value="<?= $escape($old('db_user')) ?>"></label>
+          <label><?= $escape($t('db_pass')) ?> <input name="db_pass" type="password" required autocomplete="new-password"></label>
+          <label class="check"><input name="create_database" type="checkbox" value="1"<?= isset($_POST['create_database']) || $_SERVER['REQUEST_METHOD'] !== 'POST' ? ' checked' : '' ?>> <?= $escape($t('create_database')) ?></label>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back><?= $escape($t('back')) ?></button><button type="button" data-next><?= $escape($t('next')) ?></button></div></div>
+        </section>
+
+        <section class="panel wizard-step" data-step="4">
+          <h2>4. <?= $escape($t('login_title')) ?></h2>
+          <p><?= $escape($t('login_copy')) ?></p>
+          <?php foreach (['github' => 'GitHub', 'discord' => 'Discord', 'google' => 'Google', 'microsoft' => 'Microsoft'] as $provider => $label): ?>
+            <fieldset class="panel">
+              <legend><?= $escape($label) ?></legend>
+              <label class="check"><input name="<?= $escape($provider) ?>_enabled" type="checkbox" value="1"<?= isset($_POST[$provider . '_enabled']) || ($_SERVER['REQUEST_METHOD'] !== 'POST' && $provider === 'github') ? ' checked' : '' ?>> <?= $escape(sprintf($t('enable_provider'), $label)) ?></label>
+              <label><?= $escape($label) ?> Client ID <input name="<?= $escape($provider) ?>_client_id" value="<?= $escape($old($provider . '_client_id')) ?>"></label>
+              <label><?= $escape($label) ?> Client Secret <input name="<?= $escape($provider) ?>_client_secret" type="password" autocomplete="new-password"></label>
+              <small>Callback: <?= $escape($old('site_url', $defaultUrl)) ?>/index.php?route=/admin/auth/<?= $escape($provider) ?>/callback</small>
+            </fieldset>
+          <?php endforeach; ?>
+          <div class="actions"><div class="action-group"><button class="secondary" type="button" data-back><?= $escape($t('back')) ?></button><button type="button" data-next><?= $escape($t('next')) ?></button></div></div>
+        </section>
+
+        <section class="panel wizard-step" data-step="5">
+          <fieldset><legend><h2>5. <?= $escape($t('modules')) ?></h2></legend><p><?= $escape($t('modules_copy')) ?></p>
+            <div class="profiles" role="radiogroup" aria-label="<?= $escape($t('profile_label')) ?>">
+              <label class="check profile"><input type="radio" name="install_profile" value="basic"<?= $selectedProfile === 'basic' ? ' checked' : '' ?> data-profile="basic">
+                <span><strong><?= $escape($t('basic')) ?></strong><small><?= $escape($t('basic_copy')) ?></small></span>
+              </label>
+              <label class="check profile"><input type="radio" name="install_profile" value="full"<?= $selectedProfile === 'full' ? ' checked' : '' ?> data-profile="full">
+                <span><strong><?= $escape($t('full')) ?></strong><small><?= $escape($t('full_copy')) ?></small></span>
+              </label>
+              <label class="check profile"><input type="radio" name="install_profile" value="custom"<?= $selectedProfile === 'custom' ? ' checked' : '' ?> data-profile="custom">
+                <span><strong><?= $escape($t('custom')) ?></strong><small><?= $escape($t('custom_copy')) ?></small></span>
+              </label>
+            </div>
+            <div class="checks module-list">
+              <?php foreach ($modules as $module): ?>
+                <label class="check"><input type="checkbox" name="modules[]" value="<?= $escape($module['id']) ?>"<?= in_array($module['id'], $selectedModules, true) || $module['required'] ? ' checked' : '' ?><?= $module['required'] ? ' disabled' : '' ?> data-module-checkbox>
+                  <span>
+                    <strong><?= $escape($module['name']) ?><?= $module['required'] ? ' (' . $escape($t('required')) . ')' : '' ?></strong>
+                    <small><?= $escape($module['description']) ?></small>
+                    <span class="module-meta">
+                      <span class="pill"><?= $escape($module['type']) ?></span>
+                      <small><?= $escape(implode(', ', $module['dependencies']) ?: $t('no_dependencies')) ?></small>
+                    </span>
+                  </span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          </fieldset>
+          <div class="actions"><small><?= $escape($t('empty_database')) ?></small><div class="action-group"><button class="secondary" type="button" data-back><?= $escape($t('back')) ?></button><button type="submit"<?= $preflightOk ? '' : ' disabled' ?>><?= $escape($t('install')) ?></button></div></div>
+        </section>
+      </div>
+    </form>
+  <?php endif; ?>
+</main>
+<script nonce="<?= $escape($nonce) ?>">
+(() => {
+  const languageSelect = document.querySelector('[data-language-select]');
+  languageSelect?.addEventListener('change', () => {
+    window.location.href = `install.php?installer_lang=${encodeURIComponent(languageSelect.value)}`;
+  });
+  const form = document.querySelector('.wizard');
+  if (!form) return;
+  const steps = [...form.querySelectorAll('.wizard-step')];
+  const progress = [...form.querySelectorAll('.wizard-progress li')];
+  const moduleProfiles = <?= $moduleProfileJson ?>;
+  const moduleBoxes = [...form.querySelectorAll('[data-module-checkbox]')];
+  let current = Math.min(steps.length, Math.max(1, Number(form.dataset.initialStep) || 1));
+  const show = (number) => {
+    current = number;
+    steps.forEach((step, index) => {
+      const active = index + 1 === current;
+      step.classList.toggle('active', active);
+      step.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    progress.forEach((item, index) => {
+      item.classList.toggle('active', index + 1 <= current);
+      if (index + 1 === current) item.setAttribute('aria-current', 'step');
+      else item.removeAttribute('aria-current');
+    });
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+  const firstInvalidField = (step) =>
+    [...step.querySelectorAll('input, select, textarea')].find((field) => !field.checkValidity());
+  const valid = (step) => {
+    const field = firstInvalidField(step);
+    if (!field) return true;
+    field.reportValidity();
+    return false;
+  };
+  form.addEventListener('click', (event) => {
+    if (event.target.closest('[data-next]') && valid(steps[current - 1])) {
+      show(Math.min(steps.length, current + 1));
+    }
+    if (event.target.closest('[data-back]')) show(Math.max(1, current - 1));
+  });
+  form.addEventListener('change', (event) => {
+    const profile = event.target.closest('[data-profile]');
+    if (profile && profile.value !== 'custom') {
+      const ids = new Set(moduleProfiles[profile.value] || []);
+      moduleBoxes.forEach((box) => { box.checked = box.disabled || ids.has(box.value); });
+    }
+    if (event.target.matches('[data-module-checkbox]')) {
+      form.querySelector('[data-profile="custom"]').checked = true;
+    }
+  });
+  form.addEventListener('submit', (event) => {
+    const invalidIndex = steps.findIndex((step) => firstInvalidField(step));
+    if (invalidIndex !== -1) {
+      event.preventDefault();
+      show(invalidIndex + 1);
+      firstInvalidField(steps[invalidIndex])?.reportValidity();
+    }
+  });
+  show(current);
+})();
+</script>
+</body>
+</html>

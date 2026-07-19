@@ -1,0 +1,27 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Public requests may enter through index.php and template assets only.
+    RewriteRule ^(?:\.git|\.svn|\.hg)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:bin|cache|config|core|docs|install|installer|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:AGENTS\.md|README\.md|LICENSE|composer\.(?:json|lock)|\.env(?:\..*)?)$ - [F,L,NC]
+    RewriteRule ^templates/[^/]+/(?:theme\.php|views)(?:/|$) - [F,L,NC]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<FilesMatch "^microsoft-identity-association(?:\.json)?$">
+    Require all granted
+    ForceType application/json
+    <IfModule mod_headers.c>
+        Header set Content-Type "application/json"
+    </IfModule>
+</FilesMatch>
+
+<FilesMatch "^(?!microsoft-identity-association(?:\.json)?$)(?:\.|.*(?:\.sql|\.ini|\.log|\.ya?ml|\.json|~|\.bak|\.dist)$)">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,18 @@
+{
+  "id": "core_auth",
+  "name": "Core Auth",
+  "version": "1.6.1",
+  "type": "core",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.1.0",
+    "modules": []
+  },
+  "protected": true,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "install": "install.sql"
+}
