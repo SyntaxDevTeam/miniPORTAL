@@ -203,12 +203,31 @@ final class Request
 
     public function header(string $name, string $default = ''): string
     {
-        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
-        if (strtolower($name) === 'content-type') {
-            $key = 'CONTENT_TYPE';
+        $normalized = strtolower($name);
+        $keys = ['HTTP_' . strtoupper(str_replace('-', '_', $name))];
+        if ($normalized === 'content-type') {
+            $keys = ['CONTENT_TYPE', ...$keys];
+        }
+        if ($normalized === 'content-length') {
+            $keys = ['CONTENT_LENGTH', ...$keys];
+        }
+        if ($normalized === 'authorization') {
+            $keys[] = 'REDIRECT_HTTP_AUTHORIZATION';
         }
 
-        return $this->stringValue($this->server, $key, $default);
+        foreach ($keys as $key) {
+            $value = $this->stringValue($this->server, $key);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return $default;
+    }
+
+    public function body(): string
+    {
+        return $this->rawBody;
     }
 
     /** @return array<string, mixed>|null */

@@ -761,13 +761,29 @@ body.admin-stylebook {
 
 .admin-panel-grid {
   display: grid;
-  align-items: start;
+  align-items: stretch;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
 .admin-panel-grid > .admin-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-width: 0;
+}
+
+.admin-panel-grid > .admin-panel > .admin-panel-body {
+  flex: 1 1 auto;
+}
+
+.admin-panel-grid > .admin-panel > .admin-panel-body > .alert:only-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  margin-bottom: 0;
+  text-align: center;
 }
 
 .admin-panel-grid > .admin-panel:only-child {
@@ -797,6 +813,10 @@ body.admin-stylebook {
 
 .admin-panel-grid-system {
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+.admin-panel-grid-geo {
+  grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.28fr);
 }
 
 .admin-panel-header {
@@ -1442,6 +1462,7 @@ body.admin-stylebook {
   .admin-panel-grid-balanced,
   .admin-panel-grid-dashboard,
   .admin-panel-grid-compact,
+  .admin-panel-grid-geo,
   .admin-panel-grid-settings {
     grid-template-columns: 1fr;
   }

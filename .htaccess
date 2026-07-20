@@ -3,6 +3,10 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Preserve API credentials when the request is internally routed to index.php.
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule ^ - [E=HTTP_AUTHORIZATION:%1]
+
     # Public requests may enter through index.php and template assets only.
     RewriteRule ^(?:\.git|\.svn|\.hg)(?:/|$) - [F,L,NC]
     RewriteRule ^(?:bin|cache|config|core|docs|install|installer|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]

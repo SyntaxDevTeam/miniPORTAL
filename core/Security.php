@@ -77,7 +77,7 @@ final class Security
             : "style-src 'self' https://cdn.jsdelivr.net; ";
         $scriptSrc = $isRemoteTerminalFrame
             ? "script-src 'self' 'unsafe-inline'; "
-            : "script-src 'self' https://cdn.jsdelivr.net https://pagead2.googlesyndication.com "
+            : "script-src 'self' https://cdn.jsdelivr.net https://cdn.amcharts.com https://pagead2.googlesyndication.com "
                 . "https://googleads.g.doubleclick.net; ";
         $frameSrc = $isRemoteTerminal
             ? "frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; "

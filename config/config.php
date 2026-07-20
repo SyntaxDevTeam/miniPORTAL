@@ -138,8 +138,22 @@ return [
         'tinify_monthly_limit' => $envInt('TINIFY_MONTHLY_LIMIT', 500, 1),
         'build_ci_token' => (string) $env('BUILD_CI_TOKEN', ''),
         'plugin_stats_allow_anonymous' => $envBool('PLUGIN_STATS_ALLOW_ANONYMOUS', false),
+        'plugin_stats_allowed_api_keys' => implode(',', array_filter([
+            trim((string) $env('SYNTAXCORE_ALLOWED_API_KEYS', '')),
+            trim((string) $env('SYNTAX_METRICS_ALLOWED_API_KEYS', '')),
+            trim((string) $env('METRICS_ALLOWED_API_KEYS', '')),
+        ], static fn (string $value): bool => $value !== '')),
+        'plugin_stats_ip_blacklist' => trim((string) $env(
+            'SYNTAX_METRICS_IP_BLACKLIST',
+            (string) $env('METRICS_IP_BLACKLIST', '')
+        )),
+        'plugin_stats_secret_key' => (string) $env('SYNTAXCORE_SECRET_KEY', 'jH47ZjoaNsrj94ja'),
+        'plugin_stats_secret_iv' => (string) $env('SYNTAXCORE_SECRET_IV', 'wTAeyF6V7xNET9WB'),
         'plugin_stats_rate_limit' => $envInt('PLUGIN_STATS_RATE_LIMIT', 90, 1),
         'plugin_stats_rate_window' => $envInt('PLUGIN_STATS_RATE_WINDOW', 120, 1),
+        'plugin_stats_metrics_v1_rate_limit' => $envInt('PLUGIN_STATS_METRICS_V1_RATE_LIMIT', 180, 1),
+        'plugin_stats_metrics_v1_rate_window' => $envInt('PLUGIN_STATS_METRICS_V1_RATE_WINDOW', 120, 1),
+        'plugin_stats_online_window_minutes' => $envInt('PLUGIN_STATS_ONLINE_WINDOW_MINUTES', 30, 5),
         'plugin_stats_retention_days' => $envInt('PLUGIN_STATS_RETENTION_DAYS', 180, 1),
         'licences_rate_limit' => $envInt('LICENCES_RATE_LIMIT', 60, 1),
         'licences_rate_window' => $envInt('LICENCES_RATE_WINDOW', 120, 1),

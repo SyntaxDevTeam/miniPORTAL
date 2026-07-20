@@ -731,9 +731,44 @@ final class Theme implements ThemeInterface
         $min = min($values); $max = max($values); $range = max(1.0, $max - $min); $count = count($points);
         $coordinates = [];
         foreach ($values as $index => $value) { $coordinates[] = round(24 + ($count === 1 ? 296 : $index * 592 / ($count - 1)), 2) . ',' . round(196 - (($value - $min) / $range) * 172, 2); }
-        echo '<figure class="line-chart" role="group" aria-label="' . $this->escape($label) . '"><svg viewBox="0 0 640 220" role="img" aria-labelledby="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">';
+        $payload = json_encode($points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
+        $chartId = 'amchart-line-' . substr(hash('sha256', $label . $payload), 0, 12);
+        echo '<figure class="line-chart" role="group" aria-label="' . $this->escape($label) . '"><div id="' . $chartId . '" class="amchart-host amchart-line" data-amchart="line" data-chart-label="' . $this->escape($label) . '" data-chart-payload="' . $this->escape($payload) . '" hidden></div><div class="chart-fallback"><svg viewBox="0 0 640 220" role="img" aria-labelledby="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">';
         echo '<title id="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">' . $this->escape($label) . '</title><line x1="24" y1="196" x2="616" y2="196" class="line-chart-axis"/><polyline points="' . implode(' ', $coordinates) . '" class="line-chart-series"/></svg>';
-        echo '<figcaption><span>' . $this->escape((string) $points[0]['label']) . '</span><strong>' . $this->escape($label) . ' (' . $this->escape((string) $min) . '-' . $this->escape((string) $max) . ')</strong><span>' . $this->escape((string) $points[array_key_last($points)]['label']) . '</span></figcaption></figure>';
+        echo '<figcaption><span>' . $this->escape((string) $points[0]['label']) . '</span><strong>' . $this->escape($label) . ' (' . $this->escape((string) $min) . '-' . $this->escape((string) $max) . ')</strong><span>' . $this->escape((string) $points[array_key_last($points)]['label']) . '</span></figcaption></div></figure>';
+    }
+
+    public function render_bar_chart(array $items, string $label): void
+    {
+        $items = array_values(array_filter($items, static fn (mixed $item): bool => is_array($item) && trim((string) ($item['label'] ?? '')) !== '' && is_numeric($item['value'] ?? null)));
+        if ($items === []) { $this->render_alert('Brak danych dla tego zestawienia.', 'info'); return; }
+        $maximum = max(array_map(static fn (array $item): float => (float) $item['value'], $items));
+        $payload = json_encode($items, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
+        $chartId = 'amchart-bar-' . substr(hash('sha256', $label . $payload), 0, 12);
+        echo '<figure class="bar-chart" role="group" aria-label="' . $this->escape($label) . '"><div id="' . $chartId . '" class="amchart-host amchart-bar" data-amchart="bar" data-chart-label="' . $this->escape($label) . '" data-chart-payload="' . $this->escape($payload) . '" hidden></div><div class="chart-fallback"><figcaption>' . $this->escape($label) . '</figcaption><div class="bar-chart-list">';
+        foreach ($items as $item) {
+            $value = (float) $item['value'];
+            echo '<div class="bar-chart-item"><div class="bar-chart-copy"><span>' . $this->escape((string) $item['label']) . '</span><strong>' . $this->escape((string) $item['value']) . '</strong></div>';
+            echo '<progress class="bar-chart-track" max="' . $this->escape((string) max(1, $maximum)) . '" value="' . $this->escape((string) max(0, $value)) . '">' . $this->escape((string) $value) . '</progress>';
+            if (trim((string) ($item['detail'] ?? '')) !== '') { echo '<small>' . $this->escape((string) $item['detail']) . '</small>'; }
+            echo '</div>';
+        }
+        echo '</div></div></figure>';
+    }
+
+    public function render_geo_map(array $points, string $label): void
+    {
+        $points = array_values(array_filter($points, static fn (mixed $point): bool => is_array($point)
+            && is_numeric($point['latitude'] ?? null) && is_numeric($point['longitude'] ?? null)
+            && is_numeric($point['value'] ?? null) && trim((string) ($point['label'] ?? '')) !== ''
+            && (float) $point['latitude'] >= -90 && (float) $point['latitude'] <= 90
+            && (float) $point['longitude'] >= -180 && (float) $point['longitude'] <= 180));
+        if ($points === []) { $this->render_alert('Brak współrzędnych geolokalizacji w wybranym zakresie.', 'info'); return; }
+        $payload = json_encode($points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
+        $chartId = 'amchart-map-' . substr(hash('sha256', $label . $payload), 0, 12);
+        echo '<figure class="geo-map" role="group" aria-label="' . $this->escape($label) . '"><div id="' . $chartId . '" class="amchart-host amchart-map" data-amchart="map" data-chart-label="' . $this->escape($label) . '" data-chart-payload="' . $this->escape($payload) . '" hidden></div><div class="chart-fallback"><p>Interaktywna mapa wymaga załadowania biblioteki wykresów.</p><ul class="geo-map-fallback">';
+        foreach (array_slice($points, 0, 20) as $point) { echo '<li><span>' . $this->escape((string) $point['label']) . '</span><strong>' . $this->escape((string) max(1, (int) $point['value'])) . '</strong></li>'; }
+        echo '</ul></div><figcaption><span class="geo-map-legend-dot" aria-hidden="true"></span>Kolor kraju i rozmiar punktu odpowiadają liczbie serwerów.</figcaption></figure>';
     }
 
     public function render_action_table(array $headers, array $rows): void
@@ -1045,7 +1080,10 @@ final class Theme implements ThemeInterface
         echo '</main></div></div></div>';
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
-        echo '<script src="' . $this->asset('js/admin.js') . '"></script></body></html>';
+        echo '<script src="' . $this->asset('js/admin.js') . '"></script>';
+        $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
+        $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
+        echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script></body></html>';
     }
 
     public function start_admin_content(

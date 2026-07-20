@@ -495,6 +495,94 @@ a {
 .line-chart figcaption span:last-child {
   text-align: right;
 }
++
+.bar-chart {
+  margin: 0;
+}
+
+.bar-chart > figcaption {
+  margin-bottom: 0.85rem;
+  color: var(--mp-muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bar-chart-list,
+.bar-chart-item {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.bar-chart-list {
+  gap: 0.8rem;
+}
+
+.bar-chart-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.84rem;
+}
+
+.bar-chart-copy span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bar-chart-copy strong {
+  flex: 0 0 auto;
+  color: var(--mp-text);
+}
+
+.bar-chart-track {
+  display: block;
+  width: 100%;
+  height: 0.58rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mp-primary);
+  accent-color: var(--mp-primary);
+}
+
+.bar-chart-track::-webkit-progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.bar-chart-track::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--mp-primary), var(--mp-cyan));
+  border-radius: 999px;
+}
+
+.bar-chart-track::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--mp-primary), var(--mp-cyan));
+  border-radius: 999px;
+}
+
+.bar-chart-item small {
+  color: var(--mp-muted);
+  font-size: 0.72rem;
+}
+
+.geo-map { margin: 0; }
+.geo-map svg { display: block; width: 100%; min-height: 15rem; max-height: 28rem; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--mp-radius); background: rgba(4, 10, 24, 0.55); }
+.geo-map-grid line { stroke: currentColor; stroke-width: 1; stroke-opacity: 0.08; vector-effect: non-scaling-stroke; }
+.geo-map-land path { fill: rgba(255, 255, 255, 0.09); stroke: rgba(255, 255, 255, 0.2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.geo-map-markers circle { fill: var(--mp-primary); fill-opacity: 0.72; stroke: var(--mp-cyan); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.geo-map figcaption { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem; color: var(--mp-muted); font-size: 0.76rem; }
+.geo-map-legend-dot { width: 0.7rem; height: 0.7rem; flex: 0 0 auto; border: 2px solid var(--mp-cyan); border-radius: 50%; background: var(--mp-primary); }
+
+.amchart-host { width: 100%; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--mp-radius); background: rgba(4, 10, 24, 0.42); }
+.amchart-line { height: 19rem; }
+.amchart-bar { height: clamp(20rem, 38vw, 31rem); }
+.amchart-map { height: clamp(22rem, 42vw, 34rem); }
+.chart-fallback[hidden], .amchart-host[hidden] { display: none; }
+.geo-map-fallback { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.45rem 1rem; margin: 0; padding: 0; list-style: none; }
+.geo-map-fallback li { display: flex; justify-content: space-between; gap: 1rem; }
+
 
 .public-detail-actions {
   display: flex;

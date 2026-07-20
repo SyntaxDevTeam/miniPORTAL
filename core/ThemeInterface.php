@@ -170,6 +170,16 @@ interface ThemeInterface
     public function render_line_chart(array $points, string $label): void;
 
     /**
+     * @param list<array{label: string, value: int|float, detail?: string}> $items
+     */
+    public function render_bar_chart(array $items, string $label): void;
+
+    /**
+     * @param list<array{latitude: float, longitude: float, value: int|float, label: string, country_code?: string}> $points
+     */
+    public function render_geo_map(array $points, string $label): void;
+
+    /**
      * @param list<string> $headers
      * @param list<array{cells: list<scalar|null>, actions: list<array{label: string, href: string, variant?: string}>}> $rows
      */
