@@ -23,6 +23,11 @@ use SyntaxDevTeam\Cms\Modules\Econizer\EconizerModule;
 use SyntaxDevTeam\Cms\Modules\Econizer\EconizerConfig;
 use SyntaxDevTeam\Cms\Modules\Econizer\EconizerDiscordGateway;
 use SyntaxDevTeam\Cms\Modules\Econizer\EconizerRepository;
+use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioModule;
+use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioOptionParser;
+use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioRepository;
+use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioSimulator;
+use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioWorkflowParser;
 use SyntaxDevTeam\Cms\Modules\Licences\LicenceRepository;
 use SyntaxDevTeam\Cms\Modules\Licences\LicencesModule;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
@@ -271,6 +276,23 @@ return [
                 new OAuthAttemptLimiter(600, 10, 20),
             );
         },
+    ],
+    [
+        'directory' => 'EconizerBotStudio',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): EconizerBotStudioModule => new EconizerBotStudioModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new EconizerBotStudioRepository(
+                $services['database'],
+                new EconizerBotStudioOptionParser(),
+                new EconizerBotStudioWorkflowParser()
+            ),
+            new EconizerBotStudioSimulator(),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
+        ),
     ],
     [
         'directory' => 'Team',
