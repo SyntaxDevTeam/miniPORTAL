@@ -391,6 +391,7 @@ return [
             $services['platform_updater'],
             $services['core_migration_runner'],
             $services['platform_release_publisher'],
+            $services['github_release_dispatcher'],
             $services['auth_provider_config_store'],
             $services['module_updates'],
             $services['module_update_publisher'],

@@ -64,7 +64,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.7.2',
+        'version' => '0.7.3',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -183,6 +183,16 @@ return [
     ],
     'updates' => [
         'catalog_url' => (string) $env('PLATFORM_RELEASE_CATALOG_URL', ''),
+        'github_token' => trim((string) $env('PLATFORM_RELEASE_GITHUB_TOKEN', '')),
+        'github_repository' => trim((string) $env(
+            'PLATFORM_RELEASE_GITHUB_REPOSITORY',
+            'SyntaxDevTeam/miniPORTAL-source'
+        )),
+        'github_workflow' => trim((string) $env(
+            'PLATFORM_RELEASE_GITHUB_WORKFLOW',
+            'platform-release.yml'
+        )),
+        'github_ref' => trim((string) $env('PLATFORM_RELEASE_GITHUB_REF', 'main')),
         'archive_max_bytes' => $envInt('PLATFORM_RELEASE_MAX_BYTES', 52428800, 1048576),
         'archive_max_files' => $envInt('PLATFORM_RELEASE_MAX_FILES', 10000, 1),
         'archive_max_file_bytes' => $envInt('PLATFORM_RELEASE_MAX_FILE_BYTES', 52428800, 1024),

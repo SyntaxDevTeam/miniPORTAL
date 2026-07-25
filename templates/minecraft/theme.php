@@ -142,7 +142,7 @@ final class Theme implements ThemeInterface
         $this->publicFastStatsDebug = $this->enabledSetting($config, 'public_faststats_debug');
     }
 
-    public function set_public_navigation(array $items, bool $authenticated): void
+    public function set_public_navigation(array $items, bool $authenticated, array $activeModules = []): void
     {
         $this->publicNavigation = $items;
         $this->publicAuthenticated = $authenticated;

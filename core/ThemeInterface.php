@@ -62,8 +62,9 @@ interface ThemeInterface
      *     navigation_label: string,
      *     sort_order?: int
      * }> $items
+     * @param list<string> $activeModules
      */
-    public function set_public_navigation(array $items, bool $authenticated): void;
+    public function set_public_navigation(array $items, bool $authenticated, array $activeModules = []): void;
 
     public function start_page(string $title, string $description = '', bool $indexable = true): void;
 

@@ -12,6 +12,7 @@ use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\ErrorHandler;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\HookRegistry;
+use SyntaxDevTeam\Cms\Core\GitHubReleaseDispatcher;
 use SyntaxDevTeam\Cms\Core\InstallationState;
 use SyntaxDevTeam\Cms\Core\ModuleBootstrapper;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
@@ -276,6 +277,12 @@ $platformReleasePublisher = new PlatformReleasePublisher(
     __DIR__,
     __DIR__ . '/cache/platform-updates/publisher'
 );
+$githubReleaseDispatcher = new GitHubReleaseDispatcher(
+    (string) ($updatesConfig['github_token'] ?? ''),
+    (string) ($updatesConfig['github_repository'] ?? 'SyntaxDevTeam/miniPORTAL-source'),
+    (string) ($updatesConfig['github_workflow'] ?? 'platform-release.yml'),
+    (string) ($updatesConfig['github_ref'] ?? 'main')
+);
 $coreMigrationRunner = $application->database() !== null
     ? new CoreMigrationRunner($application->database(), __DIR__ . '/core/migrations')
     : null;
@@ -304,6 +311,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'platform_releases' => $platformReleases,
     'platform_updater' => $platformUpdater,
     'platform_release_publisher' => $platformReleasePublisher,
+    'github_release_dispatcher' => $githubReleaseDispatcher,
     'core_migration_runner' => $coreMigrationRunner,
     'config' => $application->config(),
     'diagnostics' => $application->diagnostics(),
@@ -365,7 +373,7 @@ $publicNavigationItems = static function () use ($pageRepository, $publicNavigat
 
     return $navigation;
 };
-$theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null);
+$theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null, $modules->ids());
 
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(

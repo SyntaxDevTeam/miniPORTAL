@@ -10,6 +10,7 @@ use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\DownloadResponse;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
+use SyntaxDevTeam\Cms\Core\GitHubReleaseDispatcher;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
@@ -54,6 +55,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly PlatformUpdater $platformUpdater,
         private readonly ?CoreMigrationRunner $coreMigrationRunner,
         private readonly PlatformReleasePublisher $platformReleasePublisher,
+        private readonly GitHubReleaseDispatcher $githubReleaseDispatcher,
         private readonly AuthProviderConfigStore $authProviderConfigStore,
         private readonly ModuleUpdateRepository $moduleUpdates,
         private readonly ModuleUpdatePublisher $moduleUpdatePublisher,
@@ -67,7 +69,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.2.0';
+        return '2.3.0';
     }
 
     public function dependencies(): array
@@ -450,11 +452,13 @@ final class SystemAdminModule implements ModuleInterface
 
             if ($this->isOwner() && $this->platformReleasePublisher->available()) {
                 $publishPermissionIssues = $this->platformReleasePublisher->permissionIssues();
+                $suggestedVersion = $this->platformReleasePublisher->suggestedVersion($currentVersion);
+                $suggestedChangelog = $this->platformReleasePublisher->suggestedChangelog();
                 $this->theme->start_admin_panel(
                     'Opublikuj własne wydanie',
                     'Instalacja macierzysta / Owner'
                 );
-                if ($publishPermissionIssues !== []) {
+                if (!$this->githubReleaseDispatcher->available() && $publishPermissionIssues !== []) {
                     $this->theme->render_alert(
                         "Publikowanie wydań wymaga przygotowania praw zapisu. Brak dostępu:\n"
                         . implode("\n", array_map(static fn (string $issue): string => '- ' . $issue, $publishPermissionIssues))
@@ -463,8 +467,11 @@ final class SystemAdminModule implements ModuleInterface
                     );
                 }
                 $this->theme->render_alert(
-                    'Wpisz numer nowego wydania albo pozostaw ' . $currentVersion
-                    . ', aby przebudować bieżącą wersję. Generator zaktualizuje releases/catalog.json.',
+                    $this->githubReleaseDispatcher->available()
+                        ? 'Publikacja zostanie przekazana do chronionego GitHub Actions. Workflow uruchomi testy, '
+                            . 'ustawi wskazaną wersję, utworzy release i tag oraz opublikuje repozytoria source i publiczne.'
+                        : 'Automatyzacja GitHub nie jest jeszcze skonfigurowana. Publisher wykona lokalną budowę '
+                            . 'i automatycznie ustawi wersję w źródłach; publikacja repozytoriów wymaga tokenu workflow.',
                     'info'
                 );
                 $this->theme->render_form(
@@ -473,9 +480,11 @@ final class SystemAdminModule implements ModuleInterface
                         [
                             'name' => 'version',
                             'label' => 'Publikowana wersja',
-                            'value' => $currentVersion,
-                            'placeholder' => '0.3.0',
-                            'help' => 'Możesz przebudować bieżącą wersję albo wpisać wyższą wersję SemVer.',
+                            'value' => $suggestedVersion,
+                            'placeholder' => $suggestedVersion,
+                            'required' => true,
+                            'pattern' => '\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?',
+                            'help' => 'Numer SemVer wydania. Domyślnie proponowana jest kolejna wersja poprawkowa.',
                         ],
                         [
                             'name' => 'minimum_version',
@@ -488,13 +497,20 @@ final class SystemAdminModule implements ModuleInterface
                             'name' => 'changelog',
                             'label' => 'Lista zmian',
                             'type' => 'richtext',
-                            'value' => "- Dodano nową funkcję.\n- Naprawiono błąd aktualizacji.\n- Poprawiono bezpieczeństwo.",
+                            'value' => $suggestedChangelog === []
+                                ? "- Opisz zmiany w wydaniu."
+                                : implode("\n", array_map(
+                                    static fn (string $item): string => '- ' . $item,
+                                    $suggestedChangelog
+                                )),
                             'format_name' => 'changelog_format',
                             'format_value' => 'markdown',
                             'help' => 'Markdown w stylu GitHub. Najlepiej użyj listy punktowanej; do katalogu wydań trafi czysta lista maksymalnie 50 pozycji.',
                         ],
                     ],
-                    'Zbuduj wskazany release',
+                    $this->githubReleaseDispatcher->available()
+                        ? 'Opublikuj wydanie i repozytoria'
+                        : 'Zbuduj wskazany release',
                     $this->security->csrfToken()
                 );
                 $this->theme->end_admin_panel();
@@ -509,7 +525,11 @@ final class SystemAdminModule implements ModuleInterface
                         $release['released_at'],
                         $release['minimum_version'],
                         version_compare($release['version'], $currentVersion, '>')
-                            ? 'Dostępna'
+                            ? (
+                                version_compare($currentVersion, $release['minimum_version'], '>=')
+                                    ? 'Dostępna'
+                                    : 'Wymaga wersji pośredniej'
+                            )
                             : ($release['version'] === $currentVersion ? 'Zainstalowana' : 'Starsza'),
                     ],
                     $releases
@@ -726,11 +746,16 @@ final class SystemAdminModule implements ModuleInterface
                 $request->postString('changelog'),
                 $request->postString('changelog_format', 'markdown')
             );
-            $output = $this->platformReleasePublisher->publish(
-                $version,
-                $minimumVersion,
-                $changelog
-            );
+            if ($this->githubReleaseDispatcher->available()) {
+                $this->githubReleaseDispatcher->dispatch($version, $minimumVersion, $changelog);
+                $output = 'Zlecenie przyjął GitHub Actions. Postęp jest widoczny w zakładce Actions repozytorium źródłowego.';
+            } else {
+                $output = $this->platformReleasePublisher->publish(
+                    $version,
+                    $minimumVersion,
+                    $changelog
+                );
+            }
             $this->audit->record(
                 $request,
                 'platform_release_publish',
@@ -739,8 +764,7 @@ final class SystemAdminModule implements ModuleInterface
                 $actor?->id
             );
             $this->renderPlatformUpdates(
-                'Wydanie ' . $version . ' zostało zbudowane. ' . $output
-                . ' Odśwież panel, aby zobaczyć nową wersję runtime.',
+                'Publikacja wydania ' . $version . ' została rozpoczęta. ' . $output,
                 'success'
             );
         } catch (\Throwable $exception) {

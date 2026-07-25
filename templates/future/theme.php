@@ -74,6 +74,8 @@ final class Theme implements ThemeInterface
 
     private bool $publicAuthenticated = false;
 
+    private bool $econizerMode = false;
+
     private array $adminSearchItems = [];
 
     public function __construct(array $config = [])
@@ -142,10 +144,11 @@ final class Theme implements ThemeInterface
         $this->publicFastStatsDebug = $this->enabledSetting($config, 'public_faststats_debug');
     }
 
-    public function set_public_navigation(array $items, bool $authenticated): void
+    public function set_public_navigation(array $items, bool $authenticated, array $activeModules = []): void
     {
         $this->publicNavigation = $items;
         $this->publicAuthenticated = $authenticated;
+        $this->econizerMode = in_array('econizer', $activeModules, true);
     }
 
     public function set_admin_search_items(array $items): void
@@ -239,8 +242,14 @@ final class Theme implements ThemeInterface
             echo '<li class="nav-item"><a class="nav-link" href="/#contact">Contact</a></li>';
         }
         echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="';
-        echo $authenticated ? '/admin' : '/admin/login';
-        echo '">' . ($authenticated ? 'Open panel' : 'Sign in') . '</a></li></ul></div></div></nav>';
+        if ($this->econizerMode) {
+            echo $authenticated ? '/econizer' : '/econizer/login';
+            echo '">' . ($authenticated ? 'Open Econizer' : 'Login with Discord');
+        } else {
+            echo $authenticated ? '/admin' : '/admin/login';
+            echo '">' . ($authenticated ? 'Open panel' : 'Sign in');
+        }
+        echo '</a></li></ul></div></div></nav>';
     }
 
     private function renderPublicFooter(array $pages): void
@@ -265,6 +274,9 @@ final class Theme implements ThemeInterface
             echo '</a>';
         }
         echo $footerPages !== [] ? '</nav>' : '';
+        if ($this->econizerMode) {
+            echo '<a class="text-secondary" href="/admin/login">Admin sign in</a>';
+        }
         if (strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
             echo '<span>' . $this->escape($this->publicFooterText) . '</span>';
         }
@@ -1953,13 +1965,14 @@ final class Theme implements ThemeInterface
             echo '<div class="contact-intro managed-home-content">' . $content . '</div>';
         }
         echo '</header><div class="contact-hub-grid">';
-        echo '<section class="contact-group contact-group-channels"><div class="contact-group-heading">';
+        echo '<section class="contact-group contact-group-combined">';
+        echo '<div class="contact-subgroup contact-subgroup-channels">';
+        echo '<div class="contact-group-heading">';
         echo '<p class="eyebrow">Channels</p><h3>Choose the best route</h3></div><div class="contact-list">';
         foreach ($channels as $item) {
             $this->renderContactItem($item, false);
         }
-        echo '</div></section>';
-        echo '<section class="contact-group contact-group-people"><div class="contact-group-heading">';
+        echo '</div></div><div class="contact-subgroup contact-subgroup-team"><div class="contact-group-heading">';
         echo '<p class="eyebrow">Team</p><h3>Direct contact</h3></div><div class="contact-list">';
         foreach ($people as $item) {
             $this->renderContactItem($item, true);
@@ -1967,7 +1980,7 @@ final class Theme implements ThemeInterface
         if ($people === []) {
             echo '<p class="contact-empty">Add a person item to build the team contact list.</p>';
         }
-        echo '</div></section></div></div>';
+        echo '</div></div></section></div></div>';
     }
 
     /**
