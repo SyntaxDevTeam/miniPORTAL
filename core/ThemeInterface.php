@@ -126,7 +126,7 @@ interface ThemeInterface
     public function render_alert(string $message, string $variant = 'info'): void;
 
     /**
-     * @param list<string> $headers
+     * @param list<string|array{label: string, href: string, direction?: string, reset?: bool}> $headers
      * @param list<list<scalar|null>> $rows
      */
     public function render_table(array $headers, array $rows): void;
@@ -317,6 +317,15 @@ interface ThemeInterface
      * }> $rows
      */
     public function render_admin_action_table(array $headers, array $rows, string $csrfToken): void;
+
+    /** @param list<array<string, mixed>> $fields */
+    public function render_admin_filter_modal(
+        string $id,
+        string $title,
+        string $action,
+        array $fields,
+        string $clearHref,
+    ): void;
 
     /**
      * @param list<array{

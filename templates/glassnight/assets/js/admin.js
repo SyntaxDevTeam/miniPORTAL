@@ -882,3 +882,6 @@ document.querySelectorAll("[data-minecraft-console]").forEach((root) => {
 
   poll();
 });
+document.querySelectorAll(".admin-filter-modal").forEach((modal) => {
+  document.body.append(modal);
+});

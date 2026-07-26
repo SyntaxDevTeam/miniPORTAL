@@ -28,7 +28,7 @@ final class MediaLibraryModule implements ModuleInterface
     }
 
     public function id(): string { return 'media_library'; }
-    public function version(): string { return '1.1.0'; }
+    public function version(): string { return '1.2.0'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['media.view', 'media.manage']; }
@@ -51,6 +51,7 @@ final class MediaLibraryModule implements ModuleInterface
     private function renderList(Request $request, string $message = '', string $variant = 'info'): void
     {
         $category = $request->queryString('category');
+        $view = $request->queryString('view') === 'thumbnails' ? 'thumbnails' : 'list';
         $assets = $this->assets->all($category);
         $this->startAdminPage('Biblioteka grafik', 'Stałe obrazy niezależne od aktywnego motywu: ikony, logo, zrzuty i grafiki prezentacyjne.');
         if ($message !== '') {
@@ -67,8 +68,14 @@ final class MediaLibraryModule implements ModuleInterface
         $this->theme->end_admin_panel();
 
         $this->theme->start_admin_panel('Pliki graficzne', count($assets) . ' pozycji');
+        echo '<nav class="media-view-switch" aria-label="Tryb widoku plików graficznych">';
+        echo '<a class="btn btn-sm ' . ($view === 'list' ? 'btn-primary' : 'btn-outline-light') . '" href="' . $this->escape($this->viewUrl('list', $category)) . '"' . ($view === 'list' ? ' aria-current="page"' : '') . '>Lista</a>';
+        echo '<a class="btn btn-sm ' . ($view === 'thumbnails' ? 'btn-primary' : 'btn-outline-light') . '" href="' . $this->escape($this->viewUrl('thumbnails', $category)) . '"' . ($view === 'thumbnails' ? ' aria-current="page"' : '') . '>Miniatury</a>';
+        echo '</nav>';
         if ($assets === []) {
             $this->theme->render_alert('Brak grafik w bibliotece dla wybranego filtra.', 'info');
+        } elseif ($view === 'thumbnails') {
+            $this->renderThumbnailGrid($assets);
         } else {
             $this->theme->render_admin_action_table(['Tytuł', 'Kategoria', 'Adres', 'Rozmiar', 'Wymiary'], array_map(
                 fn (MediaAsset $asset): array => [
@@ -90,6 +97,37 @@ final class MediaLibraryModule implements ModuleInterface
         }
         $this->theme->end_admin_panel();
         $this->endAdminPage();
+    }
+
+    /** @param list<MediaAsset> $assets */
+    private function renderThumbnailGrid(array $assets): void
+    {
+        echo '<div class="media-thumbnail-grid">';
+        foreach ($assets as $asset) {
+            $dimensions = $asset->width !== null && $asset->height !== null
+                ? $asset->width . ' × ' . $asset->height
+                : 'Brak danych o wymiarach';
+            echo '<article class="media-thumbnail-card">';
+            echo '<a class="media-thumbnail-preview" href="' . $this->escape($asset->publicPath) . '" target="_blank" rel="noopener">';
+            echo '<img src="' . $this->escape($asset->publicPath) . '" alt="' . $this->escape($asset->altText) . '" loading="lazy" decoding="async">';
+            echo '<span class="visually-hidden">Otwórz grafikę ' . $this->escape($asset->title) . '</span>';
+            echo '</a>';
+            echo '<div class="media-thumbnail-body">';
+            echo '<h3 title="' . $this->escape($asset->title) . '">' . $this->escape($asset->title) . '</h3>';
+            echo '<p>' . $this->escape(MediaAssetRepository::CATEGORIES[$asset->category] ?? $asset->category) . '</p>';
+            echo '<dl><div><dt>Rozmiar</dt><dd>' . $this->escape($this->formatBytes($asset->fileSize)) . '</dd></div>';
+            echo '<div><dt>Wymiary</dt><dd>' . $this->escape($dimensions) . '</dd></div></dl>';
+            echo '<div class="media-thumbnail-actions">';
+            echo '<a class="btn btn-sm btn-outline-light" href="' . $this->escape($asset->publicPath) . '" target="_blank" rel="noopener">Otwórz</a>';
+            echo '<a class="btn btn-sm btn-primary" href="index.php?route=/admin/media/edit&amp;id=' . $asset->id . '">Edytuj</a>';
+            echo '<form action="index.php?route=/admin/media/delete" method="post" onsubmit="return confirm(\'Usunąć grafikę z biblioteki i dysku?\')">';
+            $this->theme->csrf_field($this->security->csrfToken());
+            echo '<input type="hidden" name="id" value="' . $asset->id . '">';
+            echo '<button class="btn btn-sm btn-danger" type="submit">Usuń</button>';
+            echo '</form>';
+            echo '</div></div></article>';
+        }
+        echo '</div>';
     }
 
     private function upload(Request $request): void
@@ -280,6 +318,21 @@ final class MediaLibraryModule implements ModuleInterface
         }
 
         return $bytes . ' B';
+    }
+
+    private function viewUrl(string $view, string $category): string
+    {
+        $query = ['view' => $view];
+        if ($category !== '') {
+            $query['category'] = $category;
+        }
+
+        return '/admin/media?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
     }
 
     /** @param array<string, mixed> $payload */

@@ -74,7 +74,7 @@ final class Security
 
         $styleSrc = $isRemoteTerminalFrame
             ? "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            : "style-src 'self' https://cdn.jsdelivr.net; ";
+            : "style-src 'self' https://cdn.jsdelivr.net; style-src-attr 'unsafe-inline'; ";
         $scriptSrc = $isRemoteTerminalFrame
             ? "script-src 'self' 'unsafe-inline'; "
             : "script-src 'self' https://cdn.jsdelivr.net https://cdn.amcharts.com https://pagead2.googlesyndication.com "

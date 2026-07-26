@@ -53,11 +53,21 @@ final class DatabaseManagerHistoryRepository
     /**
      * @return list<array<string, scalar|null>>
      */
-    public function page(int $page, int $perPage = 25): array
+    public function page(int $page, int $perPage = 25, string $sort = 'created_at', string $direction = 'desc'): array
     {
         $page = max(1, $page);
         $perPage = max(10, min(100, $perPage));
         $offset = ($page - 1) * $perPage;
+        $sortColumns = [
+            'created_at' => 'database_manager_history.created_at',
+            'display_name' => 'users.display_name',
+            'operation' => 'database_manager_history.operation',
+            'target_table' => 'database_manager_history.target_table',
+            'result' => 'database_manager_history.result',
+            'rows_count' => 'database_manager_history.rows_count',
+        ];
+        $orderBy = $sortColumns[$sort] ?? $sortColumns['created_at'];
+        $direction = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
         $statement = $this->database->query(
             'SELECT database_manager_history.operation, database_manager_history.target_table, '
             . 'database_manager_history.result, database_manager_history.rows_count, '
@@ -65,7 +75,7 @@ final class DatabaseManagerHistoryRepository
             . 'database_manager_history.created_at, users.display_name '
             . 'FROM database_manager_history '
             . 'LEFT JOIN users ON users.id = database_manager_history.user_id '
-            . 'ORDER BY database_manager_history.id DESC LIMIT :limit OFFSET :offset',
+            . "ORDER BY {$orderBy} {$direction}, database_manager_history.id DESC LIMIT :limit OFFSET :offset",
             [':limit' => $perPage, ':offset' => $offset]
         );
         if ($statement === null) {

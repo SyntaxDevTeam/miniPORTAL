@@ -40,6 +40,71 @@ final class BuildRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** @param array{project_id: int, channel: string, published: string, search: string} $filters */
+    public function adminCount(array $filters): int
+    {
+        [$where, $parameters] = $this->adminWhere($filters);
+        $statement = $this->database->query(
+            'SELECT COUNT(*) FROM project_builds JOIN projects ON projects.id = project_builds.project_id' . $where,
+            $parameters
+        );
+        if ($statement === null) { throw new RuntimeException('Nie można policzyć buildów.'); }
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * @param array{project_id: int, channel: string, published: string, search: string} $filters
+     * @return list<ProjectBuild>
+     */
+    public function adminPage(int $page, int $perPage, array $filters, string $sort, string $direction): array
+    {
+        [$where, $parameters] = $this->adminWhere($filters);
+        $orders = [
+            'date' => 'COALESCE(project_builds.published_at, project_builds.created_at)',
+            'project' => 'projects.name',
+            'version' => 'project_builds.version_label',
+            'size' => 'project_builds.file_size_bytes',
+            'channel' => 'project_builds.channel',
+            'filename' => 'project_builds.filename',
+            'published' => 'project_builds.is_published',
+        ];
+        $order = $orders[$sort] ?? $orders['date'];
+        $direction = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+        $limit = max(1, min(100, $perPage));
+        $offset = max(0, ($page - 1) * $limit);
+        $statement = $this->database->query(
+            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id'
+            . $where . ' ORDER BY ' . $order . ' ' . $direction . ', project_builds.id ' . $direction
+            . ' LIMIT ' . $limit . ' OFFSET ' . $offset,
+            $parameters
+        );
+        if ($statement === null) { throw new RuntimeException('Nie można pobrać strony buildów.'); }
+        return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** @return array{total: int, published: int, local: int, registered_bytes: int, release: int, snapshot: int, dev: int, wip: int} */
+    public function statistics(): array
+    {
+        $statement = $this->database->query(
+            "SELECT COUNT(*) AS total, "
+            . "COALESCE(SUM(is_published = 1), 0) AS published, "
+            . "COALESCE(SUM(storage_key IS NOT NULL AND storage_key <> ''), 0) AS local, "
+            . "COALESCE(SUM(CASE WHEN storage_key IS NOT NULL AND storage_key <> '' THEN file_size_bytes ELSE 0 END), 0) AS registered_bytes, "
+            . "COALESCE(SUM(channel = 'release'), 0) AS release_count, "
+            . "COALESCE(SUM(channel = 'snapshot'), 0) AS snapshot_count, "
+            . "COALESCE(SUM(channel = 'dev'), 0) AS dev_count, "
+            . "COALESCE(SUM(channel = 'wip'), 0) AS wip_count FROM project_builds"
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) { throw new RuntimeException('Nie można pobrać statystyk buildów.'); }
+        return [
+            'total' => (int) $row['total'], 'published' => (int) $row['published'],
+            'local' => (int) $row['local'], 'registered_bytes' => (int) $row['registered_bytes'],
+            'release' => (int) $row['release_count'], 'snapshot' => (int) $row['snapshot_count'],
+            'dev' => (int) $row['dev_count'], 'wip' => (int) $row['wip_count'],
+        ];
+    }
+
     public function find(int $id): ?ProjectBuild
     {
         $statement = $this->database->query(
@@ -76,6 +141,25 @@ final class BuildRepository
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    public function nextCiBuildNumber(int $projectId, string $channel, string $versionLabel): string
+    {
+        $statement = $this->database->query(
+            'SELECT COALESCE(MAX(CAST(build_number AS UNSIGNED)), 0) + 1 '
+            . 'FROM project_builds WHERE project_id = :project_id AND channel = :channel '
+            . "AND version_label = :version_label AND build_number REGEXP '^[0-9]+$'",
+            [
+                ':project_id' => $projectId,
+                ':channel' => $channel,
+                ':version_label' => $versionLabel,
+            ]
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można wyznaczyć kolejnego numeru buildu CI.');
+        }
+
+        return (string) max(1, (int) $statement->fetchColumn());
     }
 
     /** @return array<int, string> */
@@ -150,6 +234,34 @@ final class BuildRepository
     {
         $statement = $this->database->delete('project_builds', ['id' => $id]);
         return $statement !== null && $statement->rowCount() === 1;
+    }
+
+    /**
+     * @param array{project_id: int, channel: string, published: string, search: string} $filters
+     * @return array{0: string, 1: array<string, int|string>}
+     */
+    private function adminWhere(array $filters): array
+    {
+        $conditions = [];
+        $parameters = [];
+        if ($filters['project_id'] > 0) {
+            $conditions[] = 'project_builds.project_id = :project_id';
+            $parameters[':project_id'] = $filters['project_id'];
+        }
+        if (in_array($filters['channel'], ['release', 'snapshot', 'dev', 'wip'], true)) {
+            $conditions[] = 'project_builds.channel = :channel';
+            $parameters[':channel'] = $filters['channel'];
+        }
+        if (in_array($filters['published'], ['0', '1'], true)) {
+            $conditions[] = 'project_builds.is_published = :published';
+            $parameters[':published'] = (int) $filters['published'];
+        }
+        if ($filters['search'] !== '') {
+            $conditions[] = '(projects.name LIKE :search OR project_builds.version_label LIKE :search '
+                . 'OR project_builds.filename LIKE :search OR project_builds.server_type LIKE :search)';
+            $parameters[':search'] = '%' . $filters['search'] . '%';
+        }
+        return [$conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions), $parameters];
     }
 
     /** @param array<string, mixed> $row */

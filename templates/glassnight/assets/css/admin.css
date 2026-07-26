@@ -532,6 +532,53 @@ body.admin-stylebook {
   margin: 0;
 }
 
+.admin-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-table-sort span {
+  color: var(--mp-muted);
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.admin-table-sort:hover,
+.admin-table-sort:focus,
+.admin-table-sort.is-active {
+  color: var(--mp-primary);
+}
+
+.admin-table-sort.is-active span {
+  color: inherit;
+  opacity: 1;
+}
+
+.admin-filter-trigger {
+  margin: 0 1.25rem 0.85rem;
+}
+
+.admin-filter-modal .modal-content {
+  color: var(--mp-text);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+}
+
+.admin-filter-modal .modal-header,
+.admin-filter-modal .modal-footer {
+  border-color: var(--mp-border);
+}
+
+.admin-filter-modal .showcase-card {
+  margin: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
 .profile-fact-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1764,6 +1811,38 @@ body.admin-stylebook {
 }
 
 .admin-option-gallery { display: grid; gap: 1rem; margin-bottom: 1.25rem; }
+.database-context-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 1rem; padding: 0.6rem; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; background: rgba(2, 6, 23, 0.38); }
+.database-context-tabs a { min-height: 2.35rem; display: inline-flex; align-items: center; padding: 0.45rem 0.7rem; border-radius: 7px; color: var(--bs-secondary-color); text-decoration: none; }
+.database-context-tabs a:hover, .database-context-tabs a:focus-visible, .database-context-tabs a.is-active { color: #fff; background: rgba(70, 181, 255, 0.2); }
+.database-context-tabs a.is-active { box-shadow: inset 0 -2px 0 var(--bs-primary); }
+.database-context-table { margin-right: 0.35rem; padding: 0.4rem 0.65rem; border-radius: 7px; color: #fff; background: rgba(148, 163, 184, 0.14); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.database-tree { display: grid; gap: 0.45rem; max-height: 42rem; overflow: auto; }
+.database-tree-table { overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 8px; background: rgba(2, 6, 23, 0.26); }
+.database-tree-table summary { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.8rem; cursor: pointer; }
+.database-tree-table summary span { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.database-tree-table summary small { flex: 0 0 auto; color: var(--bs-secondary-color); }
+.database-tree-table[open] summary { color: #fff; background: rgba(70, 181, 255, 0.12); }
+.database-tree-table nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr)); gap: 0.3rem; padding: 0.55rem; border-top: 1px solid rgba(148, 163, 184, 0.15); }
+.database-tree-table nav a { padding: 0.42rem 0.5rem; border-radius: 6px; color: var(--bs-secondary-color); text-align: center; text-decoration: none; background: rgba(148, 163, 184, 0.08); }
+.database-tree-table nav a:hover, .database-tree-table nav a:focus-visible { color: #fff; background: rgba(70, 181, 255, 0.2); }
+.database-history-sort { color: inherit; text-decoration: none; white-space: nowrap; }
+.database-history-sort:hover, .database-history-sort:focus-visible, .database-history-sort.is-active { color: var(--bs-primary); }
+.database-history-table code { display: block; min-width: 12rem; max-width: 34rem; overflow-wrap: anywhere; white-space: normal; }
+.media-view-switch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; margin-bottom: 1rem; }
+.media-thumbnail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 15rem)); justify-content: start; gap: 1rem; }
+.media-thumbnail-card { display: flex; width: 100%; min-width: 0; max-width: 15rem; flex-direction: column; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; background: rgba(2, 6, 23, 0.4); }
+.media-thumbnail-preview { display: grid; width: 100%; min-width: 0; height: 10rem; place-items: center; overflow: hidden; padding: 0.65rem; background: repeating-conic-gradient(rgba(148, 163, 184, 0.11) 0 25%, transparent 0 50%) 0 / 1.25rem 1.25rem; }
+.media-thumbnail-preview img { display: block; width: 100%; min-width: 0; max-width: 100%; height: 100%; max-height: 100%; object-fit: contain; transition: transform 160ms ease; }
+.media-thumbnail-preview:hover img { transform: scale(1.025); }
+.media-thumbnail-body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.6rem; padding: 0.85rem; }
+.media-thumbnail-body h3 { overflow: hidden; margin: 0; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.media-thumbnail-body p { margin: 0; color: var(--bs-secondary-color); font-size: 0.88rem; }
+.media-thumbnail-body dl { display: grid; gap: 0.35rem; margin: 0; font-size: 0.82rem; }
+.media-thumbnail-body dl div { display: flex; justify-content: space-between; gap: 0.75rem; }
+.media-thumbnail-body dt { color: var(--bs-secondary-color); font-weight: 500; }
+.media-thumbnail-body dd { margin: 0; text-align: right; }
+.media-thumbnail-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: auto; }
+.media-thumbnail-actions form { display: contents; }
 .admin-option-group { padding: 1rem; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 8px; background: rgba(15, 23, 42, 0.32); }
 .admin-option-heading h3 { margin: 0; font-size: 1rem; }
 .admin-option-heading p { margin: 0.25rem 0 0; color: var(--bs-secondary-color); }
@@ -1800,6 +1879,10 @@ body.admin-stylebook {
 @media (max-width: 720px) {
   .admin-option-grid { grid-template-columns: 1fr; }
   .admin-option-card { grid-template-columns: 1fr; }
+  .media-view-switch { justify-content: stretch; }
+  .media-view-switch .btn { flex: 1; }
+  .media-thumbnail-grid { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
+  .media-thumbnail-card { max-width: none; }
   .minecraft-files__toolbar {
     grid-template-columns: 1fr;
   }
@@ -1826,6 +1909,7 @@ body.admin-stylebook {
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton-line::after,
+  .media-thumbnail-preview img,
   .admin-option-preview span {
     animation: none;
     transform: none;

@@ -22,6 +22,7 @@ return array (
     array (
       '20260619_local_artifact_upload.sql' => 'cf1bdb3b0c557eed634b61dcdd0da4f0ca04e3ec36541ed8954f14952e6a2aa1',
       '20260620_ci_build_history.sql' => '7a22e16b49b418672d365675a990516793abae8ae57de6b771449ffb01918e8e',
+      '20260726_version_scoped_ci_build_numbers.sql' => '4b15604d99f18101bef46ec273d839e96ab2926aba5d3e305d6746f96c830a9d',
     ),
     'core_auth' =>
     array (

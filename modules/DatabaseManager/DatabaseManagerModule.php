@@ -36,7 +36,7 @@ final class DatabaseManagerModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.4.1';
+        return '2.0.0';
     }
 
     public function dependencies(): array
@@ -73,8 +73,13 @@ final class DatabaseManagerModule implements ModuleInterface
         ));
         $router->get('/admin/database/query', fn (Request $request) => $this->guard(
             $request,
+            'database.manage',
+            fn () => $this->renderDatabaseQuery($request)
+        ));
+        $router->get('/admin/database/search', fn (Request $request) => $this->guard(
+            $request,
             'database.view',
-            fn () => $this->renderDatabaseQuery()
+            fn () => $this->renderTableSearch($request)
         ));
         $router->get('/admin/database/history', fn (Request $request) => $this->guard(
             $request,
@@ -84,7 +89,7 @@ final class DatabaseManagerModule implements ModuleInterface
         $router->get('/admin/database/import', fn (Request $request) => $this->guard(
             $request,
             'database.manage',
-            fn () => $this->renderDatabaseImport()
+            fn () => $this->renderDatabaseImport(request: $request)
         ));
         $router->get('/admin/database/row/create', fn (Request $request) => $this->guard(
             $request,
@@ -123,13 +128,13 @@ final class DatabaseManagerModule implements ModuleInterface
         ));
         $router->post('/admin/database/query', fn (Request $request) => $this->guard(
             $request,
-            'database.view',
-            fn () => $this->runDatabaseQuery($request)
+            'database.manage',
+            fn () => $this->runUnrestrictedDatabaseQuery($request)
         ));
         $router->post('/admin/database/query/manage', fn (Request $request) => $this->guard(
             $request,
             'database.manage',
-            fn () => $this->runManagedDatabaseQuery($request)
+            fn () => $this->runUnrestrictedDatabaseQuery($request)
         ));
     }
 
@@ -159,40 +164,19 @@ final class DatabaseManagerModule implements ModuleInterface
             ? $this->databaseExplorer->data($selectedTable, $page, $perPage)
             : ['headers' => [], 'rows' => [], 'records' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage, 'pages' => 1];
         $canManage = $user !== null && $this->hasPermission($user->permissions, 'database.manage');
+        $activeSection = $request->queryString('section') === 'structure' ? 'structure' : 'browse';
         $primaryKey = $selectedTable !== '' ? $this->databaseExplorer->primaryKey($selectedTable) : null;
         $actions = [[
-            'label' => 'Konsola SQL',
-            'href' => 'index.php?route=/admin/database/query',
-            'variant' => 'primary',
-        ], [
             'label' => 'Historia',
             'href' => 'index.php?route=/admin/database/history',
             'variant' => 'outline-light',
         ]];
-        if ($selectedTable !== '') {
-            $actions[] = [
-                'label' => 'Eksportuj SQL',
-                'href' => 'index.php?route=/admin/database/export&format=sql&table=' . rawurlencode($selectedTable),
-                'variant' => 'primary',
-            ];
-            $actions[] = [
-                'label' => 'Eksportuj CSV',
-                'href' => 'index.php?route=/admin/database/export&format=csv&table=' . rawurlencode($selectedTable),
-                'variant' => 'outline-light',
-            ];
-        }
         if ($canManage) {
-            if ($selectedTable !== '') {
-                $actions[] = [
-                    'label' => 'Dodaj rekord',
-                    'href' => 'index.php?route=/admin/database/row/create&table=' . rawurlencode($selectedTable),
-                    'variant' => 'primary',
-                ];
-            }
             $actions[] = [
-                'label' => 'Import SQL',
-                'href' => 'index.php?route=/admin/database/import',
-                'variant' => 'danger',
+                'label' => 'Konsola SQL',
+                'href' => 'index.php?route=/admin/database/query'
+                    . ($selectedTable !== '' ? '&table=' . rawurlencode($selectedTable) : ''),
+                'variant' => 'primary',
             ];
         }
 
@@ -206,7 +190,6 @@ final class DatabaseManagerModule implements ModuleInterface
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
-
         $this->theme->start_admin_metrics();
         $this->theme->render_admin_metric('Baza', $this->databaseExplorer->databaseName(), 'SQL', 'Aktywne połączenie');
         $this->theme->render_admin_metric('Tabele', (string) count($tables), 'TB', 'information_schema');
@@ -216,126 +199,251 @@ final class DatabaseManagerModule implements ModuleInterface
 
         $this->theme->start_admin_panel_grid('balanced');
         $this->theme->start_admin_panel('Tabele', count($tables) . ' obiektów');
-        $this->theme->render_admin_action_table(
-            ['Tabela', 'Silnik', 'Wiersze', 'Rozmiar', 'Kodowanie'],
-            array_map(
-                static fn (array $table): array => [
-                    'cells' => [
-                        $table['name'],
-                        $table['engine'],
-                        $table['rows'],
-                        $table['size'],
-                        $table['collation'],
-                    ],
-                    'actions' => [[
-                        'label' => 'Struktura',
-                        'href' => 'index.php?route=/admin/database&table=' . rawurlencode($table['name']),
-                        'variant' => $table['name'] === $selectedTable ? 'primary' : 'outline-light',
-                    ]],
-                ],
-                $tables
-            ),
-            $this->security->csrfToken()
-        );
+        $this->renderDatabaseTree($tables, $selectedTable, $canManage);
         $this->theme->end_admin_panel();
-
-        $this->theme->start_admin_panel(
-            $selectedTable !== '' ? 'Struktura: ' . $selectedTable : 'Struktura',
-            $selectedTable !== '' ? 'Kolumny tabeli' : 'Brak tabel'
-        );
-        if ($selectedTable === '') {
-            $this->theme->render_alert('Baza nie zawiera tabel do pokazania.', 'info');
-        } else {
-            $this->theme->render_admin_table(
-                ['Kolumna', 'Typ', 'NULL', 'Klucz', 'Domyślnie', 'Extra'],
-                array_map(
-                    static fn (array $column): array => [
-                        $column['name'],
-                        $column['type'],
-                        $column['nullable'],
-                        $column['key'],
-                        $column['default'],
-                        $column['extra'],
-                    ],
-                    $this->databaseExplorer->columns($selectedTable)
-                )
-            );
-        }
-        $this->theme->end_admin_panel();
-        $this->theme->end_admin_panel_grid();
 
         if ($selectedTable !== '' && $canManage) {
             $this->renderTableOperationsPanel($selectedTable);
+        } else {
+            $this->theme->start_admin_panel('Operacje tabeli', 'Wybierz tabelę i użyj konta z database.manage');
+            $this->theme->render_alert('Operacje zmieniające są dostępne dla Ownera i Administratora.', 'info');
+            $this->theme->end_admin_panel();
+        }
+        $this->theme->end_admin_panel_grid();
+
+        if ($selectedTable !== '') {
+            $this->renderDatabaseContextNavigation($selectedTable, $canManage, $activeSection);
         }
 
-        $this->theme->start_admin_panel(
-            $selectedTable !== '' ? 'Dane: ' . $selectedTable : 'Dane tabeli',
-            $selectedTable !== ''
-                ? 'Strona ' . $tableData['page'] . ' z ' . $tableData['pages'] . ', limit ' . $tableData['per_page']
-                : 'Brak tabel'
-        );
-        if ($selectedTable === '') {
-            $this->theme->render_alert('Wybierz tabelę, aby zobaczyć dane.', 'info');
-        } elseif ($tableData['headers'] === []) {
-            $this->theme->render_alert('Tabela nie ma kolumn do pokazania.', 'info');
-        } else {
-            if ($canManage && $primaryKey !== null) {
-                $headers = $tableData['headers'];
-                $this->theme->render_admin_action_table(
-                    $headers,
-                    array_map(
-                        fn (array $row, array $record): array => [
-                            'cells' => $row,
-                            'actions' => [[
-                                'label' => 'Edytuj',
-                                'href' => 'index.php?route=/admin/database/row/edit&table=' . rawurlencode($selectedTable)
-                                    . '&id=' . rawurlencode((string) ($record[$primaryKey] ?? '')),
-                                'variant' => 'outline-primary',
-                            ], [
-                                'label' => 'Usuń',
-                                'action' => 'index.php?route=/admin/database/row/delete',
-                                'fields' => [
-                                    'table' => $selectedTable,
-                                    'id' => (string) ($record[$primaryKey] ?? ''),
-                                ],
-                                'variant' => 'outline-danger',
-                                'confirm' => 'Usunąć rekord z tabeli ' . $selectedTable . '?',
-                            ]],
-                        ],
-                        $tableData['rows'],
-                        $tableData['records']
-                    ),
-                    $this->security->csrfToken()
-                );
+        if ($activeSection === 'structure') {
+            echo '<div id="database-table-structure">';
+            $this->theme->start_admin_panel(
+                $selectedTable !== '' ? 'Struktura: ' . $selectedTable : 'Struktura',
+                $selectedTable !== '' ? 'Kolumny tabeli' : 'Brak tabel'
+            );
+            if ($selectedTable === '') {
+                $this->theme->render_alert('Baza nie zawiera tabel do pokazania.', 'info');
             } else {
-                $this->theme->render_admin_table($tableData['headers'], $tableData['rows']);
-                if ($canManage && $primaryKey === null) {
-                    $this->theme->render_alert('Edycja i usuwanie wierszy wymagają pojedynczego klucza głównego tabeli.', 'warning');
+                $this->theme->render_admin_table(
+                    ['Kolumna', 'Typ', 'NULL', 'Klucz', 'Domyślnie', 'Extra'],
+                    array_map(
+                        static fn (array $column): array => [
+                            $column['name'],
+                            $column['type'],
+                            $column['nullable'],
+                            $column['key'],
+                            $column['default'],
+                            $column['extra'],
+                        ],
+                        $this->databaseExplorer->columns($selectedTable)
+                    )
+                );
+            }
+            $this->theme->end_admin_panel();
+            echo '</div>';
+        } else {
+            echo '<div id="database-table-data">';
+            $this->theme->start_admin_panel(
+                $selectedTable !== '' ? 'Dane: ' . $selectedTable : 'Dane tabeli',
+                $selectedTable !== ''
+                    ? 'Strona ' . $tableData['page'] . ' z ' . $tableData['pages'] . ', limit ' . $tableData['per_page']
+                    : 'Brak tabel'
+            );
+            if ($selectedTable === '') {
+                $this->theme->render_alert('Wybierz tabelę, aby zobaczyć dane.', 'info');
+            } elseif ($tableData['headers'] === []) {
+                $this->theme->render_alert('Tabela nie ma kolumn do pokazania.', 'info');
+            } else {
+                if ($canManage && $primaryKey !== null) {
+                    $headers = $tableData['headers'];
+                    $this->theme->render_admin_action_table(
+                        $headers,
+                        array_map(
+                            fn (array $row, array $record): array => [
+                                'cells' => $row,
+                                'actions' => [[
+                                    'label' => 'Edytuj',
+                                    'href' => 'index.php?route=/admin/database/row/edit&table=' . rawurlencode($selectedTable)
+                                        . '&id=' . rawurlencode((string) ($record[$primaryKey] ?? '')),
+                                    'variant' => 'outline-primary',
+                                ], [
+                                    'label' => 'Usuń',
+                                    'action' => 'index.php?route=/admin/database/row/delete',
+                                    'fields' => [
+                                        'table' => $selectedTable,
+                                        'id' => (string) ($record[$primaryKey] ?? ''),
+                                    ],
+                                    'variant' => 'outline-danger',
+                                    'confirm' => 'Usunąć rekord z tabeli ' . $selectedTable . '?',
+                                ]],
+                            ],
+                            $tableData['rows'],
+                            $tableData['records']
+                        ),
+                        $this->security->csrfToken()
+                    );
+                } else {
+                    $this->theme->render_admin_table($tableData['headers'], $tableData['rows']);
+                    if ($canManage && $primaryKey === null) {
+                        $this->theme->render_alert('Edycja i usuwanie wierszy wymagają pojedynczego klucza głównego tabeli.', 'warning');
+                    }
+                }
+                $actions = [];
+                if ($tableData['page'] > 1) {
+                    $actions[] = [
+                        'label' => 'Poprzednia strona',
+                        'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
+                            . '&section=browse&page=' . ($tableData['page'] - 1) . '&per_page=' . $tableData['per_page'],
+                    ];
+                }
+                if ($tableData['page'] < $tableData['pages']) {
+                    $actions[] = [
+                        'label' => 'Następna strona',
+                        'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
+                            . '&section=browse&page=' . ($tableData['page'] + 1) . '&per_page=' . $tableData['per_page'],
+                        'variant' => 'primary',
+                    ];
+                }
+                if ($actions !== []) {
+                    $this->theme->render_admin_panel_actions($actions);
                 }
             }
-            $actions = [];
-            if ($tableData['page'] > 1) {
-                $actions[] = [
-                    'label' => 'Poprzednia strona',
-                    'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
-                        . '&page=' . ($tableData['page'] - 1) . '&per_page=' . $tableData['per_page'],
-                ];
+            $this->theme->end_admin_panel();
+            echo '</div>';
+        }
+
+        $this->endPage();
+    }
+
+    /**
+     * @param list<array{name: string, engine: string, rows: string, size: string, collation: string}> $tables
+     */
+    private function renderDatabaseTree(array $tables, string $selectedTable, bool $canManage): void
+    {
+        if ($tables === []) {
+            $this->theme->render_alert('Aktywna baza nie zawiera tabel.', 'info');
+            return;
+        }
+
+        echo '<div class="database-tree">';
+        foreach ($tables as $table) {
+            $name = (string) $table['name'];
+            $encoded = rawurlencode($name);
+            echo '<details class="database-tree-table"' . ($name === $selectedTable ? ' open' : '') . '>';
+            echo '<summary><span>' . $this->escape($name) . '</span><small>'
+                . $this->escape((string) $table['rows']) . ' wierszy · '
+                . $this->escape((string) $table['size']) . '</small></summary>';
+            echo '<nav aria-label="Operacje tabeli ' . $this->escape($name) . '">';
+            $items = [
+                ['Browse', 'index.php?route=/admin/database&amp;table=' . $encoded . '&amp;section=browse#database-table-data'],
+                ['Struktura', 'index.php?route=/admin/database&amp;table=' . $encoded . '&amp;section=structure#database-table-structure'],
+            ];
+            if ($canManage) {
+                $items[] = ['SQL', 'index.php?route=/admin/database/query&amp;table=' . $encoded];
             }
-            if ($tableData['page'] < $tableData['pages']) {
-                $actions[] = [
-                    'label' => 'Następna strona',
-                    'href' => 'index.php?route=/admin/database&table=' . rawurlencode($selectedTable)
-                        . '&page=' . ($tableData['page'] + 1) . '&per_page=' . $tableData['per_page'],
-                    'variant' => 'primary',
-                ];
+            $items[] = ['Szukaj', 'index.php?route=/admin/database/search&amp;table=' . $encoded];
+            if ($canManage) {
+                $items[] = ['Wstaw', 'index.php?route=/admin/database/row/create&amp;table=' . $encoded];
+            }
+            $items[] = ['Eksport', 'index.php?route=/admin/database/export&amp;format=sql&amp;table=' . $encoded];
+            if ($canManage) {
+                $items[] = ['Import', 'index.php?route=/admin/database/import&amp;table=' . $encoded];
+            }
+            foreach ($items as [$label, $href]) {
+                echo '<a href="' . $href . '">' . $this->escape($label) . '</a>';
+            }
+            echo '</nav></details>';
+        }
+        echo '</div>';
+    }
+
+    private function renderDatabaseContextNavigation(string $table, bool $canManage, string $active): void
+    {
+        $encoded = rawurlencode($table);
+        $items = [
+            'browse' => ['Browse', 'index.php?route=/admin/database&amp;table=' . $encoded . '&amp;section=browse#database-table-data'],
+            'structure' => ['Struktura', 'index.php?route=/admin/database&amp;table=' . $encoded . '&amp;section=structure#database-table-structure'],
+        ];
+        if ($canManage) {
+            $items['sql'] = ['SQL', 'index.php?route=/admin/database/query&amp;table=' . $encoded];
+        }
+        $items['search'] = ['Szukaj', 'index.php?route=/admin/database/search&amp;table=' . $encoded];
+        if ($canManage) {
+            $items['insert'] = ['Wstaw', 'index.php?route=/admin/database/row/create&amp;table=' . $encoded];
+        }
+        $items['export'] = ['Eksport', 'index.php?route=/admin/database/export&amp;format=sql&amp;table=' . $encoded];
+        if ($canManage) {
+            $items['import'] = ['Import', 'index.php?route=/admin/database/import&amp;table=' . $encoded];
+        }
+
+        echo '<nav class="database-context-tabs" aria-label="Operacje wybranej tabeli">';
+        echo '<span class="database-context-table">' . $this->escape($table) . '</span>';
+        foreach ($items as $key => [$label, $href]) {
+            echo '<a class="' . ($key === $active ? 'is-active' : '') . '" href="' . $href . '"'
+                . ($key === $active ? ' aria-current="page"' : '') . '>' . $this->escape($label) . '</a>';
+        }
+        echo '</nav>';
+    }
+
+    private function renderTableSearch(Request $request): void
+    {
+        $table = $request->queryString('table');
+        if (!$this->canUseTable($table)) {
+            $this->renderDatabaseExplorer($request, 'Wybierz istniejącą tabelę do przeszukania.', 'danger');
+            return;
+        }
+        $term = trim($request->queryString('q'));
+        $page = max(1, $request->queryInt('page', 1) ?? 1);
+        $perPage = max(10, min(50, $request->queryInt('per_page', 25) ?? 25));
+        $result = $this->databaseExplorer?->search($table, $term, $page, $perPage) ?? [
+            'headers' => [], 'rows' => [], 'records' => [], 'total' => 0,
+            'page' => 1, 'per_page' => $perPage, 'pages' => 1,
+        ];
+        $canManage = $this->hasPermission($this->auth->user()?->permissions ?? [], 'database.manage');
+
+        $this->startPage(
+            'Szukaj w tabeli',
+            '/admin/database',
+            'Przeszukiwanie wszystkich kolumn tabeli ' . $table . '.',
+            [[
+                'label' => 'Historia',
+                'href' => 'index.php?route=/admin/database/history',
+                'variant' => 'outline-light',
+            ]]
+        );
+        $this->renderDatabaseContextNavigation($table, $canManage, 'search');
+        $this->theme->start_admin_panel('Szukaj', $term === '' ? 'Wpisz szukaną wartość' : number_format((int) $result['total'], 0, ',', ' ') . ' wyników');
+        $this->theme->render_form(
+            '/admin/database/search',
+            [
+                ['name' => 'table', 'label' => 'Tabela', 'type' => 'hidden', 'value' => $table],
+                ['name' => 'q', 'label' => 'Szukana wartość', 'value' => $term, 'required' => true],
+                ['name' => 'per_page', 'label' => 'Wyników na stronę', 'type' => 'select', 'value' => (string) $perPage, 'options' => ['10' => '10', '25' => '25', '50' => '50']],
+            ],
+            'Szukaj',
+            '',
+            'get'
+        );
+        if ($term !== '') {
+            if ($result['rows'] === []) {
+                $this->theme->render_alert('Brak rekordów zawierających podaną wartość.', 'info');
+            } else {
+                $this->theme->render_admin_table($result['headers'], $result['rows']);
+            }
+            $actions = [];
+            $base = 'index.php?route=/admin/database/search&table=' . rawurlencode($table)
+                . '&q=' . rawurlencode($term) . '&per_page=' . $perPage . '&page=';
+            if ($result['page'] > 1) {
+                $actions[] = ['label' => 'Poprzednia strona', 'href' => $base . ($result['page'] - 1), 'variant' => 'outline-light'];
+            }
+            if ($result['page'] < $result['pages']) {
+                $actions[] = ['label' => 'Następna strona', 'href' => $base . ($result['page'] + 1), 'variant' => 'primary'];
             }
             if ($actions !== []) {
                 $this->theme->render_admin_panel_actions($actions);
             }
         }
         $this->theme->end_admin_panel();
-
-        $this->renderHistoryPanel();
         $this->endPage();
     }
 
@@ -415,25 +523,31 @@ final class DatabaseManagerModule implements ModuleInterface
         }
     }
 
-    private function renderDatabaseQuery(?array $result = null, string $message = '', string $variant = 'info', string $sql = ''): void
+    private function renderDatabaseQuery(
+        Request $request,
+        ?array $result = null,
+        string $message = '',
+        string $variant = 'info',
+        string $sql = '',
+    ): void
     {
+        $table = $request->queryString('table', $request->postString('table'));
+        if (!$this->canUseTable($table)) {
+            $table = '';
+        }
         $this->startPage(
             'Konsola SQL',
             '/admin/database',
-            'Tryb tylko do odczytu dla pojedynczych zapytań SELECT, SHOW, DESCRIBE i EXPLAIN.',
-            array_values(array_filter([[
+            'Pełna konsola SQL dla Ownera i Administratora. Zapytania wykonują się na aktywnej bazie.',
+            [[
                 'label' => 'Wróć do Managera SQL',
-                'href' => 'index.php?route=/admin/database',
+                'href' => 'index.php?route=/admin/database' . ($table !== '' ? '&table=' . rawurlencode($table) : ''),
                 'variant' => 'outline-light',
             ], [
                 'label' => 'Historia',
                 'href' => 'index.php?route=/admin/database/history',
                 'variant' => 'outline-light',
-            ], $this->hasPermission($this->auth->user()?->permissions ?? [], 'database.manage') ? [
-                'label' => 'Tryb zapisu',
-                'href' => '#sql-write',
-                'variant' => 'danger',
-            ] : null]))
+            ]]
         );
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
@@ -443,51 +557,44 @@ final class DatabaseManagerModule implements ModuleInterface
             $this->endPage();
             return;
         }
+        if ($table !== '') {
+            $this->renderDatabaseContextNavigation($table, true, 'sql');
+        }
 
-        $this->theme->start_admin_panel('Zapytanie read-only', 'Bez INSERT, UPDATE, DELETE, DROP i wielu instrukcji');
+        $this->theme->render_alert(
+            'Konsola nie ogranicza typów instrukcji. Operacje destrukcyjne, w tym DROP, TRUNCATE, DELETE '
+            . 'i ALTER TABLE, wykonują się natychmiast. Przed uruchomieniem sprawdź zakres zapytania i kopię zapasową.',
+            'warning'
+        );
+        $defaultSql = $table !== ''
+            ? 'SELECT * FROM `' . str_replace('`', '``', $table) . '` LIMIT 100'
+            : 'SHOW TABLES';
+        $this->theme->start_admin_panel('SQL', 'Dowolne instrukcje SQL, limit formularza 2 MB');
         $this->theme->render_form(
             'index.php?route=/admin/database/query',
             [[
+                'name' => 'table',
+                'label' => 'Tabela kontekstowa',
+                'type' => 'hidden',
+                'value' => $table,
+            ], [
                 'name' => 'sql',
                 'label' => 'SQL',
                 'type' => 'textarea',
-                'value' => $sql !== '' ? $sql : 'SHOW TABLES',
-                'rows' => 8,
-                'help' => 'Wykonane zostanie jedno zapytanie. Wynik jest ograniczony do 100 wierszy.',
+                'value' => $sql !== '' ? $sql : $defaultSql,
+                'rows' => 14,
+                'help' => 'Zapytanie odczytowe, zapisowe, DDL, administracyjne albo zestaw instrukcji obsługiwany przez MySQL.',
             ]],
-            'Wykonaj zapytanie',
+            'Wykonaj SQL',
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
 
-        if ($this->hasPermission($this->auth->user()?->permissions ?? [], 'database.manage')) {
-            $this->theme->start_admin_panel('Zapytanie zmieniające', 'Wymaga uprawnienia database.manage i potwierdzenia WRITE');
-            $this->theme->render_form(
-                'index.php?route=/admin/database/query/manage',
-                [[
-                    'name' => 'sql',
-                    'label' => 'SQL',
-                    'type' => 'textarea',
-                    'value' => '',
-                    'rows' => 8,
-                    'help' => 'Jedna instrukcja INSERT, UPDATE, DELETE, REPLACE, CREATE, ALTER, DROP, TRUNCATE, OPTIMIZE, ANALYZE, CHECK albo REPAIR.',
-                ], [
-                    'name' => 'confirmation',
-                    'label' => 'Potwierdzenie',
-                    'type' => 'text',
-                    'value' => '',
-                    'help' => 'Wpisz WRITE, aby wykonać zapytanie zmieniające dane lub strukturę.',
-                ]],
-                'Wykonaj zapytanie zapisowe',
-                $this->security->csrfToken()
-            );
-            $this->theme->end_admin_panel();
-        }
-
         if ($result !== null) {
             $this->theme->start_admin_panel(
                 'Wynik zapytania',
-                $result['truncated'] ? 'Pokazano pierwsze 100 wierszy' : count($result['rows']) . ' wierszy'
+                ($result['truncated'] ? 'Pokazano pierwsze 200 wierszy' : count($result['rows']) . ' wierszy')
+                . ' · zmienione: ' . (int) $result['affected']
             );
             if ($result['headers'] === []) {
                 $this->theme->render_alert('Zapytanie nie zwróciło tabelarycznego wyniku.', 'info');
@@ -500,84 +607,47 @@ final class DatabaseManagerModule implements ModuleInterface
         $this->endPage();
     }
 
-    private function runDatabaseQuery(Request $request): void
+    private function runUnrestrictedDatabaseQuery(Request $request): void
     {
         $actor = $this->auth->user();
         $sql = $request->postString('sql');
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
-            $this->audit->record($request, 'database_query', 'invalid_csrf', 'read_only', $actor?->id);
-            $this->renderDatabaseQuery(null, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger', $sql);
+            $this->audit->record($request, 'database_query', 'invalid_csrf', 'unrestricted', $actor?->id);
+            $this->renderDatabaseQuery($request, null, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger', $sql);
             return;
         }
+        $destructive = DatabaseExplorerRepository::isDestructiveSql($sql);
         if ($this->databaseExplorer === null) {
-            $this->audit->record($request, 'database_query', 'unavailable', 'read_only', $actor?->id);
-            $this->renderDatabaseQuery(null, 'Konsola SQL wymaga aktywnego połączenia z bazą danych.', 'danger', $sql);
+            $this->audit->record($request, 'database_query', 'unavailable', 'unrestricted', $actor?->id);
+            $this->renderDatabaseQuery($request, null, 'Konsola SQL wymaga aktywnego połączenia z bazą danych.', 'danger', $sql);
             return;
         }
 
         try {
-            $result = $this->databaseExplorer->readOnlyQuery($sql, 100);
-            $this->audit->record($request, 'database_query', 'success', 'read_only', $actor?->id);
-            $this->recordHistory(
-                $actor?->id,
-                'query_read_only',
-                'success',
-                null,
-                $result['sql'],
-                count($result['rows']),
-                $result['truncated'] ? 'Wynik obcięty do 100 wierszy.' : null
-            );
-            $this->renderDatabaseQuery($result, 'Zapytanie wykonane w trybie read-only.', 'success', $result['sql']);
-        } catch (\Throwable $exception) {
-            $this->audit->record($request, 'database_query', 'failed', 'read_only', $actor?->id);
-            $this->recordHistory($actor?->id, 'query_read_only', 'failed', null, $sql, null, $exception->getMessage());
-            $this->renderDatabaseQuery(null, $exception->getMessage(), 'danger', $sql);
-        }
-    }
-
-    private function runManagedDatabaseQuery(Request $request): void
-    {
-        $actor = $this->auth->user();
-        $sql = $request->postString('sql');
-        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
-            $this->audit->record($request, 'database_query', 'invalid_csrf', 'managed', $actor?->id);
-            $this->renderDatabaseQuery(null, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger', $sql);
-            return;
-        }
-        if (strtoupper($request->postString('confirmation')) !== 'WRITE') {
-            $this->audit->record($request, 'database_query', 'missing_confirmation', 'managed', $actor?->id);
-            $this->recordHistory($actor?->id, 'query_managed', 'missing_confirmation', null, $sql, null, 'Brak potwierdzenia WRITE.');
-            $this->renderDatabaseQuery(null, 'Aby wykonać zapytanie zapisowe, wpisz potwierdzenie WRITE.', 'danger', $sql);
-            return;
-        }
-        if ($this->databaseExplorer === null) {
-            $this->audit->record($request, 'database_query', 'unavailable', 'managed', $actor?->id);
-            $this->renderDatabaseQuery(null, 'Konsola SQL wymaga aktywnego połączenia z bazą danych.', 'danger', $sql);
-            return;
-        }
-
-        try {
-            $result = $this->databaseExplorer->mutableQuery($sql);
-            $this->audit->record($request, 'database_query', 'success', 'managed:' . $result['operation'], $actor?->id);
+            $result = $this->databaseExplorer->executeSql($sql, 200);
+            $this->audit->record($request, 'database_query', 'success', 'unrestricted:' . $result['operation'], $actor?->id);
             $this->recordHistory(
                 $actor?->id,
                 'query_' . $result['operation'],
                 'success',
-                null,
+                $request->postString('table') !== '' ? $request->postString('table') : null,
                 $result['sql'],
-                (int) $result['affected'],
-                'Zapytanie zapisowe wykonane.'
+                $result['headers'] !== [] ? count($result['rows']) : (int) $result['affected'],
+                $destructive ? 'Wykonano operację destrukcyjną.' : 'Zapytanie wykonane.'
             );
-            $this->renderDatabaseQuery(
-                null,
-                'Zapytanie zapisowe wykonane. Zmienione rekordy: ' . $result['affected'] . '.',
-                'success',
-                $result['sql']
-            );
+            $this->renderDatabaseQuery($request, $result, 'SQL został wykonany.', 'success', $result['sql']);
         } catch (\Throwable $exception) {
-            $this->audit->record($request, 'database_query', 'failed', 'managed', $actor?->id);
-            $this->recordHistory($actor?->id, 'query_managed', 'failed', null, $sql, null, $exception->getMessage());
-            $this->renderDatabaseQuery(null, $exception->getMessage(), 'danger', $sql);
+            $this->audit->record($request, 'database_query', 'failed', 'unrestricted', $actor?->id);
+            $this->recordHistory(
+                $actor?->id,
+                'query_sql',
+                'failed',
+                $request->postString('table') !== '' ? $request->postString('table') : null,
+                $sql,
+                null,
+                $exception->getMessage()
+            );
+            $this->renderDatabaseQuery($request, null, $exception->getMessage(), 'danger', $sql);
         }
     }
 
@@ -602,13 +672,6 @@ final class DatabaseManagerModule implements ModuleInterface
             $this->renderDatabaseExplorer($request, 'Wybrana tabela nie istnieje w aktywnej bazie.', 'danger');
             return;
         }
-        if (in_array($operation, ['truncate', 'drop'], true) && $request->postString('confirmation') !== $table) {
-            $this->audit->record($request, 'database_table_operation', 'missing_confirmation', $operation . ':' . $table, $actor?->id);
-            $this->recordHistory($actor?->id, 'table_' . $operation, 'missing_confirmation', $table, null, null, 'Brak potwierdzenia nazwą tabeli.');
-            $this->renderDatabaseExplorer($request, 'Operacja wymaga wpisania dokładnej nazwy tabeli.', 'danger');
-            return;
-        }
-
         try {
             $result = $this->databaseExplorer->tableOperation($table, $operation);
             $this->audit->record($request, 'database_table_operation', 'success', $operation . ':' . $table, $actor?->id);
@@ -656,6 +719,7 @@ final class DatabaseManagerModule implements ModuleInterface
         }
 
         $columns = $this->databaseExplorer?->columns($table) ?? [];
+        $this->renderDatabaseContextNavigation($table, true, 'insert');
         $this->theme->start_admin_panel('Nowy rekord', 'Kolumny AUTO_INCREMENT są pomijane');
         $this->theme->render_form(
             'index.php?route=/admin/database/row/create',
@@ -818,15 +882,15 @@ final class DatabaseManagerModule implements ModuleInterface
             'Historia Managera SQL',
             '/admin/database',
             'Ostatnie operacje wykonane przez moduł Manager SQL.',
-            [[
+            array_values(array_filter([[
                 'label' => 'Wróć do Managera SQL',
                 'href' => 'index.php?route=/admin/database',
                 'variant' => 'outline-light',
-            ], [
+            ], $this->hasPermission($this->auth->user()?->permissions ?? [], 'database.manage') ? [
                 'label' => 'Konsola SQL',
                 'href' => 'index.php?route=/admin/database/query',
                 'variant' => 'primary',
-            ]]
+            ] : null]))
         );
         if ($this->history === null) {
             $this->theme->render_alert('Historia wymaga aktywnej bazy danych i zainstalowanego modułu.', 'danger');
@@ -836,11 +900,17 @@ final class DatabaseManagerModule implements ModuleInterface
 
         $page = max(1, $request->queryInt('page', 1) ?? 1);
         $perPage = 25;
+        $allowedSorts = ['created_at', 'display_name', 'operation', 'target_table', 'result', 'rows_count'];
+        $sort = $request->queryString('sort', 'created_at');
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'created_at';
+        }
+        $direction = strtolower($request->queryString('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
         try {
             $total = $this->history->count();
             $pages = max(1, (int) ceil($total / $perPage));
             $page = min($page, $pages);
-            $events = $this->history->page($page, $perPage);
+            $events = $this->history->page($page, $perPage, $sort, $direction);
         } catch (\Throwable $exception) {
             $this->theme->render_alert($exception->getMessage(), 'danger');
             $this->endPage();
@@ -854,33 +924,49 @@ final class DatabaseManagerModule implements ModuleInterface
         if ($events === []) {
             $this->theme->render_alert('Brak zapisanych operacji Managera SQL.', 'info');
         } else {
-            $this->theme->render_admin_table(
-                ['Czas', 'Użytkownik', 'Operacja', 'Cel', 'Wynik', 'Wiersze', 'Zapytanie / komunikat'],
-                array_map(
-                    static fn (array $event): array => [
-                        (string) ($event['created_at'] ?? ''),
-                        (string) ($event['display_name'] ?? 'System'),
-                        (string) ($event['operation'] ?? ''),
-                        (string) ($event['target_table'] ?? ''),
-                        (string) ($event['result'] ?? ''),
-                        $event['rows_count'] !== null ? (string) $event['rows_count'] : '',
-                        (string) (($event['sql_preview'] ?? '') !== '' ? $event['sql_preview'] : ($event['message'] ?? '')),
-                    ],
-                    $events
-                )
-            );
+            $headers = [
+                'created_at' => 'Czas',
+                'display_name' => 'Użytkownik',
+                'operation' => 'Operacja',
+                'target_table' => 'Cel',
+                'result' => 'Wynik',
+                'rows_count' => 'Wiersze',
+            ];
+            echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table database-history-table"><thead><tr>';
+            foreach ($headers as $key => $label) {
+                $nextDirection = $sort === $key && $direction === 'asc' ? 'desc' : 'asc';
+                $indicator = $sort === $key ? ($direction === 'asc' ? ' ↑' : ' ↓') : '';
+                echo '<th scope="col"><a class="database-history-sort' . ($sort === $key ? ' is-active' : '') . '" href="'
+                    . 'index.php?route=/admin/database/history&amp;sort=' . $key . '&amp;direction=' . $nextDirection
+                    . '">' . $this->escape($label . $indicator) . '</a></th>';
+            }
+            echo '<th scope="col">Zapytanie / komunikat</th></tr></thead><tbody>';
+            foreach ($events as $event) {
+                echo '<tr><td>' . $this->escape((string) ($event['created_at'] ?? '')) . '</td>';
+                echo '<td>' . $this->escape((string) ($event['display_name'] ?? 'System')) . '</td>';
+                echo '<td>' . $this->escape((string) ($event['operation'] ?? '')) . '</td>';
+                echo '<td>' . $this->escape((string) ($event['target_table'] ?? '')) . '</td>';
+                echo '<td>' . $this->escape((string) ($event['result'] ?? '')) . '</td>';
+                echo '<td>' . $this->escape($event['rows_count'] !== null ? (string) $event['rows_count'] : '') . '</td>';
+                echo '<td><code>' . $this->escape((string) (($event['sql_preview'] ?? '') !== ''
+                    ? $event['sql_preview']
+                    : ($event['message'] ?? ''))) . '</code></td></tr>';
+            }
+            echo '</tbody></table></div>';
             $actions = [];
+            $pageBase = 'index.php?route=/admin/database/history&sort=' . $sort
+                . '&direction=' . $direction . '&page=';
             if ($page > 1) {
                 $actions[] = [
                     'label' => 'Poprzednia strona',
-                    'href' => 'index.php?route=/admin/database/history&page=' . ($page - 1),
+                    'href' => $pageBase . ($page - 1),
                     'variant' => 'outline-light',
                 ];
             }
             if ($page < $pages) {
                 $actions[] = [
                     'label' => 'Następna strona',
-                    'href' => 'index.php?route=/admin/database/history&page=' . ($page + 1),
+                    'href' => $pageBase . ($page + 1),
                     'variant' => 'primary',
                 ];
             }
@@ -892,15 +978,24 @@ final class DatabaseManagerModule implements ModuleInterface
         $this->endPage();
     }
 
-    private function renderDatabaseImport(string $message = '', string $variant = 'info', string $sql = ''): void
+    private function renderDatabaseImport(
+        string $message = '',
+        string $variant = 'info',
+        string $sql = '',
+        ?Request $request = null,
+    ): void
     {
+        $table = $request?->queryString('table', $request->postString('table')) ?? '';
+        if (!$this->canUseTable($table)) {
+            $table = '';
+        }
         $this->startPage(
             'Import SQL',
             '/admin/database',
             'Kontrolowany import pliku lub treści SQL do aktywnej bazy danych.',
             [[
                 'label' => 'Wróć do Managera SQL',
-                'href' => 'index.php?route=/admin/database',
+                'href' => 'index.php?route=/admin/database' . ($table !== '' ? '&table=' . rawurlencode($table) : ''),
                 'variant' => 'outline-light',
             ], [
                 'label' => 'Historia',
@@ -916,11 +1011,23 @@ final class DatabaseManagerModule implements ModuleInterface
             $this->endPage();
             return;
         }
+        if ($table !== '') {
+            $this->renderDatabaseContextNavigation($table, true, 'import');
+        }
 
-        $this->theme->start_admin_panel('Import SQL', 'Limit 2 MB, wymagane potwierdzenie IMPORT');
+        $this->theme->render_alert(
+            'Importowane instrukcje SQL wykonują się natychmiast. Przed importem sprawdź zawartość pliku i kopię zapasową.',
+            'warning'
+        );
+        $this->theme->start_admin_panel('Import SQL', 'Limit 2 MB');
         $this->theme->render_form(
             'index.php?route=/admin/database/import',
             [[
+                'name' => 'table',
+                'label' => 'Tabela kontekstowa',
+                'type' => 'hidden',
+                'value' => $table,
+            ], [
                 'name' => 'sql_file',
                 'label' => 'Plik SQL',
                 'type' => 'file',
@@ -933,12 +1040,6 @@ final class DatabaseManagerModule implements ModuleInterface
                 'value' => $sql,
                 'rows' => 12,
                 'help' => 'Import może zawierać wiele instrukcji SQL, np. dump wygenerowany przez eksport Managera SQL.',
-            ], [
-                'name' => 'confirmation',
-                'label' => 'Potwierdzenie',
-                'type' => 'text',
-                'value' => '',
-                'help' => 'Wpisz IMPORT, aby uruchomić import.',
             ]],
             'Importuj SQL',
             $this->security->csrfToken()
@@ -954,12 +1055,6 @@ final class DatabaseManagerModule implements ModuleInterface
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
             $this->audit->record($request, 'database_import', 'invalid_csrf', 'sql', $actor?->id);
             $this->renderDatabaseImport('Token CSRF jest nieprawidłowy lub wygasł.', 'danger', $sql);
-            return;
-        }
-        if (strtoupper($request->postString('confirmation')) !== 'IMPORT') {
-            $this->audit->record($request, 'database_import', 'missing_confirmation', 'sql', $actor?->id);
-            $this->recordHistory($actor?->id, 'import_sql', 'missing_confirmation', null, null, null, 'Brak potwierdzenia IMPORT.');
-            $this->renderDatabaseImport('Aby wykonać import, wpisz potwierdzenie IMPORT.', 'danger', $sql);
             return;
         }
         if ($this->databaseExplorer === null) {
@@ -1062,6 +1157,10 @@ final class DatabaseManagerModule implements ModuleInterface
     private function renderTableOperationsPanel(string $selectedTable): void
     {
         $this->theme->start_admin_panel('Operacje tabeli', 'Konserwacja i akcje destrukcyjne wymagają database.manage');
+        $this->theme->render_alert(
+            'TRUNCATE TABLE i DROP TABLE wykonują się natychmiast. Przed uruchomieniem sprawdź wybraną tabelę i kopię zapasową.',
+            'warning'
+        );
         $this->theme->render_form(
             'index.php?route=/admin/database/table-operation',
             [[
@@ -1082,12 +1181,6 @@ final class DatabaseManagerModule implements ModuleInterface
                     'truncate' => 'TRUNCATE TABLE',
                     'drop' => 'DROP TABLE',
                 ],
-            ], [
-                'name' => 'confirmation',
-                'label' => 'Potwierdzenie dla TRUNCATE/DROP',
-                'type' => 'text',
-                'value' => '',
-                'help' => 'Przy opróżnianiu albo usuwaniu wpisz dokładną nazwę tabeli: ' . $selectedTable,
             ]],
             'Wykonaj operację',
             $this->security->csrfToken()
@@ -1216,6 +1309,11 @@ final class DatabaseManagerModule implements ModuleInterface
         $filename = trim($filename, '-.');
 
         return $filename !== '' ? $filename : 'table';
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
     }
 
     /**

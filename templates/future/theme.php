@@ -1309,7 +1309,15 @@ final class Theme implements ThemeInterface
         echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
         echo '<thead><tr>';
         foreach ($headers as $header) {
-            echo '<th scope="col">' . $this->escape($header) . '</th>';
+            if (is_array($header)) {
+                $direction = in_array(($header['direction'] ?? ''), ['asc', 'desc'], true) ? $header['direction'] : '';
+                $reset = (bool) ($header['reset'] ?? false);
+                echo '<th scope="col"><a class="admin-table-sort' . ($direction !== '' ? ' is-active' : '') . '" href="'
+                    . $this->escape((string) $header['href']) . '">' . $this->escape((string) $header['label'])
+                    . '<span aria-hidden="true">' . ($reset ? '↺' : ($direction === 'asc' ? '↑' : ($direction === 'desc' ? '↓' : '↕'))) . '</span></a></th>';
+            } else {
+                echo '<th scope="col">' . $this->escape((string) $header) . '</th>';
+            }
         }
         echo '<th scope="col" class="text-end">Akcje</th></tr></thead><tbody>';
 
@@ -1351,6 +1359,22 @@ final class Theme implements ThemeInterface
         }
 
         echo '</tbody></table></div>';
+    }
+
+    public function render_admin_filter_modal(string $id, string $title, string $action, array $fields, string $clearHref): void
+    {
+        $modalId = 'admin-filter-' . preg_replace('/[^a-z0-9_-]/i', '', $id);
+        echo '<button class="btn btn-sm btn-outline-light admin-filter-trigger" type="button" data-bs-toggle="modal" data-bs-target="#'
+            . $this->escape($modalId) . '">Filtry</button>';
+        echo '<div class="modal fade admin-filter-modal" id="' . $this->escape($modalId) . '" tabindex="-1" aria-hidden="true">';
+        echo '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header">';
+        echo '<h2 class="modal-title fs-5">' . $this->escape($title) . '</h2>';
+        echo '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button></div><div class="modal-body">';
+        $this->render_form($action, $fields, 'Zastosuj filtry', '', 'get');
+        echo '</div><div class="modal-footer">';
+        $this->render_button('Wyczyść filtry', $clearHref, 'outline-light');
+        echo '<button type="button" class="btn btn-sm btn-outline-light" data-bs-dismiss="modal">Zamknij</button>';
+        echo '</div></div></div></div>';
     }
 
     public function render_admin_login(

@@ -44,7 +44,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '1.4.1'; }
+    public function version(): string { return '1.7.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -71,6 +71,13 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $published = count(array_filter($all, static fn (ProjectBuild $build): bool => $build->published));
             return ['value' => $published, 'detail' => count($all) . ' wszystkich buildów'];
         }, 'builds.view', 115);
+        $dashboard->addMetric('builds.storage', 'Magazyn buildów', 'Fizyczne miejsce zajęte przez lokalne artefakty.', 'DSK', function (): array {
+            $storage = $this->storage->statistics();
+            return [
+                'value' => $this->fileSize($storage['bytes']),
+                'detail' => $storage['files'] . ' plików; wolne ' . $this->fileSize($storage['disk_free_bytes']),
+            ];
+        }, 'builds.view', 116);
     }
 
     public function registerRoutes(Router $router): void
@@ -89,7 +96,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             strtolower($request->routeString('channel')),
             $request->routeString('version')
         ));
-        $router->get('/admin/builds', fn (Request $request) => $this->guard($request, 'builds.view', fn () => $this->renderAdmin()));
+        $router->get('/admin/builds', fn (Request $request) => $this->guard($request, 'builds.view', fn () => $this->renderAdmin($request)));
         $router->get('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderForm()));
         $router->post('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request)));
         $router->get('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderEdit($request)));
@@ -247,6 +254,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                 throw new \RuntimeException('At least one named download is required.');
             }
             $ids = [];
+            $nextBuildNumbers = [];
             foreach ($downloads as $key => $download) {
                 if (!is_string($key) || !is_array($download)) { throw new \RuntimeException('Invalid download entry.'); }
                 $server = str_contains($key, ':') ? substr($key, strpos($key, ':') + 1) : $key;
@@ -260,9 +268,18 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                     || preg_match('/^[a-f0-9]{64}$/', $checksum) !== 1 || $size === false || $size < 1 || $url === '' || $version === '') {
                     throw new \RuntimeException('Download name, version, SHA-256, size or HTTPS URL is invalid.');
                 }
+                $serverType = ucfirst($server);
+                $previous = $this->builds->findCi((int) $project['id'], $channel, $serverType, (int) $buildId);
+                if ($previous instanceof ProjectBuild) {
+                    $buildNumber = $previous->buildNumber;
+                } else {
+                    $sequenceKey = $channel . "\0" . $version;
+                    $buildNumber = $nextBuildNumbers[$sequenceKey]
+                        ??= $this->builds->nextCiBuildNumber((int) $project['id'], $channel, $version);
+                }
                 $ids[] = $this->builds->upsertCi([
-                    'project_id' => $project['id'], 'server_type' => ucfirst($server), 'version_label' => $version,
-                    'channel' => $channel, 'build_number' => (string) $buildId, 'filename' => $filename,
+                    'project_id' => $project['id'], 'server_type' => $serverType, 'version_label' => $version,
+                    'channel' => $channel, 'build_number' => $buildNumber, 'filename' => $filename,
                     'storage_key' => null, 'download_url' => $url, 'checksum_sha256' => $checksum,
                     'file_size_bytes' => (int) $size, 'changelog' => implode("\n", array_column($commits, 'message')),
                     'is_published' => 1, 'published_at' => $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
@@ -295,12 +312,16 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ): int {
         $server = $this->bounded((string) ($payload['server'] ?? $payload['server_type'] ?? ''), 80);
         $version = $this->bounded((string) ($payload['version'] ?? $payload['version_label'] ?? ''), 120);
-        $buildNumber = $this->bounded((string) ($payload['build_number'] ?? $buildId), 80);
         $filename = basename(trim((string) ($payload['filename'] ?? '')));
         $sourceFilename = basename($artifact['name']);
         if ($server === '') { throw new \RuntimeException('CI artifact server/platform is required.'); }
         if ($version === '') { $version = $this->versionFromFilename($project['name'], $server, $filename !== '' ? $filename : $sourceFilename, $channel); }
         if ($version === '') { throw new \RuntimeException('CI artifact version is required.'); }
+        $serverType = ucfirst($server);
+        $previous = $this->builds->findCi((int) $project['id'], $channel, $serverType, $buildId);
+        $buildNumber = $previous instanceof ProjectBuild
+            ? $previous->buildNumber
+            : $this->builds->nextCiBuildNumber((int) $project['id'], $channel, $version);
         if ($filename === '') {
             $filename = BuildArtifactStorage::filename($project['name'], $server, $version, $channel, $buildNumber);
         }
@@ -325,8 +346,6 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             throw new \RuntimeException('CI artifact size does not match uploaded file.');
         }
 
-        $serverType = ucfirst($server);
-        $previous = $this->builds->findCi((int) $project['id'], $channel, $serverType, $buildId);
         try {
             $id = $this->builds->upsertCi([
                 'project_id' => $project['id'], 'server_type' => $serverType, 'version_label' => $version,
@@ -430,27 +449,130 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         return $build->storageKey !== '' ? 'index.php?route=/builds/download&id=' . $build->id : $build->downloadUrl;
     }
 
-    private function renderAdmin(string $message = '', string $variant = 'info'): void
+    private function renderAdmin(Request $request, string $message = '', string $variant = 'info'): void
     {
         $this->startPage('Build Explorer', 'Metadane plików i bezpieczne zewnętrzne adresy pobierania.', [[
             'label' => 'Dodaj build', 'href' => 'index.php?route=/admin/builds/create', 'variant' => 'primary',
         ], ['label' => 'Publiczna lista', 'href' => '/builds', 'variant' => 'outline-light']]);
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
-        $builds = $this->builds->all();
-        $this->theme->start_admin_panel('Buildy projektów', count($builds) . ' plików');
+        $projectOptions = ['' => 'Wszystkie projekty'] + $this->stringOptions($this->builds->projectOptions());
+        $filters = [
+            'project_id' => max(0, $request->queryInt('project_id', 0) ?? 0),
+            'channel' => strtolower($request->queryString('channel')),
+            'published' => $request->queryString('published'),
+            'search' => $this->bounded($request->queryString('search'), 120),
+        ];
+        $sort = in_array($request->queryString('sort'), ['date', 'project', 'version', 'size', 'channel', 'filename', 'published'], true)
+            ? $request->queryString('sort')
+            : 'date';
+        $direction = strtolower($request->queryString('direction')) === 'asc' ? 'asc' : 'desc';
+        $perPage = max(10, min(100, $request->queryInt('per_page', 25) ?? 25));
+        $total = $this->builds->adminCount($filters);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $request->queryInt('page', 1) ?? 1), $pages);
+        $builds = $this->builds->adminPage($page, $perPage, $filters, $sort, $direction);
+        $storage = $this->storage->statistics();
+        $statistics = $this->builds->statistics();
+        $freePercent = $storage['disk_free_bytes'] !== null
+            && $storage['disk_total_bytes'] !== null
+            && $storage['disk_total_bytes'] > 0
+                ? number_format(($storage['disk_free_bytes'] / $storage['disk_total_bytes']) * 100, 1, ',', ' ') . '%'
+                : 'brak danych';
+        $this->theme->start_admin_panel('Statystyki buildów', 'Stan magazynu i katalogu');
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Wszystkie buildy', 'value' => (string) $statistics['total'], 'detail' => 'W całym katalogu'],
+            ['label' => 'Opublikowane', 'value' => (string) $statistics['published'], 'detail' => ($statistics['total'] - $statistics['published']) . ' ukrytych'],
+            ['label' => 'Lokalne artefakty', 'value' => (string) $statistics['local'], 'detail' => ($statistics['total'] - $statistics['local']) . ' linków zewnętrznych'],
+            ['label' => 'Rozmiar wg bazy', 'value' => $this->fileSize($statistics['registered_bytes']), 'detail' => 'Suma lokalnych artefaktów przypisanych do buildów'],
+            ['label' => 'Pliki na dysku', 'value' => (string) $storage['files'], 'detail' => 'Faktyczna zawartość magazynu buildów'],
+            ['label' => 'Zajęte miejsce na dysku', 'value' => $this->fileSize($storage['bytes']), 'detail' => 'Fizyczny rozmiar wszystkich plików magazynu'],
+            ['label' => 'Wolne miejsce na dysku', 'value' => $this->fileSize($storage['disk_free_bytes']), 'detail' => $freePercent . ' z ' . $this->fileSize($storage['disk_total_bytes']) . ' pojemności systemu plików'],
+            ...array_map(
+                fn (string $channel): array => [
+                    'label' => 'Kanał ' . self::CHANNELS[$channel],
+                    'value' => (string) $statistics[$channel],
+                    'detail' => 'Liczba buildów w kanale',
+                ],
+                array_keys(self::CHANNELS)
+            ),
+        ]);
+        $this->theme->end_admin_panel();
+        $filterFields = [
+            ['name' => 'route', 'label' => 'Trasa', 'type' => 'hidden', 'value' => '/admin/builds'],
+            ['name' => 'search', 'label' => 'Szukaj', 'value' => $filters['search'], 'placeholder' => 'Projekt, wersja, plik lub platforma'],
+            ['name' => 'project_id', 'label' => 'Projekt', 'type' => 'select', 'value' => (string) $filters['project_id'], 'options' => $projectOptions],
+            ['name' => 'channel', 'label' => 'Kanał', 'type' => 'select', 'value' => $filters['channel'], 'options' => ['' => 'Wszystkie kanały'] + self::CHANNELS],
+            ['name' => 'published', 'label' => 'Publikacja', 'type' => 'select', 'value' => $filters['published'], 'options' => ['' => 'Wszystkie', '1' => 'Publiczne', '0' => 'Ukryte']],
+            ['name' => 'per_page', 'label' => 'Na stronę', 'type' => 'select', 'value' => (string) $perPage, 'options' => ['10' => '10', '25' => '25', '50' => '50', '100' => '100']],
+            ['name' => 'sort', 'label' => 'Sortowanie', 'type' => 'hidden', 'value' => $sort],
+            ['name' => 'direction', 'label' => 'Kierunek', 'type' => 'hidden', 'value' => $direction],
+        ];
+
+        $queryState = [
+            'project_id' => $filters['project_id'] ?: null, 'channel' => $filters['channel'] ?: null,
+            'published' => $filters['published'] !== '' ? $filters['published'] : null,
+            'search' => $filters['search'] ?: null, 'per_page' => $perPage,
+        ];
+        $pageQuery = ['route' => '/admin/builds', ...$queryState, 'sort' => $sort, 'direction' => $direction];
+        $this->theme->start_admin_panel('Buildy projektów', "{$total} wpisów, strona {$page}/{$pages}");
+        $this->theme->render_admin_filter_modal(
+            'builds',
+            'Filtruj buildy projektów',
+            'index.php',
+            $filterFields,
+            'index.php?route=/admin/builds'
+        );
         if ($builds === []) {
-            $this->theme->render_alert('Nie dodano jeszcze żadnych buildów.', 'info');
+            $this->theme->render_alert('Nie znaleziono buildów spełniających wybrane filtry.', 'info');
         } else {
-            $this->theme->render_admin_action_table(['Projekt', 'Wersja', 'Kanał', 'Plik', 'Rozmiar', 'Publikacja'], array_map(
-                fn (ProjectBuild $build): array => [
-                    'cells' => [$build->projectName, $build->versionLabel, self::CHANNELS[$build->channel], $build->filename, $this->fileSize($build->fileSizeBytes), $build->published ? 'Publiczny' : 'Ukryty'],
+            $sortableHeader = function (string $label, string $sortKey) use ($sort, $direction, $queryState): array {
+                $nextDirection = $sort === $sortKey && $direction === 'desc' ? 'asc' : 'desc';
+                return [
+                    'label' => $label,
+                    'href' => 'index.php?' . http_build_query([
+                        'route' => '/admin/builds', ...$queryState, 'sort' => $sortKey, 'direction' => $nextDirection,
+                    ]),
+                    'direction' => $sort === $sortKey ? $direction : '',
+                ];
+            };
+            $rows = [];
+            foreach ($builds as $index => $build) {
+                $rows[] = [
+                    'cells' => [
+                        (string) (($page - 1) * $perPage + $index + 1),
+                        $build->projectName,
+                        $build->versionLabel,
+                        self::CHANNELS[$build->channel],
+                        $build->filename,
+                        $this->fileSize($build->fileSizeBytes),
+                        $build->published ? 'Publiczny' : 'Ukryty',
+                    ],
                     'actions' => [[
                         'label' => 'Edytuj', 'href' => 'index.php?route=/admin/builds/edit&id=' . $build->id, 'variant' => 'primary',
                     ], [
                         'label' => 'Usuń', 'action' => 'index.php?route=/admin/builds/delete', 'fields' => ['id' => $build->id], 'variant' => 'danger', 'confirm' => 'Usunąć build z katalogu?',
                     ]],
-                ], $builds
-            ), $this->security->csrfToken());
+                ];
+            }
+            $this->theme->render_admin_action_table([
+                [
+                    'label' => 'Lp.',
+                    'href' => 'index.php?' . http_build_query(['route' => '/admin/builds', ...$queryState]),
+                    'reset' => true,
+                ],
+                $sortableHeader('Projekt', 'project'),
+                $sortableHeader('Wersja', 'version'),
+                $sortableHeader('Kanał', 'channel'),
+                $sortableHeader('Plik', 'filename'),
+                $sortableHeader('Rozmiar', 'size'),
+                $sortableHeader('Publikacja', 'published'),
+            ], $rows, $this->security->csrfToken());
+        }
+        if ($page > 1) {
+            $this->theme->render_button('Poprzednia strona', 'index.php?' . http_build_query([...$pageQuery, 'page' => $page - 1]), 'outline-light');
+        }
+        if ($page < $pages) {
+            $this->theme->render_button('Następna strona', 'index.php?' . http_build_query([...$pageQuery, 'page' => $page + 1]), 'outline-light');
         }
         $this->theme->end_admin_panel();
         $this->endPage();
@@ -459,7 +581,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     private function renderEdit(Request $request): void
     {
         $build = $this->builds->find($request->queryInt('id', 0) ?? 0);
-        $build instanceof ProjectBuild ? $this->renderForm($build) : $this->renderAdmin('Nie znaleziono buildu.', 'danger');
+        $build instanceof ProjectBuild ? $this->renderForm($build) : $this->renderAdmin($request, 'Nie znaleziono buildu.', 'danger');
     }
 
     private function renderForm(?ProjectBuild $build = null, string $message = '', string $variant = 'info'): void
@@ -500,7 +622,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     private function save(Request $request, ?ProjectBuild $build = null): void
     {
         $actor = $this->auth->user();
-        if ($build === null && $request->postInt('id', 0)) { $this->renderAdmin('Nie znaleziono buildu.', 'danger'); return; }
+        if ($build === null && $request->postInt('id', 0)) { $this->renderAdmin($request, 'Nie znaleziono buildu.', 'danger'); return; }
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
             $this->audit->record($request, 'build_save', 'invalid_csrf', 'builds', $actor?->id);
             $this->renderForm($build, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger'); return;
@@ -565,7 +687,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         }
         $this->audit->record($request, $event, 'success', 'build:' . $id, $actor?->id);
         if ($stored !== null) { $this->storage->delete($build?->storageKey); }
-        $this->renderAdmin('Build został zapisany.', 'success');
+        $this->renderAdmin($request, 'Build został zapisany.', 'success');
     }
 
     private function delete(Request $request): void
@@ -573,12 +695,12 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $actor = $this->auth->user();
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
             $this->audit->record($request, 'build_delete', 'invalid_csrf', 'builds', $actor?->id);
-            $this->renderAdmin('Token CSRF jest nieprawidłowy lub wygasł.', 'danger'); return;
+            $this->renderAdmin($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger'); return;
         }
         $id = $request->postInt('id', 0) ?? 0; $build = $this->builds->find($id); $ok = $this->builds->delete($id);
         if ($ok) { $this->storage->delete($build?->storageKey); }
         $this->audit->record($request, 'build_delete', $ok ? 'success' : 'failed', 'build:' . $id, $actor?->id);
-        $this->renderAdmin($ok ? 'Build został usunięty.' : 'Nie udało się usunąć buildu.', $ok ? 'success' : 'danger');
+        $this->renderAdmin($request, $ok ? 'Build został usunięty.' : 'Nie udało się usunąć buildu.', $ok ? 'success' : 'danger');
     }
 
     private function download(Request $request): void

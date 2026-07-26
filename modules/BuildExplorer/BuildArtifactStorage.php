@@ -86,6 +86,31 @@ final class BuildArtifactStorage
         if ($path !== null) { @unlink($path); }
     }
 
+    /** @return array{files: int, bytes: int, disk_free_bytes: int|null, disk_total_bytes: int|null} */
+    public function statistics(): array
+    {
+        $files = 0;
+        $bytes = 0;
+        $iterator = new \FilesystemIterator($this->directory, \FilesystemIterator::SKIP_DOTS);
+        foreach ($iterator as $entry) {
+            if (!$entry->isFile() || $entry->isLink()) {
+                continue;
+            }
+            $files++;
+            $bytes += max(0, $entry->getSize());
+        }
+
+        $free = disk_free_space($this->directory);
+        $total = disk_total_space($this->directory);
+
+        return [
+            'files' => $files,
+            'bytes' => $bytes,
+            'disk_free_bytes' => $free === false ? null : max(0, (int) $free),
+            'disk_total_bytes' => $total === false ? null : max(0, (int) $total),
+        ];
+    }
+
     private static function segment(string $value): string
     {
         $value = trim($value);

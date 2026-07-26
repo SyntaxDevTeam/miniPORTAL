@@ -80,6 +80,7 @@ final class ModuleManifestValidator
         $miniportalConstraint = (string) ($requires['miniportal'] ?? '');
         $this->assertConstraint($phpConstraint, PHP_VERSION, 'PHP', $file);
         $this->assertConstraint($miniportalConstraint, $this->miniportalVersion, 'miniPORTAL', $file);
+        $this->assertCoreSymbolsAvailable($directory, $file);
 
         if ($factory !== null) {
             $this->assertPhpFile($directory, $factory, $id, $file);
@@ -197,5 +198,78 @@ final class ModuleManifestValidator
         if (!version_compare($current, $matches[2], $matches[1])) {
             throw new RuntimeException("Moduł wymaga {$component} {$constraint}; dostępna wersja to {$current}.");
         }
+    }
+
+    /**
+     * Wykrywa zależność pakietu od klasy/interfejsu Core, którego nie ma w
+     * bieżącej wersji platformy. Analiza tokenów nie wykonuje kodu modułu.
+     */
+    private function assertCoreSymbolsAvailable(string $directory, string $manifestFile): void
+    {
+        $missing = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if (
+                !$file->isFile()
+                || $file->isLink()
+                || strtolower($file->getExtension()) !== 'php'
+            ) {
+                continue;
+            }
+
+            $source = file_get_contents($file->getPathname());
+            if (!is_string($source)) {
+                throw new RuntimeException(
+                    "Nie można odczytać pliku PHP pakietu {$file->getPathname()}."
+                );
+            }
+
+            try {
+                $tokens = token_get_all($source, TOKEN_PARSE);
+            } catch (\ParseError $exception) {
+                throw new RuntimeException(
+                    "Plik PHP pakietu {$file->getPathname()} ma błąd składni.",
+                    0,
+                    $exception
+                );
+            }
+
+            foreach ($tokens as $token) {
+                if (
+                    !is_array($token)
+                    || !in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)
+                ) {
+                    continue;
+                }
+                $symbol = ltrim($token[1], '\\');
+                if (!str_starts_with($symbol, 'SyntaxDevTeam\\Cms\\Core\\')) {
+                    continue;
+                }
+                if (
+                    class_exists($symbol)
+                    || interface_exists($symbol)
+                    || trait_exists($symbol)
+                    || enum_exists($symbol)
+                ) {
+                    continue;
+                }
+                $missing[$symbol] = true;
+            }
+        }
+
+        if ($missing === []) {
+            return;
+        }
+
+        $symbols = array_keys($missing);
+        sort($symbols);
+        throw new RuntimeException(
+            "Pakiet {$manifestFile} wymaga niedostępnych elementów Core: "
+            . implode(', ', $symbols)
+            . '. Najpierw zaktualizuj całą platformę miniPORTAL.'
+        );
     }
 }

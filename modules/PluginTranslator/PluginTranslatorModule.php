@@ -42,7 +42,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function version(): string
     {
-        return '1.4.9';
+        return '1.5.0';
     }
 
     public function dependencies(): array
@@ -251,7 +251,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         unset($projects);
 
         $this->theme->start_card('Start a translation', 'Open editor');
-        $this->theme->render_form('index.php?route=/translations/open', [
+        $this->theme->render_form('/translations/open', [
             [
                 'name' => 'yaml_file', 'label' => 'YAML file', 'type' => 'file',
                 'accept' => '.yml,.yaml,text/yaml,text/x-yaml,text/plain',
@@ -267,13 +267,12 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     private function renderPublicTabs(string $activeTab): void
     {
         $tabs = [
-            'start' => ['Start translation', ''],
-            'mine' => ['My drafts', 'mine'],
-            'upload' => ['Submit ready file', 'upload'],
+            'start' => ['Start translation', '/translations'],
+            'mine' => ['My drafts', '/translations/mine'],
+            'upload' => ['Submit ready file', '/translations/upload-ready'],
         ];
         echo '<nav class="translation-tabs" aria-label="Translation tools">';
-        foreach ($tabs as $tab => [$label, $query]) {
-            $href = 'index.php?route=/translations' . ($query !== '' ? '&amp;tab=' . $query : '');
+        foreach ($tabs as $tab => [$label, $href]) {
             echo '<a class="translation-tab' . ($tab === $activeTab ? ' is-active' : '') . '" href="' . $href . '"';
             echo $tab === $activeTab ? ' aria-current="page"' : '';
             echo '>' . $this->escape($label) . '</a>';
@@ -298,13 +297,13 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         echo '<thead><tr><th scope="col">Project</th><th scope="col">Language</th><th scope="col">Version</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>';
         foreach ($files as $file) {
             echo '<tr>';
-            echo '<td><a class="translation-catalog-link" href="index.php?route=/translations/project&amp;id=' . $file->projectId . '">' . $this->escape($file->projectName) . '</a></td>';
+            echo '<td><a class="translation-catalog-link" href="/translations/project?id=' . $file->projectId . '">' . $this->escape($file->projectName) . '</a></td>';
             echo '<td>' . $this->languageBadge($file->targetLanguage) . '</td>';
             echo '<td>' . $this->escape($file->pluginVersion !== '' ? $file->pluginVersion : 'Any version') . '</td>';
             echo '<td>' . $this->escape($this->publicDate($file->reviewedAt ?? $file->updatedAt)) . '</td>';
             echo '<td><div class="translation-table-actions">';
-            echo '<a class="btn btn-sm btn-primary" href="index.php?route=/translations/download&amp;id=' . $file->id . '">Download YAML</a>';
-            echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/translations/suggest&amp;id=' . $file->id . '">Suggest correction</a>';
+            echo '<a class="btn btn-sm btn-primary" href="/translations/download?id=' . $file->id . '">Download YAML</a>';
+            echo '<a class="btn btn-sm btn-outline-light" href="/translations/suggest?id=' . $file->id . '">Suggest correction</a>';
             echo '</div></td>';
             echo '</tr>';
         }
@@ -320,7 +319,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         echo '<thead><tr><th scope="col">Project</th><th scope="col">Approved files</th><th scope="col">Project page</th><th scope="col">Action</th></tr></thead><tbody>';
         foreach ($projects as $project) {
             echo '<tr>';
-            echo '<td><a class="translation-catalog-link" href="index.php?route=/translations/project&amp;id=' . $project->id . '">' . $this->escape($project->name) . '</a></td>';
+            echo '<td><a class="translation-catalog-link" href="/translations/project?id=' . $project->id . '">' . $this->escape($project->name) . '</a></td>';
             echo '<td>' . $this->escape($project->approvedFiles . ' ready ' . ($project->approvedFiles === 1 ? 'file' : 'files')) . '</td>';
             echo '<td>';
             if ($project->pageSlug !== '') {
@@ -329,7 +328,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 echo '<span class="text-secondary">Catalog only</span>';
             }
             echo '</td>';
-            echo '<td><a class="btn btn-sm btn-primary" href="index.php?route=/translations/project&amp;id=' . $project->id . '">Open translations</a></td>';
+            echo '<td><a class="btn btn-sm btn-primary" href="/translations/project?id=' . $project->id . '">Open translations</a></td>';
             echo '</tr>';
         }
         echo '</tbody></table></div>';
@@ -368,7 +367,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->renderLanguageFilter($project, $files, $languageFilter);
             $this->renderApprovedFilesTable($visibleFiles);
         }
-        $this->theme->render_button('Back to catalog', 'index.php?route=/translations', 'outline-light');
+        $this->theme->render_button('Back to catalog', '/translations', 'outline-light');
         if ($project->pageSlug !== '') {
             $this->theme->render_button('Project page', '/p/' . $project->pageSlug, 'primary');
         }
@@ -388,13 +387,13 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $user = $this->auth->user();
         $this->theme->start_card('Submit a ready file', 'For review');
         if (!$user instanceof User) {
-            $_SESSION['_miniportal_after_login'] = 'index.php?route=/translations&tab=upload';
+            $_SESSION['_miniportal_after_login'] = '/translations/upload-ready';
             $this->theme->render_alert('Sign in to submit a ready file for review.', 'warning');
             $this->theme->render_button('Go to sign in', 'index.php?route=/admin/login', 'primary');
             $this->theme->end_card();
             return;
         }
-        $this->theme->render_form('index.php?route=/translations/upload-ready', [[
+        $this->theme->render_form('/translations/upload-ready', [[
                 'name' => 'syntaxdevteam_plugin',
                 'label' => 'Plugin SyntaxDevTeam',
                 'type' => 'checkbox',
@@ -540,7 +539,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 $submission->targetLanguage,
                 [],
                 'Sign in to suggest a correction for this translation.',
-                'index.php?route=/translations/suggest&id=' . $submission->id
+                '/translations/suggest?id=' . $submission->id
             );
             return;
         }
@@ -588,7 +587,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $user = $this->auth->user();
         $this->theme->start_card('My drafts', 'Saved work');
         if (!$user instanceof User) {
-            $_SESSION['_miniportal_after_login'] = 'index.php?route=/translations&tab=mine';
+            $_SESSION['_miniportal_after_login'] = '/translations/mine';
             $this->theme->render_alert('Sign in to view your translation drafts.', 'warning');
             $this->theme->render_button('Go to sign in', 'index.php?route=/admin/login', 'primary');
             $this->theme->end_card();
@@ -607,7 +606,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     {
         $user = $this->auth->user();
         if (!$user instanceof User) {
-            $_SESSION['_miniportal_after_login'] = 'index.php?route=/translations/edit&id=' . (int) ($request->queryInt('id', 0) ?? 0);
+            $_SESSION['_miniportal_after_login'] = '/translations/edit?id=' . (int) ($request->queryInt('id', 0) ?? 0);
             $this->renderUserSubmissions();
             return;
         }
@@ -936,7 +935,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $this->theme->render_text($complete ? 'All lines are translated. The file can be submitted for review.' : 'You can download or save this work now. Review submission becomes available after every line is translated.');
         $this->theme->end_card();
 
-        echo '<form class="showcase-card translation-decision" action="index.php?route=/translations/submit" method="post" data-translation-decision data-complete="' . ($complete ? '1' : '0') . '">';
+        echo '<form class="showcase-card translation-decision" action="/translations/submit" method="post" data-translation-decision data-complete="' . ($complete ? '1' : '0') . '">';
         $this->theme->csrf_field($this->security->csrfToken());
         $this->hidden('source_yaml', $source);
         $this->hidden('source_filename', $filename);
@@ -1009,7 +1008,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         bool $cloneSubmission = false,
     ): void {
         $autosaveKey = $this->autosaveKey($source, $filename, $submission);
-        echo '<form class="showcase-card translation-workspace" action="index.php?route=/translations/submit" method="post" data-translation-autosave data-autosave-key="' . $this->escape($autosaveKey) . '">';
+        echo '<form class="showcase-card translation-workspace" action="/translations/submit" method="post" data-translation-autosave data-autosave-key="' . $this->escape($autosaveKey) . '">';
         $this->theme->csrf_field($this->security->csrfToken());
         $this->hidden('source_yaml', $source);
         $this->hidden('source_filename', $filename);
@@ -1074,9 +1073,9 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             echo '<td>' . $this->escape($submission->updatedAt) . '</td>';
             echo '<td>';
             if ($submission->submissionKind === 'completed_upload' && in_array($submission->status, ['ready_for_review', 'rejected'], true)) {
-                echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/translations&amp;tab=upload">Submit again</a>';
+                echo '<a class="btn btn-sm btn-outline-light" href="/translations/upload-ready">Submit again</a>';
             } elseif (in_array($submission->status, ['draft', 'ready_for_review', 'rejected'], true)) {
-                echo '<a class="btn btn-sm btn-primary" href="index.php?route=/translations/edit&amp;id=' . $submission->id . '">Continue</a>';
+                echo '<a class="btn btn-sm btn-primary" href="/translations/edit?id=' . $submission->id . '">Continue</a>';
             } else {
                 echo '<span class="text-secondary">Approved</span>';
             }
@@ -1156,7 +1155,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         string $targetLanguage,
         array $translations,
         string $message,
-        string $afterLogin = 'index.php?route=/translations/resume',
+        string $afterLogin = '/translations/resume',
     ): void {
         $_SESSION['_miniportal_after_login'] = $afterLogin;
         $this->theme->start_page('Translation sign-in - SyntaxDevTeam', 'Sign in to continue translating.');
@@ -1379,7 +1378,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 'variant' => 'outline-light',
             ], [
                 'label' => 'Publiczny formularz',
-                'href' => 'index.php?route=/translations',
+                'href' => '/translations',
                 'variant' => 'primary',
             ]]
         );
@@ -1734,7 +1733,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'author_email' => (string) ($data['author_email'] ?? ''),
             'status' => (string) ($data['status'] ?? 'draft'),
         ];
-        $_SESSION['_miniportal_after_login'] = 'index.php?route=/translations/resume';
+        $_SESSION['_miniportal_after_login'] = '/translations/resume';
     }
 
     /**
@@ -1932,8 +1931,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             echo '<td>' . $this->escape($file->authorName) . '</td>';
             echo '<td>' . $this->escape($this->publicDate($file->reviewedAt ?? $file->updatedAt)) . '</td>';
             echo '<td><div class="translation-table-actions">';
-            echo '<a class="btn btn-sm btn-primary" href="index.php?route=/translations/download&amp;id=' . $file->id . '">Download YAML</a>';
-            echo '<a class="btn btn-sm btn-outline-light" href="index.php?route=/translations/suggest&amp;id=' . $file->id . '">Suggest correction</a>';
+            echo '<a class="btn btn-sm btn-primary" href="/translations/download?id=' . $file->id . '">Download YAML</a>';
+            echo '<a class="btn btn-sm btn-outline-light" href="/translations/suggest?id=' . $file->id . '">Suggest correction</a>';
             echo '</div></td></tr>';
         }
         echo '</tbody></table></div>';
@@ -1967,7 +1966,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     private function publicProjectHref(PluginTranslationProject $project, string $language = ''): string
     {
-        $href = 'index.php?route=/translations/project&amp;id=' . $project->id;
+        $href = '/translations/project?id=' . $project->id;
         if ($language !== '') {
             $href .= '&amp;language=' . rawurlencode($language);
         }
@@ -2057,7 +2056,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     private function renderAutosaveScript(): void
     {
-        echo '<script src="index.php?route=/translations/assets/autosave.js&amp;v=' . $this->escape($this->version()) . '"></script>';
+        echo '<script src="/translations/assets/autosave.js?v=' . $this->escape($this->version()) . '"></script>';
     }
 
     private function normalizeSlug(string $value): string

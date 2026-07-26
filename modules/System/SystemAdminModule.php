@@ -69,7 +69,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.3.0';
+        return '2.3.1';
     }
 
     public function dependencies(): array

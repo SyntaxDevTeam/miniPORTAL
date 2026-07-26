@@ -125,6 +125,81 @@ final class DatabaseExplorerRepository
         ];
     }
 
+    /**
+     * @return array{
+     *     headers: list<string>,
+     *     rows: list<list<string>>,
+     *     records: list<array<string, mixed>>,
+     *     total: int,
+     *     page: int,
+     *     per_page: int,
+     *     pages: int
+     * }
+     */
+    public function search(string $table, string $term, int $page = 1, int $perPage = 25): array
+    {
+        $term = trim($term);
+        $page = max(1, $page);
+        $perPage = max(10, min(50, $perPage));
+        $headers = array_map(
+            static fn (array $column): string => $column['name'],
+            $this->columns($table)
+        );
+        if ($headers === [] || $term === '') {
+            return [
+                'headers' => $headers,
+                'rows' => [],
+                'records' => [],
+                'total' => 0,
+                'page' => 1,
+                'per_page' => $perPage,
+                'pages' => 1,
+            ];
+        }
+
+        $conditions = [];
+        $parameters = [];
+        foreach ($headers as $index => $column) {
+            $placeholder = ':term_' . $index;
+            $conditions[] = 'CAST(' . $this->quoteIdentifier($column) . " AS CHAR) LIKE {$placeholder}";
+            $parameters[$placeholder] = '%' . $term . '%';
+        }
+        $where = implode(' OR ', $conditions);
+        $quotedTable = $this->quoteIdentifier($table);
+        $total = $this->database->query(
+            "SELECT COUNT(*) FROM {$quotedTable} WHERE {$where}",
+            $parameters
+        )?->fetchColumn();
+        $total = is_numeric($total) ? (int) $total : 0;
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+        $statement = $this->database->query(
+            "SELECT * FROM {$quotedTable} WHERE {$where} LIMIT {$perPage} OFFSET {$offset}",
+            $parameters
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można przeszukać tabeli.');
+        }
+        $records = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'headers' => $headers,
+            'rows' => array_map(
+                fn (array $record): array => array_map(
+                    fn (string $column): string => $this->formatCell($record[$column] ?? null),
+                    $headers
+                ),
+                $records
+            ),
+            'records' => $records,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'pages' => $pages,
+        ];
+    }
+
     public function primaryKey(string $table): ?string
     {
         $columns = array_values(array_filter(
@@ -388,6 +463,100 @@ final class DatabaseExplorerRepository
             'operation' => $normalized['operation'],
             'affected' => $affected,
         ];
+    }
+
+    /**
+     * Wykonuje dowolny SQL przekazany przez uprawnionego administratora.
+     *
+     * @return array{
+     *     sql: string,
+     *     operation: string,
+     *     affected: int,
+     *     headers: list<string>,
+     *     rows: list<list<string>>,
+     *     truncated: bool
+     * }
+     */
+    public function executeSql(string $sql, int $limit = 200): array
+    {
+        $sql = self::normalizeUnrestrictedSql($sql);
+        $limit = max(1, min(500, $limit));
+        $statement = $this->database->connection()->pdo->query($sql);
+        if ($statement === false) {
+            throw new RuntimeException('Nie można wykonać zapytania SQL.');
+        }
+
+        $headers = [];
+        $rows = [];
+        $affected = 0;
+        $truncated = false;
+        do {
+            if ($statement->columnCount() <= 0) {
+                $affected += max(0, $statement->rowCount());
+                continue;
+            }
+            if ($headers !== []) {
+                continue;
+            }
+            for ($index = 0; $index < $statement->columnCount(); $index++) {
+                $meta = $statement->getColumnMeta($index);
+                $headers[] = is_array($meta) && isset($meta['name'])
+                    ? (string) $meta['name']
+                    : 'column_' . ($index + 1);
+            }
+            while (($row = $statement->fetch(PDO::FETCH_ASSOC)) !== false) {
+                $rows[] = array_map(
+                    fn (string $column): string => $this->formatCell($row[$column] ?? null),
+                    $headers
+                );
+                if (count($rows) > $limit) {
+                    array_pop($rows);
+                    $truncated = true;
+                    break;
+                }
+            }
+        } while ($statement->nextRowset());
+
+        preg_match('/^\s*([a-z]+)/i', $sql, $matches);
+
+        return [
+            'sql' => $sql,
+            'operation' => strtolower((string) ($matches[1] ?? 'sql')),
+            'affected' => $affected,
+            'headers' => $headers,
+            'rows' => $rows,
+            'truncated' => $truncated,
+        ];
+    }
+
+    public static function normalizeUnrestrictedSql(string $sql): string
+    {
+        $sql = trim($sql);
+        if ($sql === '') {
+            throw new RuntimeException('Zapytanie SQL nie może być puste.');
+        }
+        if (strlen($sql) > 2 * 1024 * 1024) {
+            throw new RuntimeException('Zapytanie SQL przekracza limit 2 MB.');
+        }
+        if (str_contains($sql, "\0")) {
+            throw new RuntimeException('Zapytanie SQL zawiera niedozwolony bajt NUL.');
+        }
+
+        return $sql;
+    }
+
+    public static function isDestructiveSql(string $sql): bool
+    {
+        $withoutComments = preg_replace(
+            ['#/\*.*?\*/#s', '/--[^\r\n]*/', '/#[^\r\n]*/'],
+            ' ',
+            $sql
+        ) ?? $sql;
+
+        return preg_match(
+            '/(?:^|;)\s*(?:drop|truncate|delete|alter\s+table|rename\s+table|revoke|grant)\b/i',
+            $withoutComments
+        ) === 1;
     }
 
     /**
