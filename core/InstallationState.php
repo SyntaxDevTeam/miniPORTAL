@@ -7,6 +7,7 @@ namespace SyntaxDevTeam\Cms\Core;
 final class InstallationState
 {
     public const LEGACY_ENVIRONMENT_FILE = '/etc/miniportal/miniportal.env';
+    public const LOCAL_INSTALLATION_MARKER = 'config/local-installation.required';
 
     public static function environmentFile(
         string $root,
@@ -19,7 +20,15 @@ final class InstallationState
         }
 
         $local = rtrim($root, '/') . '/config/installed.env';
-        return is_readable($local) ? $local : $legacyFile;
+        if (is_readable($local)) {
+            return $local;
+        }
+
+        if (is_file(rtrim($root, '/') . '/' . self::LOCAL_INSTALLATION_MARKER)) {
+            return $local;
+        }
+
+        return $legacyFile;
     }
 
     public static function hasConfiguration(
