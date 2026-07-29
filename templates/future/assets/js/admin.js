@@ -798,90 +798,126 @@ document.querySelectorAll('form').forEach((form) => {
   form.addEventListener("submit", () => clearTimeout(timer));
 });
 
-document.querySelectorAll("[data-minecraft-console]").forEach((root) => {
-  const output = root.querySelector("[data-console-output]");
-  const form = root.querySelector("[data-console-form]");
-  if (!output || !form) return;
-
-  let pollTimer = null;
-  let knownOutput = "";
-  let consoleOffset = 0;
-  let streamInitialized = false;
-
-  const applyConsoleOutput = (nextOutput) => {
-    if (nextOutput === knownOutput) return;
-    const stickToBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 32;
-    const previousScrollTop = output.scrollTop;
-    output.textContent = nextOutput;
-    knownOutput = nextOutput;
-    if (stickToBottom) {
-      output.scrollTop = output.scrollHeight;
-    } else {
-      output.scrollTop = previousScrollTop;
-    }
-  };
-
-  const poll = async () => {
-    try {
-      const url = new URL(root.dataset.outputUrl || "", window.location.href);
-      url.searchParams.set("offset", String(consoleOffset));
-      const response = await fetch(url.toString(), {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.source === "log") {
-        const nextOutput = data.output || "";
-        const shouldReset = Boolean(data.reset) || !streamInitialized;
-        const stickToBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 32;
-        if (shouldReset) {
-          output.textContent = nextOutput;
-        } else if (nextOutput !== "") {
-          output.textContent += nextOutput;
-        }
-        if (output.textContent.length > 262144) {
-          output.textContent = output.textContent.slice(-262144);
-        }
-        consoleOffset = Number.isFinite(Number(data.offset)) ? Number(data.offset) : consoleOffset;
-        streamInitialized = true;
-        knownOutput = output.textContent;
-        if (stickToBottom || shouldReset) {
-          output.scrollTop = output.scrollHeight;
-        }
-      } else {
-        streamInitialized = false;
-        consoleOffset = 0;
-        applyConsoleOutput(data.output || "");
-      }
-    } catch {
-      output.textContent = "Nie udało się pobrać bufora konsoli.";
-      knownOutput = "";
-      streamInitialized = false;
-    } finally {
-      pollTimer = window.setTimeout(poll, 1200);
-    }
-  };
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const body = new FormData(form);
-    try {
-      const response = await fetch(root.dataset.commandUrl || "", { method: "POST", body });
-      if (response.ok && form.command) {
-        form.command.value = "";
-      }
-      window.clearTimeout(pollTimer);
-      poll();
-    } catch {
-      output.textContent = "Nie udało się wysłać komendy do konsoli.";
-    }
-  });
-
-  poll();
-});
 document.querySelectorAll(".admin-filter-modal").forEach((modal) => {
   document.body.append(modal);
+});
+
+document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').forEach((form) => {
+  const engine = form.querySelector('[name="engine"]');
+  const version = form.querySelector('[name="minecraft_version"]');
+  const build = form.querySelector('[name="requested_build_id"]');
+  const commonPlugins = Array.from(form.querySelectorAll('input[name="common_plugins[]"]'));
+  if (!(engine instanceof HTMLSelectElement) || !(version instanceof HTMLSelectElement) || !(build instanceof HTMLSelectElement)) return;
+  const syncCommonPlugins = () => {
+    const supported = ["bukkit", "craftbukkit", "spigot", "paper", "folia", "purpur", "pufferfish", "leaves"].includes(engine.value);
+    commonPlugins.forEach((input) => {
+      input.disabled = !supported;
+      if (!supported) input.checked = false;
+    });
+  };
+  const fill = (select, options, emptyLabel, reverseNumeric = false) => {
+    select.replaceChildren(new Option(emptyLabel, ""));
+    const entries = Object.entries(options || {});
+    if (reverseNumeric) entries.reverse();
+    entries.forEach(([value, label]) => select.add(new Option(String(label), value)));
+  };
+  const loadBuilds = async () => {
+    fill(build, {}, "Najnowszy dostępny build");
+    if (!version.value) return;
+    build.disabled = true;
+    try {
+      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
+      fill(build, data.options, Object.keys(data.options || {}).length ? "Najnowszy dostępny build" : "Provider wybierze aktualny build", true);
+    } catch {
+      fill(build, {}, "Nie udało się pobrać buildów");
+    } finally {
+      build.disabled = false;
+    }
+  };
+  const loadVersions = async () => {
+    version.disabled = true;
+    fill(version, {}, "Ładowanie katalogu wersji…");
+    fill(build, {}, "Najnowszy dostępny build");
+    try {
+      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}`, { headers: { Accept: "application/json" } });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
+      fill(version, data.options, "Wybierz istniejącą wersję");
+    } catch {
+      fill(version, {}, "Katalog wersji jest chwilowo niedostępny");
+    } finally {
+      version.disabled = false;
+    }
+  };
+  engine.addEventListener("change", () => {
+    syncCommonPlugins();
+    loadVersions();
+  });
+  version.addEventListener("change", loadBuilds);
+  syncCommonPlugins();
+  loadVersions();
+});
+
+document.querySelectorAll('form[action*="/admin/mc-server-installer/update"]').forEach((form) => {
+  const engine = form.querySelector('[name="engine"]');
+  const version = form.querySelector('[name="minecraft_version"]');
+  const build = form.querySelector('[name="requested_build_id"]');
+  const currentVersion = form.querySelector('[name="current_version"]');
+  const currentBuild = form.querySelector('[name="current_build_id"]');
+  if (
+    !(engine instanceof HTMLInputElement)
+    || !(version instanceof HTMLSelectElement)
+    || !(build instanceof HTMLSelectElement)
+    || !(currentVersion instanceof HTMLInputElement)
+    || !(currentBuild instanceof HTMLInputElement)
+  ) return;
+  const loadBuilds = async () => {
+    build.disabled = true;
+    build.replaceChildren(new Option("Ładowanie propozycji buildów…", ""));
+    try {
+      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
+      const catalogEntries = Object.entries(data.options || {});
+      let entries = catalogEntries;
+      const installed = Number.parseInt(currentBuild.value, 10) || 0;
+      if (version.value === currentVersion.value) {
+        entries = entries.filter(([id]) => installed <= 0 || Number.parseInt(id, 10) > installed);
+      }
+      entries.reverse();
+      build.replaceChildren();
+      if (entries.length === 0) {
+        const noNewerBuild = version.value === currentVersion.value && installed > 0 && catalogEntries.length > 0;
+        build.add(new Option(noNewerBuild ? "Brak nowszego buildu — wybierz inną wersję" : "Provider wybierze najnowszy dostępny artefakt", ""));
+      } else {
+        entries.forEach(([value, label]) => build.add(new Option(String(label), value)));
+      }
+    } catch {
+      build.replaceChildren(new Option("Nie udało się pobrać propozycji buildów", ""));
+    } finally {
+      build.disabled = false;
+    }
+  };
+  version.addEventListener("change", loadBuilds);
+});
+
+document.querySelectorAll("[data-plugin-build-item]").forEach((item) => {
+  const enabled = item.querySelector("[data-plugin-build-enable]");
+  const version = item.querySelector("[data-plugin-build-version]");
+  const build = item.querySelector("[data-plugin-build-select]");
+  if (!(enabled instanceof HTMLInputElement) || !(version instanceof HTMLSelectElement) || !(build instanceof HTMLSelectElement)) return;
+  const allBuilds = Array.from(build.options).map((option) => option.cloneNode(true));
+  const refresh = () => {
+    const selected = version.value;
+    build.replaceChildren(...allBuilds.filter((option) => option.dataset.pluginBuildVersionValue === selected).map((option) => option.cloneNode(true)));
+  };
+  enabled.addEventListener("change", () => {
+    version.disabled = !enabled.checked;
+    build.disabled = !enabled.checked;
+    if (enabled.checked) refresh();
+  });
+  version.addEventListener("change", refresh);
+  refresh();
 });

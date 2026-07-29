@@ -10,6 +10,8 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class UserAdministrationRepository
 {
+    private const ONLINE_WINDOW_SECONDS = 300;
+
     public function __construct(
         private readonly CrudApp $database,
     ) {
@@ -41,20 +43,57 @@ final class UserAdministrationRepository
             . 'WHERE user_id IN (%s) ORDER BY user_id, provider',
             $userIds
         );
+        $activityByUser = $this->sessionActivityByUser($userIds);
+        $onlineCutoff = time() - self::ONLINE_WINDOW_SECONDS;
 
         return array_map(
-            fn (array $row): UserAdminRecord => new UserAdminRecord(
-                (int) $row['id'],
-                (string) $row['display_name'],
-                $row['email'] !== null ? (string) $row['email'] : null,
-                (string) $row['status'],
-                $rolesByUser[(int) $row['id']] ?? [],
-                $identitiesByUser[(int) $row['id']] ?? [],
-                $row['last_login_at'] !== null ? (string) $row['last_login_at'] : null,
-                (string) $row['created_at'],
-            ),
+            function (array $row) use ($rolesByUser, $identitiesByUser, $activityByUser, $onlineCutoff): UserAdminRecord {
+                $userId = (int) $row['id'];
+                $lastActivityAt = $activityByUser[$userId] ?? null;
+                return new UserAdminRecord(
+                    $userId,
+                    (string) $row['display_name'],
+                    $row['email'] !== null ? (string) $row['email'] : null,
+                    (string) $row['status'],
+                    $rolesByUser[$userId] ?? [],
+                    $identitiesByUser[$userId] ?? [],
+                    $row['last_login_at'] !== null ? (string) $row['last_login_at'] : null,
+                    $lastActivityAt,
+                    (string) $row['status'] !== 'blocked'
+                        && $lastActivityAt !== null
+                        && strtotime($lastActivityAt . ' UTC') >= $onlineCutoff,
+                    (string) $row['created_at'],
+                );
+            },
             $rows
         );
+    }
+
+    /** @return list<UserAdminRecord> */
+    public function online(): array
+    {
+        return array_values(array_filter(
+            $this->all(),
+            static fn (UserAdminRecord $record): bool => $record->online
+        ));
+    }
+
+    public function onlineCount(): int
+    {
+        $statement = $this->database->query(
+            'SELECT COUNT(DISTINCT auth_active_sessions.user_id) '
+            . 'FROM auth_active_sessions JOIN users ON users.id = auth_active_sessions.user_id '
+            . 'WHERE users.status <> :blocked AND auth_active_sessions.last_seen_at >= :cutoff',
+            [
+                ':blocked' => 'blocked',
+                ':cutoff' => gmdate('Y-m-d H:i:s', time() - self::ONLINE_WINDOW_SECONDS),
+            ]
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można policzyć aktywnych użytkowników.');
+        }
+
+        return (int) $statement->fetchColumn();
     }
 
     /**
@@ -515,6 +554,33 @@ final class UserAdministrationRepository
         }
 
         return $values;
+    }
+
+    /**
+     * @param list<int> $userIds
+     * @return array<int, string>
+     */
+    private function sessionActivityByUser(array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter($userIds, static fn (int $id): bool => $id > 0)));
+        if ($userIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $statement = $this->database->connection()->pdo->prepare(
+            "SELECT user_id, MAX(last_seen_at) AS last_seen_at FROM auth_active_sessions "
+            . "WHERE user_id IN ({$placeholders}) GROUP BY user_id"
+        );
+        $statement->execute($userIds);
+        $activity = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $userId = (int) ($row['user_id'] ?? 0);
+            if ($userId > 0 && is_string($row['last_seen_at'] ?? null)) {
+                $activity[$userId] = (string) $row['last_seen_at'];
+            }
+        }
+
+        return $activity;
     }
 
     private function roleOrderSql(): string

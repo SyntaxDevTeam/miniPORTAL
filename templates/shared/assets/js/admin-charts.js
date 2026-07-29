@@ -137,6 +137,13 @@
       panY: "translateY",
       wheelY: "zoom",
       minZoomLevel: 0.9,
+      homeZoomLevel: 1,
+      homeGeoPoint: { longitude: 0, latitude: 0 },
+      centerMapOnZoomOut: true,
+      paddingTop: 12,
+      paddingRight: 12,
+      paddingBottom: 12,
+      paddingLeft: 12,
     }));
     const countries = new Map();
     data.forEach((point) => {
@@ -149,6 +156,15 @@
       valueField: "value",
       calculateAggregates: true,
     }));
+    let homeApplied = false;
+    polygons.events.on("datavalidated", () => {
+      if (homeApplied) return;
+      homeApplied = true;
+      requestAnimationFrame(() => {
+        root.resize();
+        chart.goHome(0);
+      });
+    });
     polygons.mapPolygons.template.setAll({
       fill: colors.land,
       stroke: am5.color(0x4b5563),
@@ -213,10 +229,16 @@
       nodes.forEach((node) => {
         const data = parseData(node);
         if (data.length === 0) return;
-        if (node.dataset.amchart === "line") renderLine(node, data);
-        if (node.dataset.amchart === "bar") renderBar(node, data);
-        if (node.dataset.amchart === "map") renderMap(node, data);
-        reveal(node);
+        node.hidden = false;
+        try {
+          if (node.dataset.amchart === "line") renderLine(node, data);
+          if (node.dataset.amchart === "bar") renderBar(node, data);
+          if (node.dataset.amchart === "map") renderMap(node, data);
+          reveal(node);
+        } catch (error) {
+          node.hidden = true;
+          throw error;
+        }
       });
     } catch (error) {
       console.warn("Nie udało się uruchomić amCharts; pozostawiono statyczny fallback.", error);

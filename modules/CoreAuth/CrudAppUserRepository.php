@@ -149,6 +149,31 @@ final class CrudAppUserRepository implements UserRepositoryInterface
         ], ['id' => $userId]);
     }
 
+    public function touchSession(int $userId, string $sessionHash): void
+    {
+        if ($userId <= 0 || preg_match('/^[a-f0-9]{64}$/', $sessionHash) !== 1) {
+            return;
+        }
+        $this->database->query(
+            'INSERT INTO auth_active_sessions (session_hash, user_id, last_seen_at) '
+            . 'VALUES (:session_hash, :user_id, CURRENT_TIMESTAMP) '
+            . 'ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), last_seen_at = CURRENT_TIMESTAMP',
+            [':session_hash' => $sessionHash, ':user_id' => $userId]
+        );
+        $this->database->query(
+            'DELETE FROM auth_active_sessions WHERE last_seen_at < :cutoff',
+            [':cutoff' => gmdate('Y-m-d H:i:s', time() - 2592000)]
+        );
+    }
+
+    public function forgetSession(string $sessionHash): void
+    {
+        if (preg_match('/^[a-f0-9]{64}$/', $sessionHash) !== 1) {
+            return;
+        }
+        $this->database->delete('auth_active_sessions', ['session_hash' => $sessionHash]);
+    }
+
     public function updateProfile(int $userId, string $displayName, ?string $email): bool
     {
         $statement = $this->database->update('users', [

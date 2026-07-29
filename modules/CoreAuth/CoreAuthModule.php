@@ -6,13 +6,15 @@ namespace SyntaxDevTeam\Cms\Modules\CoreAuth;
 
 use Throwable;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
+use SyntaxDevTeam\Cms\Core\DashboardProviderInterface;
+use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
-final class CoreAuthModule implements ModuleInterface
+final class CoreAuthModule implements ModuleInterface, DashboardProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -36,7 +38,7 @@ final class CoreAuthModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.6.1';
+        return '1.8.0';
     }
 
     public function dependencies(): array
@@ -58,6 +60,45 @@ final class CoreAuthModule implements ModuleInterface
     {
         $menu->add('Core', 'Użytkownicy', '/admin/users', 'US', 'users.view', 40);
         $menu->add('Core', 'Role i uprawnienia', '/admin/roles', 'RL', 'roles.view', 45);
+    }
+
+    public function registerDashboard(DashboardRegistry $dashboard): void
+    {
+        if ($this->userAdministration === null) {
+            return;
+        }
+        $dashboard->addMetric(
+            'auth.online_users',
+            'Użytkownicy online',
+            'Konta z aktywną sesją w ciągu ostatnich 5 minut.',
+            'USR',
+            fn (): array => [
+                'value' => $this->userAdministration->onlineCount(),
+                'detail' => 'Aktywność w ciągu ostatnich 5 minut',
+            ],
+            'users.view',
+            80
+        );
+        $dashboard->addPanel(
+            'auth.online_user_list',
+            'Aktualnie zalogowani użytkownicy',
+            'Lista kont z aktywną sesją w ciągu ostatnich 5 minut.',
+            function (): array {
+                $records = $this->userAdministration->online();
+                return [
+                    'meta' => count($records) . ' online',
+                    'headers' => ['Użytkownik', 'Role', 'Ostatnia aktywność'],
+                    'rows' => array_map(static fn (UserAdminRecord $record): array => [
+                        $record->displayName,
+                        $record->roles !== [] ? implode(', ', $record->roles) : 'Brak',
+                        $record->lastActivityAt ?? 'Brak',
+                    ], $records),
+                    'empty' => 'Brak aktywnych użytkowników.',
+                ];
+            },
+            'users.view',
+            81
+        );
     }
 
     public function registerRoutes(Router $router): void
@@ -111,6 +152,12 @@ final class CoreAuthModule implements ModuleInterface
             'roles.manage',
             fn () => $this->deleteRole($request)
         ));
+        $router->post('/admin/roles/preview', fn (Request $request) => $this->guard(
+            $request,
+            'roles.manage',
+            fn () => $this->startRolePreview($request)
+        ));
+        $router->post('/admin/roles/preview/stop', fn (Request $request) => $this->stopRolePreview($request));
         $router->get('/admin/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->get('/admin/profile/identities', fn (Request $request) => $this->renderIdentitiesNotice($request));
         $router->post('/admin/identity/unlink', fn (Request $request) => $this->unlinkIdentity($request));
@@ -272,7 +319,7 @@ final class CoreAuthModule implements ModuleInterface
         $records = $this->userAdministration->all();
         $this->theme->start_admin_panel('Konta użytkowników', count($records) . ' rekordów');
         $this->theme->render_admin_action_table(
-            ['Użytkownik', 'Status', 'Role', 'Tożsamości', 'Ostatnie logowanie'],
+            ['Użytkownik', 'Status konta', 'Sesja', 'Role', 'Tożsamości', 'Ostatnie logowanie', 'Ostatnia aktywność'],
             array_map(
                 fn (UserAdminRecord $record): array => [
                     'cells' => [
@@ -282,9 +329,11 @@ final class CoreAuthModule implements ModuleInterface
                             'blocked' => 'Zablokowany',
                             default => 'Oczekujący',
                         },
+                        $record->online ? 'Online' : 'Offline',
                         $record->roles !== [] ? implode(', ', $record->roles) : 'Brak',
                         $record->providers !== [] ? implode(', ', $record->providers) : 'Brak',
                         $record->lastLoginAt ?? 'Nigdy',
+                        $record->lastActivityAt ?? 'Brak',
                     ],
                     'actions' => $canManage
                         && ($canManageOwner || !in_array('owner', $record->roles, true))
@@ -507,6 +556,8 @@ final class CoreAuthModule implements ModuleInterface
         $canManage = in_array('*', $user->permissions, true)
             || in_array('roles.manage', $user->permissions, true);
         $roles = $this->userAdministration->roleRecords();
+        $canPreviewRole = static fn (RoleAdminRecord $role): bool => in_array('*', $user->permissions, true)
+            || array_diff($role->permissions, $user->permissions) === [];
         $this->theme->start_admin_panel('Definicje ról', count($roles) . ' ról');
         $this->theme->render_admin_action_table(
             ['Rola', 'Typ', 'Użytkownicy', 'Uprawnienia'],
@@ -518,12 +569,18 @@ final class CoreAuthModule implements ModuleInterface
                         $role->usersCount,
                         $role->permissions !== [] ? implode(', ', $role->permissions) : 'Brak',
                     ],
-                    'actions' => $canManage && !$role->system ? array_values(array_filter([
-                        [
+                    'actions' => $canManage ? array_values(array_filter([
+                        $canPreviewRole($role) ? [
+                            'label' => 'Pokaż jako…',
+                            'action' => 'index.php?route=/admin/roles/preview',
+                            'fields' => ['role' => $role->name],
+                            'variant' => 'outline-info',
+                        ] : null,
+                        !$role->system ? [
                             'label' => 'Edytuj',
                             'href' => 'index.php?route=/admin/roles/edit&name=' . rawurlencode($role->name),
                             'variant' => 'outline-light',
-                        ],
+                        ] : null,
                         !$role->system && $role->usersCount === 0 ? [
                             'label' => 'Usuń',
                             'action' => 'index.php?route=/admin/roles/delete',
@@ -546,6 +603,79 @@ final class CoreAuthModule implements ModuleInterface
             );
         }
         $this->endAdminPage();
+    }
+
+    private function startRolePreview(Request $request): void
+    {
+        $actor = $this->auth->actualUser();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'role_preview_start', 'invalid_csrf', null, $actor->id);
+            $this->renderRoles('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        $role = $this->userAdministration->findRole($request->postString('role'));
+        if ($role === null || !$this->auth->startRolePreview($role->name, $role->label, $role->permissions)) {
+            $this->audit->record($request, 'role_preview_start', 'forbidden', null, $actor->id);
+            $this->renderRoles('Nie można uruchomić podglądu tej roli.', 'danger');
+            return;
+        }
+
+        $this->audit->record($request, 'role_preview_start', 'success', 'role=' . $role->name, $actor->id);
+        header('Location: index.php?route=/admin', true, 303);
+    }
+
+    private function stopRolePreview(Request $request): void
+    {
+        $actor = $this->auth->actualUser();
+        if ($actor === null) {
+            http_response_code(401);
+            $this->theme->render_admin_access_state(
+                401,
+                'Wymagane logowanie',
+                'Zakończenie podglądu roli wymaga aktywnej sesji.',
+                'index.php?route=/admin/login',
+                'Przejdź do logowania'
+            );
+            return;
+        }
+        if (!$this->actualUserAllows($actor, 'roles.manage')) {
+            http_response_code(403);
+            $this->theme->render_admin_access_state(
+                403,
+                'Brak uprawnienia',
+                'Twoje konto nie może zarządzać podglądem ról.',
+                'index.php?route=/admin',
+                'Wróć do dashboardu'
+            );
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'role_preview_stop', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->theme->render_admin_access_state(
+                403,
+                'Nieprawidłowy token CSRF',
+                'Nie udało się bezpiecznie zakończyć podglądu roli.',
+                'index.php?route=/admin',
+                'Wróć do dashboardu'
+            );
+            return;
+        }
+
+        $preview = $this->auth->rolePreview();
+        $this->auth->stopRolePreview();
+        $this->audit->record(
+            $request,
+            'role_preview_stop',
+            'success',
+            $preview !== null ? 'role=' . $preview['role'] : null,
+            $actor->id
+        );
+        header('Location: index.php?route=/admin/roles', true, 303);
     }
 
     private function renderRoleEdit(
@@ -676,6 +806,12 @@ final class CoreAuthModule implements ModuleInterface
     private function isOwner(?User $user): bool
     {
         return $user !== null && (in_array('owner', $user->roles, true) || in_array('*', $user->permissions, true));
+    }
+
+    private function actualUserAllows(User $user, string $permission): bool
+    {
+        return $user->isActive()
+            && (in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true));
     }
 
     /** @return array<string, string> */

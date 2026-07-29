@@ -76,6 +76,9 @@ final class Theme implements ThemeInterface
 
     private array $adminSearchItems = [];
 
+    /** @var array{role:string,label:string,stop_action:string,csrf_token:string}|null */
+    private ?array $adminRolePreview = null;
+
     public function __construct(array $config = [])
     {
         $version = trim((string) ($config['version'] ?? ''));
@@ -151,6 +154,11 @@ final class Theme implements ThemeInterface
     public function set_admin_search_items(array $items): void
     {
         $this->adminSearchItems = $items;
+    }
+
+    public function set_admin_role_preview(?array $preview): void
+    {
+        $this->adminRolePreview = $preview;
     }
 
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
@@ -810,7 +818,7 @@ final class Theme implements ThemeInterface
 
         foreach ($fields as $field) {
             $name = $this->escape($field['name']);
-            $label = $this->escape($field['label']);
+            $label = $this->escape((string) ($field['label'] ?? ''));
             $type = $field['type'] ?? 'text';
             $rawValue = (string) ($field['value'] ?? '');
             $value = $this->escape($rawValue);
@@ -850,7 +858,7 @@ final class Theme implements ThemeInterface
             }
 
             echo '<div class="mb-3">';
-            if (in_array($type, ['richtext', 'checkbox_groups', 'option_cards'], true)) {
+            if (in_array($type, ['richtext', 'checkbox_groups', 'option_cards', 'plugin_build_picker'], true)) {
                 echo '<span class="form-label" id="' . $name . '-label">' . $label . $helpBadge . '</span>';
             } else {
                 echo '<label class="form-label" for="' . $name . '">' . $label . $helpBadge . '</label>';
@@ -951,6 +959,36 @@ final class Theme implements ThemeInterface
                     echo '</label>';
                 }
                 echo '</div>';
+            } elseif ($type === 'plugin_build_picker') {
+                $catalog = is_array($field['catalog'] ?? null) ? $field['catalog'] : [];
+                echo '<div class="plugin-build-picker" data-plugin-build-picker aria-labelledby="' . $name . '-label">';
+                if ($catalog === []) {
+                    echo '<p class="form-text mb-0">Brak lokalnych buildów pluginów SyntaxDevTeam.</p>';
+                }
+                foreach ($catalog as $projectName => $versions) {
+                    if (!is_array($versions) || $versions === []) {
+                        continue;
+                    }
+                    $projectId = $name . '-' . substr(hash('sha256', (string) $projectName), 0, 10);
+                    echo '<fieldset class="permission-group plugin-build-picker__item" data-plugin-build-item>';
+                    echo '<legend class="permission-group-header"><label class="form-check mb-0" for="' . $projectId . '">';
+                    echo '<input class="form-check-input" id="' . $projectId . '" type="checkbox" data-plugin-build-enable>';
+                    echo '<span class="form-check-label">' . $this->escape((string) $projectName) . '</span></label></legend>';
+                    echo '<div class="plugin-build-picker__controls">';
+                    echo '<label>Wersja<select class="form-select" data-plugin-build-version disabled>';
+                    foreach ($versions as $versionLabel => $builds) {
+                        echo '<option value="' . $this->escape((string) $versionLabel) . '">' . $this->escape((string) $versionLabel) . '</option>';
+                    }
+                    echo '</select></label><label>Build / kanał<select class="form-select" name="' . $name . '[]" data-plugin-build-select disabled>';
+                    foreach ($versions as $versionLabel => $builds) {
+                        foreach (is_array($builds) ? $builds : [] as $buildId => $buildLabel) {
+                            echo '<option value="' . $this->escape((string) $buildId) . '" data-plugin-build-version-value="' . $this->escape((string) $versionLabel) . '">';
+                            echo $this->escape((string) $buildLabel) . '</option>';
+                        }
+                    }
+                    echo '</select></label></div></fieldset>';
+                }
+                echo '</div>';
             } elseif ($type === 'multiselect') {
                 $selectedValues = array_map('strval', $field['values'] ?? []);
                 $size = max(3, min(12, count($field['options'] ?? [])));
@@ -1024,6 +1062,10 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
+        $consoleStylesFile = dirname(__DIR__) . '/shared/assets/css/minecraft-console.css';
+        $consoleStylesVersion = is_file($consoleStylesFile) ? (string) filemtime($consoleStylesFile) : '1';
+        echo '<link rel="stylesheet" href="/templates/shared/assets/css/minecraft-console.css?v='
+            . $this->escape($consoleStylesVersion) . '">';
         echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
         echo '<a class="visually-hidden-focusable skip-link" href="#admin-main">Przejdź do treści panelu</a>';
         echo '<div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="adminMobileSidebar" ';
@@ -1060,7 +1102,7 @@ final class Theme implements ThemeInterface
         echo '<button class="admin-user-menu-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">';
         $this->renderAdminAvatar($user);
         echo '<span class="admin-user-copy d-none d-sm-block"><strong>' . $this->escape($user['name']) . '</strong>';
-        echo '<span>' . $this->escape($user['role']) . '</span></span></button>';
+        echo '<span>' . $this->escape($this->adminRolePreview['label'] ?? $user['role']) . '</span></span></button>';
         echo '<div class="dropdown-menu dropdown-menu-end admin-user-dropdown">';
         foreach ($this->adminProfileLinks($user) as $link) {
             echo '<a class="dropdown-item" href="' . $this->escape($this->safeHref($link['href'])) . '">';
@@ -1072,7 +1114,9 @@ final class Theme implements ThemeInterface
             echo '<button class="dropdown-item" type="submit">Wyloguj</button></form>';
         }
         echo '</div></div>';
-        echo '</div></header><main id="admin-main" class="admin-content">';
+        echo '</div></header>';
+        $this->renderAdminRolePreview();
+        echo '<main id="admin-main" class="admin-content">';
     }
 
     public function end_admin_page(): void
@@ -1081,6 +1125,13 @@ final class Theme implements ThemeInterface
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/admin.js') . '"></script>';
+        $consoleFile = dirname(__DIR__) . '/shared/assets/js/minecraft-console.js';
+        $consoleVersion = is_file($consoleFile) ? (string) filemtime($consoleFile) : '1';
+        echo '<script src="/templates/shared/assets/js/minecraft-console.js?v='
+            . $this->escape($consoleVersion) . '"></script>';
+        $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
+        $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
+        echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
         $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
         $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script></body></html>';
@@ -1443,7 +1494,9 @@ final class Theme implements ThemeInterface
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
-        echo '</head><body class="admin-stylebook"><main class="container min-vh-100 d-grid align-items-center py-5">';
+        echo '</head><body class="admin-stylebook">';
+        $this->renderAdminRolePreview();
+        echo '<main class="container min-vh-100 d-grid align-items-center py-5">';
         echo '<section class="state-card access-state-card">';
         echo '<span class="state-code">' . $this->escape((string) $status) . '</span>';
         echo '<h1 class="h3">' . $this->escape($title) . '</h1>';
@@ -1467,7 +1520,9 @@ final class Theme implements ThemeInterface
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
-        echo '</head><body class="admin-stylebook"><main class="container py-5">';
+        echo '</head><body class="admin-stylebook">';
+        $this->renderAdminRolePreview();
+        echo '<main class="container py-5">';
         echo '<a class="admin-brand text-decoration-none mb-4" href="index.php?route=/admin">';
         echo $this->brandLogo('admin-brand-logo', 'admin-logo.png') . '<span>miniPORTAL Admin</span></a>';
         echo '<section class="admin-panel mt-4"><div class="admin-panel-header">';
@@ -1505,7 +1560,11 @@ final class Theme implements ThemeInterface
             }
             echo '</td></tr>';
         }
-        echo '</tbody></table></div></section></main></body></html>';
+        echo '</tbody></table></div></section></main>';
+        $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
+        $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
+        echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
+        echo '</body></html>';
     }
 
     public function render_public_page(
@@ -1664,7 +1723,11 @@ final class Theme implements ThemeInterface
         $asideWidgets = is_array($section['widgets_aside'] ?? null) ? $section['widgets_aside'] : [];
         $hasAside = $asideWidgets !== [];
 
-        echo '<header id="' . $this->escape($section['key']) . '" class="home-hero"><div class="container py-5">';
+        echo '<header id="' . $this->escape($section['key']) . '" class="home-hero">';
+        echo '<div class="home-hero-brand-mark" aria-hidden="true"><img src="'
+            . $this->asset('img/brand/hero-syntaxdevteam-logo.png')
+            . '" alt="" width="1304" height="1080" decoding="async"></div>';
+        echo '<div class="container py-5">';
         echo '<div class="row align-items-center g-5"><div class="' . ($hasAside ? 'col-lg-7' : 'col-12') . ' reveal is-visible">';
         if ($section['eyebrow'] !== '') {
             echo '<p class="eyebrow">' . $this->escape($section['eyebrow']) . '</p>';
@@ -2164,6 +2227,19 @@ final class Theme implements ThemeInterface
         $href = trim($href);
 
         return preg_match('~^(?:https?://|mailto:|#|/(?!/)|index\.php(?:\?|$))~i', $href) === 1 ? $href : '';
+    }
+
+    private function renderAdminRolePreview(): void
+    {
+        if ($this->adminRolePreview === null) {
+            return;
+        }
+        echo '<aside class="admin-role-preview" role="status"><div>';
+        echo '<strong>Pokaż jako: ' . $this->escape($this->adminRolePreview['label']) . '</strong>';
+        echo '<span>To bezpieczny podgląd ACL. Operacje zmieniające dane są zablokowane.</span></div>';
+        echo '<form action="' . $this->escape($this->adminRolePreview['stop_action']) . '" method="post">';
+        $this->csrf_field($this->adminRolePreview['csrf_token']);
+        echo '<button class="btn btn-sm btn-dark" type="submit">Zakończ podgląd</button></form></aside>';
     }
 
     private function renderAdminMenu(array $menuItems, string $activePath, bool $mobile = false): void

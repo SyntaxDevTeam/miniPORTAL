@@ -936,6 +936,40 @@
   backdrop-filter: blur(16px);
 }
 
+.home-hero-brand-mark {
+  position: absolute;
+  top: 12%;
+  right: -8rem;
+  display: grid;
+  place-items: center;
+  width: min(42vw, 34rem);
+  aspect-ratio: 1;
+  transform: rotate(32deg);
+  pointer-events: none;
+}
+
+.home-hero-brand-mark img {
+  display: block;
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+  opacity: 0.22;
+  filter: saturate(0.35) brightness(1.18) drop-shadow(0 0 2.5rem rgba(88, 183, 255, 0.22));
+  mix-blend-mode: screen;
+}
+
+@media (max-width: 991.98px) {
+  .home-hero-brand-mark {
+    opacity: 0.48;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .home-hero-brand-mark {
+    display: none;
+  }
+}
+
 .home-title span,
 .hero-metric strong {
   color: var(--mp-cyan);

@@ -18,6 +18,10 @@ interface UserRepositoryInterface
 
     public function touchIdentity(int $userId, string $provider, string $subject): void;
 
+    public function touchSession(int $userId, string $sessionHash): void;
+
+    public function forgetSession(string $sessionHash): void;
+
     public function updateProfile(int $userId, string $displayName, ?string $email): bool;
 
     public function updateAvatar(int $userId, ?string $avatarUrl): bool;

@@ -139,6 +139,7 @@ $firstOwnerBootstrapper = $application->database() !== null
     ? new FirstAdminBootstrapper($application->database())
     : null;
 $auth = new AuthService($userRepository, $security, $firstOwnerBootstrapper);
+$auth->useRolePreview(str_starts_with($application->request()->path(), '/admin'));
 $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
 $audit = new AuditLogService(
@@ -327,6 +328,13 @@ $moduleBootstrapper->register($moduleDefinitions, [
 ], $modules);
 $modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard, $hooks, $seo);
 $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
+$rolePreview = $auth->rolePreview();
+$theme->set_admin_role_preview($rolePreview !== null ? [
+    'role' => $rolePreview['role'],
+    'label' => $rolePreview['label'],
+    'stop_action' => 'index.php?route=/admin/roles/preview/stop',
+    'csrf_token' => $security->csrfToken(),
+] : null);
 
 $publicNavigationItems = static function () use ($pageRepository, $publicNavigation, $application): array {
     $navigation = [];
@@ -525,7 +533,28 @@ $router->post('/security-demo', static function (Request $request) use ($securit
     $renderEnd();
 });
 
-$status = $router->dispatch($application->request());
+$request = $application->request();
+if ($auth->rolePreviewBlocks($request)) {
+    $actor = $auth->actualUser();
+    $audit->record(
+        $request,
+        'role_preview_write_blocked',
+        'forbidden',
+        'path=' . $request->path(),
+        $actor?->id
+    );
+    http_response_code(403);
+    $theme->render_admin_access_state(
+        403,
+        'Tryb podglądu jest tylko do odczytu',
+        'Zakończ podgląd roli, aby wykonać operację zmieniającą dane.',
+        'index.php?route=/admin',
+        'Wróć do dashboardu'
+    );
+    $status = 200;
+} else {
+    $status = $router->dispatch($request);
+}
 
 if ($status === 404) {
     http_response_code(404);

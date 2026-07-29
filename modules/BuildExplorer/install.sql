@@ -24,6 +24,16 @@ CREATE TABLE project_builds (
     UNIQUE KEY uq_project_builds_ci (project_id, channel, server_type, ci_build_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE build_explorer_project_settings (
+    project_id BIGINT UNSIGNED PRIMARY KEY,
+    requires_auth TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_build_explorer_project_settings_project
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    INDEX idx_build_explorer_project_settings_access (requires_auth)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 INSERT IGNORE INTO permissions (name, label) VALUES
     ('builds.view', 'Podgląd buildów projektów'),
     ('builds.manage', 'Zarządzanie buildami projektów');

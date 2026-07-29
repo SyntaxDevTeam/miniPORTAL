@@ -572,7 +572,17 @@ body.admin-stylebook {
   text-decoration: none;
 }
 
-.admin-table-sort span {
+.admin-table-sort-client {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-table-sort > span:last-child {
   color: var(--mp-muted);
   font-size: 0.72rem;
   opacity: 0.55;
@@ -584,7 +594,7 @@ body.admin-stylebook {
   color: var(--mp-primary);
 }
 
-.admin-table-sort.is-active span {
+.admin-table-sort.is-active > span:last-child {
   color: inherit;
   opacity: 1;
 }
@@ -669,6 +679,49 @@ body.admin-stylebook {
 
 .admin-content {
   padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.admin-role-preview {
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem clamp(1rem, 3vw, 1.5rem);
+  color: #1f1600;
+  background: #ffd166;
+  border-bottom: 1px solid rgba(31, 22, 0, 0.28);
+}
+
+.admin-role-preview > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-role-preview strong,
+.admin-role-preview span {
+  color: inherit;
+}
+
+.admin-role-preview span {
+  font-size: 0.82rem;
+}
+
+.admin-role-preview form {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .admin-role-preview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-role-preview .btn {
+    width: 100%;
+  }
 }
 
 .remote-terminal-launch,
@@ -2001,4 +2054,29 @@ body.admin-stylebook.minecraft-theme {
     linear-gradient(180deg, rgba(32, 44, 37, 0.97), rgba(12, 17, 15, 0.97)),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.032) 0 1px, transparent 1px 16px);
   border-color: var(--mp-border);
+}
+.plugin-build-picker {
+  display: grid;
+  gap: .75rem;
+}
+
+.plugin-build-picker__item {
+  margin: 0;
+}
+
+.plugin-build-picker__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.plugin-build-picker__controls label {
+  display: grid;
+  gap: .35rem;
+}
+
+@media (max-width: 720px) {
+  .plugin-build-picker__controls {
+    grid-template-columns: 1fr;
+  }
 }

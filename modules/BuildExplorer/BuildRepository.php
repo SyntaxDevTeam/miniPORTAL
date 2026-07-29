@@ -12,18 +12,23 @@ final class BuildRepository
 {
     private const COLUMNS = 'project_builds.id, project_builds.project_id, projects.name AS project_name, '
         . 'projects.slug AS project_slug, projects.is_published AS project_published, '
+        . 'COALESCE(build_explorer_project_settings.requires_auth, 0) AS project_requires_auth, '
         . 'project_builds.server_type, project_builds.version_label, project_builds.channel, project_builds.build_number, '
         . 'project_builds.filename, project_builds.storage_key, project_builds.download_url, '
         . 'project_builds.checksum_sha256, project_builds.file_size_bytes, '
         . 'project_builds.changelog, project_builds.is_published, project_builds.published_at, '
         . 'project_builds.ci_build_id, project_builds.ci_build_time, project_builds.commits_json';
 
+    private const PROJECT_JOINS = ' JOIN projects ON projects.id = project_builds.project_id '
+        . 'LEFT JOIN build_explorer_project_settings '
+        . 'ON build_explorer_project_settings.project_id = projects.id';
+
     public function __construct(private readonly CrudApp $database) {}
 
     /** @return list<ProjectBuild> */
     public function all(bool $publicOnly = false, ?string $projectSlug = null): array
     {
-        $sql = 'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id';
+        $sql = 'SELECT ' . self::COLUMNS . ' FROM project_builds' . self::PROJECT_JOINS;
         $where = [];
         $parameters = [];
         if ($publicOnly) {
@@ -73,7 +78,7 @@ final class BuildRepository
         $limit = max(1, min(100, $perPage));
         $offset = max(0, ($page - 1) * $limit);
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id'
+            'SELECT ' . self::COLUMNS . ' FROM project_builds' . self::PROJECT_JOINS
             . $where . ' ORDER BY ' . $order . ' ' . $direction . ', project_builds.id ' . $direction
             . ' LIMIT ' . $limit . ' OFFSET ' . $offset,
             $parameters
@@ -82,23 +87,30 @@ final class BuildRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /** @return array{total: int, published: int, local: int, registered_bytes: int, release: int, snapshot: int, dev: int, wip: int} */
+    /** @return array{total: int, published: int, public_available: int, authenticated_available: int, local: int, registered_bytes: int, release: int, snapshot: int, dev: int, wip: int} */
     public function statistics(): array
     {
         $statement = $this->database->query(
             "SELECT COUNT(*) AS total, "
-            . "COALESCE(SUM(is_published = 1), 0) AS published, "
-            . "COALESCE(SUM(storage_key IS NOT NULL AND storage_key <> ''), 0) AS local, "
-            . "COALESCE(SUM(CASE WHEN storage_key IS NOT NULL AND storage_key <> '' THEN file_size_bytes ELSE 0 END), 0) AS registered_bytes, "
-            . "COALESCE(SUM(channel = 'release'), 0) AS release_count, "
-            . "COALESCE(SUM(channel = 'snapshot'), 0) AS snapshot_count, "
-            . "COALESCE(SUM(channel = 'dev'), 0) AS dev_count, "
-            . "COALESCE(SUM(channel = 'wip'), 0) AS wip_count FROM project_builds"
+            . "COALESCE(SUM(project_builds.is_published = 1), 0) AS published, "
+            . "COALESCE(SUM(project_builds.is_published = 1 AND projects.is_published = 1 "
+            . "AND COALESCE(build_explorer_project_settings.requires_auth, 0) = 0), 0) AS public_available, "
+            . "COALESCE(SUM(project_builds.is_published = 1 AND projects.is_published = 1), 0) AS authenticated_available, "
+            . "COALESCE(SUM(project_builds.storage_key IS NOT NULL AND project_builds.storage_key <> ''), 0) AS local, "
+            . "COALESCE(SUM(CASE WHEN project_builds.storage_key IS NOT NULL AND project_builds.storage_key <> '' "
+            . "THEN project_builds.file_size_bytes ELSE 0 END), 0) AS registered_bytes, "
+            . "COALESCE(SUM(project_builds.channel = 'release'), 0) AS release_count, "
+            . "COALESCE(SUM(project_builds.channel = 'snapshot'), 0) AS snapshot_count, "
+            . "COALESCE(SUM(project_builds.channel = 'dev'), 0) AS dev_count, "
+            . "COALESCE(SUM(project_builds.channel = 'wip'), 0) AS wip_count "
+            . "FROM project_builds" . self::PROJECT_JOINS
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row)) { throw new RuntimeException('Nie można pobrać statystyk buildów.'); }
         return [
             'total' => (int) $row['total'], 'published' => (int) $row['published'],
+            'public_available' => (int) $row['public_available'],
+            'authenticated_available' => (int) $row['authenticated_available'],
             'local' => (int) $row['local'], 'registered_bytes' => (int) $row['registered_bytes'],
             'release' => (int) $row['release_count'], 'snapshot' => (int) $row['snapshot_count'],
             'dev' => (int) $row['dev_count'], 'wip' => (int) $row['wip_count'],
@@ -108,7 +120,7 @@ final class BuildRepository
     public function find(int $id): ?ProjectBuild
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id '
+            'SELECT ' . self::COLUMNS . ' FROM project_builds' . self::PROJECT_JOINS . ' '
             . 'WHERE project_builds.id = :id LIMIT 1', [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -118,7 +130,7 @@ final class BuildRepository
     public function findPublic(int $id): ?ProjectBuild
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id '
+            'SELECT ' . self::COLUMNS . ' FROM project_builds' . self::PROJECT_JOINS . ' '
             . 'WHERE project_builds.id = :id AND project_builds.is_published = 1 '
             . 'AND projects.is_published = 1 LIMIT 1', [':id' => $id]
         );
@@ -129,7 +141,7 @@ final class BuildRepository
     public function findCi(int $projectId, string $channel, string $serverType, int $ciBuildId): ?ProjectBuild
     {
         $statement = $this->database->query(
-            'SELECT ' . self::COLUMNS . ' FROM project_builds JOIN projects ON projects.id = project_builds.project_id '
+            'SELECT ' . self::COLUMNS . ' FROM project_builds' . self::PROJECT_JOINS . ' '
             . 'WHERE project_builds.project_id = :project_id AND project_builds.channel = :channel '
             . 'AND project_builds.server_type = :server_type AND project_builds.ci_build_id = :ci_build_id LIMIT 1',
             [
@@ -173,15 +185,20 @@ final class BuildRepository
     }
 
     /** @return list<array{id: int, name: string, slug: string, build_count: int}> */
-    public function publicProjects(): array
+    public function publicProjects(bool $authenticated): array
     {
         $statement = $this->database->query(
             'SELECT projects.id, projects.name, projects.slug, COUNT(project_builds.id) AS build_count '
             . 'FROM projects LEFT JOIN project_builds ON project_builds.project_id = projects.id '
-            . 'AND project_builds.is_published = 1 WHERE projects.is_published = 1 '
-            . 'GROUP BY projects.id, projects.name, projects.slug '
+            . 'AND project_builds.is_published = 1 '
+            . 'LEFT JOIN build_explorer_project_settings '
+            . 'ON build_explorer_project_settings.project_id = projects.id '
+            . 'WHERE projects.is_published = 1 '
+            . 'AND (COALESCE(build_explorer_project_settings.requires_auth, 0) = 0 OR :authenticated = 1) '
+            . 'GROUP BY projects.id, projects.name, projects.slug, build_explorer_project_settings.requires_auth '
             . 'HAVING build_count > 0 '
-            . 'ORDER BY projects.sort_order, projects.name'
+            . 'ORDER BY projects.sort_order, projects.name',
+            [':authenticated' => $authenticated ? 1 : 0]
         );
         if ($statement === null) { throw new RuntimeException('Nie można pobrać projektów Build Explorera.'); }
 
@@ -199,6 +216,64 @@ final class BuildRepository
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'slug' => (string) $row['slug']] : null;
+    }
+
+    /** @return array{id: int, name: string, slug: string, requires_auth: bool}|null */
+    public function publicProjectBySlug(string $slug): ?array
+    {
+        $statement = $this->database->query(
+            'SELECT projects.id, projects.name, projects.slug, '
+            . 'COALESCE(build_explorer_project_settings.requires_auth, 0) AS requires_auth '
+            . 'FROM projects LEFT JOIN build_explorer_project_settings '
+            . 'ON build_explorer_project_settings.project_id = projects.id '
+            . 'WHERE projects.slug = :slug AND projects.is_published = 1 LIMIT 1',
+            [':slug' => $slug]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+            'slug' => (string) $row['slug'],
+            'requires_auth' => (bool) $row['requires_auth'],
+        ] : null;
+    }
+
+    /** @return list<array{id: int, name: string, slug: string, published: bool, requires_auth: bool, build_count: int}> */
+    public function projectAccessSettings(): array
+    {
+        $statement = $this->database->query(
+            'SELECT projects.id, projects.name, projects.slug, projects.is_published, '
+            . 'COALESCE(build_explorer_project_settings.requires_auth, 0) AS requires_auth, '
+            . 'COUNT(project_builds.id) AS build_count '
+            . 'FROM projects LEFT JOIN build_explorer_project_settings '
+            . 'ON build_explorer_project_settings.project_id = projects.id '
+            . 'LEFT JOIN project_builds ON project_builds.project_id = projects.id '
+            . 'GROUP BY projects.id, projects.name, projects.slug, projects.is_published, '
+            . 'build_explorer_project_settings.requires_auth '
+            . 'ORDER BY projects.sort_order, projects.name'
+        );
+        if ($statement === null) { throw new RuntimeException('Nie można pobrać widoczności projektów Build Explorera.'); }
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+            'slug' => (string) $row['slug'],
+            'published' => (bool) $row['is_published'],
+            'requires_auth' => (bool) $row['requires_auth'],
+            'build_count' => (int) $row['build_count'],
+        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function setProjectRequiresAuth(int $projectId, bool $requiresAuth): bool
+    {
+        $statement = $this->database->query(
+            'INSERT INTO build_explorer_project_settings (project_id, requires_auth) '
+            . 'VALUES (:project_id, :requires_auth) '
+            . 'ON DUPLICATE KEY UPDATE requires_auth = VALUES(requires_auth), updated_at = CURRENT_TIMESTAMP',
+            [':project_id' => $projectId, ':requires_auth' => $requiresAuth ? 1 : 0]
+        );
+
+        return $statement !== null;
     }
 
     /** @return list<string> */
@@ -269,7 +344,8 @@ final class BuildRepository
     {
         return new ProjectBuild(
             (int) $row['id'], (int) $row['project_id'], (string) $row['project_name'],
-            (string) $row['project_slug'], (bool) $row['project_published'], (string) $row['server_type'],
+            (string) $row['project_slug'], (bool) $row['project_published'],
+            (bool) $row['project_requires_auth'], (string) $row['server_type'],
             (string) $row['version_label'], (string) $row['channel'], (string) $row['build_number'],
             (string) $row['filename'], (string) ($row['storage_key'] ?? ''), (string) ($row['download_url'] ?? ''),
             (string) ($row['checksum_sha256'] ?? ''), $row['file_size_bytes'] !== null ? (int) $row['file_size_bytes'] : null,

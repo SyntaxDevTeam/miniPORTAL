@@ -64,7 +64,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.8.0',
+        'version' => '0.9.0',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -133,6 +133,58 @@ return [
         'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
         'media_upload_max_bytes' => $envInt('MEDIA_UPLOAD_MAX_BYTES', 5242880, 1024),
         'minecraft_console_upload_max_bytes' => $envInt('MINECRAFT_CONSOLE_UPLOAD_MAX_BYTES', 5242880, 1024),
+        'mc_server_installer_root' => trim((string) $env(
+            'MC_SERVER_INSTALLER_ROOT',
+            '/home/debian/server'
+        )),
+        'mc_server_installer_java_binary' => trim((string) $env(
+            'MC_SERVER_INSTALLER_JAVA_BINARY',
+            '/usr/bin/java'
+        )),
+        'mc_server_installer_upload_max_bytes' => $envInt(
+            'MC_SERVER_INSTALLER_UPLOAD_MAX_BYTES',
+            536870912,
+            1048576
+        ),
+        'mc_server_installer_papermc_user_agent' => trim((string) $env(
+            'MC_SERVER_INSTALLER_PAPERMC_USER_AGENT',
+            'SyntaxDevTeam/MCServerInstaller/0.7.2 (https://syntaxdevteam.pl)'
+        )),
+        'mc_server_installer_papermc_timeout' => $envInt('MC_SERVER_INSTALLER_PAPERMC_TIMEOUT', 20, 5),
+        'mc_server_installer_papermc_catalog_ttl' => $envInt('MC_SERVER_INSTALLER_PAPERMC_CATALOG_TTL', 900, 60),
+        'mc_server_installer_buildtools_java_8' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_JAVA_8',
+            '/usr/lib/jvm/java-8-openjdk-amd64/bin/java'
+        )),
+        'mc_server_installer_buildtools_java_16' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_JAVA_16',
+            '/usr/lib/jvm/java-16-openjdk-amd64/bin/java'
+        )),
+        'mc_server_installer_buildtools_java_17' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_JAVA_17',
+            '/usr/lib/jvm/java-17-openjdk-amd64/bin/java'
+        )),
+        'mc_server_installer_buildtools_java_21' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_JAVA_21',
+            '/usr/lib/jvm/java-21-amazon-corretto/bin/java'
+        )),
+        'mc_server_installer_buildtools_java_25' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_JAVA_25',
+            '/usr/lib/jvm/java-25-amazon-corretto/bin/java'
+        )),
+        'mc_server_installer_buildtools_git_binary' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_GIT_BINARY',
+            '/usr/bin/git'
+        )),
+        'mc_server_installer_buildtools_bash_binary' => trim((string) $env(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_BASH_BINARY',
+            '/usr/bin/bash'
+        )),
+        'mc_server_installer_buildtools_timeout' => $envInt(
+            'MC_SERVER_INSTALLER_BUILDTOOLS_TIMEOUT',
+            7200,
+            60
+        ),
         'tinify_enabled' => $envBool('TINIFY_ENABLED', (string) $env('TINIFY_API_KEY', '') !== ''),
         'tinify_api_key' => trim((string) $env('TINIFY_API_KEY', '')),
         'tinify_monthly_limit' => $envInt('TINIFY_MONTHLY_LIMIT', 500, 1),

@@ -18,6 +18,8 @@ final readonly class UserAdminRecord
         public array $roles,
         public array $providers,
         public ?string $lastLoginAt,
+        public ?string $lastActivityAt,
+        public bool $online,
         public string $createdAt,
     ) {
     }

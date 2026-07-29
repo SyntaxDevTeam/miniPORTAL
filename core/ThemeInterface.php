@@ -10,6 +10,11 @@ interface ThemeInterface
     public function set_admin_search_items(array $items): void;
 
     /**
+     * @param array{role:string,label:string,stop_action:string,csrf_token:string}|null $preview
+     */
+    public function set_admin_role_preview(?array $preview): void;
+
+    /**
      * @param list<array{
      *     key: string,
      *     type: string,

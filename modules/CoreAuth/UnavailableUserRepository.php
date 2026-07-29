@@ -34,6 +34,14 @@ final class UnavailableUserRepository implements UserRepositoryInterface
     {
     }
 
+    public function touchSession(int $userId, string $sessionHash): void
+    {
+    }
+
+    public function forgetSession(string $sessionHash): void
+    {
+    }
+
     public function updateProfile(int $userId, string $displayName, ?string $email): bool
     {
         return false;

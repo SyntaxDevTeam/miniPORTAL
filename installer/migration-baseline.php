@@ -23,6 +23,7 @@ return array (
       '20260619_local_artifact_upload.sql' => 'cf1bdb3b0c557eed634b61dcdd0da4f0ca04e3ec36541ed8954f14952e6a2aa1',
       '20260620_ci_build_history.sql' => '7a22e16b49b418672d365675a990516793abae8ae57de6b771449ffb01918e8e',
       '20260726_version_scoped_ci_build_numbers.sql' => '4b15604d99f18101bef46ec273d839e96ab2926aba5d3e305d6746f96c830a9d',
+      '20260728_project_access.sql' => 'dce11fb4867e38918f0ce6136a09b5b8277f57dcb648c00d3e619c2780df0c6a',
     ),
     'core_auth' =>
     array (
@@ -30,6 +31,7 @@ return array (
       '20260615_system_logs_permission.sql' => 'dbd7adf01c4feb09d884d2e4484294409679aec402bb1a19b53eca786a507e3b',
       '20260617_database_view_permission.sql' => 'ee56a79d852e9ba52bbc0e07c81c59d4c791f8b2383cd083fa6779cf16abc386',
       '20260620_owner_and_operational_roles.sql' => '2046f785565f34d95263a7bb6890577fcf647308a57cabf03328197c408a05c5',
+      '20260728_active_sessions.sql' => '6982e0b2f937e694a31ed5a2444591ff2ab0fce29e75606fda6211c890397761',
     ),
     'core_pages' =>
     array (

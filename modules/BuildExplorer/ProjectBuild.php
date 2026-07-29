@@ -12,6 +12,7 @@ final readonly class ProjectBuild
         public string $projectName,
         public string $projectSlug,
         public bool $projectPublished,
+        public bool $projectRequiresAuth,
         public string $serverType,
         public string $versionLabel,
         public string $channel,

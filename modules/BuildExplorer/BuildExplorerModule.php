@@ -44,7 +44,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '1.7.0'; }
+    public function version(): string { return '1.8.1'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -66,10 +66,13 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerDashboard(DashboardRegistry $dashboard): void
     {
-        $dashboard->addMetric('builds.published', 'Opublikowane buildy', 'Buildy widoczne w publicznym Build Explorerze.', 'BLD', function (): array {
-            $all = $this->builds->all();
-            $published = count(array_filter($all, static fn (ProjectBuild $build): bool => $build->published));
-            return ['value' => $published, 'detail' => count($all) . ' wszystkich buildów'];
+        $dashboard->addMetric('builds.published', 'Publiczne buildy', 'Buildy widoczne bez logowania.', 'BLD', function (): array {
+            $statistics = $this->builds->statistics();
+            return [
+                'value' => $statistics['public_available'],
+                'detail' => $statistics['authenticated_available'] . ' dostępnych po zalogowaniu; '
+                    . $statistics['total'] . ' wszystkich buildów',
+            ];
         }, 'builds.view', 115);
         $dashboard->addMetric('builds.storage', 'Magazyn buildów', 'Fizyczne miejsce zajęte przez lokalne artefakty.', 'DSK', function (): array {
             $storage = $this->storage->statistics();
@@ -102,6 +105,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $router->get('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderEdit($request)));
         $router->post('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request, $this->builds->find($request->postInt('id', 0) ?? 0))));
         $router->post('/admin/builds/delete', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->delete($request)));
+        $router->post('/admin/builds/project-visibility', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->updateProjectVisibility($request)));
     }
 
     public function registerSeo(SeoIndex $seo): void
@@ -111,7 +115,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     private function renderPublicProjects(): void
     {
-        $projects = $this->builds->publicProjects();
+        $projects = $this->builds->publicProjects($this->auth->actualUser() !== null);
         $this->theme->start_page('Build Explorer - SyntaxDevTeam', 'Downloadable SyntaxDevTeam project versions.', false);
         $this->theme->start_header('Build Explorer', 'Choose a project to browse its release channels.', 'Build');
         $this->theme->end_header();
@@ -123,7 +127,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $this->theme->start_grid();
             foreach ($projects as $project) {
                 $this->theme->start_column(count($projects) === 1 ? '12' : (count($projects) === 2 || count($projects) === 4 ? 'lg-6' : 'lg-4'));
-                $this->theme->start_card($project['name'], $project['build_count'] . ' public builds');
+                $this->theme->start_card($project['name'], $project['build_count'] . ' available builds');
                 $this->theme->render_link_list([['label' => 'Release channels', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP']]);
                 $this->theme->end_card();
                 $this->theme->end_column();
@@ -136,9 +140,10 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     private function renderPublicChannels(string $slug): void
     {
-        $project = $this->builds->projectBySlug($slug);
+        $project = $this->accessiblePublicProject($slug, '/builds/' . rawurlencode($slug));
+        if ($project === null) { return; }
         $builds = $this->builds->all(true, $slug);
-        if ($project === null || $builds === []) { $this->publicNotFound(); return; }
+        if ($builds === []) { $this->publicNotFound(); return; }
         $available = [];
         foreach ($builds as $build) { $available[$build->channel] = ($available[$build->channel] ?? 0) + 1; }
         $this->theme->start_page($project['name'] . ' - Build Explorer', 'Project release channels.', false);
@@ -156,6 +161,11 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     private function renderPublicVersions(string $slug, string $channel): void
     {
         if (!isset(self::CHANNELS[$channel])) { $this->publicNotFound(); return; }
+        $project = $this->accessiblePublicProject(
+            $slug,
+            '/builds/' . rawurlencode($slug) . '/' . rawurlencode($channel)
+        );
+        if ($project === null) { return; }
         $builds = array_values(array_filter($this->builds->all(true, $slug), static fn (ProjectBuild $build): bool => $build->channel === $channel));
         if ($builds === []) { $this->publicNotFound(); return; }
         $latest = [];
@@ -174,6 +184,12 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     private function renderPublicHistory(string $slug, string $channel, string $version): void
     {
+        if (!isset(self::CHANNELS[$channel])) { $this->publicNotFound(); return; }
+        $project = $this->accessiblePublicProject(
+            $slug,
+            '/builds/' . rawurlencode($slug) . '/' . rawurlencode($channel) . '/' . rawurlencode($version)
+        );
+        if ($project === null) { return; }
         $builds = array_values(array_filter($this->builds->all(true, $slug), static fn (ProjectBuild $build): bool => $build->channel === $channel && $build->versionLabel === $version));
         if ($builds === []) { $this->publicNotFound(); return; }
         $this->theme->start_page($builds[0]->projectName . ' ' . $version, 'Build and commit history.', false);
@@ -444,9 +460,37 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->theme->render_public_error(404, 'Builds not found', 'The selected project, channel or version has no public builds.', 'Back to Build Explorer', '/builds');
     }
 
+    /** @return array{id: int, name: string, slug: string, requires_auth: bool}|null */
+    private function accessiblePublicProject(string $slug, string $returnPath): ?array
+    {
+        $project = $this->builds->publicProjectBySlug($slug);
+        if ($project === null) {
+            $this->publicNotFound();
+            return null;
+        }
+        if ($project['requires_auth'] && $this->auth->actualUser() === null) {
+            $this->publicLoginRequired($returnPath);
+            return null;
+        }
+
+        return $project;
+    }
+
+    private function publicLoginRequired(string $returnPath): void
+    {
+        http_response_code(401);
+        $this->theme->render_public_error(
+            401,
+            'Login required',
+            'This Build Explorer project is available only to signed-in users.',
+            'Sign in',
+            'index.php?' . http_build_query(['route' => '/admin/login', 'next' => $returnPath])
+        );
+    }
+
     private function downloadHref(ProjectBuild $build): string
     {
-        return $build->storageKey !== '' ? 'index.php?route=/builds/download&id=' . $build->id : $build->downloadUrl;
+        return 'index.php?route=/builds/download&id=' . $build->id;
     }
 
     private function renderAdmin(Request $request, string $message = '', string $variant = 'info'): void
@@ -481,7 +525,16 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->theme->start_admin_panel('Statystyki buildów', 'Stan magazynu i katalogu');
         $this->theme->render_admin_fact_grid([
             ['label' => 'Wszystkie buildy', 'value' => (string) $statistics['total'], 'detail' => 'W całym katalogu'],
-            ['label' => 'Opublikowane', 'value' => (string) $statistics['published'], 'detail' => ($statistics['total'] - $statistics['published']) . ' ukrytych'],
+            [
+                'label' => 'Publicznie dostępne',
+                'value' => (string) $statistics['public_available'],
+                'detail' => $statistics['authenticated_available'] . ' dostępnych po zalogowaniu',
+            ],
+            [
+                'label' => 'Publikacja buildu włączona',
+                'value' => (string) $statistics['published'],
+                'detail' => ($statistics['total'] - $statistics['published']) . ' buildów z wyłączoną publikacją',
+            ],
             ['label' => 'Lokalne artefakty', 'value' => (string) $statistics['local'], 'detail' => ($statistics['total'] - $statistics['local']) . ' linków zewnętrznych'],
             ['label' => 'Rozmiar wg bazy', 'value' => $this->fileSize($statistics['registered_bytes']), 'detail' => 'Suma lokalnych artefaktów przypisanych do buildów'],
             ['label' => 'Pliki na dysku', 'value' => (string) $storage['files'], 'detail' => 'Faktyczna zawartość magazynu buildów'],
@@ -497,12 +550,66 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             ),
         ]);
         $this->theme->end_admin_panel();
+        $projectAccess = $this->builds->projectAccessSettings();
+        $this->theme->start_admin_panel(
+            'Widoczność projektów',
+            'Dostęp Build Explorera działa dopiero po opublikowaniu projektu w module Projekty. '
+                . 'Domyślnie opublikowany projekt i jego opublikowane buildy są publiczne.'
+        );
+        if ($projectAccess === []) {
+            $this->theme->render_alert('Brak projektów do skonfigurowania.', 'info');
+        } else {
+            $accessRows = [];
+            foreach ($projectAccess as $project) {
+                $actions = [];
+                if ($this->hasPermission('builds.manage')) {
+                    $actions[] = [
+                        'label' => $project['requires_auth'] ? 'Ustaw publiczny' : 'Tylko zalogowani',
+                        'action' => 'index.php?route=/admin/builds/project-visibility',
+                        'fields' => [
+                            'project_id' => $project['id'],
+                            'requires_auth' => $project['requires_auth'] ? '0' : '1',
+                        ],
+                        'variant' => $project['requires_auth'] ? 'outline-light' : 'primary',
+                    ];
+                }
+                if ($this->hasPermission('projects.manage')) {
+                    $actions[] = [
+                        'label' => 'Edytuj projekt',
+                        'href' => 'index.php?route=/admin/projects/edit&id=' . $project['id'],
+                        'variant' => 'outline-light',
+                    ];
+                }
+                $accessRows[] = [
+                    'cells' => [
+                        $project['name'],
+                        $project['slug'],
+                        (string) $project['build_count'],
+                        $project['published'] ? 'Opublikowany' : 'Nieopublikowany',
+                        $project['requires_auth'] ? 'Tylko zalogowani' : 'Publiczny',
+                    ],
+                    'actions' => $actions,
+                ];
+            }
+            $this->theme->render_admin_action_table(
+                ['Projekt', 'Slug', 'Buildy', 'Katalog projektów', 'Dostęp w Build Explorerze'],
+                $accessRows,
+                $this->security->csrfToken()
+            );
+        }
+        $this->theme->end_admin_panel();
         $filterFields = [
             ['name' => 'route', 'label' => 'Trasa', 'type' => 'hidden', 'value' => '/admin/builds'],
             ['name' => 'search', 'label' => 'Szukaj', 'value' => $filters['search'], 'placeholder' => 'Projekt, wersja, plik lub platforma'],
             ['name' => 'project_id', 'label' => 'Projekt', 'type' => 'select', 'value' => (string) $filters['project_id'], 'options' => $projectOptions],
             ['name' => 'channel', 'label' => 'Kanał', 'type' => 'select', 'value' => $filters['channel'], 'options' => ['' => 'Wszystkie kanały'] + self::CHANNELS],
-            ['name' => 'published', 'label' => 'Publikacja', 'type' => 'select', 'value' => $filters['published'], 'options' => ['' => 'Wszystkie', '1' => 'Publiczne', '0' => 'Ukryte']],
+            [
+                'name' => 'published',
+                'label' => 'Publikacja buildu',
+                'type' => 'select',
+                'value' => $filters['published'],
+                'options' => ['' => 'Wszystkie', '1' => 'Włączona', '0' => 'Wyłączona'],
+            ],
             ['name' => 'per_page', 'label' => 'Na stronę', 'type' => 'select', 'value' => (string) $perPage, 'options' => ['10' => '10', '25' => '25', '50' => '50', '100' => '100']],
             ['name' => 'sort', 'label' => 'Sortowanie', 'type' => 'hidden', 'value' => $sort],
             ['name' => 'direction', 'label' => 'Kierunek', 'type' => 'hidden', 'value' => $direction],
@@ -545,7 +652,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                         self::CHANNELS[$build->channel],
                         $build->filename,
                         $this->fileSize($build->fileSizeBytes),
-                        $build->published ? 'Publiczny' : 'Ukryty',
+                        $this->effectiveVisibilityLabel($build),
                     ],
                     'actions' => [[
                         'label' => 'Edytuj', 'href' => 'index.php?route=/admin/builds/edit&id=' . $build->id, 'variant' => 'primary',
@@ -565,7 +672,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                 $sortableHeader('Kanał', 'channel'),
                 $sortableHeader('Plik', 'filename'),
                 $sortableHeader('Rozmiar', 'size'),
-                $sortableHeader('Publikacja', 'published'),
+                $sortableHeader('Widoczność', 'published'),
             ], $rows, $this->security->csrfToken());
         }
         if ($page > 1) {
@@ -703,13 +810,64 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->renderAdmin($request, $ok ? 'Build został usunięty.' : 'Nie udało się usunąć buildu.', $ok ? 'success' : 'danger');
     }
 
+    private function updateProjectVisibility(Request $request): void
+    {
+        $actor = $this->auth->actualUser();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'build_project_visibility_update', 'invalid_csrf', 'builds', $actor?->id);
+            $this->renderAdmin($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $projectId = $request->postInt('project_id', 0) ?? 0;
+        $access = $request->postString('requires_auth');
+        $projects = $this->builds->projectOptions();
+        if (!isset($projects[$projectId]) || !in_array($access, ['0', '1'], true)) {
+            $this->audit->record($request, 'build_project_visibility_update', 'invalid_input', 'project:' . $projectId, $actor?->id);
+            $this->renderAdmin($request, 'Nieprawidłowy projekt lub poziom dostępu.', 'warning');
+            return;
+        }
+
+        $requiresAuth = $access === '1';
+        $ok = $this->builds->setProjectRequiresAuth($projectId, $requiresAuth);
+        $this->audit->record(
+            $request,
+            'build_project_visibility_update',
+            $ok ? 'success' : 'failed',
+            'project:' . $projectId,
+            $actor?->id
+        );
+        $this->renderAdmin(
+            $request,
+            $ok
+                ? 'Widoczność projektu „' . $projects[$projectId] . '” została zmieniona na: '
+                    . ($requiresAuth ? 'tylko zalogowani.' : 'publiczny.')
+                : 'Nie udało się zmienić widoczności projektu.',
+            $ok ? 'success' : 'danger'
+        );
+    }
+
     private function download(Request $request): void
     {
         $build = $this->builds->findPublic($request->queryInt('id', 0) ?? 0);
-        $path = $build instanceof ProjectBuild ? $this->storage->path($build->storageKey) : null;
-        if (!$build instanceof ProjectBuild || $path === null) {
+        if (!$build instanceof ProjectBuild) {
             http_response_code(404);
             $this->theme->render_public_error(404, 'File unavailable', 'No published JAR file was found.', 'Back to downloads', '/builds'); return;
+        }
+        if ($build->projectRequiresAuth && $this->auth->actualUser() === null) {
+            $this->publicLoginRequired('index.php?route=/builds/download&id=' . $build->id);
+            return;
+        }
+        $path = $this->storage->path($build->storageKey);
+        if ($path === null) {
+            if (filter_var($build->downloadUrl, FILTER_VALIDATE_URL) !== false
+                && str_starts_with(strtolower($build->downloadUrl), 'https://')
+            ) {
+                header('Location: ' . $build->downloadUrl, true, 302);
+                return;
+            }
+            http_response_code(404);
+            $this->theme->render_public_error(404, 'File unavailable', 'No published JAR file was found.', 'Back to downloads', '/builds');
+            return;
         }
         DownloadResponse::send($path, $build->filename, 'application/java-archive', false);
     }
@@ -736,6 +894,22 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     }
     private function endPage(): void { $this->theme->end_admin_content(); $this->theme->end_admin_page(); }
     private function bounded(string $value, int $max): string { return function_exists('mb_substr') ? mb_substr(trim($value), 0, $max) : substr(trim($value), 0, $max); }
+    private function hasPermission(string $permission): bool
+    {
+        $permissions = $this->auth->user()?->permissions ?? [];
+        return in_array('*', $permissions, true) || in_array($permission, $permissions, true);
+    }
+    private function effectiveVisibilityLabel(ProjectBuild $build): string
+    {
+        if (!$build->published) {
+            return 'Build ukryty';
+        }
+        if (!$build->projectPublished) {
+            return 'Projekt nieopublikowany';
+        }
+
+        return $build->projectRequiresAuth ? 'Tylko zalogowani' : 'Publiczny';
+    }
     /** @param array<int, string> $options @return array<string, string> */
     private function stringOptions(array $options): array { $result = []; foreach ($options as $id => $label) { $result[(string) $id] = $label; } return $result; }
     private function fileSize(?int $bytes): string

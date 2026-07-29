@@ -35,6 +35,19 @@ use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetStorage;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaOptimizationUsageRepository;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaLibraryModule;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\TinifyImageOptimizer;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\BuildExplorerPluginResolver;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\CommonPluginCatalog;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\EngineVersionCatalog;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\LeavesDownloadsClient;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallationRepository;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallationStorage;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallerModule;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PaperMcDownloadsClient;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PufferfishDownloadsClient;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PurpurDownloadsClient;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MojangDownloadsClient;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\ServerEngineCatalog;
+use SyntaxDevTeam\Cms\Modules\MCServerInstaller\SpigotVersionsClient;
 use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleModule;
 use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
@@ -227,7 +240,8 @@ return [
             $services['security'],
             $services['audit'],
             $services['rate_limiter'],
-            $services['config']['modules'] ?? []
+            $services['config']['modules'] ?? [],
+            $services['template_cache']
         ),
     ],
     [
@@ -349,6 +363,95 @@ return [
             dirname(__DIR__) . '/cache/minecraft-console',
             (int) ($services['config']['modules']['minecraft_console_upload_max_bytes'] ?? 5242880)
         ),
+    ],
+    [
+        'directory' => 'MCServerInstaller',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static function (array $services): MCServerInstallerModule {
+            $moduleConfig = $services['config']['modules'] ?? [];
+            $userAgent = (string) ($moduleConfig['mc_server_installer_papermc_user_agent']
+                ?? 'SyntaxDevTeam/MCServerInstaller/0.7.2 (https://syntaxdevteam.pl)');
+            $timeout = (int) ($moduleConfig['mc_server_installer_papermc_timeout'] ?? 20);
+            $maxBytes = (int) ($moduleConfig['mc_server_installer_upload_max_bytes'] ?? 536870912);
+            $buildStorage = new BuildArtifactStorage(
+                dirname(__DIR__) . '/cache/build-artifacts',
+                (int) ($moduleConfig['build_upload_max_bytes'] ?? 20971520)
+            );
+            $paperMc = new PaperMcDownloadsClient(
+                $userAgent,
+                dirname(__DIR__) . '/cache/mc-server-installer-downloads',
+                $timeout,
+                (int) ($moduleConfig['mc_server_installer_papermc_catalog_ttl'] ?? 900),
+                $maxBytes
+            );
+            $purpur = new PurpurDownloadsClient(
+                $userAgent,
+                dirname(__DIR__) . '/cache/mc-server-installer-purpur',
+                $timeout,
+                $maxBytes
+            );
+            $mojang = new MojangDownloadsClient(
+                $userAgent,
+                dirname(__DIR__) . '/cache/mc-server-installer-mojang',
+                $timeout,
+                $maxBytes
+            );
+            $pufferfish = new PufferfishDownloadsClient(
+                $userAgent,
+                dirname(__DIR__) . '/cache/mc-server-installer-pufferfish',
+                $timeout,
+                $maxBytes
+            );
+            $leaves = new LeavesDownloadsClient(
+                $userAgent,
+                dirname(__DIR__) . '/cache/mc-server-installer-leaves',
+                $timeout,
+                $maxBytes
+            );
+
+            return new MCServerInstallerModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new MCServerInstallationRepository($services['database']),
+                new ServerEngineCatalog(),
+                new MCServerInstallationStorage(
+                    (string) ($moduleConfig['mc_server_installer_root']
+                        ?? '/home/debian/server'),
+                    (string) ($moduleConfig['mc_server_installer_java_binary'] ?? '/usr/bin/java'),
+                    (int) ($moduleConfig['mc_server_installer_upload_max_bytes'] ?? 536870912)
+                ),
+                $services['auth'],
+                $services['security'],
+                $services['audit'],
+                new BuildExplorerPluginResolver(
+                    new BuildRepository($services['database']),
+                    $buildStorage
+                ),
+                new CommonPluginCatalog(
+                    $userAgent,
+                    dirname(__DIR__) . '/cache/mc-server-installer-common-plugins',
+                    $timeout,
+                    min($maxBytes, 67108864)
+                ),
+                $paperMc,
+                $purpur,
+                $mojang,
+                new EngineVersionCatalog(
+                    $paperMc,
+                    $purpur,
+                    $mojang,
+                    $pufferfish,
+                    $leaves,
+                    new SpigotVersionsClient(
+                        $userAgent,
+                        dirname(__DIR__) . '/cache/mc-server-installer-spigot-versions',
+                        $timeout,
+                        (int) ($moduleConfig['mc_server_installer_papermc_catalog_ttl'] ?? 900)
+                    )
+                ),
+                new MinecraftConsoleRepository($services['database'])
+            );
+        },
     ],
     [
         'directory' => 'Uptime',

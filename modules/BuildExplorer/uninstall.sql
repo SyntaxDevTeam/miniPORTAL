@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS build_explorer_project_settings;
 DROP TABLE IF EXISTS project_builds;
 DELETE role_permissions FROM role_permissions
 JOIN permissions ON permissions.id = role_permissions.permission_id

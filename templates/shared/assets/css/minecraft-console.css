@@ -1,0 +1,46 @@
+.minecraft-console__fg-black { color: #000000; }
+.minecraft-console__fg-red { color: #aa0000; }
+.minecraft-console__fg-green { color: #00aa00; }
+.minecraft-console__fg-yellow { color: #ffaa00; }
+.minecraft-console__fg-blue { color: #0000aa; }
+.minecraft-console__fg-magenta { color: #aa00aa; }
+.minecraft-console__fg-cyan { color: #00aaaa; }
+.minecraft-console__fg-white { color: #aaaaaa; }
+.minecraft-console__fg-bright-black { color: #555555; }
+.minecraft-console__fg-bright-red { color: #ff5555; }
+.minecraft-console__fg-bright-green { color: #55ff55; }
+.minecraft-console__fg-bright-yellow { color: #ffff55; }
+.minecraft-console__fg-bright-blue { color: #5555ff; }
+.minecraft-console__fg-bright-magenta { color: #ff55ff; }
+.minecraft-console__fg-bright-cyan { color: #55ffff; }
+.minecraft-console__fg-bright-white { color: #ffffff; }
+
+.minecraft-console__bg-black { background-color: #000000; }
+.minecraft-console__bg-red { background-color: #aa0000; }
+.minecraft-console__bg-green { background-color: #00aa00; }
+.minecraft-console__bg-yellow { background-color: #ffaa00; }
+.minecraft-console__bg-blue { background-color: #0000aa; }
+.minecraft-console__bg-magenta { background-color: #aa00aa; }
+.minecraft-console__bg-cyan { background-color: #00aaaa; }
+.minecraft-console__bg-white { background-color: #aaaaaa; }
+.minecraft-console__bg-bright-black { background-color: #555555; }
+.minecraft-console__bg-bright-red { background-color: #ff5555; }
+.minecraft-console__bg-bright-green { background-color: #55ff55; }
+.minecraft-console__bg-bright-yellow { background-color: #ffff55; }
+.minecraft-console__bg-bright-blue { background-color: #5555ff; }
+.minecraft-console__bg-bright-magenta { background-color: #ff55ff; }
+.minecraft-console__bg-bright-cyan { background-color: #55ffff; }
+.minecraft-console__bg-bright-white { background-color: #ffffff; }
+
+.minecraft-console__bold { font-weight: 700; }
+.minecraft-console__dim { opacity: 0.65; }
+.minecraft-console__italic { font-style: italic; }
+.minecraft-console__underline { text-decoration-line: underline; }
+.minecraft-console__strike { text-decoration-line: line-through; }
+.minecraft-console__underline.minecraft-console__strike {
+  text-decoration-line: underline line-through;
+}
+.minecraft-console__inverse {
+  color: #020617;
+  background-color: #d1fae5;
+}
