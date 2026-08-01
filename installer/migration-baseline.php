@@ -47,6 +47,8 @@ return array (
       '20260629_public_english_defaults.sql' => 'cacb178ae8e7b5b01e7cd1a445c9c18b05e84d52832fe6dc2536f357716279de',
       '20260705_miniportal_legal_pages.sql' => '42d726f028ba4857516e2b3feeefaba4986d32b78825d7595a120aa131c1b53a',
       '20260715_homepage_multiple_buttons.sql' => 'f932d4fe79f832afb001b975e2780ac1e6ee5404e5f68facb2a6639f61640836',
+      '20260730_privacy_and_cookie_information.sql' => '1d9b1b53d0d036beaad83dcb3dba4d3beb54257f43ff08d66bef34cf356364f2',
+      '20260730_zz_cookie_consent_categories.sql' => '6da1e0af791c4cec989e7684ef1518440c90ff009d916dd79f7b7c5da7e9efc4',
     ),
     'database_manager' =>
     array (

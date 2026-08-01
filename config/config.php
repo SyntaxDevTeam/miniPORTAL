@@ -64,7 +64,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.9.1',
+        'version' => '0.10.0',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -101,6 +101,12 @@ return [
         'public_google_site_verification' => (string) $env('SITE_GOOGLE_VERIFICATION', ''),
         'public_bing_site_verification' => (string) $env('SITE_BING_VERIFICATION', ''),
         'public_footer_text' => (string) $env('SITE_FOOTER_TEXT', 'Projektowane modułowo. Rozwijane świadomie.'),
+        'public_maintenance_enabled' => (string) $env('SITE_MAINTENANCE_ENABLED', '0'),
+        'public_maintenance_title' => (string) $env('SITE_MAINTENANCE_TITLE', 'Site under construction'),
+        'public_maintenance_message' => (string) $env(
+            'SITE_MAINTENANCE_MESSAGE',
+            'We are preparing the content and configuration. Please check back soon.'
+        ),
         'public_favicon_path' => '',
         'public_favicon_version' => '',
         'public_faststats_enabled' => (string) $env('FASTSTATS_ENABLED', '0'),

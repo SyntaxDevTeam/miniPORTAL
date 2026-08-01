@@ -41,6 +41,9 @@ final class SystemSettingsRepository
                 'public_google_site_verification',
                 'public_bing_site_verification',
                 'public_footer_text',
+                'public_maintenance_enabled',
+                'public_maintenance_title',
+                'public_maintenance_message',
                 'public_favicon_path',
                 'public_favicon_version',
                 'public_faststats_enabled',
@@ -128,6 +131,27 @@ final class SystemSettingsRepository
         $this->upsertSettings([
             'public_favicon_path' => rtrim($path, '/'),
             'public_favicon_version' => $version,
+        ], $actorId);
+    }
+
+    /** @param array<string, string> $settings */
+    public function saveMaintenanceSettings(array $settings, int $actorId): void
+    {
+        $enabled = $this->settingEnabled($settings, 'public_maintenance_enabled');
+        $title = trim((string) ($settings['public_maintenance_title'] ?? ''));
+        $message = trim((string) ($settings['public_maintenance_message'] ?? ''));
+
+        if ($title === '' || strlen($title) > 120) {
+            throw new RuntimeException('Tytuł strony w budowie jest wymagany i może mieć maksymalnie 120 znaków.');
+        }
+        if ($message === '' || strlen($message) > 500) {
+            throw new RuntimeException('Komunikat strony w budowie jest wymagany i może mieć maksymalnie 500 znaków.');
+        }
+
+        $this->upsertSettings([
+            'public_maintenance_enabled' => $enabled ? '1' : '0',
+            'public_maintenance_title' => $title,
+            'public_maintenance_message' => $message,
         ], $actorId);
     }
 

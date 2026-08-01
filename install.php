@@ -63,6 +63,8 @@ $text = [
         'environment_copy' => 'Wymagania są sprawdzane przed zmianą bazy.',
         'permission_title' => 'PHP nie może zapisywać wymaganych katalogów.',
         'permission_copy' => 'W katalogu instalacji wykonaj:',
+        'platform_permission_title' => 'Aktualizator panelowy nie może zapisywać plików runtime.',
+        'platform_permission_copy' => 'Aby umożliwić przyszłe aktualizacje miniPORTAL, w katalogu instalacji wykonaj:',
         'fix_first' => 'Najpierw usuń wszystkie wykryte problemy.',
         'next' => 'Dalej',
         'back' => 'Wstecz',
@@ -115,6 +117,8 @@ $text = [
         'environment_copy' => 'Requirements are checked before the database is changed.',
         'permission_title' => 'PHP cannot write to required directories.',
         'permission_copy' => 'Run this in the installation directory:',
+        'platform_permission_title' => 'The panel updater cannot write the runtime files.',
+        'platform_permission_copy' => 'To enable future miniPORTAL updates, run this in the installation directory:',
         'fix_first' => 'Fix all detected issues first.',
         'next' => 'Next',
         'back' => 'Back',
@@ -167,6 +171,8 @@ $text = [
         'environment_copy' => 'Anforderungen werden vor Aenderungen an der Datenbank geprueft.',
         'permission_title' => 'PHP kann nicht in die erforderlichen Verzeichnisse schreiben.',
         'permission_copy' => 'Fuehre dies im Installationsverzeichnis aus:',
+        'platform_permission_title' => 'Der Panel-Updater kann die Runtime-Dateien nicht schreiben.',
+        'platform_permission_copy' => 'Um zukuenftige miniPORTAL-Updates zu ermoeglichen, fuehre dies im Installationsverzeichnis aus:',
         'fix_first' => 'Behebe zuerst alle erkannten Probleme.',
         'next' => 'Weiter',
         'back' => 'Zurueck',
@@ -243,6 +249,8 @@ $selectedModules = is_array($_POST['modules'] ?? null)
 $preflightOk = array_all($checks, static fn (array $check): bool => $check['ok']);
 $permissionIssues = FilesystemPermissions::missing(__DIR__);
 $permissionCommand = FilesystemPermissions::remediationCommand(__DIR__);
+$platformPermissionIssues = FilesystemPermissions::platformUpdateIssues(__DIR__);
+$platformPermissionCommand = FilesystemPermissions::platformUpdateRemediationCommand(__DIR__);
 $initialStep = $error !== '' ? 5 : 1;
 $host = preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost')) ?: 'localhost';
 $defaultUrl = ($https ? 'https' : 'http') . '://' . $host;
@@ -355,6 +363,13 @@ $moduleProfileJson = json_encode($profileIds, JSON_THROW_ON_ERROR | JSON_UNESCAP
               <strong><?= $escape($t('permission_title')) ?></strong>
               <p><?= $escape($t('permission_copy')) ?></p>
               <pre><code><?= $escape($permissionCommand) ?></code></pre>
+            </div>
+          <?php endif; ?>
+          <?php if ($platformPermissionIssues !== []): ?>
+            <div class="alert alert-error" role="alert">
+              <strong><?= $escape($t('platform_permission_title')) ?></strong>
+              <p><?= $escape($t('platform_permission_copy')) ?></p>
+              <pre><code><?= $escape($platformPermissionCommand) ?></code></pre>
             </div>
           <?php endif; ?>
           <div class="actions"><small><?= $escape($t('fix_first')) ?></small><div class="action-group"><button type="button" data-next<?= $preflightOk ? '' : ' disabled' ?>><?= $escape($t('next')) ?></button></div></div>

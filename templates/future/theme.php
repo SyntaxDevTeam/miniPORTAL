@@ -178,7 +178,9 @@ final class Theme implements ThemeInterface
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
-        echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '"></head><body>';
+        echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
+        $this->renderPrivacyStyles();
+        echo '</head><body>';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
         echo '<main id="content" tabindex="-1">';
@@ -196,6 +198,7 @@ final class Theme implements ThemeInterface
 
         echo '</main>';
         $this->renderPublicFooter($pages);
+        $this->renderPrivacyNotice($pages);
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
@@ -285,10 +288,79 @@ final class Theme implements ThemeInterface
         if ($this->econizerMode) {
             echo '<a class="text-secondary" href="/admin/login">Admin sign in</a>';
         }
+        echo '<button type="button" class="cookie-consent-manage text-secondary" data-cookie-consent-manage>';
+        echo 'Cookie settings</button>';
         if (strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
             echo '<span>' . $this->escape($this->publicFooterText) . '</span>';
         }
         echo '</div></div></footer>';
+    }
+
+    private function renderPrivacyStyles(): void
+    {
+        $file = dirname(__DIR__) . '/shared/assets/css/privacy-consent.css';
+        $version = is_file($file) ? (string) filemtime($file) : '1';
+
+        echo '<link rel="stylesheet" href="/templates/shared/assets/css/privacy-consent.css?v=';
+        echo $this->escape($version) . '">';
+    }
+
+    private function renderPrivacyNotice(array $pages): void
+    {
+        $privacyHref = '';
+        foreach ($pages as $page) {
+            if (($page['slug'] ?? '') === 'miniportal-prywatnosc') {
+                $privacyHref = $this->navigationHref($page);
+                break;
+            }
+        }
+
+        $analyticsAvailable = $this->publicFastStatsEnabled;
+        echo '<aside class="cookie-consent" data-cookie-consent data-analytics-available="';
+        echo $analyticsAvailable ? '1' : '0';
+        echo '" hidden aria-labelledby="cookie-consent-title">';
+        echo '<div data-cookie-summary>';
+        echo '<h2 id="cookie-consent-title">Cookies on this site</h2>';
+        echo '<p>Necessary cookies keep sign-in, forms and security working. With your permission, ';
+        echo 'we can also analyse traffic and technical quality. Optional cookies stay off until you choose them.';
+        if ($privacyHref !== '') {
+            echo ' <a href="' . $this->escape($privacyHref) . '">Privacy and cookies</a>.';
+        }
+        echo '</p><div class="cookie-consent__actions">';
+        echo '<button type="button" class="btn btn-primary" data-cookie-accept-all>Accept all cookies</button>';
+        echo '<button type="button" class="btn btn-outline-light" data-cookie-open-settings>Cookie settings</button>';
+        echo '<button type="button" class="btn btn-outline-light" data-cookie-reject-optional>Reject optional</button>';
+        echo '</div></div>';
+        echo '<div data-cookie-settings hidden>';
+        echo '<h2>Cookie settings</h2>';
+        echo '<p>Choose which optional categories may be used. You can return here from the footer and withdraw consent at any time.</p>';
+        echo '<div class="cookie-consent__categories">';
+        echo '<div class="cookie-consent__category"><strong>Strictly necessary</strong>';
+        echo '<label class="cookie-consent__switch"><input type="checkbox" checked disabled>Always active</label>';
+        echo '<p>Required for sessions, sign-in, forms and protection against misuse. These cannot be disabled.</p></div>';
+        echo '<div class="cookie-consent__category"><strong>Traffic analysis</strong>';
+        echo '<label class="cookie-consent__switch"><input type="checkbox" data-cookie-category="analytics"';
+        echo $analyticsAvailable ? '' : ' disabled';
+        echo '>Allow</label><p>';
+        echo $analyticsAvailable
+            ? 'Helps us understand visits, performance and technical errors so we can improve the site.'
+            : 'This category is currently disabled by the site operator.';
+        echo '</p></div>';
+        echo '<div class="cookie-consent__category"><strong>Other optional cookies</strong>';
+        echo '<span class="cookie-consent__status">Not currently used</span>';
+        echo '<p>No preference, advertising or marketing cookies are currently used.</p></div>';
+        echo '</div><p class="cookie-consent__error" data-cookie-storage-error hidden>';
+        echo 'Your choice could not be saved. Optional analytics remains disabled.</p>';
+        echo '<div class="cookie-consent__actions">';
+        echo '<button type="button" class="btn btn-primary" data-cookie-save-settings>Save selection</button>';
+        echo '<button type="button" class="btn btn-outline-light" data-cookie-reject-optional>Reject optional</button>';
+        echo '<button type="button" class="btn btn-outline-light" data-cookie-back>Back</button>';
+        echo '</div></div></aside>';
+
+        $file = dirname(__DIR__) . '/shared/assets/js/privacy-consent.js';
+        $version = is_file($file) ? (string) filemtime($file) : '1';
+        echo '<script src="/templates/shared/assets/js/privacy-consent.js?v=';
+        echo $this->escape($version) . '"></script>';
     }
 
     public function start_page(string $title, string $description = '', bool $indexable = true): void
@@ -309,6 +381,7 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
+        $this->renderPrivacyStyles();
         echo '</head><body><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
         echo '<main id="content" tabindex="-1">';
@@ -318,6 +391,7 @@ final class Theme implements ThemeInterface
     {
         echo '</main>';
         $this->renderPublicFooter($this->publicNavigation);
+        $this->renderPrivacyNotice($this->publicNavigation);
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
@@ -424,8 +498,11 @@ final class Theme implements ThemeInterface
     public function render_button(string $label, string $href, string $variant = 'primary'): void
     {
         $variant = $this->buttonVariant($variant);
+        $fullPageNavigation = str_starts_with($href, '/admin')
+            || str_starts_with($href, 'index.php?route=/admin');
 
-        echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '">';
+        echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '"'
+            . ($fullPageNavigation ? ' hx-boost="false"' : '') . '>';
         echo $this->escape($label) . '</a>';
     }
 

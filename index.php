@@ -383,6 +383,14 @@ $publicNavigationItems = static function () use ($pageRepository, $publicNavigat
 };
 $theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null, $modules->ids());
 
+$siteMaintenanceEnabled = static function () use ($application): bool {
+    $app = is_array($application->config()['app'] ?? null)
+        ? $application->config()['app']
+        : [];
+
+    return filter_var($app['public_maintenance_enabled'] ?? '0', FILTER_VALIDATE_BOOL);
+};
+
 $renderStart = static function (string $title, string $lead) use ($theme): void {
     $theme->start_page(
         $title . ' - SyntaxDevTeam',
@@ -446,14 +454,27 @@ $router->get('/', static function () use (
         : $renderer();
 });
 
-$router->get('/sitemap.xml', static function () use ($seo): void {
+$router->get('/sitemap.xml', static function () use ($seo, $siteMaintenanceEnabled): void {
     header('Content-Type: application/xml; charset=UTF-8');
+    if ($siteMaintenanceEnabled()) {
+        http_response_code(503);
+        header('Cache-Control: no-store');
+        header('Retry-After: 3600');
+        echo '<?xml version="1.0" encoding="UTF-8"?>'
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>';
+        return;
+    }
     header('Cache-Control: public, max-age=900');
     echo $seo->sitemapXml();
 });
 
-$router->get('/robots.txt', static function () use ($seo, $application): void {
+$router->get('/robots.txt', static function () use ($seo, $application, $siteMaintenanceEnabled): void {
     header('Content-Type: text/plain; charset=UTF-8');
+    if ($siteMaintenanceEnabled()) {
+        header('Cache-Control: no-store');
+        echo "User-agent: *\nDisallow: /\n";
+        return;
+    }
     header('Cache-Control: public, max-age=900');
     echo $seo->robotsTxt((string) ($application->config()['app']['public_meta_robots'] ?? 'index, follow'));
 });
@@ -534,7 +555,36 @@ $router->post('/security-demo', static function (Request $request) use ($securit
 });
 
 $request = $application->request();
-if ($auth->rolePreviewBlocks($request)) {
+$maintenanceTechnicalPath = str_starts_with($request->path(), '/admin')
+    || str_starts_with($request->path(), '/api/')
+    || str_starts_with($request->path(), '/metrics/')
+    || in_array($request->path(), ['/robots.txt', '/sitemap.xml', '/ads.txt'], true);
+$maintenanceVisitor = $auth->user();
+$showMaintenance = $siteMaintenanceEnabled()
+    && ($maintenanceVisitor === null || !$maintenanceVisitor->isActive())
+    && in_array($request->method(), ['GET', 'HEAD'], true)
+    && !$maintenanceTechnicalPath;
+
+if ($showMaintenance) {
+    $app = is_array($application->config()['app'] ?? null) ? $application->config()['app'] : [];
+    $title = trim((string) ($app['public_maintenance_title'] ?? 'Site under construction'));
+    $message = trim((string) (
+        $app['public_maintenance_message']
+        ?? 'We are preparing the content and configuration. Please check back soon.'
+    ));
+    http_response_code(503);
+    header('Cache-Control: no-store, private');
+    header('Retry-After: 3600');
+    $theme->set_public_navigation([], false, $modules->ids());
+    $theme->render_public_error(
+        503,
+        $title !== '' ? $title : 'Site under construction',
+        $message !== '' ? $message : 'Please check back soon.',
+        'Sign in',
+        '/admin/login'
+    );
+    $status = 200;
+} elseif ($auth->rolePreviewBlocks($request)) {
     $actor = $auth->actualUser();
     $audit->record(
         $request,

@@ -1779,6 +1779,14 @@ final class SystemAdminModule implements ModuleInterface
             'public_google_site_verification' => (string) ($app['public_google_site_verification'] ?? ''),
             'public_bing_site_verification' => (string) ($app['public_bing_site_verification'] ?? ''),
             'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
+            'public_maintenance_enabled' => (string) ($app['public_maintenance_enabled'] ?? '0'),
+            'public_maintenance_title' => (string) (
+                $app['public_maintenance_title'] ?? 'Site under construction'
+            ),
+            'public_maintenance_message' => (string) (
+                $app['public_maintenance_message']
+                ?? 'We are preparing the content and configuration. Please check back soon.'
+            ),
             'public_favicon_path' => (string) ($app['public_favicon_path'] ?? ''),
             'public_favicon_version' => (string) ($app['public_favicon_version'] ?? ''),
             'public_faststats_enabled' => (string) ($app['public_faststats_enabled'] ?? '0'),
@@ -1854,6 +1862,54 @@ final class SystemAdminModule implements ModuleInterface
             ],
             $values['public_favicon_path'] !== '' ? 'Wygeneruj favicony ponownie' : 'Wygeneruj favicony',
             $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel(
+            'Widoczność strony',
+            filter_var($values['public_maintenance_enabled'], FILTER_VALIDATE_BOOL)
+                ? 'Tryb w budowie aktywny'
+                : 'Strona publiczna'
+        );
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                [
+                    'name' => 'settings_scope',
+                    'label' => 'Zakres ustawień',
+                    'type' => 'hidden',
+                    'value' => 'maintenance',
+                ],
+                [
+                    'name' => 'public_maintenance_enabled',
+                    'label' => 'Ukryj stronę przed niezalogowanymi',
+                    'type' => 'switch',
+                    'checked' => filter_var($values['public_maintenance_enabled'], FILTER_VALIDATE_BOOL),
+                    'help' => 'Zalogowani użytkownicy nadal mogą otwierać i testować stronę. Panel, logowanie oraz techniczne API pozostają dostępne.',
+                ],
+                [
+                    'name' => 'public_maintenance_title',
+                    'label' => 'Tytuł strony w budowie',
+                    'value' => $values['public_maintenance_title'],
+                    'required' => true,
+                    'maxlength' => 120,
+                ],
+                [
+                    'name' => 'public_maintenance_message',
+                    'label' => 'Komunikat dla odwiedzających',
+                    'type' => 'textarea',
+                    'rows' => 4,
+                    'value' => $values['public_maintenance_message'],
+                    'required' => true,
+                    'maxlength' => 500,
+                ],
+            ],
+            'Zapisz widoczność',
+            $this->security->csrfToken()
+        );
+        $this->theme->render_alert(
+            'Po włączeniu wyszukiwarki otrzymają dyrektywę blokującą indeksowanie, a publiczne wejścia będą zwracały bezpieczny ekran HTTP 503.',
+            'info'
         );
         $this->theme->end_admin_panel();
 
@@ -2274,6 +2330,17 @@ final class SystemAdminModule implements ModuleInterface
                     $values['public_theme_color']
                 );
                 $this->settings->saveFaviconSettings('/uploads/branding', (string) time(), $actor->id);
+            } elseif ($scope === 'maintenance') {
+                $this->settings->saveMaintenanceSettings(
+                    [
+                        'public_maintenance_enabled' => $request->postBool('public_maintenance_enabled')
+                            ? '1'
+                            : '0',
+                        'public_maintenance_title' => $request->postString('public_maintenance_title'),
+                        'public_maintenance_message' => $request->postString('public_maintenance_message'),
+                    ],
+                    $actor->id
+                );
             } elseif ($scope === 'seo') {
                 $this->settings->saveSeoSettings(
                     [
@@ -2349,7 +2416,11 @@ final class SystemAdminModule implements ModuleInterface
             } else {
                 throw new \RuntimeException('Nieznany zakres ustawień.');
             }
-            if (in_array($scope, ['theme', 'branding', 'seo', 'faststats', 'navigation', 'favicon'], true)) {
+            if (in_array(
+                $scope,
+                ['theme', 'branding', 'seo', 'faststats', 'navigation', 'favicon', 'maintenance'],
+                true
+            )) {
                 $this->templateCache->invalidateTags(['theme', 'homepage']);
             }
             $this->recordSettingsAudit($request, 'success', $actor->id);

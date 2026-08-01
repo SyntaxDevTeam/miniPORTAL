@@ -1,10 +1,16 @@
 const script = document.getElementById("faststats-analytics");
+const consentStorageKey = "miniportal.cookie-consent.v2";
 
 const isDisabled = () => {
   try {
-    return window.localStorage.getItem("disable-faststats") === "true";
+    if (window.localStorage.getItem("disable-faststats") === "true") {
+      return true;
+    }
+
+    const consent = JSON.parse(window.localStorage.getItem(consentStorageKey) || "null");
+    return consent?.necessary !== true || consent?.analytics !== true;
   } catch (_error) {
-    return false;
+    return true;
   }
 };
 

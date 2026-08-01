@@ -24,6 +24,60 @@ CREATE TABLE core_pages (
     INDEX idx_core_pages_author_updated (author_id, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+INSERT INTO core_pages
+    (title, slug, eyebrow, summary, meta_description, content, content_format,
+     page_type, navigation_area, navigation_label, sort_order, status, author_id, published_at)
+SELECT
+    'Prywatność i cookies miniPORTAL',
+    'miniportal-prywatnosc',
+    'MINIPORTAL / PRIVACY',
+    'Informacje o sesji, pamięci przeglądarki, opcjonalnej analityce i zarządzaniu zgodą.',
+    'Informacje o prywatności, cookies i opcjonalnej analityce w miniPORTAL.',
+    '# Prywatność i cookies miniPORTAL
+
+Administratorem danych jest operator tej instalacji wskazany w publicznych danych kontaktowych.
+
+## Niezbędna sesja
+
+Własny plik cookie sesji zabezpiecza logowanie, formularze, tokeny CSRF i dostęp do panelu. Jest dostępny wyłącznie przez HTTPS, nie jest dostępny dla JavaScript i wygasa po zamknięciu sesji przeglądarki. Jako element konieczny do dostarczenia żądanej usługi nie wymaga zgody.
+
+## Preferencje prywatności
+
+W pamięci lokalnej przeglądarki zapisywany jest wybór `miniportal.cookie-consent.v2`. Zawiera wyłącznie stan kategorii niezbędnej i analizy ruchu oraz pozostaje do czasu zmiany ustawienia lub wyczyszczenia danych witryny.
+
+## Opcjonalna analityka FastStats
+
+Po dobrowolnej zgodzie FastStats może mierzyć odwiedziny i techniczną jakość działania strony, w tym Web Vitals i kontrolowane informacje o błędach JavaScript. Połączenia z `metrics.faststats.dev` oraz `flags.faststats.dev` są uruchamiane dopiero po zezwoleniu na analitykę.
+
+## Zmiana decyzji
+
+Zgoda nie jest warunkiem korzystania ze strony. Można ją odrzucić przy pierwszej wizycie i później zmienić przez przycisk ustawień cookies w stopce.
+
+## Kategorie ustawień plików cookie
+
+- **Absolutne minimum** obejmuje sesję, logowanie, formularze i zabezpieczenia. Jest zawsze aktywne, ponieważ bez niego nie można bezpiecznie dostarczyć żądanej usługi.
+- **Analiza ruchu** jest opcjonalna i pozostaje wyłączona do czasu osobnego, świadomego zezwolenia. Użytkownik może ją później wyłączyć w ustawieniach cookies.
+- **Pozostałe opcjonalne** pliki preferencyjne, reklamowe i marketingowe nie są obecnie używane. Panel nie zbiera zgody na nieokreślone przyszłe cele.
+
+Na pierwszej warstwie można zaakceptować wszystkie dostępne kategorie, otworzyć ich ustawienia albo odrzucić wszystkie opcjonalne. Odrzucenie i późniejsze wycofanie zgody nie ogranicza dostępu do strony.',
+    'markdown',
+    'legal',
+    'footer',
+    'Prywatność i cookies',
+    910,
+    'published',
+    owner.id,
+    CURRENT_TIMESTAMP
+FROM (
+    SELECT users.id
+    FROM users
+    LEFT JOIN user_roles ON user_roles.user_id = users.id
+    LEFT JOIN roles ON roles.id = user_roles.role_id
+    WHERE users.status = 'active'
+    ORDER BY CASE WHEN roles.name = 'owner' THEN 0 ELSE 1 END, users.id ASC
+    LIMIT 1
+) AS owner;
+
 CREATE TABLE homepage_sections (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     section_key VARCHAR(64) NOT NULL,
