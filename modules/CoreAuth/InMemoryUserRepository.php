@@ -85,6 +85,36 @@ final class InMemoryUserRepository implements UserRepositoryInterface
         return $user;
     }
 
+    public function activateWithTermsAcceptance(
+        int $userId,
+        string $termsVersion,
+        string $termsUrl,
+        string $privacyUrl,
+        ?string $ipHash,
+        ?string $userAgent,
+    ): bool {
+        $user = $this->users[$userId] ?? null;
+        if ($user === null || $user->status === 'blocked') {
+            return false;
+        }
+        if ($user->status === 'active') {
+            return true;
+        }
+
+        $this->users[$userId] = new User(
+            $user->id,
+            $user->displayName,
+            $user->email,
+            $user->avatarUrl,
+            'active',
+            $user->roles,
+            $user->permissions,
+            $user->identities
+        );
+
+        return true;
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
         $user = $this->users[$userId] ?? null;

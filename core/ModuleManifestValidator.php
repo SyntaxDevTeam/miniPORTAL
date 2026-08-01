@@ -48,6 +48,8 @@ final class ModuleManifestValidator
         $uninstall = $data['uninstall'] ?? null;
         $origin = is_array($data['origin'] ?? null) ? $data['origin'] : [];
         $signatureFile = $data['signature'] ?? null;
+        $distribution = is_array($data['distribution'] ?? null) ? $data['distribution'] : [];
+        $distributionAccess = trim((string) ($distribution['access'] ?? 'public'));
 
         if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $id) !== 1) {
             throw new RuntimeException("Manifest {$file} zawiera nieprawidłowy identyfikator.");
@@ -63,6 +65,9 @@ final class ModuleManifestValidator
         }
         if (!is_bool($data['protected'])) {
             throw new RuntimeException("Pole protected w {$file} musi być wartością logiczną.");
+        }
+        if (!in_array($distributionAccess, ['public', 'licensed', 'source_only'], true)) {
+            throw new RuntimeException("Manifest {$file} zawiera nieobsługiwany poziom dystrybucji.");
         }
         if (!is_array($modules)) {
             throw new RuntimeException("Lista zależności modułów w {$file} jest nieprawidłowa.");
@@ -140,6 +145,7 @@ final class ModuleManifestValidator
             $originUrl,
             $signatureKeyId,
             $signatureStatus,
+            $distributionAccess,
             rtrim($directory, '/'),
         );
     }

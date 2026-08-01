@@ -45,7 +45,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
 
     public function version(): string
     {
-        return '1.6.0';
+        return '1.6.1';
     }
 
     public function dependencies(): array

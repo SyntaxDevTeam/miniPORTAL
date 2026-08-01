@@ -14,6 +14,7 @@ final class ModuleUpdateRepository
         private readonly string $cachePath,
         private readonly int $maxArchiveBytes = 10485760,
         private readonly int $catalogTtl = 900,
+        private readonly ?DistributionAccessCredentialStore $credentialStore = null,
     ) {
     }
 
@@ -167,6 +168,7 @@ final class ModuleUpdateRepository
             $checksum = (string) ($entry['checksum'] ?? '');
             $sourceChecksum = (string) ($entry['source_checksum'] ?? '');
             $dependencies = $entry['required_modules'] ?? [];
+            $distributionAccess = (string) ($entry['distribution_access'] ?? 'public');
             if (
                 preg_match('/^[a-z][a-z0-9_]{1,63}$/', $id) !== 1
                 || $name === '' || strlen($name) > 160
@@ -178,6 +180,7 @@ final class ModuleUpdateRepository
                 || preg_match('/^[a-f0-9]{64}$/', $checksum) !== 1
                 || preg_match('/^[a-f0-9]{64}$/', $sourceChecksum) !== 1
                 || !is_array($dependencies)
+                || !in_array($distributionAccess, ['public', 'licensed'], true)
             ) {
                 throw new RuntimeException("Wpis aktualizacji modułu {$id} jest nieprawidłowy.");
             }
@@ -200,6 +203,7 @@ final class ModuleUpdateRepository
                 'filename' => $filename,
                 'checksum' => $checksum,
                 'source_checksum' => $sourceChecksum,
+                'distribution_access' => $distributionAccess,
             ];
         }
         usort($entries, static fn (array $left, array $right): int => version_compare(
@@ -225,8 +229,19 @@ final class ModuleUpdateRepository
         if (filter_var($url, FILTER_VALIDATE_URL) === false || parse_url($url, PHP_URL_SCHEME) !== 'https') {
             throw new RuntimeException('Katalog aktualizacji modułów musi korzystać z poprawnego adresu HTTPS.');
         }
+        $headers = [];
+        $credentials = $this->credentialStore?->credentials();
+        if ($credentials !== null) {
+            $headers[] = 'Authorization: Bearer ' . $credentials['access_key'];
+            $headers[] = 'X-MiniPortal-Installation: ' . $credentials['installation_id'];
+        }
         $context = stream_context_create([
-            'http' => ['timeout' => 20, 'follow_location' => 0, 'ignore_errors' => false],
+            'http' => [
+                'timeout' => 20,
+                'follow_location' => 0,
+                'ignore_errors' => false,
+                'header' => implode("\r\n", $headers),
+            ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
         $input = @fopen($url, 'rb', false, $context);

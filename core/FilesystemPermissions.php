@@ -67,7 +67,8 @@ final class FilesystemPermissions
                 continue;
             }
             $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::SELF_FIRST
             );
             foreach ($iterator as $item) {
                 $relativePath = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);

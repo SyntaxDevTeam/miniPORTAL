@@ -196,6 +196,31 @@ final class AuthService
         return true;
     }
 
+    public function activateWithTermsAcceptance(
+        string $termsVersion,
+        string $termsUrl,
+        string $privacyUrl,
+        ?string $ipHash,
+        ?string $userAgent,
+    ): ?User {
+        $user = $this->actualUser();
+        if ($user === null || $user->status === 'blocked') {
+            return null;
+        }
+        if (!$this->users->activateWithTermsAcceptance(
+            $user->id,
+            $termsVersion,
+            $termsUrl,
+            $privacyUrl,
+            $ipHash,
+            $userAgent
+        )) {
+            return null;
+        }
+
+        return $this->users->findById($user->id);
+    }
+
     public function unlinkIdentity(string $provider, string $subject): bool
     {
         $user = $this->user();

@@ -28,6 +28,54 @@ INSERT INTO core_pages
     (title, slug, eyebrow, summary, meta_description, content, content_format,
      page_type, navigation_area, navigation_label, sort_order, status, author_id, published_at)
 SELECT
+    'Warunki użytkowania usługi miniPORTAL',
+    'miniportal-warunki-uzytkowania',
+    'MINIPORTAL / TERMS',
+    'Zasady zakładania konta, korzystania z modułów i integracji zewnętrznych.',
+    'Warunki użytkowania konta i funkcji udostępnianych przez miniPORTAL.',
+    '# Warunki użytkowania usługi miniPORTAL
+
+## Konto
+
+Konto jest tworzone po potwierdzeniu tożsamości przez dostępnego dostawcę logowania i jawnej akceptacji aktualnej wersji tych warunków. Użytkownik odpowiada za bezpieczeństwo konta u zewnętrznego dostawcy oraz działania wykonane w swojej sesji.
+
+## Zakres usługi
+
+Operator instalacji określa publicznie dostępne moduły, treści i usługi. Funkcje płatne mogą podlegać dodatkowym warunkom przedstawionym przed złożeniem zamówienia.
+
+## Dozwolone użycie
+
+Nie wolno obchodzić kontroli dostępu, zakłócać pracy usługi, naruszać praw innych osób ani wykorzystywać integracji niezgodnie z zasadami ich dostawców.
+
+## Bezpieczeństwo i dostępność
+
+Konto może zostać zablokowane w razie nadużycia lub zagrożenia bezpieczeństwa. Prace serwisowe, awarie infrastruktury i zmiany usług zewnętrznych mogą czasowo ograniczać dostępność.
+
+## Kontakt i zmiany
+
+Informacje o operatorze oraz kanały kontaktowe znajdują się w publicznych częściach tej instalacji. Istotna zmiana warunków wymaga opublikowania nowej wersji dokumentu.',
+    'markdown',
+    'legal',
+    'footer',
+    'Warunki usługi',
+    900,
+    'published',
+    owner.id,
+    CURRENT_TIMESTAMP
+FROM (
+    SELECT users.id
+    FROM users
+    LEFT JOIN user_roles ON user_roles.user_id = users.id
+    LEFT JOIN roles ON roles.id = user_roles.role_id
+    WHERE users.status = 'active'
+    ORDER BY CASE WHEN roles.name = 'owner' THEN 0 ELSE 1 END, users.id ASC
+    LIMIT 1
+) AS owner;
+
+INSERT INTO core_pages
+    (title, slug, eyebrow, summary, meta_description, content, content_format,
+     page_type, navigation_area, navigation_label, sort_order, status, author_id, published_at)
+SELECT
     'Prywatność i cookies miniPORTAL',
     'miniportal-prywatnosc',
     'MINIPORTAL / PRIVACY',

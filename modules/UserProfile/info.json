@@ -1,7 +1,7 @@
 {
   "id": "user_profile",
   "name": "Profil użytkownika",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

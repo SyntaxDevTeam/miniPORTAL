@@ -216,6 +216,26 @@ final class ModuleManagerService
         return (new ModulePackageExporter($this->packageSigner))->exportZip($manifest, $targetDirectory);
     }
 
+    /**
+     * Publikowanie przez instalację macierzystą jest niezależne od instalacji
+     * schematu modułu. Dzięki temu dedykowany moduł może pozostać nieaktywnym
+     * źródłem pakietu i nie tworzy swoich tabel w control plane.
+     *
+     * @return array{path: string, filename: string, mime: string}
+     */
+    public function publishPackageTo(string $moduleId, string $targetDirectory): array
+    {
+        if ($this->packageSigner === null) {
+            throw new RuntimeException('Publikowanie modułów wymaga skonfigurowanego klucza wydawniczego.');
+        }
+        $manifest = $this->manifest($moduleId);
+        if (!in_array($manifest->distributionAccess, ['public', 'licensed'], true)) {
+            throw new RuntimeException("Moduł {$moduleId} nie może opuścić instalacji macierzystej.");
+        }
+
+        return (new ModulePackageExporter($this->packageSigner))->exportZip($manifest, $targetDirectory);
+    }
+
     public function sourceFingerprint(string $moduleId): string
     {
         return (new ModulePackageExporter())->sourceFingerprint($this->manifest($moduleId));

@@ -12,6 +12,15 @@ interface UserRepositoryInterface
 
     public function createPendingFromIdentity(ExternalIdentity $identity): User;
 
+    public function activateWithTermsAcceptance(
+        int $userId,
+        string $termsVersion,
+        string $termsUrl,
+        string $privacyUrl,
+        ?string $ipHash,
+        ?string $userAgent,
+    ): bool;
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void;
 
     public function unlinkIdentity(int $userId, string $provider, string $subject): bool;

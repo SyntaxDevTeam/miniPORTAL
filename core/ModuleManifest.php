@@ -26,6 +26,7 @@ final readonly class ModuleManifest
         public string $originUrl,
         public ?string $signatureKeyId,
         public string $signatureStatus,
+        public string $distributionAccess,
         public string $directory,
     ) {
     }

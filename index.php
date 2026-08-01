@@ -8,6 +8,7 @@ use SyntaxDevTeam\Cms\Core\AdminSearchRegistry;
 use SyntaxDevTeam\Cms\Core\Bootstrap;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
+use SyntaxDevTeam\Cms\Core\DistributionAccessCredentialStore;
 use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\ErrorHandler;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
@@ -51,6 +52,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\UserRepositoryInterface;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
+use SyntaxDevTeam\Cms\Modules\DistributionAccess\DistributionAccessRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
 
 require_once __DIR__ . '/core/Autoloader.php';
@@ -250,11 +252,29 @@ $moduleArchiveImporter = new ModuleArchiveImporter(
     (int) ($config['modules']['archive_max_file_bytes'] ?? 10485760),
     (int) ($config['modules']['archive_max_unpacked_bytes'] ?? 52428800)
 );
+$distributionAccessCredentials = new DistributionAccessCredentialStore(
+    __DIR__ . '/config/modules/distribution-access.env',
+    __DIR__ . '/cache/module-updates/catalog.json'
+);
+$distributionAccessGateway = null;
+if ($application->database() !== null && class_exists(DistributionAccessRepository::class)) {
+    try {
+        if ($moduleStates?->find('distribution_access')?->isActive() === true) {
+            $distributionAccessGateway = new DistributionAccessRepository(
+                $application->database(),
+                (string) ($modulesConfig['distribution_access_hash_key'] ?? '')
+            );
+        }
+    } catch (\Throwable) {
+        $distributionAccessGateway = null;
+    }
+}
 $moduleUpdates = new ModuleUpdateRepository(
     (string) ($config['modules']['update_catalog_url'] ?? ''),
     __DIR__ . '/cache/module-updates',
     (int) ($config['modules']['archive_max_bytes'] ?? 10485760),
-    (int) ($config['modules']['update_catalog_ttl'] ?? 900)
+    (int) ($config['modules']['update_catalog_ttl'] ?? 900),
+    $distributionAccessCredentials
 );
 $moduleUpdatePublisher = new ModuleUpdatePublisher(
     $moduleManager,
@@ -309,6 +329,8 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'module_archive_importer' => $moduleArchiveImporter,
     'module_updates' => $moduleUpdates,
     'module_update_publisher' => $moduleUpdatePublisher,
+    'distribution_access_credentials' => $distributionAccessCredentials,
+    'distribution_access_gateway' => $distributionAccessGateway,
     'platform_releases' => $platformReleases,
     'platform_updater' => $platformUpdater,
     'platform_release_publisher' => $platformReleasePublisher,
@@ -558,7 +580,16 @@ $request = $application->request();
 $maintenanceTechnicalPath = str_starts_with($request->path(), '/admin')
     || str_starts_with($request->path(), '/api/')
     || str_starts_with($request->path(), '/metrics/')
-    || in_array($request->path(), ['/robots.txt', '/sitemap.xml', '/ads.txt'], true);
+    || in_array($request->path(), [
+        '/robots.txt',
+        '/sitemap.xml',
+        '/ads.txt',
+        '/account/registration',
+        '/p/miniportal-warunki-uzytkowania',
+        '/p/miniportal-prywatnosc',
+        '/p/regulamin',
+        '/p/polityka-prywatnosci',
+    ], true);
 $maintenanceVisitor = $auth->user();
 $showMaintenance = $siteMaintenanceEnabled()
     && ($maintenanceVisitor === null || !$maintenanceVisitor->isActive())

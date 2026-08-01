@@ -21,8 +21,17 @@ final class PlatformReleasePublisher
 
     public function suggestedVersion(string $currentVersion): string
     {
-        if (preg_match('/^(\d+)\.(\d+)\.(\d+)$/', $currentVersion, $match) !== 1) {
-            return $currentVersion;
+        $baseline = $currentVersion;
+        try {
+            $publishedVersion = $this->latestPublishedVersion();
+            if ($publishedVersion !== null && version_compare($publishedVersion, $baseline, '>')) {
+                $baseline = $publishedVersion;
+            }
+        } catch (\Throwable) {
+            // Formularz nadal może pokazać wersję kodu; publish() zgłosi błąd katalogu.
+        }
+        if (preg_match('/^(\d+)\.(\d+)\.(\d+)$/', $baseline, $match) !== 1) {
+            return $baseline;
         }
 
         return $match[1] . '.' . $match[2] . '.' . ((int) $match[3] + 1);
@@ -154,6 +163,12 @@ final class PlatformReleasePublisher
         if (version_compare($version, $currentVersion, '<')) {
             throw new RuntimeException('Nie można opublikować wersji starszej od bieżącego kodu.');
         }
+        $publishedVersion = $this->latestPublishedVersion();
+        if ($publishedVersion !== null && version_compare($version, $publishedVersion, '<=')) {
+            throw new RuntimeException(
+                'Nowe wydanie musi mieć wersję wyższą od opublikowanej wersji ' . $publishedVersion . '.'
+            );
+        }
         $installerSource = rtrim($this->applicationRoot, '/') . '/install/cms-source/Installer.php';
         $items = [];
         foreach ($changelog as $item) {
@@ -250,6 +265,30 @@ final class PlatformReleasePublisher
     private function generatorPath(): string
     {
         return rtrim($this->applicationRoot, '/') . '/bin/build-platform-release.php';
+    }
+
+    private function latestPublishedVersion(): ?string
+    {
+        $catalogFile = rtrim($this->applicationRoot, '/') . '/releases/catalog.json';
+        if (!is_file($catalogFile)) {
+            return null;
+        }
+        $catalog = json_decode((string) file_get_contents($catalogFile), true, 32, JSON_THROW_ON_ERROR);
+        if (!is_array($catalog) || !is_array($catalog['releases'] ?? null)) {
+            throw new RuntimeException('Lokalny katalog wydań ma nieprawidłową strukturę.');
+        }
+        $latest = null;
+        foreach ($catalog['releases'] as $release) {
+            $candidate = is_array($release) ? trim((string) ($release['version'] ?? '')) : '';
+            if (preg_match('/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i', $candidate) !== 1) {
+                throw new RuntimeException('Lokalny katalog wydań zawiera nieprawidłową wersję.');
+            }
+            if ($latest === null || version_compare($candidate, $latest, '>')) {
+                $latest = $candidate;
+            }
+        }
+
+        return $latest;
     }
 
     /**

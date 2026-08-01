@@ -1,12 +1,12 @@
 {
   "id": "system_admin",
   "name": "System Admin i Manager Modułów",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "type": "system",
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
-    "miniportal": ">=0.7.3",
+    "miniportal": ">=0.9.1",
     "modules": ["core_auth"]
   },
   "protected": true,

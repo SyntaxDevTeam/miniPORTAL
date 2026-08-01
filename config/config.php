@@ -54,6 +54,10 @@ $envInt = static function (string $name, int $default, int $minimum = 1) use ($e
 
 $databaseName = (string) $env('DB_NAME', '');
 $databaseUser = (string) $env('DB_USER', '');
+$distributionAccessHashKey = trim((string) $env('DISTRIBUTION_ACCESS_HASH_KEY', ''));
+if ($distributionAccessHashKey === '') {
+    $distributionAccessHashKey = (string) $env('AUTH_AUDIT_HASH_KEY', '');
+}
 
 return [
     'meta' => [
@@ -64,7 +68,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.10.0',
+        'version' => '0.10.1',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -219,6 +223,7 @@ return [
         'uptime_rate_limit' => $envInt('UPTIME_RATE_LIMIT', 120, 1),
         'uptime_rate_window' => $envInt('UPTIME_RATE_WINDOW', 120, 1),
         'rate_limit_retention_days' => $envInt('RATE_LIMIT_RETENTION_DAYS', 2, 1),
+        'account_erasure_request_retention_days' => $envInt('ACCOUNT_ERASURE_REQUEST_RETENTION_DAYS', 365, 30),
         'remote_terminal_enabled' => $envBool('REMOTE_TERMINAL_ENABLED', false),
         'remote_terminal_mode' => trim((string) $env('REMOTE_TERMINAL_MODE', '')),
         'remote_terminal_gateway_url' => trim((string) $env('REMOTE_TERMINAL_GATEWAY_URL', '')),
@@ -235,9 +240,23 @@ return [
         'remote_terminal_allowed_hosts' => trim((string) $env('REMOTE_TERMINAL_ALLOWED_HOSTS', '127.0.0.1,localhost,::1')),
         'remote_terminal_session_ttl' => $envInt('REMOTE_TERMINAL_SESSION_TTL', 3600, 60),
         'remote_terminal_require_secure_request' => $envBool('REMOTE_TERMINAL_REQUIRE_HTTPS', true),
+        'node_agent_socket' => trim((string) $env(
+            'NODE_AGENT_SOCKET',
+            '/run/syntaxcraft-agent/agent.sock'
+        )),
+        'node_agent_connect_timeout_ms' => $envInt('NODE_AGENT_CONNECT_TIMEOUT_MS', 500, 50),
+        'node_agent_request_timeout_ms' => $envInt('NODE_AGENT_REQUEST_TIMEOUT_MS', 3000, 100),
+        'node_agent_max_response_bytes' => $envInt('NODE_AGENT_MAX_RESPONSE_BYTES', 1048576, 4096),
+        'hosting_port_min' => $envInt('HOSTING_PORT_MIN', 25565, 1024),
+        'hosting_port_max' => $envInt('HOSTING_PORT_MAX', 29999, 1024),
+        'hosting_default_minecraft_version' => trim((string) $env(
+            'HOSTING_DEFAULT_MINECRAFT_VERSION',
+            '1.21.10'
+        )),
         'signing_key_id' => trim((string) $env('MODULE_SIGNING_KEY_ID', '')),
         'signing_private_key_file' => trim((string) $env('MODULE_SIGNING_PRIVATE_KEY_FILE', '')),
         'signing_public_key_file' => trim((string) $env('MODULE_SIGNING_PUBLIC_KEY_FILE', '')),
+        'distribution_access_hash_key' => $distributionAccessHashKey,
     ],
     'updates' => [
         'catalog_url' => (string) $env('PLATFORM_RELEASE_CATALOG_URL', ''),
@@ -263,7 +282,12 @@ return [
         'oauth_window_seconds' => $envInt('AUTH_OAUTH_WINDOW_SECONDS', 600, 60),
         'oauth_start_limit' => $envInt('AUTH_OAUTH_START_LIMIT', 10),
         'oauth_callback_limit' => $envInt('AUTH_OAUTH_CALLBACK_LIMIT', 20),
+        'registration_mode' => (string) $env('AUTH_REGISTRATION_MODE', 'self_service'),
+        'terms_version' => (string) $env('AUTH_TERMS_VERSION', '1'),
+        'terms_url' => (string) $env('AUTH_TERMS_URL', '/p/miniportal-warunki-uzytkowania'),
+        'privacy_url' => (string) $env('AUTH_PRIVACY_URL', '/p/miniportal-prywatnosc'),
         'audit_retention_days' => $envInt('AUTH_AUDIT_RETENTION_DAYS', 180, 1),
+        'audit_archive_retention_days' => $envInt('AUTH_AUDIT_ARCHIVE_RETENTION_DAYS', 365, 1),
         'audit_archive_limit' => $envInt('AUTH_AUDIT_ARCHIVE_LIMIT', 5000, 1),
         'providers' => [
             'github' => [

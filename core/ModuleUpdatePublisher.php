@@ -32,7 +32,8 @@ final class ModuleUpdatePublisher
      *     published_at:string,
      *     filename:string,
      *     checksum:string,
-     *     source_checksum:string
+     *     source_checksum:string,
+     *     distribution_access:string
      * }>
      */
     public function catalog(): array
@@ -100,12 +101,11 @@ final class ModuleUpdatePublisher
             $entries = [];
             foreach ($this->modules?->modules() ?? [] as $module) {
                 $manifest = $module['manifest'];
-                $state = $module['state'];
                 if (
                     !$manifest instanceof ModuleManifest
-                    || !$state instanceof ModuleState
-                    || !$state->isInstalled()
                     || $module['error'] !== null
+                    || ($module['loadable'] ?? false) !== true
+                    || !in_array($manifest->distributionAccess, ['public', 'licensed'], true)
                 ) {
                     continue;
                 }
@@ -127,7 +127,7 @@ final class ModuleUpdatePublisher
                 if (!$unchanged) {
                     $buildDirectory = rtrim($this->repositoryPath, '/') . '/.build-' . bin2hex(random_bytes(6));
                     try {
-                        $export = $this->modules?->exportPackageTo($manifest->id, $buildDirectory);
+                        $export = $this->modules?->publishPackageTo($manifest->id, $buildDirectory);
                         $builtPath = is_array($export) ? (string) ($export['path'] ?? '') : '';
                         if (!is_file($builtPath) || basename($builtPath) !== $filename) {
                             throw new RuntimeException("Nie zbudowano pakietu modułu {$manifest->id}.");
@@ -159,6 +159,7 @@ final class ModuleUpdatePublisher
                     'filename' => $filename,
                     'checksum' => $checksum,
                     'source_checksum' => $sourceChecksum,
+                    'distribution_access' => $manifest->distributionAccess,
                 ];
             }
             usort($entries, static fn (array $left, array $right): int => strcmp($left['id'], $right['id']));
@@ -213,6 +214,7 @@ final class ModuleUpdatePublisher
                 || basename($entry['filename']) !== $entry['filename']
                 || preg_match('/^[a-f0-9]{64}$/', (string) ($entry['checksum'] ?? '')) !== 1
                 || preg_match('/^[a-f0-9]{64}$/', (string) ($entry['source_checksum'] ?? '')) !== 1
+                || !in_array($entry['distribution_access'] ?? null, ['public', 'licensed', 'source_only'], true)
             ) {
                 return [];
             }

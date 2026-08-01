@@ -32,6 +32,7 @@ return array (
       '20260617_database_view_permission.sql' => 'ee56a79d852e9ba52bbc0e07c81c59d4c791f8b2383cd083fa6779cf16abc386',
       '20260620_owner_and_operational_roles.sql' => '2046f785565f34d95263a7bb6890577fcf647308a57cabf03328197c408a05c5',
       '20260728_active_sessions.sql' => '6982e0b2f937e694a31ed5a2444591ff2ab0fce29e75606fda6211c890397761',
+      '20260801_self_service_registration.sql' => '73daf5dc84f5210ded23362625f43179bdd0a993d852fdea9f0b210e53b0e5e2',
     ),
     'core_pages' =>
     array (
@@ -49,6 +50,7 @@ return array (
       '20260715_homepage_multiple_buttons.sql' => 'f932d4fe79f832afb001b975e2780ac1e6ee5404e5f68facb2a6639f61640836',
       '20260730_privacy_and_cookie_information.sql' => '1d9b1b53d0d036beaad83dcb3dba4d3beb54257f43ff08d66bef34cf356364f2',
       '20260730_zz_cookie_consent_categories.sql' => '6da1e0af791c4cec989e7684ef1518440c90ff009d916dd79f7b7c5da7e9efc4',
+      '20260801_ensure_registration_legal_pages.sql' => '2bf1f8f42cb0dcbdba44e9b9e572b57fbd0a8bb3b1e3432401144677f6685973',
     ),
     'database_manager' =>
     array (

@@ -9,9 +9,12 @@ use SyntaxDevTeam\Cms\Core\DashboardRegistry;
 use SyntaxDevTeam\Cms\Core\BrandIconGenerator;
 use SyntaxDevTeam\Cms\Core\CoreMigrationRunner;
 use SyntaxDevTeam\Cms\Core\DownloadResponse;
+use SyntaxDevTeam\Cms\Core\DistributionAccessCredentialStore;
+use SyntaxDevTeam\Cms\Core\DistributionAccessDenied;
 use SyntaxDevTeam\Cms\Core\FilesystemPermissions;
 use SyntaxDevTeam\Cms\Core\GitHubReleaseDispatcher;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\ModuleDistributionAccessInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\ModuleUpdatePublisher;
@@ -59,6 +62,8 @@ final class SystemAdminModule implements ModuleInterface
         private readonly AuthProviderConfigStore $authProviderConfigStore,
         private readonly ModuleUpdateRepository $moduleUpdates,
         private readonly ModuleUpdatePublisher $moduleUpdatePublisher,
+        private readonly DistributionAccessCredentialStore $distributionAccessCredentials,
+        private readonly ?ModuleDistributionAccessInterface $distributionAccessGateway,
     ) {
     }
 
@@ -69,7 +74,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.3.1';
+        return '2.4.0';
     }
 
     public function dependencies(): array
@@ -103,7 +108,7 @@ final class SystemAdminModule implements ModuleInterface
             '/api/platform-releases/{filename}',
             fn (Request $request) => $this->servePlatformReleaseArchive($request)
         );
-        $router->get('/api/module-updates/catalog', fn () => $this->serveModuleUpdateCatalog());
+        $router->get('/api/module-updates/catalog', fn (Request $request) => $this->serveModuleUpdateCatalog($request));
         $router->get(
             '/api/module-updates/{filename}',
             fn (Request $request) => $this->serveModuleUpdateArchive($request)
@@ -178,6 +183,11 @@ final class SystemAdminModule implements ModuleInterface
             $request,
             'modules.install',
             fn () => $this->applyRemoteModuleUpdate($request)
+        ));
+        $router->post('/admin/modules/remote-fetch', fn (Request $request) => $this->guard(
+            $request,
+            'modules.install',
+            fn () => $this->fetchRemoteModule($request)
         ));
         $router->get('/admin/system-updates', fn (Request $request) => $this->guard(
             $request,
@@ -458,7 +468,7 @@ final class SystemAdminModule implements ModuleInterface
                     'Opublikuj własne wydanie',
                     'Instalacja macierzysta / Owner'
                 );
-                if (!$this->githubReleaseDispatcher->available() && $publishPermissionIssues !== []) {
+                if ($publishPermissionIssues !== []) {
                     $this->theme->render_alert(
                         "Publikowanie wydań wymaga przygotowania praw zapisu. Brak dostępu:\n"
                         . implode("\n", array_map(static fn (string $issue): string => '- ' . $issue, $publishPermissionIssues))
@@ -468,10 +478,10 @@ final class SystemAdminModule implements ModuleInterface
                 }
                 $this->theme->render_alert(
                     $this->githubReleaseDispatcher->available()
-                        ? 'Publikacja zostanie przekazana do chronionego GitHub Actions. Workflow uruchomi testy, '
-                            . 'ustawi wskazaną wersję, utworzy release i tag oraz opublikuje repozytoria source i publiczne.'
-                        : 'Automatyzacja GitHub nie jest jeszcze skonfigurowana. Publisher wykona lokalną budowę '
-                            . 'i automatycznie ustawi wersję w źródłach; publikacja repozytoriów wymaga tokenu workflow.',
+                        ? 'Instalacja macierzysta najpierw zbuduje i opublikuje lokalny release wraz z katalogiem. '
+                            . 'Po powodzeniu GitHub Actions zsynchronizuje oficjalny kod, tag i czystą dystrybucję publiczną.'
+                        : 'Instalacja macierzysta zbuduje i opublikuje lokalny release wraz z katalogiem. '
+                            . 'Automatyczna synchronizacja oficjalnego kodu i czystej dystrybucji GitHub nie jest skonfigurowana.',
                     'info'
                 );
                 $this->theme->render_form(
@@ -509,8 +519,8 @@ final class SystemAdminModule implements ModuleInterface
                         ],
                     ],
                     $this->githubReleaseDispatcher->available()
-                        ? 'Opublikuj wydanie i repozytoria'
-                        : 'Zbuduj wskazany release',
+                        ? 'Opublikuj lokalnie i synchronizuj GitHub'
+                        : 'Zbuduj i opublikuj lokalnie',
                     $this->security->csrfToken()
                 );
                 $this->theme->end_admin_panel();
@@ -600,7 +610,7 @@ final class SystemAdminModule implements ModuleInterface
         }
     }
 
-    private function serveModuleUpdateCatalog(): void
+    private function serveModuleUpdateCatalog(Request $request): void
     {
         if (!$this->moduleUpdatePublisher->available()) {
             http_response_code(404);
@@ -608,20 +618,39 @@ final class SystemAdminModule implements ModuleInterface
             return;
         }
         try {
+            if ($this->distributionAccessGateway === null && trim($request->header('Authorization')) !== '') {
+                throw new DistributionAccessDenied('Macierzysty rejestr dostępu nie jest aktywny.');
+            }
+            $entries = $this->moduleUpdatePublisher->catalog();
+            $entries = $this->distributionAccessGateway !== null
+                ? $this->distributionAccessGateway->catalogFor($request, $entries)
+                : array_values(array_filter(
+                    $entries,
+                    static fn (array $entry): bool => ($entry['distribution_access'] ?? 'public') === 'public'
+                ));
             $payload = json_encode(
                 [
                     'generated_at' => gmdate('Y-m-d\TH:i:s+00:00'),
-                    'modules' => $this->moduleUpdatePublisher->catalog(),
+                    'modules' => $entries,
                 ],
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
             ) . PHP_EOL;
             if (!headers_sent()) {
                 header('Content-Type: application/json; charset=UTF-8');
                 header('Content-Length: ' . strlen($payload));
-                header('Cache-Control: public, max-age=300');
+                header(
+                    trim($request->header('Authorization')) === ''
+                        ? 'Cache-Control: public, max-age=300'
+                        : 'Cache-Control: private, no-store'
+                );
                 header('X-Content-Type-Options: nosniff');
             }
             echo $payload;
+        } catch (DistributionAccessDenied $exception) {
+            http_response_code(401);
+            header('Cache-Control: private, no-store');
+            header('WWW-Authenticate: Bearer realm="miniPORTAL module repository"');
+            echo '{"modules":[]}';
         } catch (\Throwable $exception) {
             error_log('[miniPORTAL module repository] ' . $exception->getMessage());
             http_response_code(503);
@@ -642,16 +671,29 @@ final class SystemAdminModule implements ModuleInterface
                 http_response_code(404);
                 return;
             }
+            $allowed = $this->distributionAccessGateway !== null
+                ? $this->distributionAccessGateway->allowsArchive($request, $entry)
+                : ($entry['distribution_access'] ?? 'public') === 'public';
+            if (!$allowed) {
+                http_response_code(404);
+                return;
+            }
             DownloadResponse::send(
                 $this->moduleUpdatePublisher->archivePath($entry),
                 $entry['filename'],
                 'application/zip',
-                false,
+                trim($request->header('Authorization')) !== '',
                 [
-                    'Cache-Control' => 'public, max-age=86400, immutable',
+                    'Cache-Control' => trim($request->header('Authorization')) === ''
+                        ? 'public, max-age=86400, immutable'
+                        : 'private, no-store',
                     'X-Module-SHA256' => (string) $entry['checksum'],
                 ]
             );
+        } catch (DistributionAccessDenied) {
+            http_response_code(401);
+            header('Cache-Control: private, no-store');
+            header('WWW-Authenticate: Bearer realm="miniPORTAL module repository"');
         } catch (\Throwable $exception) {
             error_log('[miniPORTAL module repository] ' . $exception->getMessage());
             http_response_code(503);
@@ -746,15 +788,31 @@ final class SystemAdminModule implements ModuleInterface
                 $request->postString('changelog'),
                 $request->postString('changelog_format', 'markdown')
             );
+            $output = $this->platformReleasePublisher->publish(
+                $version,
+                $minimumVersion,
+                $changelog
+            );
+
             if ($this->githubReleaseDispatcher->available()) {
-                $this->githubReleaseDispatcher->dispatch($version, $minimumVersion, $changelog);
-                $output = 'Zlecenie przyjął GitHub Actions. Postęp jest widoczny w zakładce Actions repozytorium źródłowego.';
-            } else {
-                $output = $this->platformReleasePublisher->publish(
-                    $version,
-                    $minimumVersion,
-                    $changelog
-                );
+                try {
+                    $this->githubReleaseDispatcher->dispatch($version, $minimumVersion, $changelog);
+                    $output .= ' GitHub Actions otrzymał zadanie synchronizacji oficjalnego kodu, tagu i czystej dystrybucji.';
+                } catch (\Throwable $exception) {
+                    $this->audit->record(
+                        $request,
+                        'platform_release_publish',
+                        'partial',
+                        $version . ' / local:success / github:failed',
+                        $actor?->id
+                    );
+                    $this->renderPlatformUpdates(
+                        'Wydanie ' . $version . ' zostało opublikowane lokalnie i jest dostępne dla instalacji. '
+                        . 'Synchronizacja GitHub nie została uruchomiona: ' . $exception->getMessage(),
+                        'warning'
+                    );
+                    return;
+                }
             }
             $this->audit->record(
                 $request,
@@ -764,7 +822,7 @@ final class SystemAdminModule implements ModuleInterface
                 $actor?->id
             );
             $this->renderPlatformUpdates(
-                'Publikacja wydania ' . $version . ' została rozpoczęta. ' . $output,
+                'Wydanie ' . $version . ' zostało opublikowane przez instalację macierzystą. ' . $output,
                 'success'
             );
         } catch (\Throwable $exception) {
@@ -911,10 +969,12 @@ final class SystemAdminModule implements ModuleInterface
 
         $moduleEntries = $this->moduleManager->modules();
         $remoteUpdates = [];
+        $remoteModules = [];
         $remoteUpdateError = '';
         if ($this->moduleUpdates->configured()) {
             try {
                 $remoteUpdates = $this->availableRemoteModuleUpdates($moduleEntries);
+                $remoteModules = $this->availableRemoteModules($moduleEntries);
             } catch (\Throwable $exception) {
                 $remoteUpdateError = $exception->getMessage();
             }
@@ -928,11 +988,13 @@ final class SystemAdminModule implements ModuleInterface
             );
         } elseif ($remoteUpdateError !== '') {
             $this->theme->render_alert('Nie można odczytać katalogu modułów: ' . $remoteUpdateError, 'warning');
-        } elseif ($remoteUpdates === []) {
+        } elseif ($remoteUpdates === [] && $remoteModules === []) {
             $this->theme->render_alert('Wszystkie zainstalowane moduły korzystają z najnowszych dostępnych wersji.', 'success');
         } else {
             $this->theme->render_alert(
-                'Dostępne aktualizacje: ' . count($remoteUpdates) . '. Każdy pakiet zostanie pobrany do kwarantanny, zweryfikowany i wdrożony z rollbackiem kodu.',
+                'Dostępne aktualizacje: ' . count($remoteUpdates)
+                . '; nowe pakiety dostępne dla tej instalacji: ' . count($remoteModules)
+                . '. Każdy pakiet przechodzi przez kwarantannę i weryfikację podpisu.',
                 'warning'
             );
         }
@@ -950,6 +1012,41 @@ final class SystemAdminModule implements ModuleInterface
         $allows = static fn (string $permission): bool => $user !== null
             && (in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true));
         $rows = [];
+        foreach ($remoteModules as $remoteModule) {
+            $compatible = $this->moduleUpdates->compatibleWith(
+                $remoteModule['miniportal_constraint'],
+                (string) ($this->config['app']['version'] ?? '0.0.0')
+            );
+            $actions = [];
+            if ($compatible && $allows('modules.install')) {
+                $actions[] = [
+                    'label' => 'Pobierz do Managera',
+                    'action' => 'index.php?route=/admin/modules/remote-fetch',
+                    'fields' => [
+                        'module_id' => $remoteModule['id'],
+                        'version' => $remoteModule['version'],
+                    ],
+                    'variant' => 'primary',
+                    'confirm' => 'Pobrać podpisany moduł do kwarantanny i zatwierdzić jego kod? Moduł nie zostanie jeszcze zainstalowany ani uruchomiony.',
+                ];
+            }
+            $rows[] = [
+                'cells' => [
+                    $remoteModule['name'] . ' (' . $remoteModule['id'] . ')',
+                    'zdalna ' . $remoteModule['version'],
+                    'Dostępny w katalogu',
+                    'Rozszerzenie',
+                    'Oficjalny podpisany pakiet',
+                    'Kod niepobrany',
+                    $compatible
+                        ? 'Pobranie nie uruchamia modułu'
+                        : 'Wymaga miniPORTAL ' . ($remoteModule['miniportal_constraint'] !== ''
+                            ? $remoteModule['miniportal_constraint']
+                            : 'w zgodnej wersji'),
+                ],
+                'actions' => $actions,
+            ];
+        }
         foreach ($moduleEntries as $entry) {
             $manifest = $entry['manifest'];
             $state = $entry['state'];
@@ -1445,6 +1542,90 @@ final class SystemAdminModule implements ModuleInterface
         }
     }
 
+    private function fetchRemoteModule(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $moduleId = $request->postString('module_id');
+        $version = $request->postString('version');
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'module_remote_fetch', 'invalid_csrf', $moduleId, $actor?->id);
+            http_response_code(403);
+            $this->renderModules('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        if (
+            preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $moduleId) !== 1
+            || preg_match('/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/iD', $version) !== 1
+            || $this->moduleManager === null
+        ) {
+            $this->audit->record($request, 'module_remote_fetch', 'invalid_module', $moduleId, $actor?->id);
+            $this->renderModules('Nieprawidłowy moduł, wersja albo niedostępny manager.', 'danger');
+            return;
+        }
+
+        try {
+            if (isset($this->moduleManager->manifests()[$moduleId])) {
+                throw new \RuntimeException('Moduł jest już obecny lokalnie; użyj właściwej operacji instalacji albo aktualizacji.');
+            }
+            $remote = $this->moduleUpdates->find($moduleId, $version, true);
+            if ($remote === null || $remote['version'] !== $version) {
+                throw new \RuntimeException('Centralny katalog nie zawiera wskazanego pakietu modułu.');
+            }
+            if ($remote['type'] !== 'extension' || $remote['protected']) {
+                throw new \RuntimeException('Nowy zdalny pakiet musi być niechronionym modułem typu rozszerzenie.');
+            }
+            $platformVersion = (string) ($this->config['app']['version'] ?? '0.0.0');
+            if (!$this->moduleUpdates->compatibleWith($remote['miniportal_constraint'], $platformVersion)) {
+                throw new \RuntimeException(
+                    'Moduł wymaga miniPORTAL ' . $remote['miniportal_constraint']
+                    . '; bieżąca wersja to ' . $platformVersion . '.'
+                );
+            }
+
+            $archive = $this->moduleUpdates->archivePath($remote);
+            $import = $this->moduleArchiveImporter->importFile($archive, $remote['filename']);
+            $importedManifest = $import['manifest'];
+            if (
+                $importedManifest === null
+                || $importedManifest->id !== $moduleId
+                || $importedManifest->version !== $version
+                || $importedManifest->type !== $remote['type']
+                || $importedManifest->protected !== $remote['protected']
+                || $importedManifest->distributionAccess !== $remote['distribution_access']
+            ) {
+                throw new \RuntimeException(
+                    'Pobrany pakiet nie odpowiada wpisowi katalogu: '
+                    . (string) ($import['error'] ?? 'niezgodny manifest')
+                );
+            }
+            $result = $this->moduleArchiveImporter->approve(
+                basename($import['directory']),
+                dirname(__DIR__, 2) . '/modules'
+            );
+            $this->audit->record(
+                $request,
+                'module_remote_fetch',
+                'success',
+                $moduleId . ':' . $version,
+                $actor?->id
+            );
+            $this->renderModules(
+                'Podpisany moduł ' . $result['manifest']->name . ' pobrano i zatwierdzono w Managerze. '
+                . 'Nie został uruchomiony — sprawdź zależności i użyj osobnej akcji „Zainstaluj”.',
+                'success'
+            );
+        } catch (\Throwable $exception) {
+            $this->audit->record(
+                $request,
+                'module_remote_fetch',
+                'failed',
+                $moduleId . ':' . $version,
+                $actor?->id
+            );
+            $this->renderModules($exception->getMessage(), 'danger');
+        }
+    }
+
     /**
      * @param list<array<string, mixed>> $moduleEntries
      * @return array<string, array<string, mixed>>
@@ -1486,6 +1667,46 @@ final class SystemAdminModule implements ModuleInterface
 
         ksort($updates);
         return $updates;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $moduleEntries
+     * @return array<string, array<string, mixed>>
+     */
+    private function availableRemoteModules(array $moduleEntries, bool $forceRefresh = false): array
+    {
+        if (!$this->moduleUpdates->configured()) {
+            return [];
+        }
+        $local = [];
+        foreach ($moduleEntries as $entry) {
+            $manifest = $entry['manifest'] ?? null;
+            if ($manifest instanceof \SyntaxDevTeam\Cms\Core\ModuleManifest) {
+                $local[$manifest->id] = true;
+            }
+        }
+        $available = [];
+        $catalog = $this->moduleUpdatePublisher->available()
+            ? $this->moduleUpdatePublisher->catalog()
+            : $this->moduleUpdates->all($forceRefresh);
+        foreach ($catalog as $candidate) {
+            if (
+                isset($local[$candidate['id']])
+                || $candidate['type'] !== 'extension'
+                || $candidate['protected']
+            ) {
+                continue;
+            }
+            if (!isset($available[$candidate['id']]) || version_compare(
+                $candidate['version'],
+                $available[$candidate['id']]['version'],
+                '>'
+            )) {
+                $available[$candidate['id']] = $candidate;
+            }
+        }
+        ksort($available);
+        return $available;
     }
 
     private function toggleModule(Request $request): void
@@ -2265,6 +2486,54 @@ final class SystemAdminModule implements ModuleInterface
         $this->theme->end_admin_panel();
         $this->theme->end_admin_panel_grid();
 
+        $distributionAccess = $this->distributionAccessCredentials->status();
+        $this->theme->start_admin_panel(
+            'Dostęp do modułów dedykowanych',
+            $distributionAccess['configured']
+                ? 'Klucz skonfigurowany ••••' . $distributionAccess['key_last4']
+                : 'Tylko moduły publiczne'
+        );
+        $this->theme->render_admin_fact_grid([
+            [
+                'label' => 'Identyfikator instalacji',
+                'value' => $distributionAccess['installation_id'] !== ''
+                    ? $distributionAccess['installation_id']
+                    : 'Nieprzypisany',
+            ],
+            [
+                'label' => 'Klucz',
+                'value' => $distributionAccess['configured']
+                    ? 'Zapisany bez możliwości odczytu (••••' . $distributionAccess['key_last4'] . ')'
+                    : 'Brak',
+            ],
+        ]);
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'distribution_access'],
+                [
+                    'name' => 'distribution_access_key',
+                    'label' => $distributionAccess['configured'] ? 'Nowy klucz dostępu' : 'Klucz dostępu',
+                    'type' => 'password',
+                    'value' => '',
+                    'autocomplete' => 'new-password',
+                    'maxlength' => 128,
+                    'help' => $distributionAccess['configured']
+                        ? 'Pozostaw puste, aby zachować obecny klucz. Wpisanie nowego zastąpi go atomowo.'
+                        : 'Wklej jednorazowy klucz wydany przez instalację macierzystą.',
+                ],
+                [
+                    'name' => 'distribution_access_remove',
+                    'label' => 'Usuń zapisany klucz i wróć do katalogu publicznego',
+                    'type' => 'checkbox',
+                    'checked' => false,
+                ],
+            ],
+            $distributionAccess['configured'] ? 'Zaktualizuj dostęp' : 'Zapisz klucz',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
         $publisherRows = [];
         foreach ($this->trustedModulePublishers as $keyId => $publisher) {
             $publicKey = (string) ($publisher['public_key'] ?? '');
@@ -2413,6 +2682,17 @@ final class SystemAdminModule implements ModuleInterface
                 $auth = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
                 $fallback = is_array($auth['providers'] ?? null) ? $auth['providers'] : [];
                 $this->authProviderConfigStore->save($providers, $fallback);
+            } elseif ($scope === 'distribution_access') {
+                if ($request->postBool('distribution_access_remove')) {
+                    $this->distributionAccessCredentials->remove();
+                } else {
+                    $key = $request->postString('distribution_access_key');
+                    if ($key !== '') {
+                        $this->distributionAccessCredentials->save($key);
+                    } elseif (!$this->distributionAccessCredentials->status()['configured']) {
+                        throw new \RuntimeException('Wklej klucz wydany przez instalację macierzystą.');
+                    }
+                }
             } else {
                 throw new \RuntimeException('Nieznany zakres ustawień.');
             }

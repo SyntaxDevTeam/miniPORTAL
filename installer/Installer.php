@@ -512,7 +512,7 @@ final class Installer
     {
         $content = json_encode([
             'installed_at' => gmdate(DATE_ATOM),
-            'version' => '0.10.0',
+            'version' => '0.10.1',
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zablokować instalatora po instalacji.');
@@ -546,6 +546,14 @@ final class Installer
         $modules = [];
         foreach (glob($this->root . '/modules/*/info.json') ?: [] as $file) {
             $data = json_decode((string) file_get_contents($file), true, 16, JSON_THROW_ON_ERROR);
+            $distribution = is_array($data['distribution'] ?? null) ? $data['distribution'] : [];
+            $distributionAccess = trim((string) ($distribution['access'] ?? 'public'));
+            if (!in_array($distributionAccess, ['public', 'licensed', 'source_only'], true)) {
+                throw new RuntimeException('Manifest zawiera nieprawidłowy poziom dystrybucji.');
+            }
+            if ($distributionAccess !== 'public') {
+                continue;
+            }
             $directory = dirname($file);
             $modules[(string) $data['id']] = [
                 'id' => (string) $data['id'],

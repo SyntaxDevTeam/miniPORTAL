@@ -27,6 +27,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         private readonly AdminMenuRegistry $menu,
         private readonly AdminAccessGate $access,
         private readonly ?UserAdministrationRepository $userAdministration,
+        private readonly RegistrationConfig $registration,
         private readonly bool $demoEnabled = false,
     ) {
     }
@@ -38,7 +39,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     public function version(): string
     {
-        return '1.8.0';
+        return '1.9.0';
     }
 
     public function dependencies(): array
@@ -105,6 +106,8 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     {
         $router->get('/admin/login', fn (Request $request) => $this->renderLogin($request));
         $router->get('/admin/account-pending', fn () => $this->renderPendingAccount());
+        $router->get('/account/registration', fn () => $this->renderRegistration());
+        $router->post('/account/registration', fn (Request $request) => $this->acceptRegistration($request));
         $router->post('/admin/login', fn (Request $request) => $this->login($request));
         $router->post('/admin/logout', fn (Request $request) => $this->logout($request));
         $router->get('/admin/users', fn (Request $request) => $this->guard(
@@ -186,7 +189,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         }
         $user = $this->auth->user();
         if ($user !== null) {
-            $redirect = $user->isActive() ? $this->consumeAfterLoginRedirect() : 'index.php?route=/admin/account-pending';
+            $redirect = $this->redirectAfterAuthentication($user);
             header('Location: ' . $redirect, true, 303);
             return;
         }
@@ -232,6 +235,10 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             header('Location: index.php?route=/admin', true, 303);
             return;
         }
+        if ($this->registration->isSelfService()) {
+            header('Location: index.php?route=/account/registration', true, 303);
+            return;
+        }
 
         http_response_code(200);
         $this->theme->render_admin_access_state(
@@ -243,6 +250,108 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             '/',
             'Przejdź do strony głównej'
         );
+    }
+
+    private function renderRegistration(string $message = '', string $variant = 'info'): void
+    {
+        $user = $this->auth->actualUser();
+        if ($user === null) {
+            header('Location: index.php?route=/admin/login', true, 303);
+            return;
+        }
+        if ($user->isActive()) {
+            header('Location: ' . $this->consumeRegistrationRedirect(), true, 303);
+            return;
+        }
+        if (!$this->registration->isSelfService()) {
+            header('Location: index.php?route=/admin/account-pending', true, 303);
+            return;
+        }
+
+        $this->theme->start_page(
+            'Dokończ tworzenie konta',
+            'Zaakceptuj aktualny regulamin, aby automatycznie aktywować zwykłe konto.',
+            false
+        );
+        $this->theme->start_header(
+            'Jedna zgoda i konto jest gotowe',
+            'Tożsamość została potwierdzona. Nie musisz czekać na administratora.',
+            'miniPORTAL / Rejestracja'
+        );
+        $this->theme->end_header();
+        $this->theme->start_section();
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_card('Warunki korzystania z konta', 'Wersja ' . $this->registration->termsVersion);
+        $this->theme->render_text(
+            'Konto otrzyma podstawową rolę użytkownika. Uprawnienia administracyjne nadal może nadać wyłącznie uprawniona osoba.'
+        );
+        $this->theme->render_link_list([
+            ['label' => 'Regulamin usługi', 'href' => $this->registration->termsUrl, 'meta' => 'przeczytaj przed akceptacją'],
+            ['label' => 'Polityka prywatności', 'href' => $this->registration->privacyUrl, 'meta' => 'informacje o przetwarzaniu danych'],
+        ]);
+        $this->theme->render_form(
+            'index.php?route=/account/registration',
+            [[
+                'name' => 'accept_terms',
+                'label' => 'Akceptuję regulamin usługi i potwierdzam zapoznanie się z polityką prywatności.',
+                'type' => 'checkbox',
+                'required' => true,
+            ]],
+            'Utwórz konto i kontynuuj',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_card();
+        $this->theme->end_section();
+        $this->theme->end_page();
+    }
+
+    private function acceptRegistration(Request $request): void
+    {
+        $user = $this->auth->actualUser();
+        if ($user === null) {
+            header('Location: index.php?route=/admin/login', true, 303);
+            return;
+        }
+        if (!$this->registration->isSelfService()) {
+            header('Location: index.php?route=/admin/account-pending', true, 303);
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'terms_acceptance', 'invalid_csrf', null, $user->id);
+            http_response_code(403);
+            $this->renderRegistration('Formularz wygasł. Odśwież stronę i spróbuj ponownie.', 'danger');
+            return;
+        }
+        if (!$request->postBool('accept_terms')) {
+            $this->audit->record($request, 'terms_acceptance', 'not_accepted', null, $user->id);
+            http_response_code(422);
+            $this->renderRegistration('Aktywacja konta wymaga jawnej akceptacji regulaminu.', 'warning');
+            return;
+        }
+
+        try {
+            $activated = $this->auth->activateWithTermsAcceptance(
+                $this->registration->termsVersion,
+                $this->registration->termsUrl,
+                $this->registration->privacyUrl,
+                $this->registration->ipHash($request->clientIp()),
+                $request->userAgent() !== '' ? $request->userAgent() : null,
+            );
+        } catch (Throwable $exception) {
+            error_log(sprintf('miniPORTAL account activation failed: user_id=%d exception=%s', $user->id, $exception::class));
+            $activated = null;
+        }
+        if ($activated === null || !$activated->isActive()) {
+            $this->audit->record($request, 'terms_acceptance', 'activation_failed', null, $user->id);
+            http_response_code(503);
+            $this->renderRegistration('Nie udało się aktywować konta. Spróbuj ponownie za chwilę.', 'danger');
+            return;
+        }
+
+        $this->audit->record($request, 'terms_acceptance', 'accepted', null, $user->id);
+        header('Location: ' . $this->consumeRegistrationRedirect(), true, 303);
     }
 
     private function renderUsers(string $message = '', string $variant = 'info'): void
@@ -966,11 +1075,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         }
 
         $this->audit->record($request, 'login', $user->isActive() ? 'success' : 'pending_public_session', $name, $user->id);
-        $redirect = $this->consumeAfterLoginRedirect();
-        if (!$user->isActive() && $this->isAdminRedirect($redirect)) {
-            $redirect = 'index.php?route=/admin/account-pending';
-        }
-        header('Location: ' . $redirect, true, 303);
+        header('Location: ' . $this->redirectAfterAuthentication($user), true, 303);
     }
 
     private function login(Request $request): void
@@ -1004,11 +1109,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         }
 
         $this->audit->record($request, 'login_demo', $user->isActive() ? 'success' : 'pending_public_session', 'demo', $user->id);
-        $redirect = $this->consumeAfterLoginRedirect();
-        if (!$user->isActive() && $this->isAdminRedirect($redirect)) {
-            $redirect = 'index.php?route=/admin/account-pending';
-        }
-        header('Location: ' . $redirect, true, 303);
+        header('Location: ' . $this->redirectAfterAuthentication($user), true, 303);
     }
 
     private function logout(Request $request): void
@@ -1037,6 +1138,32 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         $redirect = $_SESSION['_miniportal_after_login'] ?? '';
         unset($_SESSION['_miniportal_after_login']);
         return is_string($redirect) ? $this->normalizeAfterLoginRedirect($redirect) : 'index.php?route=/admin';
+    }
+
+    private function consumeRegistrationRedirect(): string
+    {
+        $redirect = $_SESSION['_miniportal_after_login'] ?? '';
+        unset($_SESSION['_miniportal_after_login']);
+        if (!is_string($redirect) || trim($redirect) === '') {
+            return '/account/servers';
+        }
+
+        return $this->normalizeAfterLoginRedirect($redirect);
+    }
+
+    private function redirectAfterAuthentication(User $user): string
+    {
+        if ($user->isActive()) {
+            return $this->consumeAfterLoginRedirect();
+        }
+        if ($this->registration->isSelfService()) {
+            return 'index.php?route=/account/registration';
+        }
+
+        $redirect = $this->consumeAfterLoginRedirect();
+        return $this->isAdminRedirect($redirect)
+            ? 'index.php?route=/admin/account-pending'
+            : $redirect;
     }
 
     private function rememberAfterLoginRedirect(string $redirect): void

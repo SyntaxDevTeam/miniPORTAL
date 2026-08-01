@@ -56,6 +56,18 @@ try {
         (int) ($modules['rate_limit_retention_days'] ?? 2),
         $dryRun
     );
+    $summary[] = purgeTable(
+        $pdo,
+        'auth_events_archive',
+        'created_at',
+        (int) ($auth['audit_archive_retention_days'] ?? 365),
+        $dryRun
+    );
+    $summary[] = purgeCompletedErasureRequests(
+        $pdo,
+        (int) ($modules['account_erasure_request_retention_days'] ?? 365),
+        $dryRun
+    );
 
     if ($dryRun) {
         $retentionDays = max(1, min(3650, (int) ($auth['audit_retention_days'] ?? 180)));
@@ -140,6 +152,26 @@ function countOlderThan(PDO $pdo, string $table, string $dateColumn, string $cut
     $statement->execute([':cutoff' => $cutoff]);
 
     return (int) $statement->fetchColumn();
+}
+
+/** @return array{name:string, cutoff:string, matched:int, deleted:int, archived:int, dry_run:bool} */
+function purgeCompletedErasureRequests(PDO $pdo, int $retentionDays, bool $dryRun): array
+{
+    $retentionDays = max(30, min(3650, $retentionDays));
+    $cutoff = gmdate('Y-m-d H:i:s', time() - ($retentionDays * 86400));
+    if (!tableExists($pdo, 'account_erasure_requests')) {
+        return ['name' => 'account_erasure_requests', 'cutoff' => $cutoff, 'matched' => 0, 'deleted' => 0, 'archived' => 0, 'dry_run' => $dryRun];
+    }
+    $count = $pdo->prepare("SELECT COUNT(*) FROM account_erasure_requests WHERE status = 'completed' AND completed_at < :cutoff");
+    $count->execute([':cutoff' => $cutoff]);
+    $matched = (int) $count->fetchColumn();
+    $deleted = 0;
+    if (!$dryRun && $matched > 0) {
+        $delete = $pdo->prepare("DELETE FROM account_erasure_requests WHERE status = 'completed' AND completed_at < :cutoff");
+        $delete->execute([':cutoff' => $cutoff]);
+        $deleted = $delete->rowCount();
+    }
+    return ['name' => 'account_erasure_requests', 'cutoff' => $cutoff, 'matched' => $matched, 'deleted' => $deleted, 'archived' => 0, 'dry_run' => $dryRun];
 }
 
 /**

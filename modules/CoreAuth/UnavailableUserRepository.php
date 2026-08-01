@@ -21,6 +21,17 @@ final class UnavailableUserRepository implements UserRepositoryInterface
         throw new \RuntimeException('Repozytorium użytkowników jest niedostępne.');
     }
 
+    public function activateWithTermsAcceptance(
+        int $userId,
+        string $termsVersion,
+        string $termsUrl,
+        string $privacyUrl,
+        ?string $ipHash,
+        ?string $userAgent,
+    ): bool {
+        return false;
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
     }

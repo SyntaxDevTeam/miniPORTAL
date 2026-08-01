@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
 use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
+use SyntaxDevTeam\Cms\Modules\AccountPrivacy\AccountPrivacyModule;
+use SyntaxDevTeam\Cms\Modules\AccountPrivacy\AccountPrivacyRepository;
 use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildExplorerModule;
 use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage;
 use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildRepository;
@@ -16,6 +18,18 @@ use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
 use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
+use SyntaxDevTeam\Cms\Modules\DistributionAccess\DistributionAccessModule;
+use SyntaxDevTeam\Cms\Modules\DistributionAccess\DistributionAccessRepository;
+use SyntaxDevTeam\Cms\Modules\CraftCatalog\CraftCatalogModule;
+use SyntaxDevTeam\Cms\Modules\CraftCatalog\HostingPlanRepository;
+use SyntaxDevTeam\Cms\Modules\CraftPayments\CraftOrderRepository;
+use SyntaxDevTeam\Cms\Modules\CraftPayments\CraftPaymentsModule;
+use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayConfig;
+use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayGateway;
+use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayTransport;
+use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportConfig;
+use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportModule;
+use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
 use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
@@ -30,6 +44,8 @@ use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioSimulator;
 use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioWorkflowParser;
 use SyntaxDevTeam\Cms\Modules\Licences\LicenceRepository;
 use SyntaxDevTeam\Cms\Modules\Licences\LicencesModule;
+use SyntaxDevTeam\Cms\Modules\Hosting\HostingModule;
+use SyntaxDevTeam\Cms\Modules\Hosting\HostingRepository;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetStorage;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaOptimizationUsageRepository;
@@ -50,6 +66,9 @@ use SyntaxDevTeam\Cms\Modules\MCServerInstaller\ServerEngineCatalog;
 use SyntaxDevTeam\Cms\Modules\MCServerInstaller\SpigotVersionsClient;
 use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleModule;
 use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleRepository;
+use SyntaxDevTeam\Cms\Modules\NodeManager\NodeAgentConfig;
+use SyntaxDevTeam\Cms\Modules\NodeManager\NodeManagerModule;
+use SyntaxDevTeam\Cms\Modules\NodeManager\UnixSocketNodeAgentClient;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
 use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
@@ -60,6 +79,7 @@ use SyntaxDevTeam\Cms\Modules\Projects\ProjectRepository;
 use SyntaxDevTeam\Cms\Modules\Projects\ProjectsModule;
 use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalConfig;
 use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalModule;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\RegistrationConfig;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
 use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
@@ -94,6 +114,7 @@ return [
             $services['database'] !== null
                 ? new UserAdministrationRepository($services['database'])
                 : null,
+            RegistrationConfig::fromArray($services['auth_config']),
             $services['auth_demo_enabled']
         ),
     ],
@@ -107,6 +128,52 @@ return [
             $services['access'],
             $services['security'],
             $services['audit']
+        ),
+    ],
+    [
+        'directory' => 'NodeManager',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static function (array $services): NodeManagerModule {
+            $config = NodeAgentConfig::fromModuleConfig($services['config']['modules'] ?? []);
+            return new NodeManagerModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new UnixSocketNodeAgentClient($config),
+                $config,
+                $services['auth'],
+                $services['security'],
+                $services['audit']
+            );
+        },
+    ],
+    [
+        'directory' => 'Hosting',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static function (array $services): HostingModule {
+            $modules = is_array($services['config']['modules'] ?? null) ? $services['config']['modules'] : [];
+            $config = NodeAgentConfig::fromModuleConfig($modules);
+            return new HostingModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new HostingRepository($services['database']),
+                new UnixSocketNodeAgentClient($config),
+                $services['auth'],
+                $services['security'],
+                $services['audit'],
+                $modules
+            );
+        },
+    ],
+    [
+        'directory' => 'AccountPrivacy',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): AccountPrivacyModule => new AccountPrivacyModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new AccountPrivacyRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
         ),
     ],
     [
@@ -125,6 +192,50 @@ return [
             $services['audit'],
             $services['template_cache'],
             new MediaAssetRepository($services['database'])
+        ),
+    ],
+    [
+        'directory' => 'CraftCatalog',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): CraftCatalogModule => new CraftCatalogModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new HostingPlanRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit']
+        ),
+    ],
+    [
+        'directory' => 'CraftPayments',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static function (array $services): CraftPaymentsModule {
+            $hotPay = HotPayConfig::load(dirname(__DIR__) . '/modules/CraftPayments');
+            return new CraftPaymentsModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new CraftOrderRepository($services['database']),
+                new HostingPlanRepository($services['database']),
+                $hotPay,
+                new HotPayGateway($hotPay, new HotPayTransport()),
+                $services['auth'],
+                $services['security'],
+                $services['audit']
+            );
+        },
+    ],
+    [
+        'directory' => 'CraftSupport',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): CraftSupportModule => new CraftSupportModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new CraftSupportRepository($services['database']),
+            new CraftOrderRepository($services['database']),
+            CraftSupportConfig::load(dirname(__DIR__) . '/modules/CraftSupport'),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
         ),
     ],
     [
@@ -469,6 +580,20 @@ return [
         ),
     ],
     [
+        'directory' => 'DistributionAccess',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null
+            && $services['distribution_access_gateway'] instanceof DistributionAccessRepository,
+        'factory' => static fn (array $services): DistributionAccessModule => new DistributionAccessModule(
+            $services['theme'],
+            $services['admin_menu'],
+            $services['distribution_access_gateway'],
+            $services['module_manager'],
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
+        ),
+    ],
+    [
         'directory' => 'System',
         'required' => true,
         'factory' => static fn (array $services): SystemAdminModule => new SystemAdminModule(
@@ -498,6 +623,8 @@ return [
             $services['auth_provider_config_store'],
             $services['module_updates'],
             $services['module_update_publisher'],
+            $services['distribution_access_credentials'],
+            $services['distribution_access_gateway'],
         ),
     ],
 ];

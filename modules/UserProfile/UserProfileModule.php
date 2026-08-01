@@ -34,7 +34,7 @@ final class UserProfileModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.0.0';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -110,6 +110,7 @@ final class UserProfileModule implements ModuleInterface
         $this->theme->render_admin_panel_actions([
             ['label' => 'Połączone konta', 'href' => 'index.php?route=/admin/identities', 'variant' => 'primary'],
             ['label' => 'Bezpieczeństwo', 'href' => 'index.php?route=/admin/profile/security'],
+            ['label' => 'Prywatność i dane', 'href' => 'index.php?route=/account/privacy'],
         ]);
         $this->theme->end_admin_panel();
         $this->theme->end_admin_panel_grid();

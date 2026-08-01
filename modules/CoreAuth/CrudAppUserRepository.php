@@ -102,6 +102,52 @@ final class CrudAppUserRepository implements UserRepositoryInterface
         }
     }
 
+    public function activateWithTermsAcceptance(
+        int $userId,
+        string $termsVersion,
+        string $termsUrl,
+        string $privacyUrl,
+        ?string $ipHash,
+        ?string $userAgent,
+    ): bool {
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->prepare('SELECT status FROM users WHERE id = :id FOR UPDATE');
+            $lock->execute([':id' => $userId]);
+            $status = $lock->fetchColumn();
+            if ($status !== 'pending') {
+                $pdo->rollBack();
+                return $status === 'active';
+            }
+
+            $acceptance = $pdo->prepare(
+                'INSERT INTO user_terms_acceptances '
+                . '(user_id, terms_version, terms_url, privacy_url, ip_hash, user_agent) '
+                . 'VALUES (:user_id, :terms_version, :terms_url, :privacy_url, :ip_hash, :user_agent) '
+                . 'ON DUPLICATE KEY UPDATE terms_url = VALUES(terms_url), privacy_url = VALUES(privacy_url)'
+            );
+            $acceptance->execute([
+                ':user_id' => $userId,
+                ':terms_version' => $termsVersion,
+                ':terms_url' => $termsUrl,
+                ':privacy_url' => $privacyUrl,
+                ':ip_hash' => $ipHash,
+                ':user_agent' => $userAgent,
+            ]);
+            $activate = $pdo->prepare("UPDATE users SET status = 'active' WHERE id = :id AND status = 'pending'");
+            $activate->execute([':id' => $userId]);
+            $pdo->commit();
+
+            return $activate->rowCount() === 1;
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
     public function linkIdentity(int $userId, ExternalIdentity $identity): void
     {
         if ($this->findByIdentity($identity->provider, $identity->subject) !== null) {

@@ -27,6 +27,21 @@ CREATE TABLE user_identities (
     INDEX idx_user_identities_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE user_terms_acceptances (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    terms_version VARCHAR(64) NOT NULL,
+    terms_url VARCHAR(2048) NOT NULL,
+    privacy_url VARCHAR(2048) NOT NULL,
+    ip_hash CHAR(64) NULL,
+    user_agent VARCHAR(512) NULL,
+    accepted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_terms_acceptances_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_user_terms_acceptances_version (user_id, terms_version),
+    INDEX idx_user_terms_acceptances_accepted (accepted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE auth_active_sessions (
     session_hash CHAR(64) PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
