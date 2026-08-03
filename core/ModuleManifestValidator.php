@@ -15,7 +15,7 @@ final class ModuleManifestValidator
     ) {
     }
 
-    public function validate(string $directory): ModuleManifest
+    public function validate(string $directory, bool $verifyPackage = true): ModuleManifest
     {
         $file = rtrim($directory, '/') . '/info.json';
         if (!is_file($file)) {
@@ -85,7 +85,9 @@ final class ModuleManifestValidator
         $miniportalConstraint = (string) ($requires['miniportal'] ?? '');
         $this->assertConstraint($phpConstraint, PHP_VERSION, 'PHP', $file);
         $this->assertConstraint($miniportalConstraint, $this->miniportalVersion, 'miniPORTAL', $file);
-        $this->assertCoreSymbolsAvailable($directory, $file);
+        if ($verifyPackage) {
+            $this->assertCoreSymbolsAvailable($directory, $file);
+        }
 
         if ($factory !== null) {
             $this->assertPhpFile($directory, $factory, $id, $file);
@@ -113,6 +115,8 @@ final class ModuleManifestValidator
             if (!is_string($signatureFile)) {
                 throw new RuntimeException("Pole signature w {$file} musi wskazywać plik JSON.");
             }
+        }
+        if ($signatureFile !== null && $verifyPackage) {
             if ($originType === 'unspecified' || $originUrl === '') {
                 throw new RuntimeException("Podpisany pakiet {$id} wymaga jawnego typu i URL pochodzenia.");
             }
@@ -173,6 +177,21 @@ final class ModuleManifestValidator
     {
         try {
             return ['manifest' => $this->validate($directory), 'error' => null];
+        } catch (\Throwable $exception) {
+            return ['manifest' => null, 'error' => $exception->getMessage()];
+        }
+    }
+
+    /**
+     * Lekka walidacja runtime. Pełna analiza kodu i podpisu pozostaje częścią
+     * preflightu instalacji, importu oraz aktualizacji pakietu.
+     *
+     * @return array{manifest: ?ModuleManifest, error: ?string}
+     */
+    public function inspectRuntime(string $directory): array
+    {
+        try {
+            return ['manifest' => $this->validate($directory, false), 'error' => null];
         } catch (\Throwable $exception) {
             return ['manifest' => null, 'error' => $exception->getMessage()];
         }

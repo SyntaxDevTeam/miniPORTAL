@@ -12,7 +12,8 @@ final class ProjectRepository
 {
     private const COLUMNS = 'projects.id, projects.name, projects.slug, projects.integration_uuid, '
         . 'projects.integration_priority, projects.icon_url, projects.summary, '
-        . 'projects.lifecycle_status, projects.page_id, projects.wiki_project_id, projects.sort_order, '
+        . 'projects.lifecycle_status, projects.category_id, project_categories.name AS category_name, '
+        . 'project_categories.slug AS category_slug, projects.page_id, projects.wiki_project_id, projects.sort_order, '
         . 'projects.is_published, core_pages.title AS page_title, core_pages.slug AS page_slug, '
         . 'core_pages.status AS page_status, wiki_projects.name AS wiki_name, wiki_projects.slug AS wiki_slug, '
         . 'wiki_projects.status AS wiki_status';
@@ -25,6 +26,7 @@ final class ProjectRepository
     public function all(bool $publishedOnly = false): array
     {
         $sql = 'SELECT ' . self::COLUMNS . ' FROM projects '
+            . 'LEFT JOIN project_categories ON project_categories.id = projects.category_id '
             . 'LEFT JOIN core_pages ON core_pages.id = projects.page_id '
             . 'LEFT JOIN wiki_projects ON wiki_projects.id = projects.wiki_project_id';
         if ($publishedOnly) {
@@ -84,6 +86,78 @@ final class ProjectRepository
         return $this->options('SELECT id, name FROM wiki_projects ORDER BY name', 'name');
     }
 
+    /** @return list<ProjectCategory> */
+    public function categories(): array
+    {
+        $statement = $this->database->query(
+            'SELECT project_categories.id, project_categories.name, project_categories.slug, '
+            . 'project_categories.sort_order, COUNT(projects.id) AS project_count '
+            . 'FROM project_categories '
+            . 'LEFT JOIN projects ON projects.category_id = project_categories.id '
+            . 'GROUP BY project_categories.id, project_categories.name, project_categories.slug, project_categories.sort_order '
+            . 'ORDER BY project_categories.sort_order ASC, project_categories.name ASC'
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać kategorii projektów.');
+        }
+
+        return array_map($this->hydrateCategory(...), $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function findCategory(int $id): ?ProjectCategory
+    {
+        $statement = $this->database->query(
+            'SELECT project_categories.id, project_categories.name, project_categories.slug, '
+            . 'project_categories.sort_order, COUNT(projects.id) AS project_count '
+            . 'FROM project_categories '
+            . 'LEFT JOIN projects ON projects.category_id = project_categories.id '
+            . 'WHERE project_categories.id = :id '
+            . 'GROUP BY project_categories.id, project_categories.name, project_categories.slug, project_categories.sort_order '
+            . 'LIMIT 1',
+            [':id' => $id]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $this->hydrateCategory($row) : null;
+    }
+
+    /** @return array<int, string> */
+    public function categoryOptions(): array
+    {
+        return $this->options('SELECT id, name FROM project_categories ORDER BY sort_order, name', 'name');
+    }
+
+    public function categorySlugExists(string $slug, ?int $exceptId = null): bool
+    {
+        $sql = 'SELECT COUNT(*) FROM project_categories WHERE slug = :slug';
+        $parameters = [':slug' => $slug];
+        if ($exceptId !== null) {
+            $sql .= ' AND id <> :id';
+            $parameters[':id'] = $exceptId;
+        }
+
+        return (int) $this->database->query($sql, $parameters)?->fetchColumn() > 0;
+    }
+
+    /** @param array{name: string, slug: string, sort_order: int} $data */
+    public function createCategory(array $data): int
+    {
+        return (int) $this->database->create('project_categories', $data);
+    }
+
+    /** @param array{name: string, slug: string, sort_order: int} $data */
+    public function updateCategory(int $id, array $data): bool
+    {
+        return $this->database->update('project_categories', $data, ['id' => $id]) !== null;
+    }
+
+    public function deleteCategory(int $id): bool
+    {
+        $statement = $this->database->delete('project_categories', ['id' => $id]);
+
+        return $statement !== null && $statement->rowCount() === 1;
+    }
+
     /** @param array<string, int|string|null> $data */
     public function create(array $data): int
     {
@@ -106,6 +180,7 @@ final class ProjectRepository
     {
         $statement = $this->database->query(
             'SELECT ' . self::COLUMNS . ' FROM projects '
+            . 'LEFT JOIN project_categories ON project_categories.id = projects.category_id '
             . 'LEFT JOIN core_pages ON core_pages.id = projects.page_id '
             . 'LEFT JOIN wiki_projects ON wiki_projects.id = projects.wiki_project_id '
             . 'WHERE ' . $where . ' LIMIT 1',
@@ -136,12 +211,26 @@ final class ProjectRepository
             (int) $row['id'], (string) $row['name'], (string) $row['slug'],
             (string) ($row['integration_uuid'] ?? ''), (int) ($row['integration_priority'] ?? 100),
             (string) ($row['icon_url'] ?? ''), (string) $row['summary'],
-            (string) $row['lifecycle_status'], $row['page_id'] !== null ? (int) $row['page_id'] : null,
+            (string) $row['lifecycle_status'], $row['category_id'] !== null ? (int) $row['category_id'] : null,
+            (string) ($row['category_name'] ?? ''), (string) ($row['category_slug'] ?? ''),
+            $row['page_id'] !== null ? (int) $row['page_id'] : null,
             $row['wiki_project_id'] !== null ? (int) $row['wiki_project_id'] : null,
             (int) $row['sort_order'], (bool) $row['is_published'], (string) ($row['page_title'] ?? ''),
             (string) ($row['page_slug'] ?? ''), (string) ($row['page_status'] ?? ''),
             (string) ($row['wiki_name'] ?? ''), (string) ($row['wiki_slug'] ?? ''),
             (string) ($row['wiki_status'] ?? '')
+        );
+    }
+
+    /** @param array<string, mixed> $row */
+    private function hydrateCategory(array $row): ProjectCategory
+    {
+        return new ProjectCategory(
+            (int) $row['id'],
+            (string) $row['name'],
+            (string) $row['slug'],
+            (int) $row['sort_order'],
+            (int) $row['project_count'],
         );
     }
 }

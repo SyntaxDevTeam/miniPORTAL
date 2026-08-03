@@ -83,6 +83,8 @@ interface ThemeInterface
 
     public function end_section(): void;
 
+    public function render_section_heading(string $title, string $lead = ''): void;
+
     public function start_grid(): void;
 
     public function end_grid(): void;
@@ -129,6 +131,10 @@ interface ThemeInterface
     public function render_content_navigation(array $items): void;
 
     public function render_alert(string $message, string $variant = 'info'): void;
+
+    public function render_loading_state(string $id, string $label, string $variant = 'panel'): void;
+
+    public function require_asset(string $asset): void;
 
     /**
      * @param list<string|array{label: string, href: string, direction?: string, reset?: bool}> $headers

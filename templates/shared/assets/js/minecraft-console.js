@@ -251,6 +251,12 @@
     if (!(output instanceof HTMLElement) || !(form instanceof HTMLFormElement)) return;
 
     let pollTimer = null;
+    let pollController = null;
+    let pollGeneration = 0;
+    let pollEtag = "";
+    let idlePolls = 0;
+    let consoleRunning = true;
+    let polling = true;
     let rawOutput = "";
     let consoleOffset = 0;
     let streamInitialized = false;
@@ -280,34 +286,82 @@
       output.textContent = message;
     };
 
+    const pollDelay = () => {
+      if (document.hidden) return 10000;
+      const base = consoleRunning ? 1200 : 2500;
+      const maximum = consoleRunning ? 5000 : 10000;
+      return Math.min(maximum, Math.round(base * (1.45 ** Math.min(idlePolls, 6))));
+    };
+
+    const schedulePoll = () => {
+      if (!polling) return;
+      window.clearTimeout(pollTimer);
+      pollTimer = window.setTimeout(poll, pollDelay());
+    };
+
     const poll = async () => {
+      if (!polling) return;
+      const generation = ++pollGeneration;
+      pollController?.abort();
+      const controller = new AbortController();
+      pollController = controller;
       try {
         const url = new URL(root.dataset.outputUrl || "", window.location.href);
         url.searchParams.set("offset", String(consoleOffset));
+        const headers = { Accept: "application/json" };
+        if (pollEtag) headers["X-Poll-ETag"] = pollEtag;
         const response = await fetch(url.toString(), {
           cache: "no-store",
-          headers: { Accept: "application/json" },
+          headers,
+          signal: controller.signal,
         });
+        const responseEtag = response.headers.get("ETag");
+        if (responseEtag) pollEtag = responseEtag;
+        if (response.status === 204) {
+          idlePolls += 1;
+          schedulePoll();
+          return;
+        }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        const nextRunning = data.running === true;
+        const runningChanged = nextRunning !== consoleRunning;
+        consoleRunning = nextRunning;
+        let outputChanged = false;
         if (data.source === "log") {
           const nextChunk = typeof data.output === "string" ? data.output : "";
           const shouldReset = Boolean(data.reset) || !streamInitialized;
+          outputChanged = nextChunk !== "" || shouldReset;
           applyConsoleOutput(shouldReset ? nextChunk : rawOutput + nextChunk, shouldReset);
           consoleOffset = Number.isFinite(Number(data.offset)) ? Number(data.offset) : consoleOffset;
           streamInitialized = true;
         } else {
+          const nextOutput = typeof data.output === "string" ? data.output : "";
+          outputChanged = nextOutput !== rawOutput;
           streamInitialized = false;
           consoleOffset = 0;
-          applyConsoleOutput(typeof data.output === "string" ? data.output : "");
+          applyConsoleOutput(nextOutput);
         }
-      } catch {
+        idlePolls = outputChanged || runningChanged ? 0 : idlePolls + 1;
+        schedulePoll();
+      } catch (error) {
+        if (error?.name === "AbortError") return;
         showPlainMessage("Nie udało się pobrać bufora konsoli.");
         consoleOffset = 0;
         streamInitialized = false;
+        pollEtag = "";
+        idlePolls = Math.min(idlePolls + 2, 8);
+        schedulePoll();
       } finally {
-        pollTimer = window.setTimeout(poll, 1200);
+        if (generation === pollGeneration) pollController = null;
       }
+    };
+
+    const wakePoll = () => {
+      idlePolls = 0;
+      pollEtag = "";
+      window.clearTimeout(pollTimer);
+      poll();
     };
 
     form.addEventListener("submit", async (event) => {
@@ -317,13 +371,22 @@
         const response = await fetch(root.dataset.commandUrl || "", { method: "POST", body });
         const command = form.elements.namedItem("command");
         if (response.ok && command instanceof HTMLInputElement) command.value = "";
-        window.clearTimeout(pollTimer);
-        poll();
+        wakePoll();
       } catch {
         showPlainMessage("Nie udało się wysłać komendy do konsoli.");
       }
     });
 
+    document.addEventListener("visibilitychange", () => {
+      window.clearTimeout(pollTimer);
+      if (!document.hidden) wakePoll();
+      else schedulePoll();
+    });
+    window.addEventListener("beforeunload", () => {
+      polling = false;
+      pollController?.abort();
+      window.clearTimeout(pollTimer);
+    });
     poll();
   });
 })();

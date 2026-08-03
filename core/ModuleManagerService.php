@@ -8,6 +8,12 @@ use RuntimeException;
 
 final class ModuleManagerService
 {
+    /** @var array<string, ModuleManifest>|null */
+    private ?array $manifestCache = null;
+
+    /** @var list<array<string, mixed>>|null */
+    private ?array $moduleCache = null;
+
     public function __construct(
         private readonly string $modulesPath,
         private readonly ModuleManifestValidator $validator,
@@ -23,6 +29,9 @@ final class ModuleManagerService
      */
     public function manifests(): array
     {
+        if ($this->manifestCache !== null) {
+            return $this->manifestCache;
+        }
         $manifests = [];
         foreach (glob(rtrim($this->modulesPath, '/') . '/*/info.json') ?: [] as $file) {
             $inspection = $this->validator->inspect(dirname($file));
@@ -35,7 +44,7 @@ final class ModuleManagerService
         }
         ksort($manifests);
 
-        return $manifests;
+        return $this->manifestCache = $manifests;
     }
 
     /**
@@ -51,7 +60,11 @@ final class ModuleManagerService
      */
     public function modules(): array
     {
+        if ($this->moduleCache !== null) {
+            return $this->moduleCache;
+        }
         $result = [];
+        $manifests = [];
         foreach (glob(rtrim($this->modulesPath, '/') . '/*/info.json') ?: [] as $file) {
             $directory = dirname($file);
             $inspection = $this->validator->inspect($directory);
@@ -68,6 +81,7 @@ final class ModuleManagerService
                 ];
                 continue;
             }
+            $manifests[$manifest->id] = $manifest;
 
             $state = null;
             try {
@@ -105,7 +119,10 @@ final class ModuleManagerService
             static fn (array $left, array $right): int => strcmp($left['directory'], $right['directory'])
         );
 
-        return $result;
+        ksort($manifests);
+        $this->manifestCache = $manifests;
+
+        return $this->moduleCache = $result;
     }
 
     public function install(string $moduleId): void

@@ -64,10 +64,11 @@ final class ModuleStateRepository
             return;
         }
 
-        $data = [
-            'is_protected' => $manifest->protected ? 1 : 0,
-        ];
-        $this->database->update('modules_config', $data, ['module_id' => $manifest->id]);
+        if ($state->protected !== $manifest->protected) {
+            $this->database->update('modules_config', [
+                'is_protected' => $manifest->protected ? 1 : 0,
+            ], ['module_id' => $manifest->id]);
+        }
     }
 
     public function markInstalled(ModuleManifest $manifest): void

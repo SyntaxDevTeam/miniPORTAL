@@ -53,12 +53,42 @@ final class ModuleUpdatePublisher
         }
     }
 
+    /**
+     * Wymusza pełną publikację i przekazuje błąd do workera. Metoda nie jest
+     * przeznaczona do wywoływania w żądaniu HTTP.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function refreshCatalog(): array
+    {
+        if (!$this->available()) {
+            throw new RuntimeException('Repozytorium aktualizacji modułów wymaga skonfigurowanego klucza wydawniczego.');
+        }
+
+        return $this->refresh();
+    }
+
+    /**
+     * Zwraca ostatni atomowo opublikowany katalog bez skanowania źródeł,
+     * budowania ZIP-ów ani podpisywania pakietów w żądaniu użytkownika.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function cachedCatalog(): array
+    {
+        if (!$this->available()) {
+            return [];
+        }
+
+        return $this->readCatalog();
+    }
+
     public function findByFilename(string $filename): ?array
     {
         if (basename($filename) !== $filename) {
             return null;
         }
-        foreach ($this->catalog() as $entry) {
+        foreach ($this->cachedCatalog() as $entry) {
             if ($entry['filename'] === $filename) {
                 return $entry;
             }

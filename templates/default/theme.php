@@ -76,6 +76,9 @@ final class Theme implements ThemeInterface
 
     private array $adminSearchItems = [];
 
+    /** @var array<string, true> */
+    private array $requiredAssets = [];
+
     /** @var array{role:string,label:string,stop_action:string,csrf_token:string}|null */
     private ?array $adminRolePreview = null;
 
@@ -172,7 +175,7 @@ final class Theme implements ThemeInterface
         }
         echo '<title>' . $this->escape($pageTitle) . '</title>';
         $this->renderBrandHead($pageTitle, $this->publicMetaDescription);
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
@@ -196,7 +199,7 @@ final class Theme implements ThemeInterface
         echo '</main>';
         $this->renderPublicFooter($pages);
         $this->renderPrivacyNotice($pages);
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
         $this->renderFastStatsScript(true);
@@ -365,7 +368,7 @@ final class Theme implements ThemeInterface
         }
         echo '<title>' . $this->escape($pageTitle) . '</title>';
         $this->renderBrandHead($pageTitle, $metaDescription, $indexable);
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
@@ -380,9 +383,14 @@ final class Theme implements ThemeInterface
         echo '</main>';
         $this->renderPublicFooter($this->publicNavigation);
         $this->renderPrivacyNotice($this->publicNavigation);
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
+        if (isset($this->requiredAssets['charts'])) {
+            $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
+            $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
+            echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
+        }
         $this->renderFastStatsScript($this->currentPageIndexable);
         echo '</body></html>';
     }
@@ -429,6 +437,15 @@ final class Theme implements ThemeInterface
     public function end_section(): void
     {
         echo '</section>';
+    }
+
+    public function render_section_heading(string $title, string $lead = ''): void
+    {
+        echo '<header class="mb-4"><h2 class="h3 mb-1">' . $this->escape($title) . '</h2>';
+        if ($lead !== '') {
+            echo '<p class="text-secondary mb-0">' . $this->escape($lead) . '</p>';
+        }
+        echo '</header>';
     }
 
     public function start_grid(): void
@@ -607,6 +624,23 @@ final class Theme implements ThemeInterface
             echo '<pre class="alert-command mt-3 mb-0"><code>' . $this->escape(trim($part)) . '</code></pre>';
         }
         echo '</div>';
+    }
+
+    public function render_loading_state(string $id, string $label, string $variant = 'panel'): void
+    {
+        $safeId = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $id) ?? 'loading-state';
+        $variant = in_array($variant, ['panel', 'inline'], true) ? $variant : 'panel';
+        echo '<div id="' . $this->escape(trim($safeId, '-')) . '" class="admin-loading-state admin-loading-state--'
+            . $variant . '" role="status" aria-live="polite" aria-busy="true">';
+        echo '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+        echo '<span>' . $this->escape($label) . '</span></div>';
+    }
+
+    public function require_asset(string $asset): void
+    {
+        if (in_array($asset, ['charts', 'minecraft_console'], true)) {
+            $this->requiredAssets[$asset] = true;
+        }
     }
 
     public function render_table(array $headers, array $rows): void
@@ -812,6 +846,7 @@ final class Theme implements ThemeInterface
     {
         $points = array_values(array_filter($points, static fn (mixed $point): bool => is_array($point) && isset($point['label']) && is_numeric($point['value'] ?? null)));
         if ($points === []) { $this->render_alert('Brak danych do narysowania wykresu.', 'info'); return; }
+        $this->require_asset('charts');
         $values = array_map(static fn (array $point): float => (float) $point['value'], $points);
         $min = min($values); $max = max($values); $range = max(1.0, $max - $min); $count = count($points);
         $coordinates = [];
@@ -828,6 +863,7 @@ final class Theme implements ThemeInterface
     {
         $items = array_values(array_filter($items, static fn (mixed $item): bool => is_array($item) && trim((string) ($item['label'] ?? '')) !== '' && is_numeric($item['value'] ?? null)));
         if ($items === []) { $this->render_alert('Brak danych dla tego zestawienia.', 'info'); return; }
+        $this->require_asset('charts');
         $maximum = max(array_map(static fn (array $item): float => (float) $item['value'], $items));
         $payload = json_encode($items, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
         $chartId = 'amchart-bar-' . substr(hash('sha256', $label . $payload), 0, 12);
@@ -850,6 +886,7 @@ final class Theme implements ThemeInterface
             && (float) $point['latitude'] >= -90 && (float) $point['latitude'] <= 90
             && (float) $point['longitude'] >= -180 && (float) $point['longitude'] <= 180));
         if ($points === []) { $this->render_alert('Brak współrzędnych geolokalizacji w wybranym zakresie.', 'info'); return; }
+        $this->require_asset('charts');
         $payload = json_encode($points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
         $chartId = 'amchart-map-' . substr(hash('sha256', $label . $payload), 0, 12);
         echo '<figure class="geo-map" role="group" aria-label="' . $this->escape($label) . '"><div id="' . $chartId . '" class="amchart-host amchart-map" data-amchart="map" data-chart-label="' . $this->escape($label) . '" data-chart-payload="' . $this->escape($payload) . '" hidden></div>';
@@ -1139,14 +1176,16 @@ final class Theme implements ThemeInterface
         echo '<meta name="description" content="Panel administracyjny miniPORTAL">';
         $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape($title) . ' - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
-        $consoleStylesFile = dirname(__DIR__) . '/shared/assets/css/minecraft-console.css';
-        $consoleStylesVersion = is_file($consoleStylesFile) ? (string) filemtime($consoleStylesFile) : '1';
-        echo '<link rel="stylesheet" href="/templates/shared/assets/css/minecraft-console.css?v='
-            . $this->escape($consoleStylesVersion) . '">';
+        if (isset($this->requiredAssets['minecraft_console'])) {
+            $consoleStylesFile = dirname(__DIR__) . '/shared/assets/css/minecraft-console.css';
+            $consoleStylesVersion = is_file($consoleStylesFile) ? (string) filemtime($consoleStylesFile) : '1';
+            echo '<link rel="stylesheet" href="/templates/shared/assets/css/minecraft-console.css?v='
+                . $this->escape($consoleStylesVersion) . '">';
+        }
         echo '</head><body class="admin-stylebook"><div class="site-grid" aria-hidden="true"></div>';
         echo '<a class="visually-hidden-focusable skip-link" href="#admin-main">Przejdź do treści panelu</a>';
         echo '<div class="offcanvas offcanvas-start text-bg-dark" tabindex="-1" id="adminMobileSidebar" ';
@@ -1203,19 +1242,27 @@ final class Theme implements ThemeInterface
     public function end_admin_page(): void
     {
         echo '</main></div></div></div>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/admin.js') . '"></script>';
-        $consoleFile = dirname(__DIR__) . '/shared/assets/js/minecraft-console.js';
-        $consoleVersion = is_file($consoleFile) ? (string) filemtime($consoleFile) : '1';
-        echo '<script src="/templates/shared/assets/js/minecraft-console.js?v='
-            . $this->escape($consoleVersion) . '"></script>';
+        if (isset($this->requiredAssets['minecraft_console'])) {
+            $consoleFile = dirname(__DIR__) . '/shared/assets/js/minecraft-console.js';
+            $consoleVersion = is_file($consoleFile) ? (string) filemtime($consoleFile) : '1';
+            echo '<script src="/templates/shared/assets/js/minecraft-console.js?v='
+                . $this->escape($consoleVersion) . '"></script>';
+        }
         $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
         $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
-        $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
-        $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
-        echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script></body></html>';
+        $asyncFile = dirname(__DIR__) . '/shared/assets/js/admin-async-content.js';
+        $asyncVersion = is_file($asyncFile) ? (string) filemtime($asyncFile) : '1';
+        echo '<script src="/templates/shared/assets/js/admin-async-content.js?v=' . $this->escape($asyncVersion) . '"></script>';
+        if (isset($this->requiredAssets['charts'])) {
+            $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
+            $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
+            echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
+        }
+        echo '</body></html>';
     }
 
     public function start_admin_content(
@@ -1509,7 +1556,7 @@ final class Theme implements ThemeInterface
         echo '<meta name="description" content="Logowanie do panelu miniPORTAL">';
         $this->renderBrandHead('', '', false);
         echo '<title>Logowanie - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
@@ -1572,7 +1619,7 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape((string) $status) . ' - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook">';
@@ -1598,7 +1645,7 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         $this->renderBrandHead('', '', false);
         echo '<title>Połączone konta - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '</head><body class="admin-stylebook">';
@@ -2401,10 +2448,11 @@ final class Theme implements ThemeInterface
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private function brandLogo(string $class, string $filename = 'syntaxdevteam-logo.png'): string
+    private function brandLogo(string $class, string $filename = 'favicon-64x64.png'): string
     {
+        $size = $filename === 'favicon-64x64.png' ? 64 : ($filename === 'admin-logo.png' ? 256 : 512);
         return '<img class="' . $class . '" src="' . $this->asset('img/brand/' . $filename)
-            . '" width="512" height="512" alt="" aria-hidden="true">';
+            . '" width="' . $size . '" height="' . $size . '" alt="" aria-hidden="true">';
     }
 
     private function providerIconClass(string $provider): string
@@ -2428,6 +2476,12 @@ final class Theme implements ThemeInterface
 
     private function renderBrandHead(string $title, string $description, bool $indexable = true): void
     {
+        $loadingStyles = dirname(__DIR__) . '/shared/assets/css/page-loading.css';
+        $loadingScript = dirname(__DIR__) . '/shared/assets/js/page-loading.js';
+        echo '<link rel="stylesheet" href="/templates/shared/assets/css/page-loading.css?v=';
+        echo $this->escape(is_file($loadingStyles) ? (string) filemtime($loadingStyles) : '1') . '">';
+        echo '<script defer src="/templates/shared/assets/js/page-loading.js?v=';
+        echo $this->escape(is_file($loadingScript) ? (string) filemtime($loadingScript) : '1') . '"></script>';
         echo '<meta name="color-scheme" content="dark">';
         echo '<meta name="theme-color" content="' . $this->escape($this->publicThemeColor) . '">';
         echo '<meta name="application-name" content="' . $this->escape($this->publicName) . '">';

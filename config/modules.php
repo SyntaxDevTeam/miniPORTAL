@@ -372,16 +372,29 @@ return [
     [
         'directory' => 'PluginStats',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): PluginStatsModule => new PluginStatsModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new PluginStatsRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-            $services['rate_limiter'],
-            $services['config']['modules'] ?? []
-        ),
+        'factory' => static function (array $services): PluginStatsModule {
+            $repository = new PluginStatsRepository($services['database']);
+            $moduleConfig = is_array($services['config']['modules'] ?? null)
+                ? $services['config']['modules']
+                : [];
+            return new PluginStatsModule(
+                $services['theme'],
+                $services['admin_menu'],
+                $repository,
+                $services['auth'],
+                $services['security'],
+                $services['audit'],
+                $services['rate_limiter'],
+                $moduleConfig,
+                $services['template_cache'],
+                new \SyntaxDevTeam\Cms\Modules\PluginStats\PluginStatsDashboardCache(
+                    $repository,
+                    dirname(__DIR__) . '/cache/plugin-stats',
+                    (int) ($moduleConfig['plugin_stats_dashboard_ttl'] ?? 1800),
+                    (int) ($moduleConfig['plugin_stats_dashboard_stale_ttl'] ?? 86400)
+                )
+            );
+        },
     ],
     [
         'directory' => 'Econizer',
@@ -623,6 +636,7 @@ return [
             $services['auth_provider_config_store'],
             $services['module_updates'],
             $services['module_update_publisher'],
+            $services['module_update_refresh_queue'],
             $services['distribution_access_credentials'],
             $services['distribution_access_gateway'],
         ),

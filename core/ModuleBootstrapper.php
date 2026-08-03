@@ -23,10 +23,20 @@ final class ModuleBootstrapper
      *     factory: callable(array<string, mixed>): ModuleInterface
      * }> $definitions
      * @param array<string, mixed> $services
+     * @param list<string>|null $onlyDirectories
      */
-    public function register(array $definitions, array $services, ModuleRegistry $registry): void
+    public function register(
+        array $definitions,
+        array $services,
+        ModuleRegistry $registry,
+        ?array $onlyDirectories = null,
+    ): void
     {
         $registeredDirectories = [];
+        $states = $this->states?->all() ?? [];
+        $selectedDirectories = $onlyDirectories !== null
+            ? array_fill_keys(array_values(array_unique($onlyDirectories)), true)
+            : null;
         foreach ($definitions as $definition) {
             $directory = (string) ($definition['directory'] ?? '');
             $factory = $definition['factory'] ?? null;
@@ -38,12 +48,16 @@ final class ModuleBootstrapper
             }
             $registeredDirectories[] = $directory;
 
+            if ($selectedDirectories !== null && !isset($selectedDirectories[$directory])) {
+                continue;
+            }
+
             $isEnabled = is_callable($enabled) ? (bool) $enabled($services) : $enabled === true;
             if (!$isEnabled) {
                 continue;
             }
 
-            $inspection = $this->manifestValidator->inspect(
+            $inspection = $this->manifestValidator->inspectRuntime(
                 rtrim($this->modulesPath, '/') . '/' . $directory
             );
             $manifest = $inspection['manifest'];
@@ -56,8 +70,7 @@ final class ModuleBootstrapper
                 }
                 continue;
             }
-            $this->states?->registerDiscovered($manifest);
-            $state = $this->states?->find($manifest->id);
+            $state = $states[$manifest->id] ?? null;
             if (
                 $this->states !== null
                 && ($state === null || !$state->isActive())
@@ -72,7 +85,9 @@ final class ModuleBootstrapper
             $registry->add($module, $manifest);
         }
 
-        $this->registerPackageFactories($registeredDirectories, $services, $registry);
+        if ($selectedDirectories === null) {
+            $this->registerPackageFactories($registeredDirectories, $services, $registry, $states);
+        }
     }
 
     /**
@@ -85,6 +100,7 @@ final class ModuleBootstrapper
         array $registeredDirectories,
         array $services,
         ModuleRegistry $registry,
+        array $states,
     ): void {
         if ($this->states === null) {
             return;
@@ -96,6 +112,18 @@ final class ModuleBootstrapper
                 continue;
             }
 
+            $runtimeInspection = $this->manifestValidator->inspectRuntime($directory);
+            $runtimeManifest = $runtimeInspection['manifest'];
+            $state = $runtimeManifest !== null ? ($states[$runtimeManifest->id] ?? null) : null;
+            if (
+                $runtimeManifest === null
+                || $runtimeManifest->factoryFile === null
+                || $state === null
+                || !$state->isActive()
+            ) {
+                continue;
+            }
+
             $inspection = $this->manifestValidator->inspect($directory);
             $manifest = $inspection['manifest'];
             if (
@@ -103,12 +131,6 @@ final class ModuleBootstrapper
                 || $manifest->factoryFile === null
                 || !in_array($manifest->signatureStatus, ['verified', 'verified_retired'], true)
             ) {
-                continue;
-            }
-
-            $this->states->registerDiscovered($manifest);
-            $state = $this->states->find($manifest->id);
-            if ($state === null || !$state->isActive()) {
                 continue;
             }
 

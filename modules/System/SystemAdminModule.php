@@ -18,6 +18,7 @@ use SyntaxDevTeam\Cms\Core\ModuleDistributionAccessInterface;
 use SyntaxDevTeam\Cms\Core\ModuleArchiveImporter;
 use SyntaxDevTeam\Cms\Core\ModuleManagerService;
 use SyntaxDevTeam\Cms\Core\ModuleUpdatePublisher;
+use SyntaxDevTeam\Cms\Core\ModuleUpdateRefreshQueue;
 use SyntaxDevTeam\Cms\Core\ModuleUpdateRepository;
 use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
 use SyntaxDevTeam\Cms\Core\PlatformReleasePublisher;
@@ -62,6 +63,7 @@ final class SystemAdminModule implements ModuleInterface
         private readonly AuthProviderConfigStore $authProviderConfigStore,
         private readonly ModuleUpdateRepository $moduleUpdates,
         private readonly ModuleUpdatePublisher $moduleUpdatePublisher,
+        private readonly ModuleUpdateRefreshQueue $moduleUpdateRefreshQueue,
         private readonly DistributionAccessCredentialStore $distributionAccessCredentials,
         private readonly ?ModuleDistributionAccessInterface $distributionAccessGateway,
     ) {
@@ -74,7 +76,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.4.0';
+        return '2.4.1';
     }
 
     public function dependencies(): array
@@ -113,7 +115,16 @@ final class SystemAdminModule implements ModuleInterface
             '/api/module-updates/{filename}',
             fn (Request $request) => $this->serveModuleUpdateArchive($request)
         );
-        $router->get('/admin', fn (Request $request) => $this->guard($request, 'admin.access', fn () => $this->renderDashboard()));
+        $router->get('/admin', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderDashboard($request)
+        ));
+        $router->get('/admin/dashboard/content', fn (Request $request) => $this->guard(
+            $request,
+            'admin.access',
+            fn () => $this->renderDashboardFragment()
+        ));
         $router->get('/admin/modules', fn (Request $request) => $this->guard(
             $request,
             'modules.view',
@@ -236,9 +247,45 @@ final class SystemAdminModule implements ModuleInterface
         ));
     }
 
-    private function renderDashboard(): void
+    private function renderDashboard(Request $request): void
+    {
+        $this->startPage(
+            'Dashboard',
+            '/admin',
+            'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
+        );
+        if ($request->queryInt('full', 0) === 1) {
+            $this->renderDashboardContent();
+        } else {
+            echo '<section data-admin-async-url="index.php?route=/admin/dashboard/content" aria-busy="true">';
+            $this->theme->render_loading_state(
+                'dashboard-loading',
+                'Ładowanie metryk i ostatniej aktywności…',
+                'panel'
+            );
+            echo '<noscript><div class="alert alert-info" role="status">';
+            echo '<a href="index.php?route=/admin&amp;full=1">Pokaż pełny Dashboard bez JavaScript</a>';
+            echo '</div></noscript></section>';
+        }
+        $this->endPage();
+    }
+
+    private function renderDashboardFragment(): void
     {
         $permissions = $this->auth->user()?->permissions ?? [];
+        $this->security->closeSession();
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=UTF-8');
+            header('Cache-Control: private, no-store');
+            header('X-Content-Type-Options: nosniff');
+        }
+        $this->renderDashboardContent($permissions);
+    }
+
+    /** @param list<string>|null $effectivePermissions */
+    private function renderDashboardContent(?array $effectivePermissions = null): void
+    {
+        $permissions = $effectivePermissions ?? ($this->auth->user()?->permissions ?? []);
         $visibleMenu = $this->menu->visibleFor($permissions);
         $dashboardSettings = $this->settings?->dashboardWidgetSettings() ?? [];
         $moduleEntries = $this->moduleManager?->modules() ?? [];
@@ -283,11 +330,6 @@ final class SystemAdminModule implements ModuleInterface
             }
         }
 
-        $this->startPage(
-            'Dashboard',
-            '/admin',
-            'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
-        );
         try {
             $currentVersion = (string) ($this->config['app']['version'] ?? '0.0.0');
             $latestRelease = $this->platformReleases->latestFor($currentVersion);
@@ -402,8 +444,6 @@ final class SystemAdminModule implements ModuleInterface
             }
             $this->theme->end_admin_panel_grid();
         }
-
-        $this->endPage();
     }
 
     private function renderPlatformUpdates(string $message = '', string $variant = 'info'): void
@@ -621,7 +661,7 @@ final class SystemAdminModule implements ModuleInterface
             if ($this->distributionAccessGateway === null && trim($request->header('Authorization')) !== '') {
                 throw new DistributionAccessDenied('Macierzysty rejestr dostępu nie jest aktywny.');
             }
-            $entries = $this->moduleUpdatePublisher->catalog();
+            $entries = $this->moduleUpdatePublisher->cachedCatalog();
             $entries = $this->distributionAccessGateway !== null
                 ? $this->distributionAccessGateway->catalogFor($request, $entries)
                 : array_values(array_filter(
@@ -997,6 +1037,38 @@ final class SystemAdminModule implements ModuleInterface
                 . '. Każdy pakiet przechodzi przez kwarantannę i weryfikację podpisu.',
                 'warning'
             );
+        }
+        if ($this->moduleUpdatePublisher->available()) {
+            try {
+                $refreshState = $this->moduleUpdateRefreshQueue->status();
+                $status = (string) ($refreshState['status'] ?? 'idle');
+                if ($status === 'queued') {
+                    $this->theme->render_alert(
+                        'Przebudowa katalogu oczekuje w kolejce. Panel pozostaje dostępny, a ostatni poprawny katalog jest nadal używany.',
+                        'info'
+                    );
+                } elseif ($status === 'running') {
+                    $this->theme->render_alert(
+                        'Worker przebudowuje i podpisuje katalog modułów w tle. Ostatni poprawny katalog pozostaje dostępny.',
+                        'info'
+                    );
+                } elseif ($status === 'completed') {
+                    $this->theme->render_alert(
+                        'Ostatnia przebudowa zakończyła się ' . (string) ($refreshState['finished_at'] ?? '')
+                        . '; opublikowano modułów: ' . (int) ($refreshState['published_modules'] ?? 0)
+                        . '; czas: ' . (int) ($refreshState['duration_ms'] ?? 0) . ' ms.',
+                        'success'
+                    );
+                } elseif ($status === 'failed') {
+                    $this->theme->render_alert(
+                        'Ostatnia przebudowa katalogu nie powiodła się. Zachowano poprzedni katalog. Błąd: '
+                        . (string) ($refreshState['error'] ?? 'brak szczegółów'),
+                        'warning'
+                    );
+                }
+            } catch (\Throwable $exception) {
+                $this->theme->render_alert('Nie można odczytać stanu kolejki katalogu: ' . $exception->getMessage(), 'warning');
+            }
         }
         if ($this->moduleUpdates->configured()) {
             $this->theme->render_form(
@@ -1429,6 +1501,24 @@ final class SystemAdminModule implements ModuleInterface
             if (!$this->moduleUpdates->configured()) {
                 throw new \RuntimeException('Centralny kanał aktualizacji modułów nie jest skonfigurowany.');
             }
+            if ($this->moduleUpdatePublisher->available()) {
+                $state = $this->moduleUpdateRefreshQueue->request($actor?->id);
+                $queueStatus = (string) ($state['status'] ?? 'queued');
+                $this->audit->record(
+                    $request,
+                    'module_update_check',
+                    'queued',
+                    'job:' . (string) ($state['job_id'] ?? ''),
+                    $actor?->id
+                );
+                $this->renderModules(
+                    $queueStatus === 'running'
+                        ? 'Przebudowa katalogu już trwa w tle. Panel korzysta z ostatniego poprawnego katalogu.'
+                        : 'Przebudowa katalogu została dodana do kolejki. Panel korzysta z ostatniego poprawnego katalogu.',
+                    'info'
+                );
+                return;
+            }
             $entries = $this->moduleManager?->modules() ?? [];
             $updates = $this->availableRemoteModuleUpdates($entries, true);
             $this->audit->record(
@@ -1646,7 +1736,7 @@ final class SystemAdminModule implements ModuleInterface
 
         $updates = [];
         $catalog = $this->moduleUpdatePublisher->available()
-            ? $this->moduleUpdatePublisher->catalog()
+            ? $this->moduleUpdatePublisher->cachedCatalog()
             : $this->moduleUpdates->all($forceRefresh);
         foreach ($catalog as $candidate) {
             $local = $installed[$candidate['id']] ?? null;
@@ -1687,7 +1777,7 @@ final class SystemAdminModule implements ModuleInterface
         }
         $available = [];
         $catalog = $this->moduleUpdatePublisher->available()
-            ? $this->moduleUpdatePublisher->catalog()
+            ? $this->moduleUpdatePublisher->cachedCatalog()
             : $this->moduleUpdates->all($forceRefresh);
         foreach ($catalog as $candidate) {
             if (

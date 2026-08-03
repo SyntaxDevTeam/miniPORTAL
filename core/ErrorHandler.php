@@ -94,7 +94,7 @@ final class ErrorHandler
         if ($theme !== null && !headers_sent()) {
             $theme->render_public_error(
                 500,
-                'Poszło coś nie tak',
+                'Wprowadzamy drobne poprawki...',
                 $message,
                 'Wróć na stronę główną',
                 '/',
@@ -112,7 +112,7 @@ final class ErrorHandler
         return '<!doctype html><html lang="pl-PL"><head>'
             . '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<meta name="robots" content="noindex, nofollow">'
-            . '<title>Poszło coś nie tak - miniPORTAL</title>'
+            . '<title>Wprowadzamy drobne poprawki... - miniPORTAL</title>'
             . '<style>'
             . ':root{color-scheme:dark;--bg:#07101d;--panel:#101b2b;--line:#29405c;--text:#edf6ff;--muted:#a9b8ca;--accent:#64c7ff}'
             . '*{box-sizing:border-box}body{display:grid;min-height:100vh;margin:0;place-items:center;padding:1rem;color:var(--text);background:var(--bg);font:16px/1.55 system-ui,sans-serif}'
@@ -120,7 +120,7 @@ final class ErrorHandler
             . 'p{color:var(--muted)}a{display:inline-flex;margin-top:.5rem;color:var(--accent);font-weight:700}'
             . 'code{color:var(--accent)}'
             . '</style></head><body><main>'
-            . '<p>500 / błąd aplikacji</p><h1>Poszło coś nie tak</h1>'
+            . '<p>500 / błąd aplikacji</p><h1>Wprowadzamy drobne poprawki...</h1>'
             . '<p>Poczekaj chwilę i odśwież stronę albo wróć na stronę główną.</p>'
             . '<p>Kod zdarzenia: <code>' . $incidentId . '</code></p>'
             . '<a href="/">Wróć na stronę główną</a>'

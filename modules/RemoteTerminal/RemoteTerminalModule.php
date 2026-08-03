@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\RemoteTerminal;
 
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
+use SyntaxDevTeam\Cms\Core\PollingResponse;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
@@ -41,7 +42,7 @@ final class RemoteTerminalModule implements ModuleInterface
 
     public function version(): string
     {
-        return '1.2.11';
+        return '1.2.12';
     }
 
     public function dependencies(): array
@@ -390,146 +391,42 @@ final class RemoteTerminalModule implements ModuleInterface
         echo '.bar{display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.65rem .85rem;background:#0f172a;color:#e2e8f0;border-bottom:1px solid rgba(148,163,184,.22)}';
         echo '.screen{min-height:0;overflow:hidden;background:#020617;padding:.35rem .5rem}.xterm{width:100%;height:100%}.xterm-screen{width:100%!important}.xterm-screen canvas{display:block}.xterm-viewport{background:#020617!important}';
         echo '</style></head><body>';
-        echo '<main class="terminal" data-terminal>';
+        echo '<main class="terminal" data-terminal data-output-url="' . self::e($outputUrl) . '" ';
+        echo 'data-input-url="' . self::e($inputUrl) . '" data-token="' . self::e($session['token']) . '" ';
+        echo 'data-csrf="' . self::e($csrf) . '" data-cols="' . self::LOCAL_COLUMNS . '" data-rows="' . self::LOCAL_ROWS . '">';
         echo '<div class="bar"><strong>' . self::e($session['label'] . ' - ' . $session['user'] . '@' . $session['host'] . ':' . $session['port']) . '</strong><span data-status>Łączenie...</span></div>';
         echo '<div class="screen" data-terminal-screen></div>';
         echo '</main>';
         echo '<script src="' . self::e($assetBase . 'xterm.js') . '"></script>';
         echo '<script src="' . self::e($assetBase . 'addon-fit.js') . '"></script>';
-        echo '<script>';
-        echo 'const outputUrl=' . json_encode($outputUrl, JSON_THROW_ON_ERROR) . ';';
-        echo 'const inputUrl=' . json_encode($inputUrl, JSON_THROW_ON_ERROR) . ';';
-        echo 'const token=' . json_encode($session['token'], JSON_THROW_ON_ERROR) . ';';
-        echo 'const csrf=' . json_encode($csrf, JSON_THROW_ON_ERROR) . ';';
-        echo 'const terminalCols=' . json_encode(self::LOCAL_COLUMNS, JSON_THROW_ON_ERROR) . ';';
-        echo 'const terminalRows=' . json_encode(self::LOCAL_ROWS, JSON_THROW_ON_ERROR) . ';';
-        echo <<<'JS'
-const screen = document.querySelector('[data-terminal-screen]');
-const status = document.querySelector('[data-status]');
-const term = new Terminal({
-  cols: terminalCols,
-  rows: terminalRows,
-  cursorBlink: true,
-  convertEol: false,
-  scrollback: 5000,
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-  fontSize: 15,
-  lineHeight: 1.1,
-  theme: {
-    background: '#020617',
-    foreground: '#d1fae5',
-    cursor: '#67e8f9',
-    selectionBackground: '#334155',
-    black: '#0f172a',
-    red: '#ef4444',
-    green: '#22c55e',
-    yellow: '#eab308',
-    blue: '#38bdf8',
-    magenta: '#c084fc',
-    cyan: '#67e8f9',
-    white: '#e2e8f0',
-    brightBlack: '#475569',
-    brightRed: '#f87171',
-    brightGreen: '#86efac',
-    brightYellow: '#fde047',
-    brightBlue: '#7dd3fc',
-    brightMagenta: '#d8b4fe',
-    brightCyan: '#a5f3fc',
-    brightWhite: '#f8fafc'
-  }
-});
-const fitAddon = new FitAddon.FitAddon();
-term.loadAddon(fitAddon);
-term.open(screen);
-const fit = () => {
-  fitAddon.fit();
-  if (term.rows > terminalRows) {
-    term.resize(term.cols, terminalRows);
-  }
-  term.focus();
-};
-requestAnimationFrame(fit);
-setTimeout(fit, 100);
-setTimeout(fit, 350);
-window.addEventListener('resize', () => requestAnimationFrame(fit));
-let offset = 0;
-let polling = true;
-let pendingInput = '';
-let inputTimer = 0;
-const send = async (value) => {
-  if (!value) return;
-  const response = await fetch(inputUrl, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({token, csrf_token: csrf, input: value})
-  });
-  if (!response.ok) {
-    status.textContent = 'Nie wysłano wejścia';
-  }
-};
-const flushInput = () => {
-  inputTimer = 0;
-  const value = pendingInput;
-  pendingInput = '';
-  send(value);
-};
-term.onData((data) => {
-  pendingInput += data;
-  if (inputTimer === 0) {
-    inputTimer = window.setTimeout(flushInput, 12);
-  }
-});
-const poll = async () => {
-  if (!polling) return;
-  try {
-    const url = `${outputUrl}&token=${encodeURIComponent(token)}&offset=${offset}`;
-    const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-    if (!response.ok) {
-      status.textContent = 'Rozłączono';
-      setTimeout(poll, 1500);
-      return;
-    }
-    const data = await response.json();
-    offset = data.offset || offset;
-    if (data.output) {
-      term.write(data.output, () => term.scrollToBottom());
-    }
-    status.textContent = data.running ? 'Połączono z procesem SSH.' : 'Sesja zamknięta.';
-    setTimeout(poll, data.running ? 400 : 1500);
-  } catch (_error) {
-    status.textContent = 'Ponawiam połączenie...';
-    setTimeout(poll, 1500);
-  }
-};
-screen.addEventListener('click', () => term.focus());
-window.addEventListener('beforeunload', () => { polling = false; });
-poll();
-JS;
-        echo '</script></body></html>';
+        $clientFile = __DIR__ . '/assets/js/remote-terminal.js';
+        $clientVersion = is_file($clientFile) ? (string) filemtime($clientFile) : '1';
+        echo '<script src="' . self::e($assetBase . 'remote-terminal.js&v=' . $clientVersion) . '"></script>';
+        echo '</body></html>';
     }
 
     private function serveTerminalAsset(Request $request): void
     {
         $asset = $request->routeString('asset');
         $files = [
-            'xterm.css' => ['xterm.css', 'text/css; charset=UTF-8'],
-            'xterm.js' => ['xterm.js', 'application/javascript; charset=UTF-8'],
-            'addon-fit.js' => ['addon-fit.js', 'application/javascript; charset=UTF-8'],
+            'xterm.css' => [__DIR__ . '/assets/vendor/xterm/xterm.css', 'text/css; charset=UTF-8'],
+            'xterm.js' => [__DIR__ . '/assets/vendor/xterm/xterm.js', 'application/javascript; charset=UTF-8'],
+            'addon-fit.js' => [__DIR__ . '/assets/vendor/xterm/addon-fit.js', 'application/javascript; charset=UTF-8'],
+            'remote-terminal.js' => [__DIR__ . '/assets/js/remote-terminal.js', 'application/javascript; charset=UTF-8'],
         ];
         if (!isset($files[$asset])) {
             http_response_code(404);
             return;
         }
 
-        [$file, $contentType] = $files[$asset];
-        $path = __DIR__ . '/assets/vendor/xterm/' . $file;
+        [$path, $contentType] = $files[$asset];
         if (!is_file($path)) {
             http_response_code(404);
             return;
         }
 
         header('Content-Type: ' . $contentType);
-        header('Cache-Control: private, max-age=86400');
+        header('Cache-Control: private, max-age=31536000, immutable');
         readfile($path);
     }
 
@@ -576,11 +473,16 @@ JS;
             $this->jsonResponse(['ok' => false]);
             return;
         }
+        $this->security->closeSession();
 
         $offset = max(0, $request->queryInt('offset', 0) ?? 0);
         $outputFile = $this->sessionPath($session['id'], 'output.log', false);
         $output = '';
         $size = is_file($outputFile) ? (filesize($outputFile) ?: 0) : 0;
+        $reset = $size < $offset;
+        if ($reset) {
+            $offset = 0;
+        }
         if ($size > $offset) {
             $handle = fopen($outputFile, 'rb');
             if (is_resource($handle)) {
@@ -592,11 +494,21 @@ JS;
             }
         }
 
+        $running = $this->isSessionProcessRunning($session['id']);
+        if (!PollingResponse::begin($request, 'remote-terminal-' . $session['id'], [
+            'offset' => $offset,
+            'reset' => $reset,
+            'running' => $running,
+        ])) {
+            return;
+        }
+
         $this->jsonResponse([
             'ok' => true,
             'output' => $output,
             'offset' => $offset,
-            'running' => $this->isSessionProcessRunning($session['id']),
+            'reset' => $reset,
+            'running' => $running,
         ]);
     }
 

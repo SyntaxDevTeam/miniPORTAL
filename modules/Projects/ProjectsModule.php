@@ -29,6 +29,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         'planned' => 'Planowany',
         'development' => 'W trakcie tworzenia',
         'released' => 'Publicznie wydany',
+        'commissioned' => 'Zrealizowany na zamówienie',
         'paused' => 'Wstrzymany',
     ];
 
@@ -36,6 +37,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         'planned' => 'Planned',
         'development' => 'In development',
         'released' => 'Publicly released',
+        'commissioned' => 'Completed to order',
         'paused' => 'Paused',
     ];
 
@@ -51,7 +53,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.3.0'; }
+    public function version(): string { return '1.4.1'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }
@@ -69,6 +71,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     public function registerAdminSearch(AdminSearchRegistry $search): void
     {
         $search->add('projects.create', 'Dodaj projekt', 'Utwórz pozycję publicznego katalogu projektów.', 'index.php?route=/admin/projects/create', ['projekt', 'nowy', 'katalog'], 'projects.manage', 'Treść', 37);
+        $search->add('projects.categories', 'Kategorie projektów', 'Twórz i porządkuj kategorie katalogu projektów.', 'index.php?route=/admin/projects/categories', ['projekt', 'kategoria', 'katalog'], 'projects.manage', 'Treść', 38);
     }
 
     public function registerDashboard(DashboardRegistry $dashboard): void
@@ -93,6 +96,11 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         $router->get('/admin/projects/edit', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->renderEdit($request)));
         $router->post('/admin/projects/edit', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->save($request, $this->projects->find($request->postInt('id', 0) ?? 0))));
         $router->post('/admin/projects/delete', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->delete($request)));
+        $router->get('/admin/projects/categories', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->renderCategories()));
+        $router->post('/admin/projects/categories/create', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->saveCategory($request)));
+        $router->get('/admin/projects/categories/edit', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->renderCategoryEdit($request)));
+        $router->post('/admin/projects/categories/edit', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->saveCategory($request, $this->projects->findCategory($request->postInt('id', 0) ?? 0))));
+        $router->post('/admin/projects/categories/delete', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->deleteCategory($request)));
     }
 
     public function registerSeo(SeoIndex $seo): void
@@ -124,24 +132,27 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($projects === []) {
             $this->theme->render_alert('The project catalog is empty for now.', 'info');
         } else {
-            $columnSize = $this->publicColumnSize(count($projects));
-            $this->theme->start_grid();
-            foreach ($projects as $project) {
-                $this->theme->start_column($columnSize);
-                if ($project->iconUrl !== '') {
-                    $this->theme->start_card('', self::PUBLIC_STATUSES[$project->lifecycleStatus]);
-                    $this->renderProjectTitle($project);
-                } else {
-                    $this->theme->start_card($project->name, self::PUBLIC_STATUSES[$project->lifecycleStatus]);
+            foreach ($this->publicCategoryGroups($projects) as $group) {
+                $this->theme->render_section_heading($group['name'], $this->publicProjectCountLabel(count($group['projects'])));
+                $columnSize = $this->publicColumnSize(count($group['projects']));
+                $this->theme->start_grid();
+                foreach ($group['projects'] as $project) {
+                    $this->theme->start_column($columnSize);
+                    if ($project->iconUrl !== '') {
+                        $this->theme->start_card('', self::PUBLIC_STATUSES[$project->lifecycleStatus]);
+                        $this->renderProjectTitle($project);
+                    } else {
+                        $this->theme->start_card($project->name, self::PUBLIC_STATUSES[$project->lifecycleStatus]);
+                    }
+                    if (trim($project->summary) !== '') {
+                        $this->theme->render_text($this->excerpt($project->summary, 220));
+                    }
+                    $this->theme->render_link_list($this->publicLinks($project));
+                    $this->theme->end_card();
+                    $this->theme->end_column();
                 }
-                if (trim($project->summary) !== '') {
-                    $this->theme->render_text($this->excerpt($project->summary, 220));
-                }
-                $this->theme->render_link_list($this->publicLinks($project));
-                $this->theme->end_card();
-                $this->theme->end_column();
+                $this->theme->end_grid();
             }
-            $this->theme->end_grid();
         }
         $this->theme->end_section();
         $this->theme->end_page();
@@ -159,11 +170,11 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             $project->summary !== '' ? $project->summary : 'Related resources for ' . $project->name . '.',
             $this->isIndexableProject($project)
         );
-        $this->theme->start_header($project->name, self::PUBLIC_STATUSES[$project->lifecycleStatus], 'SyntaxDevTeam / Projects');
+        $this->theme->start_header($project->name, $this->publicProjectMeta($project), 'SyntaxDevTeam / Projects');
         $this->theme->end_header();
         $this->theme->start_section();
         if (trim($project->summary) !== '') {
-            $this->theme->start_card('Project overview', self::PUBLIC_STATUSES[$project->lifecycleStatus]);
+            $this->theme->start_card('Project overview', $this->publicProjectMeta($project));
             $this->theme->render_text($project->summary);
             $this->theme->end_card();
         }
@@ -173,7 +184,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             $this->theme->render_text('Integration UUID: ' . ($project->integrationUuid !== '' ? $project->integrationUuid : 'Not configured'));
             $this->theme->end_card();
         }
-        $this->theme->start_card('Project resources', 'Status: ' . self::PUBLIC_STATUSES[$project->lifecycleStatus]);
+        $this->theme->start_card('Project resources', 'Status: ' . $this->publicProjectMeta($project));
         $this->theme->render_link_list($this->publicLinks($project));
         $this->theme->end_card();
         $this->theme->end_section();
@@ -184,6 +195,8 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     {
         $this->startAdminPage('Projekty', 'Katalog łączy status projektu z istniejącą podstroną i dokumentacją.', [[
             'label' => 'Dodaj projekt', 'href' => 'index.php?route=/admin/projects/create', 'variant' => 'primary',
+        ], [
+            'label' => 'Kategorie', 'href' => 'index.php?route=/admin/projects/categories', 'variant' => 'outline-light',
         ], ['label' => 'Publiczny katalog', 'href' => '/projects', 'variant' => 'outline-light']]);
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         $projects = $this->projects->all();
@@ -191,9 +204,9 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($projects === []) {
             $this->theme->render_alert('Nie dodano jeszcze projektów.', 'info');
         } else {
-            $this->theme->render_admin_action_table(['Kolejność', 'Nazwa', 'UUID', 'Prior', 'Status', 'Publikacja', 'Podstrona', 'Wiki'], array_map(
+            $this->theme->render_admin_action_table(['Kolejność', 'Nazwa', 'Kategoria', 'UUID', 'Prior', 'Status', 'Publikacja', 'Podstrona', 'Wiki'], array_map(
                 static fn (Project $project): array => [
-                    'cells' => [$project->sortOrder, $project->name, $project->integrationUuid ?: 'Brak', $project->integrationPriority, self::STATUSES[$project->lifecycleStatus], $project->published ? 'Publiczny' : 'Ukryty', $project->pageTitle ?: 'Brak', $project->wikiName ?: 'Brak'],
+                    'cells' => [$project->sortOrder, $project->name, $project->categoryName ?: 'Bez kategorii', $project->integrationUuid ?: 'Brak', $project->integrationPriority, self::STATUSES[$project->lifecycleStatus], $project->published ? 'Publiczny' : 'Ukryty', $project->pageTitle ?: 'Brak', $project->wikiName ?: 'Brak'],
                     'actions' => [[
                         'label' => 'Edytuj', 'href' => 'index.php?route=/admin/projects/edit&id=' . $project->id, 'variant' => 'primary',
                     ], [
@@ -220,6 +233,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($message !== '') { $this->theme->render_alert($message, $variant); }
         $pages = ['0' => 'Brak powiązanej podstrony'] + $this->stringOptions($this->projects->pageOptions());
         $wiki = ['0' => 'Brak dokumentacji'] + $this->stringOptions($this->projects->wikiOptions());
+        $categories = ['0' => 'Bez kategorii'] + $this->stringOptions($this->projects->categoryOptions());
         $fields = $project !== null ? [['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $project->id]] : [];
         $iconLibraryOptions = $this->mediaImageOptions();
         $fields = [...$fields,
@@ -237,6 +251,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
                 'help' => 'Wybrana pozycja nadpisze ręcznie wpisaną ścieżkę ikony.',
             ]] : []),
             ['name' => 'lifecycle_status', 'label' => 'Stan projektu', 'type' => 'select', 'value' => $project?->lifecycleStatus ?? 'planned', 'options' => self::STATUSES],
+            ['name' => 'category_id', 'label' => 'Kategoria', 'type' => 'select', 'value' => (string) ($project?->categoryId ?? 0), 'options' => $categories],
             ['name' => 'page_id', 'label' => 'Powiązana podstrona', 'type' => 'select', 'value' => (string) ($project?->pageId ?? 0), 'options' => $pages],
             ['name' => 'wiki_project_id', 'label' => 'Powiązany projekt Wiki', 'type' => 'select', 'value' => (string) ($project?->wikiProjectId ?? 0), 'options' => $wiki],
             ['name' => 'sort_order', 'label' => 'Kolejność', 'type' => 'number', 'value' => (string) ($project?->sortOrder ?? 100)],
@@ -262,6 +277,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         $status = $request->postString('lifecycle_status');
         $slug = $this->slugify($request->postString('slug') ?: $name);
         $integrationUuid = $this->normalizeIntegrationUuid($request->postString('integration_uuid'));
+        $categoryId = $request->postInt('category_id', 0) ?? 0;
         $selectedIcon = $request->postString('icon_library_url');
         $iconUrl = $this->normalizeIconUrl($selectedIcon !== '' ? $selectedIcon : $request->postString('icon_url'));
         if ($name === '' || $slug === '' || !isset(self::STATUSES[$status])) {
@@ -273,6 +289,9 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($iconUrl === false) {
             $this->renderForm($project, 'Ikona projektu musi być ścieżką publiczną zaczynającą się od / albo adresem HTTPS.', 'warning'); return;
         }
+        if ($categoryId > 0 && !($this->projects->findCategory($categoryId) instanceof ProjectCategory)) {
+            $this->renderForm($project, 'Wybrana kategoria projektu nie istnieje.', 'warning'); return;
+        }
         if ($this->projects->slugExists($slug, $project?->id)) {
             $this->renderForm($project, 'Ten slug projektu jest już używany.', 'warning'); return;
         }
@@ -283,6 +302,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             'name' => $name, 'slug' => $slug, 'integration_uuid' => $integrationUuid !== '' ? $integrationUuid : null,
             'integration_priority' => max(0, $request->postInt('integration_priority', 100) ?? 100),
             'icon_url' => $iconUrl, 'summary' => '', 'lifecycle_status' => $status,
+            'category_id' => $categoryId > 0 ? $categoryId : null,
             'page_id' => ($request->postInt('page_id', 0) ?: null),
             'wiki_project_id' => ($request->postInt('wiki_project_id', 0) ?: null),
             'sort_order' => max(0, $request->postInt('sort_order', 100) ?? 100),
@@ -314,6 +334,162 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         $ok = $this->projects->delete($id);
         $this->audit->record($request, 'project_delete', $ok ? 'success' : 'failed', 'project:' . $id, $actor?->id);
         $this->renderAdminList($ok ? 'Projekt został usunięty.' : 'Nie udało się usunąć projektu.', $ok ? 'success' : 'danger');
+    }
+
+    private function renderCategories(string $message = '', string $variant = 'info'): void
+    {
+        $this->startAdminPage('Kategorie projektów', 'Kategorie porządkują projekty bez kopiowania treści podstron i dokumentacji.', [[
+            'label' => 'Wróć do projektów', 'href' => 'index.php?route=/admin/projects', 'variant' => 'outline-light',
+        ]]);
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+
+        $categories = $this->projects->categories();
+        $this->theme->start_admin_panel_grid('balanced');
+        $this->theme->start_admin_panel('Kategorie', count($categories) . ' pozycji');
+        if ($categories === []) {
+            $this->theme->render_alert('Nie dodano jeszcze kategorii projektów.', 'info');
+        } else {
+            $this->theme->render_admin_action_table(
+                ['Kolejność', 'Nazwa', 'Slug', 'Projekty'],
+                array_map(static fn (ProjectCategory $category): array => [
+                    'cells' => [$category->sortOrder, $category->name, $category->slug, $category->projectCount],
+                    'actions' => [[
+                        'label' => 'Edytuj',
+                        'href' => 'index.php?route=/admin/projects/categories/edit&id=' . $category->id,
+                        'variant' => 'primary',
+                    ], [
+                        'label' => 'Usuń',
+                        'action' => 'index.php?route=/admin/projects/categories/delete',
+                        'fields' => ['id' => $category->id],
+                        'variant' => 'danger',
+                        'confirm' => 'Usunąć kategorię? Przypisane projekty pozostaną bez kategorii.',
+                    ]],
+                ], $categories),
+                $this->security->csrfToken()
+            );
+        }
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Dodaj kategorię', 'Nowa grupa projektów');
+        $this->theme->render_form('index.php?route=/admin/projects/categories/create', [[
+            'name' => 'name',
+            'label' => 'Nazwa kategorii',
+            'required' => true,
+            'maxlength' => 120,
+        ], [
+            'name' => 'slug',
+            'label' => 'Slug',
+            'maxlength' => 191,
+            'help' => 'Puste pole wygeneruje slug z nazwy.',
+        ], [
+            'name' => 'sort_order',
+            'label' => 'Kolejność',
+            'type' => 'number',
+            'value' => '100',
+            'min' => '0',
+        ]], 'Dodaj kategorię', $this->security->csrfToken());
+        $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
+        $this->endAdminPage();
+    }
+
+    private function renderCategoryEdit(Request $request, string $message = '', string $variant = 'info'): void
+    {
+        $category = $this->projects->findCategory($request->queryInt('id', 0) ?? 0);
+        if (!$category instanceof ProjectCategory) {
+            $this->renderCategories('Nie znaleziono kategorii.', 'danger');
+            return;
+        }
+
+        $this->startAdminPage('Edytuj kategorię', 'Zmiana nazwy lub sluga zachowuje przypisane projekty.', [[
+            'label' => 'Wróć do kategorii', 'href' => 'index.php?route=/admin/projects/categories', 'variant' => 'outline-light',
+        ]]);
+        if ($message !== '') {
+            $this->theme->render_alert($message, $variant);
+        }
+        $this->theme->start_admin_panel('Dane kategorii', $category->projectCount . ' przypisanych projektów');
+        $this->theme->render_form('index.php?route=/admin/projects/categories/edit', [[
+            'name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $category->id,
+        ], [
+            'name' => 'name', 'label' => 'Nazwa kategorii', 'value' => $category->name,
+            'required' => true, 'maxlength' => 120,
+        ], [
+            'name' => 'slug', 'label' => 'Slug', 'value' => $category->slug,
+            'required' => true, 'maxlength' => 191,
+        ], [
+            'name' => 'sort_order', 'label' => 'Kolejność', 'type' => 'number',
+            'value' => (string) $category->sortOrder, 'min' => '0',
+        ]], 'Zapisz kategorię', $this->security->csrfToken());
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function saveCategory(Request $request, ?ProjectCategory $category = null): void
+    {
+        $actor = $this->auth->user();
+        if ($category === null && ($request->postInt('id', 0) ?? 0) > 0) {
+            $this->renderCategories('Nie znaleziono kategorii.', 'danger');
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'project_category_save', 'invalid_csrf', 'project_categories', $actor?->id);
+            $this->renderCategories('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $name = $this->bounded($request->postString('name'), 120);
+        $slug = $this->slugify($request->postString('slug') ?: $name);
+        if ($name === '' || $slug === '') {
+            $this->renderCategories('Uzupełnij nazwę i poprawny slug kategorii.', 'warning');
+            return;
+        }
+        if ($this->projects->categorySlugExists($slug, $category?->id)) {
+            $this->renderCategories('Ten slug kategorii jest już używany.', 'warning');
+            return;
+        }
+
+        $data = [
+            'name' => $name,
+            'slug' => $slug,
+            'sort_order' => max(0, $request->postInt('sort_order', 100) ?? 100),
+        ];
+        try {
+            if ($category === null) {
+                $id = $this->projects->createCategory($data);
+                $this->audit->record($request, 'project_category_create', 'success', 'project_category:' . $id, $actor?->id);
+            } else {
+                $this->projects->updateCategory($category->id, $data);
+                $this->audit->record($request, 'project_category_update', 'success', 'project_category:' . $category->id, $actor?->id);
+            }
+            $this->renderCategories('Kategoria została zapisana.', 'success');
+        } catch (\Throwable) {
+            $this->audit->record($request, 'project_category_save', 'failed', 'project_categories', $actor?->id);
+            $this->renderCategories('Nie udało się zapisać kategorii.', 'danger');
+        }
+    }
+
+    private function deleteCategory(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'project_category_delete', 'invalid_csrf', 'project_categories', $actor?->id);
+            $this->renderCategories('Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $id = $request->postInt('id', 0) ?? 0;
+        $category = $this->projects->findCategory($id);
+        $ok = $category instanceof ProjectCategory && $this->projects->deleteCategory($id);
+        $this->audit->record($request, 'project_category_delete', $ok ? 'success' : 'failed', 'project_category:' . $id, $actor?->id);
+        if (!$ok) {
+            $this->renderCategories('Nie udało się usunąć kategorii.', 'danger');
+            return;
+        }
+
+        $suffix = $category->projectCount > 0 ? ' Przypisane projekty pozostały bez kategorii.' : '';
+        $this->renderCategories('Kategoria została usunięta.' . $suffix, 'success');
     }
 
     private function guard(Request $request, string $permission, callable $handler): void
@@ -375,6 +551,49 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             2, 4 => 'lg-6',
             default => 'lg-4',
         };
+    }
+
+    /**
+     * @param list<Project> $projects
+     * @return list<array{name: string, projects: list<Project>}>
+     */
+    private function publicCategoryGroups(array $projects): array
+    {
+        $byCategory = [];
+        $uncategorized = [];
+        foreach ($projects as $project) {
+            if ($project->categoryId === null) {
+                $uncategorized[] = $project;
+                continue;
+            }
+            $byCategory[$project->categoryId][] = $project;
+        }
+
+        $groups = [];
+        foreach ($this->projects->categoryOptions() as $categoryId => $categoryName) {
+            $categoryProjects = $byCategory[$categoryId] ?? [];
+            if ($categoryProjects === []) {
+                continue;
+            }
+            $groups[] = ['name' => $categoryName, 'projects' => $categoryProjects];
+        }
+        if ($uncategorized !== []) {
+            $groups[] = ['name' => 'Other projects', 'projects' => $uncategorized];
+        }
+
+        return $groups;
+    }
+
+    private function publicProjectCountLabel(int $count): string
+    {
+        return $count === 1 ? '1 project' : $count . ' projects';
+    }
+
+    private function publicProjectMeta(Project $project): string
+    {
+        $status = self::PUBLIC_STATUSES[$project->lifecycleStatus];
+
+        return $project->categoryName !== '' ? $status . ' · ' . $project->categoryName : $status;
     }
 
     private function renderProjectTitle(Project $project): void

@@ -98,7 +98,10 @@
     "form, button, .btn, .admin-table-actions, .translation-table-actions"
   ));
 
-  document.querySelectorAll("body.admin-stylebook table").forEach((table) => {
+  const initializeTables = (root = document) => {
+    if (!document.body.classList.contains("admin-stylebook")) return;
+    const selector = root === document ? "body.admin-stylebook table" : "table";
+    root.querySelectorAll(selector).forEach((table) => {
     if (
       table.dataset.sortable === "false"
       || table.classList.contains("admin-data-table-single")
@@ -209,5 +212,11 @@
     });
 
     table.dataset.adminSortable = "true";
+    });
+  };
+
+  initializeTables();
+  document.addEventListener("miniportal:async-content-loaded", (event) => {
+    initializeTables(event.detail?.region || document);
   });
 })();

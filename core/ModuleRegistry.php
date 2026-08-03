@@ -66,12 +66,18 @@ final class ModuleRegistry
             if ($hooks !== null && $module instanceof HookProviderInterface) {
                 $module->registerHooks($hooks);
             }
-            if ($seo !== null && $module instanceof SeoProviderInterface) {
-                $module->registerSeo($seo);
-            }
         }
         if ($adminSearch !== null) {
             $adminSearch->importMenu($menu->items());
+        }
+    }
+
+    public function registerSeo(SeoIndex $seo): void
+    {
+        foreach ($this->orderedModules() as $module) {
+            if ($module instanceof SeoProviderInterface) {
+                $module->registerSeo($seo);
+            }
         }
     }
 

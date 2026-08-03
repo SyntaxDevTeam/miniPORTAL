@@ -10,6 +10,8 @@ final class Security
 {
     private const CSRF_SESSION_KEY = '_miniportal_csrf';
 
+    private bool $secureRequest = false;
+
     public function __construct(
         private readonly array $config = [],
     ) {
@@ -17,13 +19,16 @@ final class Security
 
     public function boot(Request $request): void
     {
-        $this->sendHeaders($request->isSecure(), $request->path());
-        $this->startSession($request->isSecure());
+        $this->secureRequest = $request->isSecure();
+        $this->sendHeaders($this->secureRequest, $request->path());
+        if ($this->shouldStartSession($request)) {
+            $this->startSession($this->secureRequest);
+        }
     }
 
     public function csrfToken(): string
     {
-        $this->assertSessionStarted();
+        $this->ensureSessionStarted();
 
         $token = $_SESSION[self::CSRF_SESSION_KEY] ?? null;
 
@@ -37,7 +42,7 @@ final class Security
 
     public function validateCsrfToken(string $token): bool
     {
-        $this->assertSessionStarted();
+        $this->ensureSessionStarted();
         $storedToken = $_SESSION[self::CSRF_SESSION_KEY] ?? '';
 
         return $token !== ''
@@ -47,11 +52,18 @@ final class Security
 
     public function regenerateSession(): void
     {
-        $this->assertSessionStarted();
+        $this->ensureSessionStarted();
         if (headers_sent()) {
             return;
         }
         session_regenerate_id(true);
+    }
+
+    public function closeSession(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
     }
 
     private function sendHeaders(bool $secure, string $path): void
@@ -134,10 +146,46 @@ final class Security
         }
     }
 
-    private function assertSessionStarted(): void
+    private function ensureSessionStarted(): void
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
-            throw new RuntimeException('Sesja nie została uruchomiona przez Security.');
+            $this->startSession($this->secureRequest);
         }
+    }
+
+    private function shouldStartSession(Request $request): bool
+    {
+        $sessionName = (string) ($this->config['name'] ?? 'MINIPORTALSESSID');
+        $hasCookie = isset($_COOKIE[$sessionName])
+            && is_string($_COOKIE[$sessionName])
+            && $_COOKIE[$sessionName] !== '';
+        if ($hasCookie) {
+            return true;
+        }
+
+        $path = $request->path();
+        if (str_starts_with($path, '/api/') || str_starts_with($path, '/metrics/')) {
+            return false;
+        }
+        if (!in_array($request->method(), ['GET', 'HEAD'], true)) {
+            return true;
+        }
+
+        $anonymousReadPaths = [
+            '/', '/page', '/pages', '/article', '/articles', '/projects', '/builds', '/team', '/wiki',
+            '/uptime', '/hosting', '/hosting/configure', '/robots.txt', '/sitemap.xml', '/ads.txt',
+        ];
+        if (in_array($path, $anonymousReadPaths, true)) {
+            return false;
+        }
+        foreach (['/p/', '/article/', '/projects/', '/builds/', '/team/member/', '/wiki/'] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return false;
+            }
+        }
+
+        // Trasy prywatne, logowanie oraz publiczne formularze potrzebują sesji
+        // jeszcze przed rozpoczęciem renderowania i wygenerowaniem tokenu CSRF.
+        return true;
     }
 }

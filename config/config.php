@@ -68,10 +68,11 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.10.1',
+        'version' => '0.11.0',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
+        'performance_slow_request_ms' => $envInt('PERFORMANCE_SLOW_REQUEST_MS', 250, 50),
         'trusted_proxies' => array_values(array_filter(array_map(
             static fn (string $proxy): string => trim($proxy),
             explode(',', (string) $env('TRUSTED_PROXIES', ''))
@@ -216,6 +217,9 @@ return [
         'plugin_stats_metrics_v1_rate_limit' => $envInt('PLUGIN_STATS_METRICS_V1_RATE_LIMIT', 180, 1),
         'plugin_stats_metrics_v1_rate_window' => $envInt('PLUGIN_STATS_METRICS_V1_RATE_WINDOW', 120, 1),
         'plugin_stats_online_window_minutes' => $envInt('PLUGIN_STATS_ONLINE_WINDOW_MINUTES', 30, 5),
+        'plugin_stats_dashboard_ttl' => $envInt('PLUGIN_STATS_DASHBOARD_TTL', 1800, 60),
+        'plugin_stats_dashboard_stale_ttl' => $envInt('PLUGIN_STATS_DASHBOARD_STALE_TTL', 86400, 300),
+        'plugin_stats_raw_retention_enabled' => $envBool('PLUGIN_STATS_RAW_RETENTION_ENABLED', false),
         'plugin_stats_retention_days' => $envInt('PLUGIN_STATS_RETENTION_DAYS', 180, 1),
         'licences_rate_limit' => $envInt('LICENCES_RATE_LIMIT', 60, 1),
         'licences_rate_window' => $envInt('LICENCES_RATE_WINDOW', 120, 1),

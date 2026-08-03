@@ -50,6 +50,9 @@ final class AuthService
 
     public function actualUser(): ?User
     {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return null;
+        }
         $userId = $_SESSION[self::SESSION_USER_ID] ?? null;
 
         if (!is_int($userId) && !ctype_digit((string) $userId)) {

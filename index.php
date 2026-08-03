@@ -24,6 +24,7 @@ use SyntaxDevTeam\Cms\Core\ModulePackageSigner;
 use SyntaxDevTeam\Cms\Core\ModuleRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleStateRepository;
 use SyntaxDevTeam\Cms\Core\ModuleUpdatePublisher;
+use SyntaxDevTeam\Cms\Core\ModuleUpdateRefreshQueue;
 use SyntaxDevTeam\Cms\Core\ModuleUpdateRepository;
 use SyntaxDevTeam\Cms\Core\PlatformReleaseRepository;
 use SyntaxDevTeam\Cms\Core\PlatformReleasePublisher;
@@ -59,6 +60,9 @@ require_once __DIR__ . '/core/Autoloader.php';
 
 Autoloader::register();
 
+$requestStartedAt = hrtime(true);
+$requestId = '';
+$moduleBootstrapDurationMs = 0.0;
 $config = [];
 $application = null;
 $theme = null;
@@ -112,6 +116,8 @@ if ($permissionIssues !== []) {
 try {
 $config = require __DIR__ . '/config/config.php';
 $application = Bootstrap::boot($config);
+$requestId = bin2hex(random_bytes(8));
+header('X-Request-ID: ' . $requestId);
 $theme = $application->theme();
 $security = $application->security();
 $templateCache = $application->templateCache();
@@ -280,6 +286,7 @@ $moduleUpdatePublisher = new ModuleUpdatePublisher(
     $moduleManager,
     __DIR__ . '/cache/module-repository'
 );
+$moduleUpdateRefreshQueue = new ModuleUpdateRefreshQueue(__DIR__ . '/cache/module-repository');
 $updatesConfig = is_array($config['updates'] ?? null) ? $config['updates'] : [];
 $platformReleases = new PlatformReleaseRepository(
     __DIR__ . '/releases',
@@ -313,6 +320,18 @@ $moduleBootstrapper = new ModuleBootstrapper(
     $manifestValidator,
     $moduleStates
 );
+$requestPath = $application->request()->path();
+$pollingModuleDirectories = match (true) {
+    str_starts_with($requestPath, '/admin/remote-terminal/session/'),
+    str_starts_with($requestPath, '/admin/remote-terminal/assets/'),
+    str_starts_with($requestPath, '/admin/remote-terminal/output/'),
+    str_starts_with($requestPath, '/admin/remote-terminal/input/') => ['CoreAuth', 'RemoteTerminal'],
+    $requestPath === '/admin/minecraft-console/output',
+    $requestPath === '/admin/minecraft-console/command' => ['CoreAuth', 'MinecraftConsole'],
+    default => null,
+};
+$isPollingKernel = $pollingModuleDirectories !== null;
+$moduleBootstrapStartedAt = hrtime(true);
 $moduleBootstrapper->register($moduleDefinitions, [
     'theme' => $theme,
     'security' => $security,
@@ -329,6 +348,7 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'module_archive_importer' => $moduleArchiveImporter,
     'module_updates' => $moduleUpdates,
     'module_update_publisher' => $moduleUpdatePublisher,
+    'module_update_refresh_queue' => $moduleUpdateRefreshQueue,
     'distribution_access_credentials' => $distributionAccessCredentials,
     'distribution_access_gateway' => $distributionAccessGateway,
     'platform_releases' => $platformReleases,
@@ -347,18 +367,39 @@ $moduleBootstrapper->register($moduleDefinitions, [
     'http_client' => $httpClient,
     'hooks' => $hooks,
     'rate_limiter' => $rateLimiter,
-], $modules);
-$modules->boot($adminMenu, $router, $publicNavigation, $adminSearch, $dashboard, $hooks, $seo);
-$theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
-$rolePreview = $auth->rolePreview();
-$theme->set_admin_role_preview($rolePreview !== null ? [
-    'role' => $rolePreview['role'],
-    'label' => $rolePreview['label'],
-    'stop_action' => 'index.php?route=/admin/roles/preview/stop',
-    'csrf_token' => $security->csrfToken(),
-] : null);
+], $modules, $pollingModuleDirectories);
+$modules->boot(
+    $adminMenu,
+    $router,
+    $isPollingKernel ? null : $publicNavigation,
+    $isPollingKernel ? null : $adminSearch,
+    $isPollingKernel ? null : $dashboard,
+    $isPollingKernel ? null : $hooks,
+);
+$moduleBootstrapDurationMs = (hrtime(true) - $moduleBootstrapStartedAt) / 1_000_000;
+if (!$isPollingKernel) {
+    $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
+    $rolePreview = $auth->rolePreview();
+    $theme->set_admin_role_preview($rolePreview !== null ? [
+        'role' => $rolePreview['role'],
+        'label' => $rolePreview['label'],
+        'stop_action' => 'index.php?route=/admin/roles/preview/stop',
+        'csrf_token' => $security->csrfToken(),
+    ] : null);
+}
 
-$publicNavigationItems = static function () use ($pageRepository, $publicNavigation, $application): array {
+$publicNavigationItems = static function () use (
+    $pageRepository,
+    $publicNavigation,
+    $application,
+    $templateCache
+): array {
+    static $resolved = null;
+    if (is_array($resolved)) {
+        return $resolved;
+    }
+
+    $loader = static function () use ($pageRepository, $publicNavigation, $application): array {
     $navigation = [];
     if ($pageRepository !== null) {
         $navigation = array_map(
@@ -401,9 +442,35 @@ $publicNavigationItems = static function () use ($pageRepository, $publicNavigat
             <=> [$right['sort_order'], $right['title']]
     );
 
-    return $navigation;
+        return $navigation;
+    };
+
+    $json = $templateCache->remember(
+        'public-data',
+        'navigation-v1',
+        static fn (): string => json_encode(
+            $loader(),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        ),
+        ['navigation', 'pages', 'theme']
+    );
+    try {
+        $navigation = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException) {
+        $navigation = $loader();
+    }
+
+    return $resolved = is_array($navigation) ? $navigation : [];
 };
-$theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null, $modules->ids());
+$requestPath = $application->request()->path();
+$requiresPublicNavigation = $requestPath !== '/'
+    && !str_starts_with($requestPath, '/admin')
+    && !str_starts_with($requestPath, '/api/')
+    && !str_starts_with($requestPath, '/metrics/')
+    && !in_array($requestPath, ['/robots.txt', '/sitemap.xml', '/ads.txt'], true);
+if ($requiresPublicNavigation) {
+    $theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null, $modules->ids());
+}
 
 $siteMaintenanceEnabled = static function () use ($application): bool {
     $app = is_array($application->config()['app'] ?? null)
@@ -476,7 +543,7 @@ $router->get('/', static function () use (
         : $renderer();
 });
 
-$router->get('/sitemap.xml', static function () use ($seo, $siteMaintenanceEnabled): void {
+$router->get('/sitemap.xml', static function () use ($seo, $modules, $siteMaintenanceEnabled): void {
     header('Content-Type: application/xml; charset=UTF-8');
     if ($siteMaintenanceEnabled()) {
         http_response_code(503);
@@ -486,6 +553,7 @@ $router->get('/sitemap.xml', static function () use ($seo, $siteMaintenanceEnabl
             . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>';
         return;
     }
+    $modules->registerSeo($seo);
     header('Cache-Control: public, max-age=900');
     echo $seo->sitemapXml();
 });
@@ -658,4 +726,19 @@ if ($status === 404) {
 }
 } catch (Throwable $exception) {
     ErrorHandler::handle($exception, $theme, $application?->request(), $config);
+}
+
+$requestDurationMs = (hrtime(true) - $requestStartedAt) / 1_000_000;
+$slowRequestMs = max(50, (int) ($config['app']['performance_slow_request_ms'] ?? 250));
+if ($requestDurationMs >= $slowRequestMs) {
+    $performanceEntry = json_encode([
+        'request_id' => $requestId,
+        'method' => $application?->request()->method() ?? (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+        'path' => $application?->request()->path() ?? '/',
+        'status' => http_response_code(),
+        'duration_ms' => round($requestDurationMs, 2),
+        'module_boot_ms' => round($moduleBootstrapDurationMs, 2),
+        'peak_memory_bytes' => memory_get_peak_usage(true),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    error_log('[miniPORTAL performance] ' . (is_string($performanceEntry) ? $performanceEntry : '{}'));
 }

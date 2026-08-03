@@ -117,7 +117,7 @@ final class Bootstrap
             ['Autoloader', Autoloader::class, 'Gotowy'],
             ['Silnik startowy', self::class, 'Gotowy'],
             ['ThemeEngine', ThemeEngine::class, 'Gotowy'],
-            ['Cache szablonów', FileTemplateCache::class, $this->templateCache->stats()['enabled'] ? 'Gotowy' : 'Wyłączony'],
+            ['Cache szablonów', FileTemplateCache::class, 'Skonfigurowany'],
             ['Security', Security::class, 'Gotowy'],
             ['Request', Request::class, 'Gotowy'],
             ['Router', Router::class, 'Gotowy'],

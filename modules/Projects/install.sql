@@ -1,3 +1,14 @@
+CREATE TABLE project_categories (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    slug VARCHAR(191) NOT NULL,
+    sort_order INT UNSIGNED NOT NULL DEFAULT 100,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_project_categories_slug (slug),
+    INDEX idx_project_categories_order (sort_order, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE projects (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(180) NOT NULL,
@@ -6,7 +17,8 @@ CREATE TABLE projects (
     integration_priority INT UNSIGNED NOT NULL DEFAULT 100,
     icon_url VARCHAR(500) NOT NULL DEFAULT '',
     summary VARCHAR(500) NOT NULL DEFAULT '',
-    lifecycle_status ENUM('planned', 'development', 'released', 'paused') NOT NULL DEFAULT 'planned',
+    lifecycle_status ENUM('planned', 'development', 'released', 'commissioned', 'paused') NOT NULL DEFAULT 'planned',
+    category_id BIGINT UNSIGNED NULL,
     page_id BIGINT UNSIGNED NULL,
     wiki_project_id BIGINT UNSIGNED NULL,
     sort_order INT UNSIGNED NOT NULL DEFAULT 100,
@@ -15,10 +27,12 @@ CREATE TABLE projects (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_projects_page FOREIGN KEY (page_id) REFERENCES core_pages(id) ON DELETE SET NULL,
     CONSTRAINT fk_projects_wiki FOREIGN KEY (wiki_project_id) REFERENCES wiki_projects(id) ON DELETE SET NULL,
+    CONSTRAINT fk_projects_category FOREIGN KEY (category_id) REFERENCES project_categories(id) ON DELETE SET NULL,
     UNIQUE KEY uq_projects_slug (slug),
     UNIQUE KEY uq_projects_integration_uuid (integration_uuid),
     INDEX idx_projects_integration_priority (integration_priority, name),
     INDEX idx_projects_public_order (is_published, sort_order, name),
+    INDEX idx_projects_category (category_id),
     INDEX idx_projects_page (page_id),
     INDEX idx_projects_wiki (wiki_project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

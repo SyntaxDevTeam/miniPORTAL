@@ -71,6 +71,7 @@ return array (
     array (
       '20260620_remove_required_summary.sql' => '6e67fb51e99250a446401be0fe63a6fbd440a991810f4a4f0861dcb734ff6f05',
       '20260702_project_integration_fields.sql' => '9e44d39e185fc1ca1cb0af8f2d039160a02d6f411b3e7edd4c93094ad30ba18f',
+      '20260803_project_categories.sql' => '1d196048352a33edb8f38c174e2f11dc3cff631351c9c72dfaf1315f39fcbe9b',
     ),
     'remote_terminal' =>
     array (
