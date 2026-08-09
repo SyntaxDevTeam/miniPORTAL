@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">SyntaxCraft</title>
+  <desc id="description">Geometryczny monogram SC w pogodnym, wielokolorowym sześcianie.</desc>
+  <defs>
+    <linearGradient id="face" x1="70" y1="48" x2="454" y2="468" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#78a95b"/>
+      <stop offset="0.52" stop-color="#d8aa45"/>
+      <stop offset="1" stop-color="#68b6bb"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="98" y1="92" x2="424" y2="438" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#426b52"/>
+      <stop offset="1" stop-color="#243b35"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#264d46"/>
+  <path d="M256 52 431 153v206L256 460 81 359V153L256 52Z" fill="url(#face)"/>
+  <path d="m256 91 141 81v168l-141 81-141-81V172l141-81Z" fill="url(#edge)"/>
+  <path d="m256 91 141 81-141 82-141-82 141-81Z" fill="#426b52"/>
+  <path d="m115 172 141 82v167l-141-81V172Z" fill="#365441"/>
+  <path d="m397 172-141 82v167l141-81V172Z" fill="#8b6747"/>
+  <path d="M202 185h113l24 24-28 28H210l-13 13 13 13h70l30 30-30 30H169l-25-25 28-28h99l13-13-13-13h-69l-31-29 31-30Z" fill="#fffdf7"/>
+  <path d="M332 280h33v42h-33zM147 280h33v42h-33z" fill="#68b6bb"/>
+</svg>

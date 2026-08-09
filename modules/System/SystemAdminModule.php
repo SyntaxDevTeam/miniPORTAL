@@ -76,7 +76,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.4.1';
+        return '2.5.0';
     }
 
     public function dependencies(): array
@@ -1083,7 +1083,11 @@ final class SystemAdminModule implements ModuleInterface
         $user = $this->auth->user();
         $allows = static fn (string $permission): bool => $user !== null
             && (in_array('*', $user->permissions, true) || in_array($permission, $user->permissions, true));
-        $rows = [];
+        $rows = [
+            'active' => [],
+            'disabled' => [],
+            'uninstalled' => [],
+        ];
         foreach ($remoteModules as $remoteModule) {
             $compatible = $this->moduleUpdates->compatibleWith(
                 $remoteModule['miniportal_constraint'],
@@ -1102,7 +1106,7 @@ final class SystemAdminModule implements ModuleInterface
                     'confirm' => 'Pobrać podpisany moduł do kwarantanny i zatwierdzić jego kod? Moduł nie zostanie jeszcze zainstalowany ani uruchomiony.',
                 ];
             }
-            $rows[] = [
+            $rows['uninstalled'][] = [
                 'cells' => [
                     $remoteModule['name'] . ' (' . $remoteModule['id'] . ')',
                     'zdalna ' . $remoteModule['version'],
@@ -1133,7 +1137,10 @@ final class SystemAdminModule implements ModuleInterface
             $actions = [];
 
             if ($manifest === null || $state === null || $entry['error'] !== null) {
-                $rows[] = [
+                $errorGroup = $state?->isActive() === true
+                    ? 'active'
+                    : ($state?->status === 'disabled' ? 'disabled' : 'uninstalled');
+                $rows[$errorGroup][] = [
                     'cells' => [
                         $manifest !== null
                             ? $manifest->name . ' (' . $manifest->id . ')'
@@ -1264,7 +1271,8 @@ final class SystemAdminModule implements ModuleInterface
                 }
             }
 
-            $rows[] = [
+            $group = $state->isActive() ? 'active' : ($state->status === 'disabled' ? 'disabled' : 'uninstalled');
+            $rows[$group][] = [
                 'cells' => [
                     $manifest->name . ' (' . $manifest->id . ')',
                     $state->version . ' / ' . $manifest->version
@@ -1283,13 +1291,37 @@ final class SystemAdminModule implements ModuleInterface
             ];
         }
 
-        $this->theme->start_admin_panel('Rejestr modułów', count($rows) . ' manifesty');
-        $this->theme->render_admin_action_table(
-            ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Pochodzenie / podpis', 'Uruchamianie', 'Oczekujące migracje'],
-            $rows,
-            $this->security->csrfToken()
-        );
-        $this->theme->end_admin_panel();
+        $registryGroups = [
+            'active' => [
+                'title' => 'Rejestr modułów — zainstalowane i włączone',
+                'empty' => 'Brak zainstalowanych i włączonych modułów.',
+            ],
+            'disabled' => [
+                'title' => 'Rejestr modułów — wyłączone',
+                'empty' => 'Brak zainstalowanych, wyłączonych modułów.',
+            ],
+            'uninstalled' => [
+                'title' => 'Rejestr modułów — niezainstalowane',
+                'empty' => 'Brak niezainstalowanych modułów i nowych pakietów w katalogu.',
+            ],
+        ];
+        foreach ($registryGroups as $group => $presentation) {
+            $groupRows = $rows[$group];
+            $this->theme->start_admin_panel(
+                $presentation['title'],
+                count($groupRows) . (count($groupRows) === 1 ? ' moduł' : ' modułów')
+            );
+            if ($groupRows === []) {
+                $this->theme->render_alert($presentation['empty'], 'info');
+            } else {
+                $this->theme->render_admin_action_table(
+                    ['Moduł', 'Wersja zapisana / kodu', 'Stan', 'Ochrona', 'Pochodzenie / podpis', 'Uruchamianie', 'Oczekujące migracje'],
+                    $groupRows,
+                    $this->security->csrfToken()
+                );
+            }
+            $this->theme->end_admin_panel();
+        }
 
         $this->theme->start_admin_panel('Import archiwum do kwarantanny', 'Bez instalacji i bez wykonania kodu');
         $modulesPath = dirname(__DIR__, 2) . '/modules';

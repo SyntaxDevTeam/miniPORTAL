@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pl-PL" data-bs-theme="dark">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description"
+    content="Kup serwer Minecraft, uruchom go w kilka minut i zarządzaj nim w jednym prostym panelu.">
+  <meta name="theme-color" content="#07110f">
+  <title>SyntaxCraft — Twój serwer Minecraft. Bez komplikacji.</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/css/stylebook.css">
+  <link rel="stylesheet" href="assets/css/homepage.css">
+  <link rel="stylesheet" href="assets/css/minecraft.css">
+  <link rel="stylesheet" href="assets/css/syntaxcraft.css">
+</head>
+
+<body class="minecraft-theme syntaxcraft-theme">
+  <div class="site-grid" aria-hidden="true"></div>
+  <a class="visually-hidden-focusable skip-link" href="#content">Przejdź do treści</a>
+
+  <nav class="navbar navbar-expand-lg fixed-top" aria-label="Główna nawigacja">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#top">
+        <img class="site-brand-logo" src="assets/img/brand/syntaxcraft-hosting-logo-v2.png" width="512" height="512" alt="">
+        SyntaxCraft
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+        aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+          <li class="nav-item"><a class="nav-link" href="#features">Panel</a></li>
+          <li class="nav-item"><a class="nav-link" href="#plans">Serwery</a></li>
+          <li class="nav-item"><a class="nav-link" href="#store">Sklep WWW</a></li>
+          <li class="nav-item"><a class="nav-link" href="#support">Pomoc</a></li>
+          <li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" href="/admin/login">Zaloguj się</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main id="content">
+    <header id="top" class="home-hero">
+      <div class="container py-5">
+        <div class="row align-items-center g-5">
+          <div class="col-lg-7">
+            <p class="eyebrow">Hosting Minecraft bez komplikacji</p>
+            <h1 class="home-title fw-bold">Twój świat.<br><span>Gotowy w kilka minut.</span></h1>
+            <div class="home-lead mt-4">
+              <p>Wybierz zasoby i wersję. Instalator zajmie się resztą, a Ty dostaniesz konsolę,
+                pliki, kopie zapasowe i sklep dla swojej społeczności w jednym panelu.</p>
+            </div>
+            <div class="hero-actions mt-4">
+              <a class="btn btn-primary btn-lg" href="#plans">Wybierz serwer</a>
+              <a class="btn btn-outline-light btn-lg" href="#features">Zobacz panel</a>
+            </div>
+            <div class="hero-metrics mt-5" aria-label="Najważniejsze cechy">
+              <div class="hero-metric"><strong>1 klik</strong><span>Instalacja</span></div>
+              <div class="hero-metric"><strong>24/7</strong><span>Monitoring</span></div>
+              <div class="hero-metric"><strong>SFTP</strong><span>Bezpieczne pliki</span></div>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <div class="terminal" aria-label="Podgląd konsoli serwera">
+              <div class="terminal-bar">
+                <i class="terminal-dot" aria-hidden="true"></i>
+                <i class="terminal-dot" aria-hidden="true"></i>
+                <i class="terminal-dot" aria-hidden="true"></i>
+                <span>survival-01 / console</span>
+              </div>
+              <div class="terminal-screen">
+                <pre><span class="terminal-status">● ONLINE</span>
+
+[SyntaxCraft] Przydzielono 4 GiB RAM / 2 vCPU
+[Server] Starting Minecraft 1.21 · Paper
+[Server] Preparing spawn area: 100%
+[Server] Done (4.82s)! Type "help" for help
+
+Gracze online: 12 / 40
+TPS: 20.0 · MSPT: 18.4</pre>
+              </div>
+              <div class="terminal-command">
+                <span>server@panel:~$</span>
+                <span>say Witaj na serwerze_</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="features" class="home-section">
+      <div class="container">
+        <div class="home-heading">
+          <p class="eyebrow">Wszystko w jednym miejscu</p>
+          <h2 class="fw-bold">Serwer pod kontrolą. Bez terminala i skomplikowanej konfiguracji.</h2>
+        </div>
+        <div class="managed-card-grid">
+          <article class="showcase-card managed-card" data-variant="primary" data-number="01">
+            <p class="managed-card-label">Instalator</p>
+            <h3>Wersja i silnik bez zgadywania</h3>
+            <p class="text-secondary">Dobieramy zgodną Javę, bezpieczny profil RAM i ustawienia Paper lub Purpur.</p>
+          </article>
+          <article class="showcase-card managed-card" data-variant="neutral" data-number="02">
+            <p class="managed-card-label">Konsola</p>
+            <h3>Start, restart i logi na żywo</h3>
+            <p class="text-secondary">Czytelny stan, historia operacji i kontrola dostępu dla członków zespołu.</p>
+          </article>
+          <article class="showcase-card managed-card" data-variant="violet" data-number="03">
+            <p class="managed-card-label">Pliki i backup</p>
+            <h3>Edycja online i bezpieczne SFTP</h3>
+            <p class="text-secondary">Pracuj w przeglądarce, przywracaj kopie i kontroluj zużycie dysku.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="plans" class="home-section">
+      <div class="container">
+        <div class="home-heading">
+          <p class="eyebrow">Wydzielone zasoby</p>
+          <h2 class="fw-bold">Plan dopasowany do Twojego świata.</h2>
+          <p class="text-secondary">Ceny i dostępność są przykładowe — finalnie dostarcza je katalog ofert.</p>
+        </div>
+        <div class="managed-card-grid">
+          <article class="showcase-card managed-card" data-number="01">
+            <p class="managed-card-label">Starter</p>
+            <h3>2 GiB RAM</h3>
+            <p class="text-secondary">Mały survival lub serwer dla znajomych.</p>
+            <a class="btn btn-outline-light" href="#">Skonfiguruj</a>
+          </article>
+          <article class="showcase-card managed-card" data-variant="primary" data-number="02">
+            <p class="managed-card-label">Najczęściej wybierany</p>
+            <h3>4 GiB RAM</h3>
+            <p class="text-secondary">Społeczność, pluginy i zapas na rozwój.</p>
+            <a class="btn btn-primary" href="#">Skonfiguruj</a>
+          </article>
+          <article class="showcase-card managed-card" data-number="03">
+            <p class="managed-card-label">Network</p>
+            <h3>8 GiB RAM</h3>
+            <p class="text-secondary">Większy świat, modpack lub kilka usług.</p>
+            <a class="btn btn-outline-light" href="#">Skonfiguruj</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="store" class="home-section">
+      <div class="container">
+        <div class="managed-home-layout managed-home-layout-split">
+          <div class="home-heading mb-0">
+            <p class="eyebrow">Witryna serwera w zestawie</p>
+            <h2 class="fw-bold">Strona i sklep gotowe razem z serwerem.</h2>
+          </div>
+          <div class="managed-home-content">
+            <p>Każde konto otrzymuje stronę na subdomenie SyntaxCraft. Dodaj opis, status serwera,
+              pakiety sklepu oraz własną domenę, kiedy będziesz gotowy.</p>
+            <ul>
+              <li>mobilny motyw i podstawowe SEO,</li>
+              <li>bezpieczna realizacja opłaconych pakietów,</li>
+              <li>historia zamówień i pełny audyt.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="support" class="home-section">
+      <div class="container">
+        <div class="contact-panel">
+          <div>
+            <p class="eyebrow mb-2">Zacznij spokojnie</p>
+            <h2 class="h1 fw-bold">Ty wybierasz świat. My przygotujemy zaplecze.</h2>
+            <p class="text-secondary mb-0">Skonfiguruj pierwszy serwer i zobacz podsumowanie przed zakupem.</p>
+          </div>
+          <a class="btn btn-primary btn-lg" href="#plans">Utwórz serwer</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-top py-4">
+    <div class="container d-flex flex-column flex-md-row justify-content-between gap-2 small">
+      <span>&copy; 2026 SyntaxCraft · Powered by miniPORTAL by SyntaxDevTeam</span>
+      <span>Serwer, konsola i pliki. Jedno proste miejsce.</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
+</body>
+
+</html>

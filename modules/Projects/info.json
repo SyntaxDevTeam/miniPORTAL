@@ -6,8 +6,12 @@
   "author": "SyntaxDevTeam",
   "requires": {
     "php": ">=8.4",
-    "miniportal": ">=0.10.2",
-    "modules": ["core_auth", "core_pages", "wikipedia"]
+    "miniportal": ">=0.10.1",
+    "modules": [
+      "core_auth",
+      "core_pages",
+      "wikipedia"
+    ]
   },
   "protected": false,
   "origin": {

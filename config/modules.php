@@ -494,7 +494,7 @@ return [
         'factory' => static function (array $services): MCServerInstallerModule {
             $moduleConfig = $services['config']['modules'] ?? [];
             $userAgent = (string) ($moduleConfig['mc_server_installer_papermc_user_agent']
-                ?? 'SyntaxDevTeam/MCServerInstaller/0.7.2 (https://syntaxdevteam.pl)');
+                ?? 'SyntaxDevTeam/MCServerInstaller/0.8.1 (https://syntaxdevteam.pl)');
             $timeout = (int) ($moduleConfig['mc_server_installer_papermc_timeout'] ?? 20);
             $maxBytes = (int) ($moduleConfig['mc_server_installer_upload_max_bytes'] ?? 536870912);
             $buildStorage = new BuildArtifactStorage(

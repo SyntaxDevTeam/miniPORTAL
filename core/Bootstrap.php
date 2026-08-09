@@ -37,6 +37,14 @@ final class Bootstrap
         );
         $security = new Security($config['session'] ?? []);
         $security->boot($request);
+        $edgeCacheConfig = is_array($config['edge_cache'] ?? null) ? $config['edge_cache'] : [];
+        (new EdgeCachePolicy(
+            ($edgeCacheConfig['anonymous_html_enabled'] ?? false) === true,
+            (string) (($config['session'] ?? [])['name'] ?? 'MINIPORTALSESSID'),
+            (int) ($edgeCacheConfig['edge_ttl'] ?? 60),
+            (int) ($edgeCacheConfig['stale_while_revalidate'] ?? 300),
+            (int) ($edgeCacheConfig['stale_if_error'] ?? 86400),
+        ))->register($request);
 
         $themeEngine = new ThemeEngine(dirname(__DIR__) . '/templates');
         $availableThemes = $themeEngine->available();

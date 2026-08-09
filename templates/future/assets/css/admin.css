@@ -1904,6 +1904,9 @@ body.admin-stylebook {
   padding: 0;
 }
 
+.minecraft-file-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.4rem; white-space: nowrap; }
+.minecraft-file-actions .form-action-only { display: inline-flex; margin: 0; padding: 0; }
+
 .minecraft-file-editor {
   margin-bottom: 0.75rem;
 }

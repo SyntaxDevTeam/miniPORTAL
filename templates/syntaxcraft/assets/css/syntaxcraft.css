@@ -1,0 +1,989 @@
+:root {
+  --sc-cream: #fbf3dc;
+  --sc-paper: #fffdf7;
+  --sc-paper-blue: #e7f2ed;
+  --sc-ink: #243b35;
+  --sc-ink-soft: #426356;
+  --sc-teal: #264d46;
+  --sc-teal-dark: #193c37;
+  --sc-line: #395f56;
+  --sc-green: #609f4f;
+  --sc-green-dark: #427c3c;
+  --sc-sky: #68b6bb;
+  --sc-sky-pale: #dff1ed;
+  --sc-honey: #d8aa45;
+  --sc-honey-pale: #f7e8af;
+  --sc-coral: #86b86a;
+  --sc-coral-pale: #e3f0d8;
+  --sc-plum: #598b68;
+  --sc-plum-pale: #deecdf;
+  --sc-danger: #ba4f4f;
+  --sc-dirt: #9b7045;
+  --sc-dirt-pale: #ead9be;
+  --sc-shadow: #b8cbbd;
+  --sc-shadow-dark: #132f2a;
+  --sc-radius: 1.35rem;
+  --sc-font-display: ui-rounded, "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --sc-font-body: Inter, "Segoe UI", system-ui, sans-serif;
+  --sc-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+  --mp-bg: var(--sc-cream);
+  --mp-bg-deep: #f6eacb;
+  --mp-surface: var(--sc-paper);
+  --mp-surface-raised: #ffffff;
+  --mp-border: var(--sc-line);
+  --mp-primary: var(--sc-green);
+  --mp-primary-rgb: 96, 159, 79;
+  --mp-cyan: var(--sc-sky);
+  --mp-violet: var(--sc-plum);
+  --mp-warning: var(--sc-honey);
+  --mp-text: var(--sc-ink);
+  --mp-muted: var(--sc-ink-soft);
+  --mp-radius: var(--sc-radius);
+  --mp-shadow: 0 6px 0 var(--sc-shadow);
+}
+
+html:has(body.syntaxcraft-theme) {
+  color-scheme: light;
+  background: var(--sc-cream);
+}
+
+body.syntaxcraft-theme,
+body.admin-stylebook.syntaxcraft-theme {
+  --bs-body-bg: var(--sc-cream);
+  --bs-body-color: var(--sc-ink);
+  --bs-emphasis-color: var(--sc-ink);
+  --bs-secondary-color: var(--sc-ink-soft);
+  --bs-border-color: rgba(57, 95, 86, 0.25);
+  --bs-primary: var(--sc-green);
+  --bs-primary-rgb: 96, 159, 79;
+  min-height: 100vh;
+  color: var(--sc-ink);
+  background:
+    radial-gradient(circle at 8% 18%, rgba(216, 170, 69, 0.16) 0 7rem, transparent 7.1rem),
+    radial-gradient(circle at 92% 42%, rgba(104, 182, 187, 0.15) 0 9rem, transparent 9.1rem),
+    var(--sc-cream);
+  font-family: var(--sc-font-body);
+}
+
+.syntaxcraft-theme * {
+  letter-spacing: normal;
+}
+
+.syntaxcraft-theme .site-grid {
+  opacity: 0.48;
+  background-image:
+    linear-gradient(rgba(38, 77, 70, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 77, 70, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 76%);
+}
+
+.syntaxcraft-theme h1,
+.syntaxcraft-theme h2,
+.syntaxcraft-theme h3,
+.syntaxcraft-theme h4,
+.syntaxcraft-theme .navbar-brand,
+.syntaxcraft-theme .admin-brand {
+  color: var(--sc-ink);
+  font-family: var(--sc-font-display);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  text-shadow: none;
+}
+
+.syntaxcraft-theme p,
+.syntaxcraft-theme li,
+.syntaxcraft-theme td,
+.syntaxcraft-theme .managed-home-content {
+  line-height: 1.72;
+}
+
+.syntaxcraft-theme a {
+  color: var(--sc-green-dark);
+  text-underline-offset: 0.18em;
+}
+
+/* Navigation: solid and friendly, never glassy. */
+.syntaxcraft-theme .navbar,
+.syntaxcraft-theme .admin-topbar,
+.syntaxcraft-theme .admin-sidebar,
+.syntaxcraft-theme .offcanvas {
+  color: #fffdf7;
+  background: var(--sc-teal);
+  border-color: var(--sc-teal-dark) !important;
+  box-shadow: 0 5px 0 var(--sc-teal-dark);
+  backdrop-filter: none;
+}
+
+.syntaxcraft-theme .navbar {
+  min-height: 4.7rem;
+  border-bottom-width: 0 !important;
+}
+
+.syntaxcraft-theme .navbar.is-scrolled {
+  background: var(--sc-teal-dark);
+  box-shadow: 0 5px 0 #092d33;
+}
+
+.syntaxcraft-theme .navbar-brand,
+.syntaxcraft-theme .navbar-brand:hover,
+.syntaxcraft-theme .navbar-brand:focus,
+.syntaxcraft-theme .admin-brand,
+.syntaxcraft-theme .admin-brand:hover {
+  color: #fffdf7;
+}
+
+.syntaxcraft-theme .site-brand-logo,
+.syntaxcraft-theme .admin-brand-logo {
+  width: 2.55rem;
+  height: 2.55rem;
+  padding: 0.22rem;
+  background: var(--sc-honey-pale);
+  border: 2px solid var(--sc-ink);
+  border-radius: 0.8rem;
+  box-shadow: 3px 3px 0 rgba(8, 38, 43, 0.7);
+  image-rendering: auto;
+}
+
+.syntaxcraft-theme .nav-link {
+  color: #d9edeb;
+  border: 2px solid transparent;
+  border-radius: 0.85rem;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+.syntaxcraft-theme .nav-link::after {
+  display: none;
+}
+
+.syntaxcraft-theme .nav-link:hover,
+.syntaxcraft-theme .nav-link:focus-visible,
+.syntaxcraft-theme .nav-link[aria-current="page"] {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border-color: var(--sc-ink);
+  box-shadow: 2px 2px 0 var(--sc-honey);
+}
+
+.syntaxcraft-theme .navbar-toggler {
+  background: var(--sc-honey-pale);
+  border: 2px solid var(--sc-ink);
+  box-shadow: 2px 2px 0 var(--sc-honey);
+}
+
+/* Buttons use offset shadows and matte colors. */
+.syntaxcraft-theme .btn,
+.syntaxcraft-theme .provider-button,
+.syntaxcraft-theme .admin-icon-button,
+.syntaxcraft-theme .admin-menu-link,
+.syntaxcraft-theme .public-link-item,
+.syntaxcraft-theme .dropdown-item,
+.syntaxcraft-theme .page-link {
+  min-height: 2.8rem;
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 2px solid var(--sc-ink);
+  border-radius: 0.9rem;
+  box-shadow: 3px 3px 0 var(--sc-shadow);
+  font-family: var(--sc-font-display);
+  font-weight: 850;
+  text-shadow: none;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.syntaxcraft-theme .btn:hover,
+.syntaxcraft-theme .btn:focus-visible,
+.syntaxcraft-theme .provider-button:hover,
+.syntaxcraft-theme .admin-icon-button:hover,
+.syntaxcraft-theme .public-link-item:hover,
+.syntaxcraft-theme .public-link-item:focus-visible,
+.syntaxcraft-theme .page-link:hover {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border-color: var(--sc-ink);
+  box-shadow: 1px 1px 0 var(--sc-honey);
+  transform: translate(2px, 2px);
+}
+
+.syntaxcraft-theme .btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--sc-green-dark);
+  --bs-btn-border-color: var(--sc-ink);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--sc-teal);
+  --bs-btn-hover-border-color: var(--sc-ink);
+  color: #fff;
+  background: var(--sc-green-dark);
+  border-color: var(--sc-ink);
+  box-shadow: 4px 4px 0 var(--sc-honey);
+}
+
+.syntaxcraft-theme .btn-primary:hover,
+.syntaxcraft-theme .btn-primary:focus-visible {
+  color: #fff;
+  background: var(--sc-teal);
+  box-shadow: 1px 1px 0 var(--sc-honey);
+}
+
+.syntaxcraft-theme .btn-outline-light {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border-color: var(--sc-ink);
+}
+
+.syntaxcraft-theme .navbar .btn-outline-light,
+.syntaxcraft-theme .admin-topbar .btn-outline-light {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+}
+
+.syntaxcraft-theme .btn-danger {
+  color: #fff;
+  background: var(--sc-danger);
+  border-color: #6f3030;
+  box-shadow: 3px 3px 0 #eeb8a9;
+}
+
+/* Hero: sunny sky and a deliberately playful block sculpture. */
+.syntaxcraft-theme .home-hero,
+.syntaxcraft-theme .stylebook-hero,
+.syntaxcraft-theme .login-stage {
+  position: relative;
+  isolation: isolate;
+  color: var(--sc-ink);
+  background:
+    linear-gradient(180deg, #cfe9e6 0%, #e8f2df 67%, #8ebd69 67%, #8ebd69 70%, #c59a65 70%, #c59a65 75%, var(--sc-cream) 75%);
+  border-bottom: 0;
+  overflow: hidden;
+}
+
+.syntaxcraft-theme .home-hero {
+  min-height: min(48rem, 88vh);
+}
+
+.syntaxcraft-theme .home-hero::before,
+.syntaxcraft-theme .stylebook-hero::before,
+.syntaxcraft-theme .login-stage::before {
+  position: absolute;
+  display: block;
+  top: 18%;
+  right: 11%;
+  width: clamp(7rem, 15vw, 11rem);
+  aspect-ratio: 1;
+  content: "";
+  background: var(--sc-honey);
+  border: 3px solid var(--sc-ink);
+  border-radius: 2rem;
+  box-shadow:
+    4rem 3.6rem 0 -1rem var(--sc-coral),
+    -3.5rem 5.8rem 0 -1.1rem var(--sc-green),
+    1.4rem 9.5rem 0 -1.2rem var(--sc-plum),
+    5px 5px 0 rgba(23, 54, 61, 0.22);
+  transform: rotate(8deg);
+  opacity: 0.94;
+}
+
+.syntaxcraft-theme .home-hero::after {
+  display: block;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.7) 0 2.5rem, transparent 2.6rem),
+    radial-gradient(circle at 23% 22%, rgba(255, 255, 255, 0.7) 0 1.7rem, transparent 1.8rem);
+  opacity: 1;
+}
+
+.syntaxcraft-theme .home-hero > .container,
+.syntaxcraft-theme .stylebook-hero > .container,
+.syntaxcraft-theme .login-stage > .container {
+  position: relative;
+  z-index: 2;
+}
+
+.syntaxcraft-theme .home-title,
+.syntaxcraft-theme .hero-acrostic,
+.syntaxcraft-theme .stylebook-hero h1 {
+  max-width: 60rem;
+  color: var(--sc-ink);
+  font-family: var(--sc-font-display);
+  font-size: clamp(3rem, 7vw, 6.65rem);
+  font-weight: 950;
+  letter-spacing: -0.07em;
+  line-height: 0.94;
+  text-transform: none;
+}
+
+.syntaxcraft-theme .home-lead {
+  max-width: 42rem;
+  color: var(--sc-ink-soft) !important;
+  font-size: clamp(1.08rem, 2vw, 1.36rem);
+  font-weight: 650;
+}
+
+.syntaxcraft-theme .home-title span,
+.syntaxcraft-theme .hero-acrostic-initial,
+.syntaxcraft-theme .rich-content a,
+.syntaxcraft-theme .cms-content a {
+  color: var(--sc-green-dark);
+  text-shadow: none;
+}
+
+.syntaxcraft-theme .content-explanation::after {
+  color: var(--sc-ink);
+  background: var(--sc-honey);
+}
+
+.syntaxcraft-theme .content-explanation::before {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border-color: var(--sc-line);
+}
+
+.syntaxcraft-theme .eyebrow,
+.syntaxcraft-theme .showcase-label,
+.syntaxcraft-theme .managed-card-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.42rem 0.68rem;
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border: 2px solid var(--sc-ink);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--sc-honey);
+  font-family: var(--sc-font-body);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.syntaxcraft-theme .eyebrow::before,
+.syntaxcraft-theme .showcase-label::before {
+  width: 0.62rem;
+  height: 0.62rem;
+  background: var(--sc-coral);
+  border: 0;
+  border-radius: 0.2rem;
+  box-shadow: none;
+}
+
+/* Sections and cards form a colorful but controlled family. */
+.syntaxcraft-theme .home-section {
+  position: relative;
+  padding-block: clamp(4.5rem, 8vw, 7rem);
+  border-top: 0;
+}
+
+.syntaxcraft-theme .home-section:nth-of-type(4n + 1) {
+  background: rgba(223, 242, 245, 0.58);
+}
+
+.syntaxcraft-theme .home-section:nth-of-type(4n + 2) {
+  background: rgba(255, 240, 184, 0.46);
+}
+
+.syntaxcraft-theme .home-section:nth-of-type(4n + 3) {
+  background: rgba(222, 236, 223, 0.56);
+}
+
+.syntaxcraft-theme .home-heading h2 {
+  color: var(--sc-ink);
+  font-family: var(--sc-font-display);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+}
+
+.syntaxcraft-theme .showcase-card,
+.syntaxcraft-theme .card,
+.syntaxcraft-theme .managed-card,
+.syntaxcraft-theme .managed-home-layout,
+.syntaxcraft-theme .managed-home-layout-accent,
+.syntaxcraft-theme .contact-hub,
+.syntaxcraft-theme .release-panel,
+.syntaxcraft-theme .hero-metrics,
+.syntaxcraft-theme .login-panel,
+.syntaxcraft-theme .admin-panel,
+.syntaxcraft-theme .admin-metric,
+.syntaxcraft-theme .content-nav-card,
+.syntaxcraft-theme .team-member-hero,
+.syntaxcraft-theme .team-panel {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 2px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  box-shadow: var(--mp-shadow);
+}
+
+/*
+ * The source homepage/stylebook styles add a cyan-magenta glow through ::after.
+ * SyntaxCraft uses solid, Minecraft-inspired surfaces, so none of those inherited
+ * glow layers should remain visible.
+ */
+.syntaxcraft-theme .showcase-card::after,
+.syntaxcraft-theme .card::after,
+.syntaxcraft-theme .managed-card::after,
+.syntaxcraft-theme .managed-home-layout-accent::after,
+.syntaxcraft-theme .release-panel::after {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+}
+
+.syntaxcraft-theme .showcase-card,
+.syntaxcraft-theme .card,
+.syntaxcraft-theme .managed-card,
+.syntaxcraft-theme .admin-panel,
+.syntaxcraft-theme .admin-metric {
+  overflow: hidden;
+}
+
+.syntaxcraft-theme .showcase-card:hover,
+.syntaxcraft-theme .card:hover,
+.syntaxcraft-theme .managed-card:hover {
+  border-color: var(--sc-ink);
+  box-shadow: 0 3px 0 var(--sc-shadow);
+  transform: translateY(3px);
+}
+
+.syntaxcraft-theme .managed-card::before,
+.syntaxcraft-theme .admin-panel::before {
+  height: 0.42rem;
+  background: var(--sc-green);
+}
+
+.syntaxcraft-theme .managed-card:nth-child(4n + 2)::before,
+.syntaxcraft-theme .admin-panel:nth-child(4n + 2)::before {
+  background: var(--sc-sky);
+}
+
+.syntaxcraft-theme .managed-card:nth-child(4n + 3)::before,
+.syntaxcraft-theme .admin-panel:nth-child(4n + 3)::before {
+  background: var(--sc-coral);
+}
+
+.syntaxcraft-theme .managed-card:nth-child(4n + 4)::before,
+.syntaxcraft-theme .admin-panel:nth-child(4n + 4)::before {
+  background: var(--sc-plum);
+}
+
+.syntaxcraft-theme .managed-card[data-variant="primary"] {
+  background: linear-gradient(145deg, var(--sc-paper), var(--sc-sky-pale));
+  border-top-color: var(--sc-sky);
+}
+
+.syntaxcraft-theme .managed-card[data-variant="violet"] {
+  background: linear-gradient(145deg, var(--sc-paper), var(--sc-plum-pale));
+  border-top-color: var(--sc-plum);
+}
+
+.syntaxcraft-theme .managed-card[data-variant="neutral"] {
+  background: linear-gradient(145deg, var(--sc-paper), var(--sc-dirt-pale));
+  border-top-color: var(--sc-dirt);
+}
+
+.syntaxcraft-theme .state-card {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 2px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  box-shadow: var(--mp-shadow);
+}
+
+.syntaxcraft-theme .state-code {
+  color: var(--sc-green-dark);
+}
+
+.syntaxcraft-theme .managed-home-layout-accent,
+.syntaxcraft-theme .contact-hub {
+  background:
+    linear-gradient(135deg, rgba(247, 232, 175, 0.8), rgba(223, 241, 237, 0.8)),
+    var(--sc-paper);
+}
+
+.syntaxcraft-theme .managed-home-content,
+.syntaxcraft-theme .text-secondary,
+.syntaxcraft-theme .form-text,
+.syntaxcraft-theme .small {
+  color: var(--sc-ink-soft) !important;
+}
+
+.syntaxcraft-theme .profile-fact,
+.syntaxcraft-theme .admin-fact,
+.syntaxcraft-theme .public-link-item {
+  color: var(--sc-ink);
+  background: #fff;
+  border: 2px solid rgba(40, 86, 96, 0.45);
+  border-radius: 1rem;
+}
+
+.syntaxcraft-theme .public-link-item strong,
+.syntaxcraft-theme .profile-fact strong {
+  color: var(--sc-teal);
+}
+
+/* Forms and tables stay calm and highly legible. */
+.syntaxcraft-theme .form-control,
+.syntaxcraft-theme .form-select,
+.syntaxcraft-theme textarea,
+.syntaxcraft-theme .input-group-text {
+  color: var(--sc-ink);
+  background: #fff;
+  border: 2px solid rgba(40, 86, 96, 0.48);
+  border-radius: 0.9rem;
+  box-shadow: inset 0 2px 0 rgba(23, 54, 61, 0.04);
+}
+
+.syntaxcraft-theme .form-control::placeholder {
+  color: #6d898e;
+}
+
+.syntaxcraft-theme .form-control:focus,
+.syntaxcraft-theme .form-select:focus,
+.syntaxcraft-theme textarea:focus,
+.syntaxcraft-theme .form-check-input:focus {
+  color: var(--sc-ink);
+  background: #fff;
+  border-color: var(--sc-green-dark);
+  box-shadow: 0 0 0 0.22rem rgba(79, 152, 98, 0.18);
+}
+
+.syntaxcraft-theme .form-check-input {
+  background-color: #fff;
+  border: 2px solid var(--sc-line);
+}
+
+.syntaxcraft-theme .form-check-input:checked {
+  background-color: var(--sc-green);
+  border-color: var(--sc-green-dark);
+}
+
+.syntaxcraft-theme .table {
+  --bs-table-color: var(--sc-ink);
+  --bs-table-bg: rgba(255, 253, 247, 0.92);
+  --bs-table-striped-bg: rgba(223, 242, 245, 0.45);
+  --bs-table-border-color: rgba(40, 86, 96, 0.25);
+  overflow: hidden;
+  border: 2px solid var(--sc-line);
+  border-radius: 1rem;
+}
+
+.syntaxcraft-theme .table thead th {
+  color: #fff;
+  background: var(--sc-teal);
+  border-color: var(--sc-teal-dark);
+  font-family: var(--sc-font-body);
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.syntaxcraft-theme .alert {
+  color: var(--sc-ink);
+  background: var(--sc-sky-pale);
+  border: 2px solid var(--sc-sky);
+  border-radius: 1rem;
+  box-shadow: 3px 3px 0 rgba(105, 169, 210, 0.26);
+}
+
+.syntaxcraft-theme .alert-success {
+  background: #e4f2df;
+  border-color: var(--sc-green);
+}
+
+.syntaxcraft-theme .alert-warning {
+  background: var(--sc-honey-pale);
+  border-color: var(--sc-honey);
+}
+
+.syntaxcraft-theme .alert-danger {
+  background: #f4d9d2;
+  border-color: #c9685d;
+}
+
+.syntaxcraft-theme .badge {
+  color: var(--sc-ink) !important;
+  background: var(--sc-honey-pale) !important;
+  border: 1px solid rgba(40, 86, 96, 0.35);
+}
+
+/* Admin keeps the same visual language instead of reverting to Future. */
+.syntaxcraft-theme .admin-sidebar {
+  box-shadow: 5px 0 0 var(--sc-teal-dark);
+}
+
+.syntaxcraft-theme .admin-sidebar-header,
+.syntaxcraft-theme .admin-menu-section {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.syntaxcraft-theme .admin-menu-section-title,
+.syntaxcraft-theme .admin-menu-label,
+.syntaxcraft-theme .admin-user-role {
+  color: #bcd8d5;
+}
+
+.syntaxcraft-theme .admin-menu-link {
+  color: #dcefed;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.syntaxcraft-theme .admin-menu-link:hover,
+.syntaxcraft-theme .admin-menu-link.active {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border-color: var(--sc-ink);
+  box-shadow: 3px 3px 0 rgba(8, 38, 43, 0.65);
+  transform: none;
+}
+
+.syntaxcraft-theme .admin-nav-label {
+  color: #bcd8d5;
+  font-weight: 800;
+  opacity: 1;
+}
+
+.syntaxcraft-theme .admin-nav-link {
+  color: #eef7ed;
+  background: transparent;
+  border: 2px solid transparent;
+  box-shadow: none;
+  font-family: var(--sc-font-display);
+  font-weight: 800;
+  text-decoration: none;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.syntaxcraft-theme .admin-nav-link:hover,
+.syntaxcraft-theme .admin-nav-link:focus-visible {
+  color: #fffdf7;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: none;
+}
+
+.syntaxcraft-theme .admin-nav-link.active,
+.syntaxcraft-theme .admin-nav-link[aria-current="page"] {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border-color: var(--sc-honey);
+  box-shadow: 3px 3px 0 rgba(8, 38, 43, 0.65);
+  text-shadow: none;
+}
+
+.syntaxcraft-theme .admin-nav-icon {
+  color: var(--sc-honey-pale);
+  background: rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.syntaxcraft-theme .admin-nav-link:hover .admin-nav-icon,
+.syntaxcraft-theme .admin-nav-link:focus-visible .admin-nav-icon {
+  color: #fffdf7;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.syntaxcraft-theme .admin-nav-link.active .admin-nav-icon,
+.syntaxcraft-theme .admin-nav-link[aria-current="page"] .admin-nav-icon {
+  color: var(--sc-ink);
+  background: var(--sc-honey);
+  border-color: var(--sc-ink);
+}
+
+.syntaxcraft-theme .admin-menu-icon,
+.syntaxcraft-theme .admin-search-mark {
+  color: var(--sc-ink);
+  background: var(--sc-honey);
+  border: 1px solid var(--sc-ink);
+  border-radius: 0.55rem;
+}
+
+.syntaxcraft-theme .admin-topbar {
+  color: var(--sc-ink);
+  background: rgba(255, 253, 247, 0.97);
+  border-bottom: 2px solid rgba(40, 86, 96, 0.22) !important;
+  box-shadow: 0 4px 0 rgba(185, 210, 203, 0.72);
+}
+
+.syntaxcraft-theme .admin-workspace,
+.syntaxcraft-theme .admin-main,
+.syntaxcraft-theme .admin-content {
+  background: transparent;
+}
+
+.syntaxcraft-theme .admin-page-title,
+.syntaxcraft-theme .admin-content h1,
+.syntaxcraft-theme .admin-content h2,
+.syntaxcraft-theme .admin-content h3 {
+  color: var(--sc-ink);
+}
+
+.syntaxcraft-theme .admin-metric:nth-child(4n + 1) {
+  background: var(--sc-honey-pale);
+}
+
+.syntaxcraft-theme .admin-metric:nth-child(4n + 2) {
+  background: var(--sc-sky-pale);
+}
+
+.syntaxcraft-theme .admin-metric:nth-child(4n + 3) {
+  background: #e4f2df;
+}
+
+.syntaxcraft-theme .admin-metric:nth-child(4n + 4) {
+  background: var(--sc-plum-pale);
+}
+
+.syntaxcraft-theme .admin-metric strong,
+.syntaxcraft-theme .hero-metric strong {
+  color: var(--sc-teal);
+}
+
+.syntaxcraft-theme .admin-avatar,
+.syntaxcraft-theme .team-avatar {
+  color: #fff;
+  background: var(--sc-coral);
+  border: 2px solid var(--sc-ink);
+  border-radius: 1rem;
+  box-shadow: 2px 2px 0 var(--sc-honey);
+}
+
+.syntaxcraft-theme .dropdown-menu,
+.syntaxcraft-theme .modal-content {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 2px solid var(--sc-line);
+  border-radius: 1rem;
+  box-shadow: 0 6px 0 var(--sc-shadow);
+}
+
+.syntaxcraft-theme .dropdown-item {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Consoles remain dark so logs retain familiar contrast. */
+.syntaxcraft-theme .terminal,
+.syntaxcraft-theme .minecraft-console__screen,
+.syntaxcraft-theme pre {
+  color: #e8f5ed;
+  background: #16332d;
+  border: 3px solid var(--sc-ink);
+  border-radius: 1.1rem;
+  box-shadow: 5px 5px 0 var(--sc-honey);
+  font-family: var(--sc-font-mono);
+}
+
+.syntaxcraft-theme code {
+  color: #2f6f50;
+  font-family: var(--sc-font-mono);
+}
+
+.syntaxcraft-theme .terminal-bar {
+  color: #bdd8d2;
+  background: #284c3f;
+  border-color: #28565d;
+  font-family: var(--sc-font-mono);
+}
+
+.syntaxcraft-theme .terminal-dot {
+  background: var(--sc-coral);
+}
+
+.syntaxcraft-theme .terminal-dot:nth-child(2) {
+  background: var(--sc-honey);
+}
+
+.syntaxcraft-theme .terminal-dot:nth-child(3) {
+  background: #79b980;
+}
+
+.syntaxcraft-theme .terminal-screen pre {
+  color: #cfe2dd;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.syntaxcraft-theme .terminal-command,
+.syntaxcraft-theme .terminal-status {
+  color: #a8e19e;
+  border-color: #28565d;
+  font-family: var(--sc-font-mono);
+}
+
+.syntaxcraft-theme .uptime-widget,
+.syntaxcraft-theme .contact-panel {
+  color: var(--sc-ink);
+  background: linear-gradient(135deg, #e4f2df, var(--sc-sky-pale));
+  border: 2px solid var(--sc-green);
+  border-radius: var(--sc-radius);
+  box-shadow: 4px 4px 0 var(--sc-shadow);
+}
+
+/* Contact: overwrite the inherited dark homepage component with a light meadow palette. */
+.syntaxcraft-theme .contact-hub {
+  color: var(--sc-ink);
+  background:
+    linear-gradient(135deg, rgba(247, 232, 175, 0.7), rgba(223, 241, 237, 0.82)),
+    var(--sc-paper);
+  border: 2px solid var(--sc-line);
+  box-shadow: var(--mp-shadow);
+}
+
+.syntaxcraft-theme .contact-hub::before {
+  background-image:
+    linear-gradient(rgba(57, 95, 86, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 95, 86, 0.055) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+  mask-image: linear-gradient(to bottom, #000, transparent 84%);
+}
+
+.syntaxcraft-theme .contact-hub::after {
+  display: none;
+}
+
+.syntaxcraft-theme .contact-hub-glow {
+  background:
+    radial-gradient(circle, rgba(96, 159, 79, 0.2), transparent 62%),
+    radial-gradient(circle at 25% 50%, rgba(104, 182, 187, 0.18), transparent 48%);
+  filter: blur(20px);
+}
+
+.syntaxcraft-theme .contact-kicker {
+  color: var(--sc-green-dark);
+  background: var(--sc-coral-pale);
+  border: 2px solid var(--sc-green);
+  box-shadow: 2px 2px 0 var(--sc-shadow);
+  font-family: var(--sc-font-body);
+}
+
+.syntaxcraft-theme .contact-hub-heading h2,
+.syntaxcraft-theme .contact-group-heading h3,
+.syntaxcraft-theme .contact-item h4 {
+  color: var(--sc-ink);
+}
+
+.syntaxcraft-theme .contact-group {
+  color: var(--sc-ink);
+  background: rgba(255, 253, 247, 0.88);
+  border: 2px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  box-shadow: 4px 4px 0 var(--sc-shadow);
+  backdrop-filter: none;
+}
+
+.syntaxcraft-theme .contact-group-channels {
+  box-shadow: 4px 4px 0 var(--sc-shadow);
+}
+
+.syntaxcraft-theme .contact-item,
+.syntaxcraft-theme .contact-item-person {
+  color: var(--sc-ink);
+  background: var(--sc-paper);
+  border: 2px solid rgba(57, 95, 86, 0.3);
+  border-radius: 1rem;
+}
+
+.syntaxcraft-theme .contact-item:hover {
+  background: var(--sc-coral-pale);
+  border-color: var(--sc-green-dark);
+  box-shadow: 3px 3px 0 var(--sc-shadow);
+}
+
+.syntaxcraft-theme .contact-icon {
+  color: var(--sc-green-dark);
+  background: linear-gradient(145deg, var(--sc-coral-pale), var(--sc-sky-pale));
+  border: 2px solid var(--sc-green);
+  border-radius: 0.9rem;
+}
+
+.syntaxcraft-theme .contact-icon-discord {
+  color: var(--sc-teal);
+}
+
+.syntaxcraft-theme .contact-icon-github {
+  color: var(--sc-ink);
+}
+
+.syntaxcraft-theme .contact-icon-mail,
+.syntaxcraft-theme .contact-icon-modrinth {
+  color: var(--sc-green-dark);
+}
+
+.syntaxcraft-theme .contact-item-label,
+.syntaxcraft-theme .contact-item-description,
+.syntaxcraft-theme .contact-empty {
+  color: var(--sc-ink-soft);
+}
+
+.syntaxcraft-theme .contact-item-action {
+  color: var(--sc-ink);
+  background: var(--sc-honey-pale);
+  border: 2px solid var(--sc-line);
+  box-shadow: 2px 2px 0 var(--sc-shadow);
+}
+
+.syntaxcraft-theme .contact-item-action:hover {
+  color: #fffdf7;
+  background: var(--sc-green-dark);
+  border-color: var(--sc-green-dark);
+}
+
+.syntaxcraft-theme footer {
+  color: #d5e7e4;
+  background: var(--sc-teal-dark);
+  border-color: #092d33 !important;
+}
+
+.syntaxcraft-theme footer .text-secondary,
+.syntaxcraft-theme footer a {
+  color: #d5e7e4 !important;
+}
+
+@media (max-width: 991.98px) {
+  .syntaxcraft-theme .home-hero::before {
+    right: -3rem;
+    width: 9rem;
+    opacity: 0.52;
+  }
+
+  .syntaxcraft-theme .navbar-collapse {
+    padding: 1rem 0;
+  }
+
+  .syntaxcraft-theme .admin-sidebar {
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .syntaxcraft-theme .home-title,
+  .syntaxcraft-theme .hero-acrostic {
+    font-size: clamp(2.65rem, 14vw, 4.1rem);
+  }
+
+  .syntaxcraft-theme .home-hero {
+    min-height: 42rem;
+  }
+
+  .syntaxcraft-theme .home-hero::before {
+    top: 11%;
+    right: -5.5rem;
+    opacity: 0.32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .syntaxcraft-theme *,
+  .syntaxcraft-theme *::before,
+  .syntaxcraft-theme *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -114,6 +114,20 @@ final class Request
         return $filtered === false ? $default : $filtered;
     }
 
+    /**
+     * @param list<string> $ignoredKeys
+     */
+    public function hasQueryParameters(array $ignoredKeys = []): bool
+    {
+        foreach (array_keys($this->query) as $key) {
+            if (!is_string($key) || !in_array($key, $ignoredKeys, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function postString(string $key, string $default = ''): string
     {
         return $this->stringValue($this->post, $key, $default);

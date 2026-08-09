@@ -68,7 +68,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.11.0',
+        'version' => '0.11.1',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -130,6 +130,14 @@ return [
         'enabled' => $envBool('TEMPLATE_CACHE_ENABLED', true),
         'ttl' => $envInt('TEMPLATE_CACHE_TTL', 300, 1),
     ],
+    'edge_cache' => [
+        // Włącz dopiero po wdrożeniu reguły Cloudflare z bezwzględnym bypass
+        // dla cookie sesyjnego. Sam nagłówek originu nie zastępuje reguły edge.
+        'anonymous_html_enabled' => $envBool('EDGE_HTML_CACHE_ENABLED', false),
+        'edge_ttl' => $envInt('EDGE_HTML_CACHE_TTL', 60, 1),
+        'stale_while_revalidate' => $envInt('EDGE_HTML_CACHE_STALE_WHILE_REVALIDATE', 300, 1),
+        'stale_if_error' => $envInt('EDGE_HTML_CACHE_STALE_IF_ERROR', 86400, 1),
+    ],
     'modules' => [
         'archive_max_bytes' => $envInt('MODULE_ARCHIVE_MAX_BYTES', 10485760, 1024),
         'archive_max_files' => $envInt('MODULE_ARCHIVE_MAX_FILES', 2000, 1),
@@ -159,7 +167,7 @@ return [
         ),
         'mc_server_installer_papermc_user_agent' => trim((string) $env(
             'MC_SERVER_INSTALLER_PAPERMC_USER_AGENT',
-            'SyntaxDevTeam/MCServerInstaller/0.7.2 (https://syntaxdevteam.pl)'
+            'SyntaxDevTeam/MCServerInstaller/0.8.1 (https://syntaxdevteam.pl)'
         )),
         'mc_server_installer_papermc_timeout' => $envInt('MC_SERVER_INSTALLER_PAPERMC_TIMEOUT', 20, 5),
         'mc_server_installer_papermc_catalog_ttl' => $envInt('MC_SERVER_INSTALLER_PAPERMC_CATALOG_TTL', 900, 60),
