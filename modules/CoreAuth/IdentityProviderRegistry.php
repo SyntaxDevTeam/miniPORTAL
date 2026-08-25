@@ -28,6 +28,10 @@ final class IdentityProviderRegistry
 
     public function get(string $name): ?IdentityProviderInterface
     {
+        if (AuthPolicyRuntime::provider()->providerEnabled($name) === false) {
+            return null;
+        }
+
         return $this->providers[$name] ?? null;
     }
 
@@ -44,9 +48,29 @@ final class IdentityProviderRegistry
      */
     public function configured(): array
     {
-        return array_values(array_filter(
+        $policy = AuthPolicyRuntime::provider();
+        $providers = array_values(array_filter(
             $this->providers,
             static fn (IdentityProviderInterface $provider): bool => $provider->isConfigured()
+                && $policy->providerEnabled($provider->name()) !== false
+                && $policy->providerVisible($provider->name()) !== false
         ));
+
+        $order = array_flip($policy->providerOrder());
+        $registrationOrder = array_flip(array_keys($this->providers));
+        usort($providers, static function (IdentityProviderInterface $left, IdentityProviderInterface $right) use ($order, $registrationOrder): int {
+            $leftName = $left->name();
+            $rightName = $right->name();
+
+            return [
+                $order[$leftName] ?? PHP_INT_MAX,
+                $registrationOrder[$leftName] ?? PHP_INT_MAX,
+            ] <=> [
+                $order[$rightName] ?? PHP_INT_MAX,
+                $registrationOrder[$rightName] ?? PHP_INT_MAX,
+            ];
+        });
+
+        return $providers;
     }
 }

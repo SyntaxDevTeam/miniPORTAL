@@ -1,0 +1,21 @@
+{
+  "id": "support",
+  "name": "Support",
+  "version": "0.1.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.1.0",
+    "modules": []
+  },
+  "optional": {
+    "modules": ["wallet", "payments", "itemshop"]
+  },
+  "provides": [],
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL-source"
+  }
+}

@@ -70,13 +70,18 @@ final class InMemoryUserRepository implements UserRepositoryInterface
             return $existing;
         }
 
+        $defaultRole = AuthPolicyRuntime::provider()->defaultRole() ?? 'user';
+        if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $defaultRole) !== 1) {
+            $defaultRole = 'user';
+        }
+
         $user = new User(
             count($this->users) + 1,
             $identity->login !== '' ? $identity->login : $identity->provider,
             $identity->emailVerified ? $identity->email : null,
             $identity->avatarUrl,
             'pending',
-            ['user'],
+            [$defaultRole],
             [],
             [$identity]
         );

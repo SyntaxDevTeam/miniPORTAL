@@ -2,643 +2,281 @@
 
 declare(strict_types=1);
 
-use SyntaxDevTeam\Cms\Modules\Articles\ArticleRepository;
-use SyntaxDevTeam\Cms\Modules\Articles\ArticlesModule;
-use SyntaxDevTeam\Cms\Modules\AccountPrivacy\AccountPrivacyModule;
-use SyntaxDevTeam\Cms\Modules\AccountPrivacy\AccountPrivacyRepository;
-use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildExplorerModule;
-use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage;
-use SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildRepository;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\CoreAuthModule;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthAttemptLimiter;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\OAuthStateStore;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\UserAdministrationRepository;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
-use SyntaxDevTeam\Cms\Modules\CorePages\CorePagesModule;
-use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionItemRepository;
-use SyntaxDevTeam\Cms\Modules\CorePages\HomepageSectionRepository;
-use SyntaxDevTeam\Cms\Modules\CorePages\PageRepository;
-use SyntaxDevTeam\Cms\Modules\DistributionAccess\DistributionAccessModule;
-use SyntaxDevTeam\Cms\Modules\DistributionAccess\DistributionAccessRepository;
-use SyntaxDevTeam\Cms\Modules\CraftCatalog\CraftCatalogModule;
-use SyntaxDevTeam\Cms\Modules\CraftCatalog\HostingPlanRepository;
-use SyntaxDevTeam\Cms\Modules\CraftPayments\CraftOrderRepository;
-use SyntaxDevTeam\Cms\Modules\CraftPayments\CraftPaymentsModule;
-use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayConfig;
-use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayGateway;
-use SyntaxDevTeam\Cms\Modules\CraftPayments\HotPayTransport;
-use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportConfig;
-use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportModule;
-use SyntaxDevTeam\Cms\Modules\CraftSupport\CraftSupportRepository;
-use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseExplorerRepository;
-use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerHistoryRepository;
-use SyntaxDevTeam\Cms\Modules\DatabaseManager\DatabaseManagerModule;
-use SyntaxDevTeam\Cms\Modules\Econizer\EconizerModule;
-use SyntaxDevTeam\Cms\Modules\Econizer\EconizerConfig;
-use SyntaxDevTeam\Cms\Modules\Econizer\EconizerDiscordGateway;
-use SyntaxDevTeam\Cms\Modules\Econizer\EconizerRepository;
-use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioModule;
-use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioOptionParser;
-use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioRepository;
-use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioSimulator;
-use SyntaxDevTeam\Cms\Modules\EconizerBotStudio\EconizerBotStudioWorkflowParser;
-use SyntaxDevTeam\Cms\Modules\Licences\LicenceRepository;
-use SyntaxDevTeam\Cms\Modules\Licences\LicencesModule;
-use SyntaxDevTeam\Cms\Modules\Hosting\HostingModule;
-use SyntaxDevTeam\Cms\Modules\Hosting\HostingRepository;
-use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
-use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetStorage;
-use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaOptimizationUsageRepository;
-use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaLibraryModule;
-use SyntaxDevTeam\Cms\Modules\MediaLibrary\TinifyImageOptimizer;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\BuildExplorerPluginResolver;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\CommonPluginCatalog;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\EngineVersionCatalog;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\LeavesDownloadsClient;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallationRepository;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallationStorage;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MCServerInstallerModule;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PaperMcDownloadsClient;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PufferfishDownloadsClient;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\PurpurDownloadsClient;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\MojangDownloadsClient;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\ServerEngineCatalog;
-use SyntaxDevTeam\Cms\Modules\MCServerInstaller\SpigotVersionsClient;
-use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleModule;
-use SyntaxDevTeam\Cms\Modules\MinecraftConsole\MinecraftConsoleRepository;
-use SyntaxDevTeam\Cms\Modules\NodeManager\NodeAgentConfig;
-use SyntaxDevTeam\Cms\Modules\NodeManager\NodeManagerModule;
-use SyntaxDevTeam\Cms\Modules\NodeManager\UnixSocketNodeAgentClient;
-use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorModule;
-use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslationRepository;
-use SyntaxDevTeam\Cms\Modules\PluginTranslator\MinecraftFormatPreview;
-use SyntaxDevTeam\Cms\Modules\PluginTranslator\PluginTranslatorYaml;
-use SyntaxDevTeam\Cms\Modules\PluginStats\PluginStatsModule;
-use SyntaxDevTeam\Cms\Modules\PluginStats\PluginStatsRepository;
-use SyntaxDevTeam\Cms\Modules\Projects\ProjectRepository;
-use SyntaxDevTeam\Cms\Modules\Projects\ProjectsModule;
-use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalConfig;
-use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalModule;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\RegistrationConfig;
-use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
-use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
-use SyntaxDevTeam\Cms\Modules\System\SystemSettingsRepository;
-use SyntaxDevTeam\Cms\Modules\Team\TeamModule;
-use SyntaxDevTeam\Cms\Modules\Team\TeamRepository;
-use SyntaxDevTeam\Cms\Modules\Uptime\UptimeModule;
-use SyntaxDevTeam\Cms\Modules\Uptime\UptimeRepository;
-use SyntaxDevTeam\Cms\Modules\UserProfile\UserProfileModule;
-use SyntaxDevTeam\Cms\Modules\Wikipedia\WikipediaModule;
-use SyntaxDevTeam\Cms\Modules\Wikipedia\WikiRepository;
-use SyntaxDevTeam\Cms\Modules\Widgets\WidgetRepository;
-use SyntaxDevTeam\Cms\Modules\Widgets\WidgetsModule;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\UserAdministrationRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuthPolicyExtension\AuthPolicySettingsRepository;
+use SyntaxDevTeam\Cms\Modules\CoreAuthPolicyExtension\CoreAuthPolicyExtensionModule;
+use SyntaxDevTeam\Cms\Modules\CoreAuthPolicyExtension\CoreAuthPolicyProvider;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopModule;
+use SyntaxDevTeam\Cms\Modules\ItemShop\DatabaseItemShopCatalogService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopStoreDomainService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\DatabaseItemShopOrderService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\DatabaseItemShopFulfillmentService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopCartService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopApiController;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopPanelController;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopSecretVault;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopWebhookService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopWebhookUrlPolicy;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopWalletCheckoutService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopTestCheckoutService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopAgentService;
+use SyntaxDevTeam\Cms\Modules\ItemShop\CallableItemShopPaymentCheckout;
+use SyntaxDevTeam\Cms\Modules\NodeManager\NodeAgentConfig;
+use SyntaxDevTeam\Cms\Modules\NodeManager\UnixSocketNodeAgentClient;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentsModule;
+use SyntaxDevTeam\Cms\Modules\Payments\DatabasePaymentStore;
+use SyntaxDevTeam\Cms\Modules\Payments\DatabasePaymentProviderAccountStore;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentService;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentProviderAccountService;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentProviderAccountReaderInterface;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentProviderAccountPanelController;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentProviderConnectionRegistry;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentSecretVault;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentProviderFactoryRegistry;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentWebhookController;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentWebhookPayloadVault;
+use SyntaxDevTeam\Cms\Modules\Payments\DatabasePaymentWebhookStore;
+use SyntaxDevTeam\Cms\Modules\Payments\DatabasePaymentRefundStore;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentRefundService;
+use SyntaxDevTeam\Cms\Modules\Payments\HotPayHttpClient;
+use SyntaxDevTeam\Cms\Modules\Payments\HotPayProviderFactory;
+use SyntaxDevTeam\Cms\Modules\Payments\DatabasePaymentCheckoutStore;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentCheckoutService;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentCheckoutServiceInterface;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentCreateRequest;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentReference;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentCheckoutRequest;
+use SyntaxDevTeam\Cms\Modules\Payments\PaymentServiceInterface;
+use SyntaxDevTeam\Cms\Modules\Support\SupportModule;
+use SyntaxDevTeam\Cms\Modules\SystemMonitor\SystemMonitorDashboardModule;
+use SyntaxDevTeam\Cms\Modules\SystemMonitor\SystemMonitorInfrastructureProbe;
+use SyntaxDevTeam\Cms\Modules\SystemMonitor\SystemMonitorLogCleaner;
+use SyntaxDevTeam\Cms\Modules\SystemMonitor\SystemMonitorModule;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletModule;
+use SyntaxDevTeam\Cms\Modules\Wallet\DatabaseWalletStore;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletService;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletApiController;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletPanelController;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletCsvExporter;
+use SyntaxDevTeam\Cms\Modules\Wallet\WalletServiceInterface;
+use SyntaxDevTeam\Cms\Database\CrudApp;
 
-return [
-    [
-        'directory' => 'CoreAuth',
-        'required' => true,
-        'factory' => static fn (array $services): CoreAuthModule => new CoreAuthModule(
+/**
+ * Bazowa lista modułów jest utrzymywana osobno, aby dodatkowe moduły systemowe
+ * można było dopinać bez naruszania istniejących fabryk.
+ *
+ * @var list<array<string, mixed>> $moduleDefinitionsBase
+ */
+$moduleDefinitionsBase = require __DIR__ . '/modules.base.php';
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'CoreAuthPolicyExtension',
+    'enabled' => static fn (array $services): bool => $services['database'] !== null,
+    'factory' => static function (array $services): CoreAuthPolicyExtensionModule {
+        $userAdministration = new UserAdministrationRepository($services['database']);
+        $settings = new AuthPolicySettingsRepository($services['database']);
+        $policy = new CoreAuthPolicyProvider($settings, $userAdministration);
+        $coreRegistrationMode = strtolower(trim((string) (
+            $services['auth_config']['registration_mode'] ?? RegistrationConfig::SELF_SERVICE
+        )));
+        if (!in_array($coreRegistrationMode, [RegistrationConfig::SELF_SERVICE, RegistrationConfig::APPROVAL], true)) {
+            $coreRegistrationMode = RegistrationConfig::SELF_SERVICE;
+        }
+
+        return new CoreAuthPolicyExtensionModule(
             $services['theme'],
-            $services['security'],
+            $services['admin_menu'],
             $services['auth'],
+            $services['access'],
+            $services['security'],
+            $services['audit'],
             $services['providers'],
-            new OAuthStateStore(),
-            new OAuthAttemptLimiter(
-                (int) ($services['auth_config']['oauth_window_seconds'] ?? 600),
-                (int) ($services['auth_config']['oauth_start_limit'] ?? 10),
-                (int) ($services['auth_config']['oauth_callback_limit'] ?? 20)
-            ),
-            $services['audit'],
-            $services['admin_menu'],
-            $services['access'],
-            $services['database'] !== null
-                ? new UserAdministrationRepository($services['database'])
-                : null,
-            RegistrationConfig::fromArray($services['auth_config']),
-            $services['auth_demo_enabled']
-        ),
-    ],
-    [
-        'directory' => 'UserProfile',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): UserProfileModule => new UserProfileModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit']
-        ),
-    ],
-    [
-        'directory' => 'NodeManager',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): NodeManagerModule {
-            $config = NodeAgentConfig::fromModuleConfig($services['config']['modules'] ?? []);
-            return new NodeManagerModule(
-                $services['theme'],
-                $services['admin_menu'],
-                new UnixSocketNodeAgentClient($config),
-                $config,
-                $services['auth'],
-                $services['security'],
-                $services['audit']
-            );
-        },
-    ],
-    [
-        'directory' => 'Hosting',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): HostingModule {
-            $modules = is_array($services['config']['modules'] ?? null) ? $services['config']['modules'] : [];
-            $config = NodeAgentConfig::fromModuleConfig($modules);
-            return new HostingModule(
-                $services['theme'],
-                $services['admin_menu'],
-                new HostingRepository($services['database']),
-                new UnixSocketNodeAgentClient($config),
-                $services['auth'],
-                $services['security'],
-                $services['audit'],
-                $modules
-            );
-        },
-    ],
-    [
-        'directory' => 'AccountPrivacy',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): AccountPrivacyModule => new AccountPrivacyModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new AccountPrivacyRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-        ),
-    ],
-    [
-        'directory' => 'CorePages',
-        'required' => true,
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): CorePagesModule => new CorePagesModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new PageRepository($services['database']),
-            new HomepageSectionRepository($services['database']),
-            new HomepageSectionItemRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
+            $userAdministration,
+            $settings,
+            $policy,
             $services['template_cache'],
-            new MediaAssetRepository($services['database'])
-        ),
-    ],
-    [
-        'directory' => 'CraftCatalog',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): CraftCatalogModule => new CraftCatalogModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new HostingPlanRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit']
-        ),
-    ],
-    [
-        'directory' => 'CraftPayments',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): CraftPaymentsModule {
-            $hotPay = HotPayConfig::load(dirname(__DIR__) . '/modules/CraftPayments');
-            return new CraftPaymentsModule(
-                $services['theme'],
-                $services['admin_menu'],
-                new CraftOrderRepository($services['database']),
-                new HostingPlanRepository($services['database']),
-                $hotPay,
-                new HotPayGateway($hotPay, new HotPayTransport()),
-                $services['auth'],
-                $services['security'],
-                $services['audit']
-            );
-        },
-    ],
-    [
-        'directory' => 'CraftSupport',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): CraftSupportModule => new CraftSupportModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new CraftSupportRepository($services['database']),
-            new CraftOrderRepository($services['database']),
-            CraftSupportConfig::load(dirname(__DIR__) . '/modules/CraftSupport'),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-        ),
-    ],
-    [
-        'directory' => 'Articles',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): ArticlesModule => new ArticlesModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new ArticleRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            $services['template_cache'],
-            new MediaAssetRepository($services['database'])
-        ),
-    ],
-    [
-        'directory' => 'Wikipedia',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): WikipediaModule => new WikipediaModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new WikiRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            $services['template_cache']
-        ),
-    ],
-    [
-        'directory' => 'DatabaseManager',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): DatabaseManagerModule => new DatabaseManagerModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            new DatabaseExplorerRepository($services['database']),
-            new DatabaseManagerHistoryRepository($services['database'])
-        ),
-    ],
-    [
-        'directory' => 'MediaLibrary',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): MediaLibraryModule {
-            $modulesConfig = is_array($services['config']['modules'] ?? null) ? $services['config']['modules'] : [];
-            $usage = new MediaOptimizationUsageRepository($services['database']);
-            $optimizer = ($modulesConfig['tinify_enabled'] ?? false) === true && trim((string) ($modulesConfig['tinify_api_key'] ?? '')) !== ''
-                ? new TinifyImageOptimizer(
-                    trim((string) $modulesConfig['tinify_api_key']),
-                    $usage,
-                    (int) ($modulesConfig['tinify_monthly_limit'] ?? 500)
-                )
-                : null;
+            $coreRegistrationMode,
+        );
+    },
+];
 
-            return new MediaLibraryModule(
+$moduleDefinitionsBase[] = [
+    'directory' => 'SystemMonitor',
+    'factory' => static function (array $services): SystemMonitorDashboardModule {
+        $modulesConfig = is_array($services['config']['modules'] ?? null)
+            ? $services['config']['modules']
+            : [];
+        $agent = new UnixSocketNodeAgentClient(NodeAgentConfig::fromModuleConfig($modulesConfig));
+        $applicationRoot = dirname(__DIR__);
+
+        return new SystemMonitorDashboardModule(
+            new SystemMonitorModule(
                 $services['theme'],
                 $services['admin_menu'],
-                new MediaAssetRepository($services['database']),
-                new MediaAssetStorage(
-                    dirname(__DIR__) . '/uploads/media',
-                    (int) ($modulesConfig['media_upload_max_bytes'] ?? 5242880),
-                    $optimizer
-                ),
-                $services['auth'],
-                $services['security'],
-                $services['audit']
-            );
-        },
-    ],
-    [
-        'directory' => 'Projects',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): ProjectsModule => new ProjectsModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new ProjectRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-            new MediaAssetRepository($services['database'])
-        ),
-    ],
-    [
-        'directory' => 'BuildExplorer',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): BuildExplorerModule => new BuildExplorerModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new BuildRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-            new BuildArtifactStorage(
-                dirname(__DIR__) . '/cache/build-artifacts',
-                (int) ($services['config']['modules']['build_upload_max_bytes'] ?? 20971520)
-            ),
-            (string) ($services['config']['modules']['build_ci_token'] ?? '')
-        ),
-    ],
-    [
-        'directory' => 'Licences',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): LicencesModule => new LicencesModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new LicenceRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-            $services['rate_limiter'],
-            $services['config']['modules'] ?? [],
-            $services['template_cache']
-        ),
-    ],
-    [
-        'directory' => 'PluginTranslator',
-        'factory' => static fn (array $services): PluginTranslatorModule => new PluginTranslatorModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            new PluginTranslatorYaml(),
-            new MinecraftFormatPreview(),
-            $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
-        ),
-    ],
-    [
-        'directory' => 'PluginStats',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): PluginStatsModule {
-            $repository = new PluginStatsRepository($services['database']);
-            $moduleConfig = is_array($services['config']['modules'] ?? null)
-                ? $services['config']['modules']
-                : [];
-            return new PluginStatsModule(
-                $services['theme'],
-                $services['admin_menu'],
-                $repository,
-                $services['auth'],
-                $services['security'],
-                $services['audit'],
-                $services['rate_limiter'],
-                $moduleConfig,
-                $services['template_cache'],
-                new \SyntaxDevTeam\Cms\Modules\PluginStats\PluginStatsDashboardCache(
-                    $repository,
-                    dirname(__DIR__) . '/cache/plugin-stats',
-                    (int) ($moduleConfig['plugin_stats_dashboard_ttl'] ?? 1800),
-                    (int) ($moduleConfig['plugin_stats_dashboard_stale_ttl'] ?? 86400)
-                )
-            );
-        },
-    ],
-    [
-        'directory' => 'Econizer',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): EconizerModule {
-            $config = EconizerConfig::load(dirname(__DIR__) . '/modules/Econizer');
-            return new EconizerModule(
-                $services['theme'],
-                $services['admin_menu'],
-                new EconizerRepository($services['database']),
                 $services['auth'],
                 $services['access'],
                 $services['security'],
                 $services['audit'],
-                $config,
-                new EconizerDiscordGateway($services['http_client'], new OAuthStateStore(), $config),
-                new OAuthAttemptLimiter(600, 10, 20),
-            );
-        },
-    ],
-    [
-        'directory' => 'EconizerBotStudio',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): EconizerBotStudioModule => new EconizerBotStudioModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new EconizerBotStudioRepository(
-                $services['database'],
-                new EconizerBotStudioOptionParser(),
-                new EconizerBotStudioWorkflowParser()
             ),
-            new EconizerBotStudioSimulator(),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-        ),
-    ],
-    [
-        'directory' => 'Team',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): TeamModule => new TeamModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new TeamRepository($services['database']),
-            $services['auth'],
+            new SystemMonitorInfrastructureProbe(
+                $services['database'],
+                $applicationRoot
+            ),
+            new SystemMonitorLogCleaner($agent, $applicationRoot),
             $services['access'],
-            $services['security'],
-            $services['audit']
-        ),
-    ],
-    [
-        'directory' => 'Widgets',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): WidgetsModule => new WidgetsModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new WidgetRepository($services['database']),
             $services['auth'],
-            $services['security'],
             $services['audit'],
-            $services['template_cache'],
-            $services['available_themes'],
-            $services['hooks'],
-        ),
-    ],
-    [
-        'directory' => 'RemoteTerminal',
-        'factory' => static fn (array $services): RemoteTerminalModule => new RemoteTerminalModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['auth'],
-            $services['access'],
             $services['security'],
-            $services['audit'],
-            RemoteTerminalConfig::fromModuleConfig($services['config']['modules'] ?? []),
-            dirname(__DIR__) . '/cache/remote-terminal'
-        ),
-    ],
-    [
-        'directory' => 'MinecraftConsole',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): MinecraftConsoleModule => new MinecraftConsoleModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new MinecraftConsoleRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            dirname(__DIR__) . '/cache/minecraft-console',
-            (int) ($services['config']['modules']['minecraft_console_upload_max_bytes'] ?? 5242880)
-        ),
-    ],
-    [
-        'directory' => 'MCServerInstaller',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): MCServerInstallerModule {
-            $moduleConfig = $services['config']['modules'] ?? [];
-            $userAgent = (string) ($moduleConfig['mc_server_installer_papermc_user_agent']
-                ?? 'SyntaxDevTeam/MCServerInstaller/0.8.1 (https://syntaxdevteam.pl)');
-            $timeout = (int) ($moduleConfig['mc_server_installer_papermc_timeout'] ?? 20);
-            $maxBytes = (int) ($moduleConfig['mc_server_installer_upload_max_bytes'] ?? 536870912);
-            $buildStorage = new BuildArtifactStorage(
-                dirname(__DIR__) . '/cache/build-artifacts',
-                (int) ($moduleConfig['build_upload_max_bytes'] ?? 20971520)
-            );
-            $paperMc = new PaperMcDownloadsClient(
-                $userAgent,
-                dirname(__DIR__) . '/cache/mc-server-installer-downloads',
-                $timeout,
-                (int) ($moduleConfig['mc_server_installer_papermc_catalog_ttl'] ?? 900),
-                $maxBytes
-            );
-            $purpur = new PurpurDownloadsClient(
-                $userAgent,
-                dirname(__DIR__) . '/cache/mc-server-installer-purpur',
-                $timeout,
-                $maxBytes
-            );
-            $mojang = new MojangDownloadsClient(
-                $userAgent,
-                dirname(__DIR__) . '/cache/mc-server-installer-mojang',
-                $timeout,
-                $maxBytes
-            );
-            $pufferfish = new PufferfishDownloadsClient(
-                $userAgent,
-                dirname(__DIR__) . '/cache/mc-server-installer-pufferfish',
-                $timeout,
-                $maxBytes
-            );
-            $leaves = new LeavesDownloadsClient(
-                $userAgent,
-                dirname(__DIR__) . '/cache/mc-server-installer-leaves',
-                $timeout,
-                $maxBytes
-            );
+        );
+    },
+];
 
-            return new MCServerInstallerModule(
+$moduleDefinitionsBase[] = [
+    'directory' => 'Wallet',
+    'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static function (array $services): WalletModule {
+        $wallets = new WalletService(
+            new DatabaseWalletStore($services['database']),
+            $services['event_bus'],
+            $services['platform_audit'],
+        );
+
+        return new WalletModule(
+            $wallets,
+            new WalletApiController($wallets, $services['api_tokens'], $services['rate_limiter']),
+            new WalletPanelController(
+                $wallets,
                 $services['theme'],
                 $services['admin_menu'],
-                new MCServerInstallationRepository($services['database']),
-                new ServerEngineCatalog(),
-                new MCServerInstallationStorage(
-                    (string) ($moduleConfig['mc_server_installer_root']
-                        ?? '/home/debian/server'),
-                    (string) ($moduleConfig['mc_server_installer_java_binary'] ?? '/usr/bin/java'),
-                    (int) ($moduleConfig['mc_server_installer_upload_max_bytes'] ?? 536870912)
-                ),
-                $services['auth'],
                 $services['security'],
-                $services['audit'],
-                new BuildExplorerPluginResolver(
-                    new BuildRepository($services['database']),
-                    $buildStorage
-                ),
-                new CommonPluginCatalog(
-                    $userAgent,
-                    dirname(__DIR__) . '/cache/mc-server-installer-common-plugins',
-                    $timeout,
-                    min($maxBytes, 67108864)
-                ),
-                $paperMc,
-                $purpur,
-                $mojang,
-                new EngineVersionCatalog(
-                    $paperMc,
-                    $purpur,
-                    $mojang,
-                    $pufferfish,
-                    $leaves,
-                    new SpigotVersionsClient(
-                        $userAgent,
-                        dirname(__DIR__) . '/cache/mc-server-installer-spigot-versions',
-                        $timeout,
-                        (int) ($moduleConfig['mc_server_installer_papermc_catalog_ttl'] ?? 900)
-                    )
-                ),
-                new MinecraftConsoleRepository($services['database'])
-            );
-        },
-    ],
-    [
-        'directory' => 'Uptime',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): UptimeModule => new UptimeModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new UptimeRepository($services['database']),
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-            $services['template_cache'],
-            $services['rate_limiter'],
-            $services['config']['modules'] ?? [],
-        ),
-    ],
-    [
-        'directory' => 'DistributionAccess',
-        'enabled' => static fn (array $services): bool => $services['database'] !== null
-            && $services['distribution_access_gateway'] instanceof DistributionAccessRepository,
-        'factory' => static fn (array $services): DistributionAccessModule => new DistributionAccessModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['distribution_access_gateway'],
-            $services['module_manager'],
-            $services['auth'],
-            $services['security'],
-            $services['audit'],
-        ),
-    ],
-    [
-        'directory' => 'System',
-        'required' => true,
-        'factory' => static fn (array $services): SystemAdminModule => new SystemAdminModule(
-            $services['theme'],
-            $services['admin_menu'],
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            $services['module_manager'],
-            $services['module_archive_importer'],
-            $services['database'] !== null ? new SystemSettingsRepository($services['database']) : null,
-            $services['database'] !== null ? new SystemLogRepository($services['database']) : null,
-            $services['config'],
-            $services['diagnostics'],
-            $services['available_themes'],
-            $services['template_cache'],
-            $services['trusted_module_publishers'],
-            $services['public_navigation'],
-            $services['dashboard'],
-            $services['brand_icon_generator'],
-            $services['platform_releases'],
-            $services['platform_updater'],
-            $services['core_migration_runner'],
-            $services['platform_release_publisher'],
-            $services['github_release_dispatcher'],
-            $services['auth_provider_config_store'],
-            $services['module_updates'],
-            $services['module_update_publisher'],
-            $services['module_update_refresh_queue'],
-            $services['distribution_access_credentials'],
-            $services['distribution_access_gateway'],
-        ),
-    ],
+                static function () use ($services): ?array {
+                    $user = $services['auth']->user();
+                    if ($user === null || !$user->isActive()) return null;
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->displayName,
+                        'role' => $user->primaryRole(),
+                        'initials' => $user->initials(),
+                        'avatar_url' => $user->avatarUrl ?? '',
+                        'permissions' => $user->permissions,
+                    ];
+                },
+                static fn (): bool => $services['capabilities']->has('payments.checkout.create'),
+                new WalletCsvExporter(),
+            ),
+        );
+    },
 ];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'Payments',
+    'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static function (array $services): PaymentsModule {
+        $payments = new PaymentService(
+            new DatabasePaymentStore($services['database']),
+            $services['event_bus'],
+            $services['platform_audit'],
+        );
+        $modulesConfig = is_array($services['config']['modules'] ?? null)
+            ? $services['config']['modules']
+            : [];
+        $secretKey = trim((string) ($modulesConfig['payments_secret_key'] ?? ''));
+        if ($secretKey === '') return new PaymentsModule($payments);
+
+        $providerAccounts = new PaymentProviderAccountService(
+            new DatabasePaymentProviderAccountStore($services['database']),
+            new PaymentSecretVault($secretKey, (string) ($modulesConfig['payments_secret_key_id'] ?? 'primary')),
+            $services['platform_audit'],
+        );
+        $panel = new PaymentProviderAccountPanelController(
+            $providerAccounts,
+            new PaymentProviderConnectionRegistry(),
+            $services['theme'],
+            $services['admin_menu'],
+            $services['security'],
+            static function () use ($services): ?array {
+                $user = $services['auth']->user();
+                if ($user === null || !$user->isActive()) return null;
+                return [
+                    'id' => $user->id,
+                    'name' => $user->displayName,
+                    'role' => $user->primaryRole(),
+                    'initials' => $user->initials(),
+                    'avatar_url' => $user->avatarUrl ?? '',
+                    'permissions' => $user->permissions,
+                ];
+            },
+        );
+        $factories = new PaymentProviderFactoryRegistry();
+        $factories->register(new HotPayProviderFactory(new HotPayHttpClient()));
+        $webhooks = new PaymentWebhookController(
+            $providerAccounts,
+            $factories,
+            new DatabasePaymentWebhookStore($services['database']),
+            new PaymentWebhookPayloadVault($secretKey, (string) ($modulesConfig['payments_secret_key_id'] ?? 'primary')),
+            $services['rate_limiter'],
+            $services['platform_audit'],
+        );
+        $refunds = new PaymentRefundService(
+            new DatabasePaymentRefundStore($services['database']),
+            $providerAccounts,
+            $factories,
+            $services['platform_audit'],
+            $services['event_bus'],
+        );
+        $checkout = new PaymentCheckoutService(
+            new DatabasePaymentCheckoutStore($services['database']),
+            $providerAccounts,
+            $factories,
+            $services['platform_audit'],
+            $services['event_bus'],
+        );
+        return new PaymentsModule($payments, $panel, $webhooks, $refunds, $checkout, $providerAccounts);
+    },
+];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'ItemShop',
+    'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static function (array $services): ItemShopModule {
+        $modulesConfig=is_array($services['config']['modules']??null)?$services['config']['modules']:[];
+        $secretKey=trim((string)($modulesConfig['itemshop_secret_key']??''));
+        $vault = $secretKey!==''?new ItemShopSecretVault($secretKey):null;
+        $catalog = new DatabaseItemShopCatalogService($services['database'], $services['platform_audit'], $services['event_bus'], $vault);
+        $currentUser = static function () use ($services): ?array {
+            $user = $services['auth']->user();
+            if ($user === null || !$user->isActive()) return null;
+            return ['id'=>$user->id,'name'=>$user->displayName,'role'=>$user->primaryRole(),'initials'=>$user->initials(),'avatar_url'=>$user->avatarUrl??'','permissions'=>$user->permissions];
+        };
+        $orders = new DatabaseItemShopOrderService($services['database'], $services['platform_audit'], $services['event_bus']);
+        $fulfillment = new DatabaseItemShopFulfillmentService($services['database'], $services['platform_audit'], $vault);
+        $cart = new ItemShopCartService($services['database']);
+        $testCheckout=($modulesConfig['itemshop_test_checkout_enabled']??false)===true?new ItemShopTestCheckoutService($services['database'],$services['platform_audit'],$services['event_bus']):null;
+        $webhooks=$vault===null?null:new ItemShopWebhookService($services['database'],$vault,new ItemShopWebhookUrlPolicy(),$services['platform_audit']);
+        if($webhooks!==null)foreach(['itemshop.order.created','itemshop.order.status_changed']as$event)$services['event_bus']->subscribe($event,[$webhooks,'enqueue']);
+        $walletProvider=$services['capabilities']->hasImplementation('wallet.debit','wallet')?$services['capabilities']->implementation('wallet.debit','wallet'):null;
+        $walletCheckout=$walletProvider instanceof WalletServiceInterface?new ItemShopWalletCheckoutService($services['database'],$walletProvider,$services['platform_audit']):null;
+        $paymentService=$services['capabilities']->hasImplementation('payments.create','payments')?$services['capabilities']->implementation('payments.create','payments'):null;
+        $paymentCheckoutService=$services['capabilities']->hasImplementation('payments.checkout.create','payments')?$services['capabilities']->implementation('payments.checkout.create','payments'):null;
+        $paymentAccounts=$services['capabilities']->hasImplementation('payments.provider_accounts.read','payments')?$services['capabilities']->implementation('payments.provider_accounts.read','payments'):null;
+        $publicUrl=rtrim((string)($services['config']['app']['public_url']??''),'/');
+        $storefrontBaseDomain=(string)($modulesConfig['itemshop_storefront_base_domain']??'syntaxcraft.pl');
+        $platformDomain=strtolower((string)(parse_url($publicUrl,PHP_URL_HOST)?:''));
+        $domains=new ItemShopStoreDomainService($services['database'],$storefrontBaseDomain,$platformDomain);
+        $agent=new ItemShopAgentService($services['database'],$services['platform_audit'],trim((string)($modulesConfig['itemshop_agent_platform_key_id']??'')));
+        $directPayment=$paymentService instanceof PaymentServiceInterface&&$paymentCheckoutService instanceof PaymentCheckoutServiceInterface&&$paymentAccounts instanceof PaymentProviderAccountReaderInterface&&str_starts_with(strtolower($publicUrl),'https://')?new CallableItemShopPaymentCheckout(
+            static function($tenant,string$storeId)use($paymentAccounts):array{$result=[];foreach($paymentAccounts->accountsForStore($tenant,$storeId)as$account)$result[$account->id]='Płatność online · '.$account->name;return$result;},
+            static function($tenant,string$userId,string$storeId,array$order,string$accountId)use($paymentService,$paymentCheckoutService,$publicUrl):string{$payment=$paymentService->create(new PaymentCreateRequest($tenant,(int)$order['total_amount_minor'],(string)$order['currency'],new PaymentReference('itemshop','order',(string)$order['id'],'Zamówienie ItemShop '.substr((string)$order['id'],0,8)),'itemshop-order-'.(string)$order['id'],'user',$userId,(string)$order['correlation_id']))->payment;$session=$paymentCheckoutService->checkout(new PaymentCheckoutRequest($tenant,$payment->id,$accountId,$publicUrl.'/account/itemshop?payment=return',$publicUrl.'/account/itemshop?payment=cancel','itemshop-checkout-'.(string)$order['id'].'-'.$accountId,'user',$userId,['store_id'=>$storeId,'order_id'=>(string)$order['id']],(string)$order['correlation_id']));return$session->checkoutUrl;}
+        ):null;
+        $api = new ItemShopApiController($catalog,$orders,$fulfillment,$services['api_tokens'],$services['rate_limiter'],$webhooks);
+        return new ItemShopModule($catalog, new ItemShopPanelController($catalog,$services['theme'],$services['admin_menu'],$services['security'],$currentUser,$orders,$fulfillment,$cart,$walletCheckout,$directPayment,$testCheckout,$domains,$publicUrl,$services['rate_limiter'],$agent), $orders, $fulfillment, $cart, $api, $domains);
+    },
+];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'Support',
+    'factory' => static fn (array $services): SupportModule => new SupportModule(),
+];
+
+return $moduleDefinitionsBase;

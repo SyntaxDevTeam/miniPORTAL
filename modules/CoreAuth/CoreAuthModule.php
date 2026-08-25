@@ -39,7 +39,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     public function version(): string
     {
-        return '1.9.0';
+        return '1.9.3';
     }
 
     public function dependencies(): array
@@ -260,7 +260,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             return;
         }
         if ($user->isActive()) {
-            header('Location: ' . $this->consumeRegistrationRedirect(), true, 303);
+            header('Location: ' . $this->consumeRegistrationRedirect($user), true, 303);
             return;
         }
         if (!$this->registration->isSelfService()) {
@@ -351,7 +351,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         }
 
         $this->audit->record($request, 'terms_acceptance', 'accepted', null, $user->id);
-        header('Location: ' . $this->consumeRegistrationRedirect(), true, 303);
+        header('Location: ' . $this->consumeRegistrationRedirect($activated), true, 303);
     }
 
     private function renderUsers(string $message = '', string $variant = 'info'): void
@@ -1133,19 +1133,23 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         header('Location: index.php?route=/admin/login', true, 303);
     }
 
-    private function consumeAfterLoginRedirect(): string
-    {
-        $redirect = $_SESSION['_miniportal_after_login'] ?? '';
-        unset($_SESSION['_miniportal_after_login']);
-        return is_string($redirect) ? $this->normalizeAfterLoginRedirect($redirect) : 'index.php?route=/admin';
-    }
-
-    private function consumeRegistrationRedirect(): string
+    private function consumeAfterLoginRedirect(User $user): string
     {
         $redirect = $_SESSION['_miniportal_after_login'] ?? '';
         unset($_SESSION['_miniportal_after_login']);
         if (!is_string($redirect) || trim($redirect) === '') {
-            return '/account/servers';
+            return $this->menu->firstVisiblePath($user->permissions);
+        }
+
+        return $this->normalizeAfterLoginRedirect($redirect);
+    }
+
+    private function consumeRegistrationRedirect(User $user): string
+    {
+        $redirect = $_SESSION['_miniportal_after_login'] ?? '';
+        unset($_SESSION['_miniportal_after_login']);
+        if (!is_string($redirect) || trim($redirect) === '') {
+            return $this->menu->firstVisiblePath($user->permissions);
         }
 
         return $this->normalizeAfterLoginRedirect($redirect);
@@ -1154,13 +1158,13 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     private function redirectAfterAuthentication(User $user): string
     {
         if ($user->isActive()) {
-            return $this->consumeAfterLoginRedirect();
+            return $this->consumeAfterLoginRedirect($user);
         }
         if ($this->registration->isSelfService()) {
             return 'index.php?route=/account/registration';
         }
 
-        $redirect = $this->consumeAfterLoginRedirect();
+        $redirect = $this->consumeAfterLoginRedirect($user);
         return $this->isAdminRedirect($redirect)
             ? 'index.php?route=/admin/account-pending'
             : $redirect;

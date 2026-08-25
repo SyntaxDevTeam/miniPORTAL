@@ -76,7 +76,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.5.0';
+        return '2.6.0';
     }
 
     public function dependencies(): array
@@ -819,6 +819,15 @@ final class SystemAdminModule implements ModuleInterface
             $this->audit->record($request, 'platform_release_publish', 'forbidden', $version, $actor?->id);
             http_response_code(403);
             $this->renderPlatformUpdates('Publikowanie wydań wymaga roli Owner.', 'danger');
+            return;
+        }
+        if (!$this->platformReleasePublisher->available()) {
+            $this->audit->record($request, 'platform_release_publish', 'forbidden', $version, $actor?->id);
+            http_response_code(403);
+            $this->renderPlatformUpdates(
+                'Publikowanie wydań jest dostępne wyłącznie w instalacji macierzystej.',
+                'danger'
+            );
             return;
         }
 

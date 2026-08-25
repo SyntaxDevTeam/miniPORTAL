@@ -1,7 +1,7 @@
 {
   "id": "core_auth",
   "name": "Core Auth",
-  "version": "1.9.0",
+  "version": "1.9.3",
   "type": "core",
   "author": "SyntaxDevTeam",
   "requires": {

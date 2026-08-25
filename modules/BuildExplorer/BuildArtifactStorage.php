@@ -8,6 +8,8 @@ use RuntimeException;
 
 final class BuildArtifactStorage
 {
+    private const DEFAULT_RESERVE_BYTES = 5368709120;
+
     public function __construct(
         private readonly string $directory,
         private readonly int $maxBytes = 20971520,
@@ -49,6 +51,8 @@ final class BuildArtifactStorage
         if (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) !== 'jar' || !is_file($file['tmp_name'])) {
             throw new RuntimeException('Dozwolone są wyłącznie pliki .jar.');
         }
+        $this->assertFilesystemReserve((int) $file['size'], self::DEFAULT_RESERVE_BYTES);
+
         $handle = fopen($file['tmp_name'], 'rb');
         $signature = is_resource($handle) ? fread($handle, 4) : false;
         if (is_resource($handle)) { fclose($handle); }
@@ -79,11 +83,74 @@ final class BuildArtifactStorage
         return is_file($path) && !is_link($path) ? $path : null;
     }
 
-    public function delete(?string $key): void
+    public function delete(?string $key): bool
     {
-        if ($key === null || $key === '') { return; }
+        if ($key === null || $key === '') { return false; }
         $path = $this->path($key);
-        if ($path !== null) { @unlink($path); }
+        return $path !== null && @unlink($path);
+    }
+
+    public function sizeForKey(string $key): int
+    {
+        $path = $this->path($key);
+        if ($path === null) { return 0; }
+        $size = filesize($path);
+        return $size === false ? 0 : max(0, (int) $size);
+    }
+
+    /** @return list<string> */
+    public function storedKeys(): array
+    {
+        $keys = [];
+        $iterator = new \FilesystemIterator($this->directory, \FilesystemIterator::SKIP_DOTS);
+        foreach ($iterator as $entry) {
+            if (!$entry->isFile() || $entry->isLink()) { continue; }
+            $name = $entry->getFilename();
+            if (preg_match('/^[a-f0-9]{48}\.jar$/', $name) === 1) {
+                $keys[] = $name;
+            }
+        }
+        sort($keys, SORT_STRING);
+        return $keys;
+    }
+
+    /** @param list<string> $registeredKeys @return list<string> */
+    public function orphanKeys(array $registeredKeys, int $minAgeSeconds = 86400): array
+    {
+        $registered = array_fill_keys($registeredKeys, true);
+        $cutoff = time() - max(0, $minAgeSeconds);
+        $orphans = [];
+        foreach ($this->storedKeys() as $key) {
+            if (isset($registered[$key])) { continue; }
+            $path = $this->path($key);
+            if ($path === null) { continue; }
+            $modified = filemtime($path);
+            if ($modified !== false && $modified <= $cutoff) {
+                $orphans[] = $key;
+            }
+        }
+        return $orphans;
+    }
+
+    public function assertCapacity(int $incomingBytes, int $hardLimitBytes, int $reserveBytes): void
+    {
+        $incomingBytes = max(0, $incomingBytes);
+        $hardLimitBytes = max(1, $hardLimitBytes);
+        $reserveBytes = max(0, $reserveBytes);
+        $stats = $this->statistics();
+        if ($stats['bytes'] + $incomingBytes > $hardLimitBytes) {
+            throw new BuildStorageCapacityException(
+                'Build storage hard limit would be exceeded.',
+                [
+                    'storage_bytes' => $stats['bytes'],
+                    'incoming_bytes' => $incomingBytes,
+                    'hard_limit_bytes' => $hardLimitBytes,
+                    'disk_free_bytes' => $stats['disk_free_bytes'],
+                    'reserve_bytes' => $reserveBytes,
+                ]
+            );
+        }
+        $this->assertFilesystemReserve($incomingBytes, $reserveBytes);
     }
 
     /** @return array{files: int, bytes: int, disk_free_bytes: int|null, disk_total_bytes: int|null} */
@@ -109,6 +176,25 @@ final class BuildArtifactStorage
             'disk_free_bytes' => $free === false ? null : max(0, (int) $free),
             'disk_total_bytes' => $total === false ? null : max(0, (int) $total),
         ];
+    }
+
+    private function assertFilesystemReserve(int $incomingBytes, int $reserveBytes): void
+    {
+        $free = disk_free_space($this->directory);
+        if ($free === false) { return; }
+        $freeBytes = max(0, (int) $free);
+        if ($freeBytes - max(0, $incomingBytes) < max(0, $reserveBytes)) {
+            throw new BuildStorageCapacityException(
+                'Build upload refused to preserve the filesystem free-space reserve.',
+                [
+                    'storage_bytes' => $this->statistics()['bytes'],
+                    'incoming_bytes' => max(0, $incomingBytes),
+                    'hard_limit_bytes' => null,
+                    'disk_free_bytes' => $freeBytes,
+                    'reserve_bytes' => max(0, $reserveBytes),
+                ]
+            );
+        }
     }
 
     private static function segment(string $value): string

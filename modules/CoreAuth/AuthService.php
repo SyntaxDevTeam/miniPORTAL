@@ -143,7 +143,7 @@ final class AuthService
 
     public function rolePreviewBlocks(Request $request): bool
     {
-        if ($this->rolePreview() === null || !str_starts_with($request->path(), '/admin')) {
+        if ($this->rolePreview() === null) {
             return false;
         }
         if ($request->path() === '/admin/roles/preview/stop') {

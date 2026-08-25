@@ -50,7 +50,7 @@ final class Theme implements ThemeInterface
 
     private readonly string $publicFaviconVersion;
 
-    private readonly string $publicUrl;
+    private string $publicUrl;
 
     private readonly string $publicPath;
 
@@ -73,6 +73,13 @@ final class Theme implements ThemeInterface
     private array $publicNavigation = [];
 
     private bool $publicAuthenticated = false;
+
+    private bool $publicStandalone = false;
+
+    private array $publicStandaloneNavigation = [];
+
+    /** @var list<string> */
+    private array $authEntryLocations = ['header'];
 
     private array $adminSearchItems = [];
 
@@ -154,6 +161,37 @@ final class Theme implements ThemeInterface
         $this->publicAuthenticated = $authenticated;
     }
 
+    public function set_public_standalone(bool $standalone = true): void
+    {
+        $this->publicStandalone = $standalone;
+    }
+
+    public function set_public_standalone_navigation(array $items): void
+    {
+        $this->publicStandaloneNavigation = $items;
+    }
+
+    public function set_public_origin(string $origin): void
+    {
+        $origin=rtrim(trim($origin),'/');$parts=parse_url($origin);if(!is_array($parts)||strtolower((string)($parts['scheme']??''))!=='https'||!isset($parts['host'])||isset($parts['user'])||isset($parts['pass'])||!in_array((string)($parts['path']??''),['','/'],true))return;$this->publicUrl=$origin;
+    }
+
+
+    public function set_auth_entry_locations(array $locations): void
+    {
+        $normalized = [];
+        foreach ($locations as $location) {
+            if (
+                is_string($location)
+                && in_array($location, ['header', 'footer'], true)
+                && !in_array($location, $normalized, true)
+            ) {
+                $normalized[] = $location;
+            }
+        }
+        $this->authEntryLocations = $normalized;
+    }
+
     public function set_admin_search_items(array $items): void
     {
         $this->adminSearchItems = $items;
@@ -166,6 +204,7 @@ final class Theme implements ThemeInterface
 
     public function render_homepage(array $sections, array $pages, bool $authenticated): void
     {
+        $this->publicAuthenticated = $authenticated;
         $pageTitle = $this->publicDefaultTitle;
         echo '<!doctype html><html lang="' . $this->escape($this->publicLanguage) . '" data-bs-theme="light"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
@@ -212,12 +251,15 @@ final class Theme implements ThemeInterface
 
     private function renderPublicNavbar(array $pages, bool $authenticated, array $sections = [], bool $fixed = false): void
     {
+        if ($this->publicStandalone) { $pages = $this->publicStandaloneNavigation; }
+        $brandHref = '/';
+        if ($this->publicStandalone && isset($pages[0])) { $brandHref = $this->navigationHref($pages[0]); }
         echo '<nav class="navbar navbar-expand-lg border-bottom' . ($fixed ? ' fixed-top' : '') . '" data-site-nav aria-label="Główna nawigacja"><div class="container">';
-        echo '<a class="navbar-brand fw-bold" href="/">' . $this->brandLogo('site-brand-logo');
+        echo '<a class="navbar-brand fw-bold" href="' . $this->escape($brandHref) . '"' . ($this->publicStandalone ? ' hx-boost="false"' : '') . '>' . $this->brandLogo('site-brand-logo');
         echo $this->escape($this->publicName) . '</a>';
         echo '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Przełącz nawigację"><span class="navbar-toggler-icon"></span></button>';
         echo '<div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center">';
-        if (!$fixed) {
+        if (!$fixed && !$this->publicStandalone) {
             echo '<li class="nav-item"><a class="nav-link" href="/"';
             echo $this->publicPath === '/' ? ' aria-current="page"' : '';
             echo '>Start</a></li>';
@@ -240,29 +282,29 @@ final class Theme implements ThemeInterface
             }
             $href = $this->navigationHref($page);
             echo '<li class="nav-item"><a class="nav-link" href="' . $this->escape($href) . '"';
-            echo $this->isCurrentPublicHref($href) ? ' aria-current="page"' : '';
+            echo $this->publicStandalone ? ' hx-boost="false"' : '';
+            echo (($page['active'] ?? false) === true || $this->isCurrentPublicHref($href)) ? ' aria-current="page"' : '';
             echo '>';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a></li>';
         }
-        if ($pages !== [] && array_filter($pages, static fn (array $page): bool => $page['navigation_area'] === 'main') === []) {
-            if ($authenticated) {
-                echo '<li class="nav-item"><a class="nav-link" href="index.php?route=/pages">Strony</a></li>';
-            }
-        }
         if ($contactSection !== null) {
             echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($contactSection['key']) . '">';
             echo $this->escape($this->navigationLabel($contactSection)) . '</a></li>';
-        } else {
+        } elseif (!$this->publicStandalone) {
             echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
         }
-        echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" hx-boost="false" href="';
-        echo $authenticated ? '/admin' : '/admin/login';
-        echo '">' . ($authenticated ? 'Otwórz panel' : 'Zaloguj się') . '</a></li></ul></div></div></nav>';
+        if (!$this->publicStandalone && in_array('header', $this->authEntryLocations, true)) {
+            echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" hx-boost="false" href="';
+            echo $authenticated ? '/account' : '/admin/login';
+            echo '">' . ($authenticated ? 'Moje konto' : 'Załóż darmowe konto') . '</a></li>';
+        }
+        echo '</ul></div></div></nav>';
     }
 
     private function renderPublicFooter(array $pages): void
     {
+        if ($this->publicStandalone) { $pages = []; }
         echo '<footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
         echo '<span>&copy; ' . date('Y') . ' Powered by ';
         echo '<a class="text-secondary" hx-boost="false" href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>';
@@ -283,6 +325,11 @@ final class Theme implements ThemeInterface
             echo '</a>';
         }
         echo $footerPages !== [] ? '</nav>' : '';
+        if (!$this->publicStandalone && in_array('footer', $this->authEntryLocations, true)) {
+            echo '<a class="text-secondary" href="';
+            echo $this->publicAuthenticated ? '/account' : '/admin/login';
+            echo '">' . ($this->publicAuthenticated ? 'Moje konto' : 'Załóż darmowe konto') . '</a>';
+        }
         echo '<button type="button" class="cookie-consent-manage text-secondary" data-cookie-consent-manage>';
         echo 'Ustawienia cookies</button>';
         if (strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
@@ -584,6 +631,11 @@ final class Theme implements ThemeInterface
         echo '</div>';
     }
 
+    public function render_image(string $url, string $alt, string $variant = 'content'): void
+    {
+        $url=$this->safeHref($url);if($url===''||(preg_match('~^https?://~i',$url)!==1&&!str_starts_with($url,'/')))return;$variant=in_array($variant,['content','logo','banner'],true)?$variant:'content';echo '<figure class="public-image public-image-'.$this->escape($variant).'"><img class="img-fluid" src="'.$this->escape($url).'" alt="'.$this->escape($alt).'" loading="lazy"></figure>';
+    }
+
     public function render_content_navigation(array $items): void
     {
         if ($items === []) {
@@ -666,6 +718,32 @@ final class Theme implements ThemeInterface
 
         echo '</tbody></table></div>';
     }
+
+    public function render_pricing_cards(array $plans): void
+    {
+        if ($plans === []) { return; }
+        echo '<div class="pricing-grid">';
+        foreach ($plans as $plan) {
+            $featured = (bool) ($plan['featured'] ?? false);
+            echo '<article class="pricing-card' . ($featured ? ' pricing-card--featured' : '') . '">';
+            echo '<header class="pricing-card__header"><span class="pricing-card__name">' . $this->escape((string) ($plan['name'] ?? '')) . '</span>';
+            if ($featured) { echo '<span class="pricing-card__popular">' . $this->escape((string) ($plan['featured_label'] ?? 'Popularny')) . '</span>'; }
+            echo '</header>';
+            echo '<p class="pricing-card__price">' . $this->escape((string) ($plan['price'] ?? '')) . '</p>';
+            echo '<p class="pricing-card__period">' . $this->escape((string) ($plan['period'] ?? '')) . '</p>';
+            $href = $this->safeHref((string) ($plan['action_href'] ?? ''));
+            if ($href !== '') { echo '<a class="btn btn-primary pricing-card__action" href="' . $this->escape($href) . '">' . $this->escape((string) ($plan['action_label'] ?? 'Wybieram')) . '</a>'; }
+            $tagline = trim((string) ($plan['tagline'] ?? ''));
+            if ($tagline !== '') { echo '<p class="pricing-card__tagline">' . $this->escape($tagline) . '</p>'; }
+            echo '<ul class="pricing-card__resources">';
+            foreach (($plan['resources'] ?? []) as $resource) { echo '<li>' . $this->escape((string) $resource) . '</li>'; }
+            echo '</ul><ul class="pricing-card__benefits">';
+            foreach (($plan['benefits'] ?? []) as $benefit) { echo '<li>' . $this->escape((string) $benefit) . '</li>'; }
+            echo '</ul></article>';
+        }
+        echo '</div>';
+    }
+
 
     public function render_detail_card(
         string $title,
@@ -1049,6 +1127,15 @@ final class Theme implements ThemeInterface
                 echo $value . '</textarea>';
             } elseif ($type === 'select') {
                 echo '<select class="form-select" id="' . $name . '" name="' . $name . '"' . $controlAttributes . '>';
+                foreach ($field['groups'] ?? [] as $groupLabel => $groupOptions) {
+                    echo '<optgroup label="' . $this->escape((string) $groupLabel) . '">';
+                    foreach ($groupOptions as $optionValue => $optionLabel) {
+                        $selected = (string) $optionValue === ($field['value'] ?? '') ? ' selected' : '';
+                        echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
+                        echo $this->escape((string) $optionLabel) . '</option>';
+                    }
+                    echo '</optgroup>';
+                }
                 foreach ($field['options'] ?? [] as $optionValue => $optionLabel) {
                     $selected = (string) $optionValue === ($field['value'] ?? '') ? ' selected' : '';
                     echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
@@ -1194,7 +1281,8 @@ final class Theme implements ThemeInterface
         echo '</div></div>';
         echo '<div class="admin-preview rounded-0 border-0"><div class="admin-shell">';
         echo '<aside class="admin-sidebar" aria-label="Nawigacja panelu"><div class="admin-sidebar-header">';
-        echo '<a class="admin-brand text-decoration-none" href="index.php?route=/admin">';
+        $panelHome = (string) ($menuItems[0]['path'] ?? '/');
+        echo '<a class="admin-brand text-decoration-none" href="' . $this->escape($panelHome) . '">';
         echo $this->brandLogo('admin-brand-logo') . '<span>SyntaxCraft</span></a></div>';
         $this->renderAdminMenu($menuItems, $activePath);
         echo '</aside>';
@@ -1250,6 +1338,9 @@ final class Theme implements ThemeInterface
         $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
         $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
+        $asyncFile = dirname(__DIR__) . '/shared/assets/js/admin-async-content.js';
+        $asyncVersion = is_file($asyncFile) ? (string) filemtime($asyncFile) : '1';
+        echo '<script src="/templates/shared/assets/js/admin-async-content.js?v=' . $this->escape($asyncVersion) . '"></script>';
         $chartsFile = dirname(__DIR__) . '/shared/assets/js/admin-charts.js';
         $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script></body></html>';
@@ -1543,9 +1634,9 @@ final class Theme implements ThemeInterface
     ): void {
         echo '<!doctype html><html lang="pl" data-bs-theme="light"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-        echo '<meta name="description" content="Logowanie do panelu miniPORTAL">';
+        echo '<meta name="description" content="Załóż darmowe konto SyntaxCraft i uruchom własny sklep dla graczy Minecraft.">';
         $this->renderBrandHead('', '', false);
-        echo '<title>Logowanie - miniPORTAL Admin</title>';
+        echo '<title>Darmowe konto - SyntaxCraft</title>';
         echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
@@ -1556,9 +1647,9 @@ final class Theme implements ThemeInterface
         echo '<div class="login-stage border-0 bg-transparent shadow-none"><section class="login-panel">';
         echo '<a class="admin-brand text-decoration-none" href="index.php">';
         echo $this->brandLogo('admin-brand-logo') . '<span>SyntaxCraft Panel</span></a>';
-        echo '<p class="showcase-label mt-5 mb-2">Bezpieczny dostęp</p>';
-        echo '<h1 class="h2 fw-bold">Zaloguj się do panelu</h1>';
-        echo '<p class="text-secondary">Konto i uprawnienia pozostają lokalne, niezależnie od wybranego dostawcy tożsamości.</p>';
+        echo '<p class="showcase-label mt-5 mb-2">Darmowy start</p>';
+        echo '<h1 class="h2 fw-bold">Załóż konto i otwórz swój sklep</h1>';
+        echo '<p class="text-secondary">Konto jest darmowe i aktywne od razu. Wybierz wygodny sposób logowania, a za chwilę utworzysz sklep dla swoich graczy.</p>';
 
         if ($message !== '') {
             $allowedVariants = ['success', 'danger', 'warning', 'info'];

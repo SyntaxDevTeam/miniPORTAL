@@ -71,6 +71,18 @@ interface ThemeInterface
      */
     public function set_public_navigation(array $items, bool $authenticated, array $activeModules = []): void;
 
+    /** Isolate a microsite or storefront from the platform's public navigation and auth links. */
+    public function set_public_standalone(bool $standalone = true): void;
+
+    /** @param list<array<string, mixed>> $items Navigation owned by an isolated microsite. */
+    public function set_public_standalone_navigation(array $items): void;
+
+    /** Override the validated HTTPS origin used by canonical, Open Graph and structured metadata. */
+    public function set_public_origin(string $origin): void;
+
+    /** @param list<string> $locations */
+    public function set_auth_entry_locations(array $locations): void;
+
     public function start_page(string $title, string $description = '', bool $indexable = true): void;
 
     public function end_page(): void;
@@ -118,6 +130,8 @@ interface ThemeInterface
 
     public function render_avatar(string $name, ?string $avatarUrl = null, string $size = 'md'): void;
 
+    public function render_image(string $url, string $alt, string $variant = 'content'): void;
+
     /**
      * @param list<array{
      *     label: string,
@@ -156,6 +170,22 @@ interface ThemeInterface
         array $rows = [],
         array $actions = [],
     ): void;
+
+    /**
+     * @param list<array{
+     *     name:string,
+     *     price:string,
+     *     period:string,
+     *     tagline:string,
+     *     featured:bool,
+     *     featured_label:string,
+     *     action_label:string,
+     *     action_href:string,
+     *     resources:list<string>,
+     *     benefits:list<string>
+     * }> $plans
+     */
+    public function render_pricing_cards(array $plans): void;
 
     /**
      * @param array{

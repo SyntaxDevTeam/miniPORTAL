@@ -18,6 +18,9 @@ final class OAuthStateStore
     {
         $this->assertSession();
         $this->prune();
+        if ($purpose === 'login') {
+            AuthPolicyRuntime::applyLoginRedirectPolicy();
+        }
 
         $state = $this->base64Url(random_bytes(32));
         $verifier = $this->base64Url(random_bytes(64));

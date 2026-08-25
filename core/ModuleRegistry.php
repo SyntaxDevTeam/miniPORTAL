@@ -12,6 +12,16 @@ final class ModuleRegistry
     private array $modules = [];
     /** @var array<string, ModuleManifest> */
     private array $manifests = [];
+    private readonly CapabilityRegistry $capabilityRegistry;
+    private readonly EventBus $eventBus;
+
+    public function __construct(
+        ?CapabilityRegistry $capabilityRegistry = null,
+        ?EventBus $eventBus = null,
+    ) {
+        $this->capabilityRegistry = $capabilityRegistry ?? new CapabilityRegistry();
+        $this->eventBus = $eventBus ?? new EventBus();
+    }
 
     public function add(ModuleInterface $module, ?ModuleManifest $manifest = null): void
     {
@@ -34,6 +44,29 @@ final class ModuleRegistry
             }
             if ($manifest->protected !== $module->isProtected()) {
                 throw new RuntimeException("Flaga ochrony modułu {$id} jest niespójna z manifestem.");
+            }
+            $implementations = $module instanceof CapabilityProviderInterface
+                ? $module->capabilityProviders()
+                : [];
+            foreach ($implementations as $capability => $implementation) {
+                if (
+                    !is_string($capability)
+                    || !is_object($implementation)
+                    || !in_array($capability, $manifest->providedCapabilities, true)
+                ) {
+                    throw new RuntimeException("Implementacje capabilities modułu {$id} są nieprawidłowe.");
+                }
+            }
+            foreach ($manifest->providedCapabilities as $capability) {
+                if (!isset($implementations[$capability])) {
+                    throw new RuntimeException(
+                        "Moduł {$id} deklaruje capability {$capability} bez implementacji Internal API."
+                    );
+                }
+            }
+            $this->capabilityRegistry->register($id, $manifest->providedCapabilities);
+            foreach ($implementations as $capability => $implementation) {
+                $this->capabilityRegistry->bind($id, $capability, $implementation);
             }
             $this->manifests[$id] = $manifest;
         }
@@ -79,6 +112,26 @@ final class ModuleRegistry
                 $module->registerSeo($seo);
             }
         }
+    }
+
+    public function has(string $id): bool
+    {
+        return isset($this->modules[$id]);
+    }
+
+    public function manifest(string $id): ?ModuleManifest
+    {
+        return $this->manifests[$id] ?? null;
+    }
+
+    public function capabilities(): CapabilityRegistry
+    {
+        return $this->capabilityRegistry;
+    }
+
+    public function events(): EventBus
+    {
+        return $this->eventBus;
     }
 
     /**

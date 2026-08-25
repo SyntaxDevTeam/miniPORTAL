@@ -43,7 +43,9 @@ final class RegistrationConfig
 
     public function isSelfService(): bool
     {
-        return $this->mode === self::SELF_SERVICE;
+        $mode = AuthPolicyRuntime::provider()->registrationMode() ?? $this->mode;
+
+        return $mode === self::SELF_SERVICE;
     }
 
     public function ipHash(string $ip): ?string

@@ -81,11 +81,19 @@ final class CrudAppUserRepository implements UserRepositoryInterface
                 ':email' => $identity->email,
                 ':verified' => $identity->emailVerified ? 1 : 0,
             ]);
+
+            $defaultRole = AuthPolicyRuntime::provider()->defaultRole() ?? 'user';
+            if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $defaultRole) !== 1) {
+                $defaultRole = 'user';
+            }
             $role = $pdo->prepare(
                 'INSERT INTO user_roles (user_id, role_id) '
                 . 'SELECT :user_id, id FROM roles WHERE name = :role'
             );
-            $role->execute([':user_id' => $userId, ':role' => 'user']);
+            $role->execute([':user_id' => $userId, ':role' => $defaultRole]);
+            if ($role->rowCount() !== 1 && $defaultRole !== 'user') {
+                $role->execute([':user_id' => $userId, ':role' => 'user']);
+            }
             $pdo->commit();
 
             $created = $this->findById($userId);

@@ -319,6 +319,38 @@ body.admin-stylebook.syntaxcraft-theme {
   font-weight: 650;
 }
 
+/* ItemShop landing: make the free start unmistakable and keep the path simple. */
+.syntaxcraft-theme .home-hero .d-flex {
+  align-items: center;
+  gap: 0.9rem !important;
+}
+
+.syntaxcraft-theme .home-hero .btn-primary {
+  min-height: 3.35rem;
+  padding-inline: 1.35rem;
+  font-size: 1.05rem;
+}
+
+.syntaxcraft-theme #syntaxcraft-benefits .managed-card:nth-child(1) {
+  background: var(--sc-coral-pale);
+  box-shadow: 6px 6px 0 var(--sc-green);
+}
+
+.syntaxcraft-theme #syntaxcraft-benefits .managed-card:nth-child(2) {
+  background: var(--sc-sky-pale);
+  box-shadow: 6px 6px 0 var(--sc-sky);
+}
+
+.syntaxcraft-theme #syntaxcraft-benefits .managed-card:nth-child(3) {
+  background: var(--sc-honey-pale);
+  box-shadow: 6px 6px 0 var(--sc-honey);
+}
+
+.syntaxcraft-theme #jak-to-dziala .managed-card-label {
+  min-width: 4.6rem;
+  justify-content: center;
+}
+
 .syntaxcraft-theme .home-title span,
 .syntaxcraft-theme .hero-acrostic-initial,
 .syntaxcraft-theme .rich-content a,
@@ -519,6 +551,127 @@ body.admin-stylebook.syntaxcraft-theme {
 .syntaxcraft-theme .public-link-item strong,
 .syntaxcraft-theme .profile-fact strong {
   color: var(--sc-teal);
+}
+
+.syntaxcraft-theme .pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 0 0 2.5rem;
+}
+
+.syntaxcraft-theme .pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(47, 69, 63, 0.28);
+  border-radius: 0.85rem;
+  background: rgba(242, 241, 237, 0.92);
+  color: #2f453f;
+  box-shadow: none;
+}
+
+.syntaxcraft-theme .pricing-card--featured {
+  border-color: #3ca766;
+  box-shadow: 0 0 0 2px rgba(60, 167, 102, 0.12);
+}
+
+.syntaxcraft-theme .pricing-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 2.6rem;
+  padding: 0 1rem;
+}
+
+.syntaxcraft-theme .pricing-card__name,
+.syntaxcraft-theme .pricing-card__popular {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  margin-top: -1px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(47, 69, 63, 0.24);
+  border-radius: 0 0 0.4rem 0.4rem;
+  background: #fff;
+  font-weight: 700;
+}
+
+.syntaxcraft-theme .pricing-card__popular {
+  border-color: #35975b;
+  background: #45b86e;
+  color: #fff;
+}
+
+.syntaxcraft-theme .pricing-card__price {
+  margin: 0;
+  padding: 0.5rem 1rem 0;
+  color: #293b36;
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.syntaxcraft-theme .pricing-card__period,
+.syntaxcraft-theme .pricing-card__tagline {
+  margin: 0;
+  padding: 0.25rem 1rem;
+  color: #68736f;
+}
+
+.syntaxcraft-theme .pricing-card__action {
+  display: block;
+  width: auto;
+  margin: 1rem;
+  border-radius: 0.35rem;
+  text-align: center;
+}
+
+.syntaxcraft-theme .pricing-card__resources,
+.syntaxcraft-theme .pricing-card__benefits {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 1rem;
+  list-style: none;
+}
+
+.syntaxcraft-theme .pricing-card__resources {
+  border-top: 1px solid rgba(47, 69, 63, 0.14);
+}
+
+.syntaxcraft-theme .pricing-card__benefits {
+  flex: 1;
+  border-top: 1px solid rgba(47, 69, 63, 0.14);
+}
+
+.syntaxcraft-theme .pricing-card__resources li,
+.syntaxcraft-theme .pricing-card__benefits li {
+  position: relative;
+  padding-left: 1.5rem;
+  color: #56645f;
+  line-height: 1.35;
+}
+
+.syntaxcraft-theme .pricing-card__resources li::before,
+.syntaxcraft-theme .pricing-card__benefits li::before {
+  position: absolute;
+  left: 0;
+  color: #4a9f5d;
+  font-weight: 800;
+}
+
+.syntaxcraft-theme .pricing-card__resources li::before { content: "■"; font-size: 0.62rem; top: 0.28rem; }
+.syntaxcraft-theme .pricing-card__benefits li::before { content: "✓"; }
+
+@media (max-width: 991.98px) {
+  .syntaxcraft-theme .pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 575.98px) {
+  .syntaxcraft-theme .pricing-grid { grid-template-columns: 1fr; }
 }
 
 /* Forms and tables stay calm and highly legible. */

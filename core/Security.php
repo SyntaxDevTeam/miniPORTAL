@@ -164,7 +164,11 @@ final class Security
         }
 
         $path = $request->path();
-        if (str_starts_with($path, '/api/') || str_starts_with($path, '/metrics/')) {
+        if (
+            str_starts_with($path, '/api/')
+            || str_starts_with($path, '/metrics/')
+            || str_starts_with($path, '/internal/authgatewayx/')
+        ) {
             return false;
         }
         if (!in_array($request->method(), ['GET', 'HEAD'], true)) {

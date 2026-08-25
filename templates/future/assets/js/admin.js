@@ -807,13 +807,28 @@ document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').
   const version = form.querySelector('[name="minecraft_version"]');
   const build = form.querySelector('[name="requested_build_id"]');
   const commonPlugins = Array.from(form.querySelectorAll('input[name="common_plugins[]"]'));
+  const pluginBuilds = form.querySelector('[name="plugin_builds[]"]');
+  const onlineMode = form.querySelector('[name="online_mode"]');
+  const acceptEula = form.querySelector('[name="accept_eula"]');
   if (!(engine instanceof HTMLSelectElement) || !(version instanceof HTMLSelectElement) || !(build instanceof HTMLSelectElement)) return;
   const syncCommonPlugins = () => {
-    const supported = ["bukkit", "craftbukkit", "spigot", "paper", "folia", "purpur", "pufferfish", "leaves"].includes(engine.value);
+    const proxy = ["velocity", "bungeecord"].includes(engine.value);
+    const supported = !proxy && ["bukkit", "craftbukkit", "spigot", "paper", "folia", "purpur", "pufferfish", "leaves"].includes(engine.value);
     commonPlugins.forEach((input) => {
       input.disabled = !supported;
       if (!supported) input.checked = false;
     });
+    commonPlugins[0]?.closest(".mb-3")?.toggleAttribute("hidden", proxy);
+    pluginBuilds?.closest(".mb-3")?.toggleAttribute("hidden", proxy);
+    if (onlineMode instanceof HTMLInputElement) onlineMode.checked = !proxy;
+    if (acceptEula instanceof HTMLInputElement) {
+      acceptEula.disabled = proxy;
+      acceptEula.required = !proxy;
+      if (proxy) acceptEula.checked = false;
+      acceptEula.closest(".mb-3")?.toggleAttribute("hidden", proxy);
+    }
+    const versionLabel = version.closest(".mb-3")?.querySelector("label");
+    if (versionLabel) versionLabel.childNodes[0].textContent = engine.value === "velocity" ? "Wersja Velocity" : (proxy ? "Wersja docelowa Minecraft" : "Wersja Minecraft");
   };
   const fill = (select, options, emptyLabel, reverseNumeric = false) => {
     select.replaceChildren(new Option(emptyLabel, ""));

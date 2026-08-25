@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="pl-PL" data-bs-theme="dark">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,13 +23,17 @@
   <link rel="stylesheet" href="assets/css/minecraft.css">
   <link rel="stylesheet" href="assets/css/syntaxcraft.css">
 </head>
-<body class="minecraft-theme syntaxcraft-theme" hx-boost="true" hx-target="#content" hx-select="#content" hx-swap="innerHTML show:window:top" hx-push-url="true">
+
+<body class="minecraft-theme syntaxcraft-theme" hx-boost="true" hx-target="#content" hx-select="#content"
+  hx-swap="innerHTML show:window:top" hx-push-url="true">
   <div class="site-grid" aria-hidden="true"></div>
   <a class="visually-hidden-focusable skip-link" href="#content">Przejdź do komponentów</a>
 
   <nav class="navbar navbar-expand-lg border-bottom sticky-top" data-site-nav aria-label="Nawigacja stylebooka">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="#top"><img class="site-brand-logo" src="assets/img/brand/syntaxcraft-hosting-logo-v2.png" width="512" height="512" alt="" aria-hidden="true">SyntaxCraft</a>
+      <a class="navbar-brand fw-bold" href="#top"><img class="site-brand-logo"
+          src="assets/img/brand/syntaxcraft-hosting-logo-v2.png" width="512" height="512" alt=""
+          aria-hidden="true">SyntaxCraft</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#stylebookNav"
         aria-controls="stylebookNav" aria-expanded="false" aria-label="Przełącz nawigację">
         <span class="navbar-toggler-icon"></span>
@@ -109,13 +114,68 @@
         <p class="eyebrow">03 / Dane</p>
         <h2 id="content-title">Karty i tabela</h2>
       </div>
+      <div class="pricing-grid mb-5" aria-label="Prototyp zwartego cennika">
+        <article class="pricing-card">
+          <header class="pricing-card__header"><span class="pricing-card__name">Starter</span></header>
+          <p class="pricing-card__price">24,99 PLN</p>
+          <p class="pricing-card__period">/miesiąc</p>
+          <a class="btn btn-primary pricing-card__action" href="#forms">Wybieram</a>
+          <ul class="pricing-card__resources">
+            <li>1 vCPU</li>
+            <li>2 GiB pamięci RAM</li>
+            <li>10 GiB dysku NVMe</li>
+          </ul>
+          <ul class="pricing-card__benefits">
+            <li>Bez limitu graczy</li>
+            <li>Bez limitu pluginów</li>
+            <li>Kopie zapasowe</li>
+            <li>Serwery w Europie</li>
+          </ul>
+        </article>
+        <article class="pricing-card pricing-card--featured">
+          <header class="pricing-card__header"><span class="pricing-card__name">Player</span><span
+              class="pricing-card__popular">Popularny</span></header>
+          <p class="pricing-card__price">44,99 PLN</p>
+          <p class="pricing-card__period">/miesiąc</p>
+          <a class="btn btn-primary pricing-card__action" href="#forms">Wybieram</a>
+          <ul class="pricing-card__resources">
+            <li>2 vCPU</li>
+            <li>4 GiB pamięci RAM</li>
+            <li>20 GiB dysku NVMe</li>
+          </ul>
+          <ul class="pricing-card__benefits">
+            <li>Bez limitu graczy</li>
+            <li>Bez limitu pluginów</li>
+            <li>Kopie zapasowe</li>
+            <li>Serwery w Europie i Polsce</li>
+          </ul>
+        </article>
+        <article class="pricing-card">
+          <header class="pricing-card__header"><span class="pricing-card__name">Network</span></header>
+          <p class="pricing-card__price">79,99 PLN</p>
+          <p class="pricing-card__period">/miesiąc</p>
+          <a class="btn btn-primary pricing-card__action" href="#forms">Wybieram</a>
+          <ul class="pricing-card__resources">
+            <li>4 vCPU</li>
+            <li>8 GiB pamięci RAM</li>
+            <li>40 GiB dysku NVMe</li>
+          </ul>
+          <ul class="pricing-card__benefits">
+            <li>Bez limitu graczy</li>
+            <li>Bez limitu pluginów</li>
+            <li>Kopie zapasowe</li>
+            <li>Serwery w Polsce</li>
+          </ul>
+        </article>
+      </div>
       <div class="row g-4 mb-4">
         <div class="col-md-6">
           <article class="card h-100 reveal reveal-delay-1">
             <div class="card-body">
               <span class="badge text-bg-primary mb-3">Artykuł</span>
               <h3 class="card-title h4">Modularny blok treści</h3>
-              <p class="card-text text-secondary">Karta prezentuje dane dostarczone przez moduł, bez wiązania go ze strukturą HTML.</p>
+              <p class="card-text text-secondary">Karta prezentuje dane dostarczone przez moduł, bez wiązania go ze
+                strukturą HTML.</p>
               <a class="btn btn-sm btn-outline-light" href="#forms">Czytaj dalej</a>
             </div>
           </article>
@@ -125,7 +185,8 @@
             <div class="card-body">
               <span class="badge text-bg-secondary mb-3">Strona</span>
               <h3 class="card-title h4">Wymienialny wariant</h3>
-              <p class="card-text text-secondary">Ten sam kontrakt komponentu może otrzymać inny wariant semantyczny i wizualny.</p>
+              <p class="card-text text-secondary">Ten sam kontrakt komponentu może otrzymać inny wariant semantyczny i
+                wizualny.</p>
               <a class="btn btn-sm btn-outline-light" href="#forms">Edytuj stronę</a>
             </div>
           </article>
@@ -135,11 +196,27 @@
         <table class="table table-hover align-middle mb-0">
           <caption class="visually-hidden">Przykładowa lista stron w panelu administracyjnym</caption>
           <thead>
-            <tr><th scope="col">Tytuł</th><th scope="col">Status</th><th scope="col">Autor</th><th scope="col" class="text-end">Akcja</th></tr>
+            <tr>
+              <th scope="col">Tytuł</th>
+              <th scope="col">Status</th>
+              <th scope="col">Autor</th>
+              <th scope="col" class="text-end">Akcja</th>
+            </tr>
           </thead>
           <tbody>
-            <tr><td>Strona główna</td><td><span class="status-dot" aria-hidden="true"></span><span class="badge text-bg-success">Opublikowana</span></td><td>Administrator</td><td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td></tr>
-            <tr><td>O projekcie</td><td><span class="badge text-bg-warning">Szkic</span></td><td>Redaktor</td><td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td></tr>
+            <tr>
+              <td>Strona główna</td>
+              <td><span class="status-dot" aria-hidden="true"></span><span
+                  class="badge text-bg-success">Opublikowana</span></td>
+              <td>Administrator</td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td>
+            </tr>
+            <tr>
+              <td>O projekcie</td>
+              <td><span class="badge text-bg-warning">Szkic</span></td>
+              <td>Redaktor</td>
+              <td class="text-end"><button class="btn btn-sm btn-outline-light" type="button">Edytuj</button></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -149,7 +226,8 @@
       <div class="section-intro">
         <p class="eyebrow">04 / Wprowadzanie danych</p>
         <h2 id="forms-title">Formularz</h2>
-        <p class="text-secondary">Prototyp stanów pól; implementacja PHP będzie musiała dodać token CSRF i bezpieczną walidację.</p>
+        <p class="text-secondary">Prototyp stanów pól; implementacja PHP będzie musiała dodać token CSRF i bezpieczną
+          walidację.</p>
       </div>
       <form class="showcase-card reveal reveal-delay-1" action="#forms" method="post">
         <div class="row g-4">
@@ -160,12 +238,15 @@
           <div class="col-md-4">
             <label class="form-label" for="page-status">Status</label>
             <select class="form-select" id="page-status" name="status">
-              <option>Szkic</option><option>Opublikowana</option><option>Archiwalna</option>
+              <option>Szkic</option>
+              <option>Opublikowana</option>
+              <option>Archiwalna</option>
             </select>
           </div>
           <div class="col-12">
             <label class="form-label" for="page-content">Treść</label>
-            <textarea class="form-control" id="page-content" name="content" rows="5">Treść przygotowana przez moduł stron.</textarea>
+            <textarea class="form-control" id="page-content" name="content"
+              rows="5">Treść przygotowana przez moduł stron.</textarea>
             <div class="form-text">Właściwy edytor WYSIWYG zostanie wybrany w późniejszej fazie.</div>
           </div>
           <div class="col-12">
@@ -213,8 +294,10 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" crossorigin="anonymous"></script>
   <script src="assets/js/site.js"></script>
 </body>
+
 </html>

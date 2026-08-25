@@ -11,6 +11,7 @@ return array (
     '20260616_audit_archive.sql' => 'e817676e01f98aac047a3bde5b69b78b40a2270486b9a5d479ee1120a9d7841f',
     '20260617_system_settings_text.sql' => 'f06b0fa4cc132fd24c3861f028c11d284468ef6f9d5600a7fd7a26acf132b42b',
     '20260624_econizer_module_identity.sql' => 'e6c0ffafdfa67b175870582c59c38e87cf2d7b60e5861fb33da49ed8950e7160',
+    '20260819_platform_api_audit_tenant.sql' => '970846b3b72cb7f0a498b1c45e8d62ece97222456428cd741bcc8f72798b7f2d',
   ),
   'modules' =>
   array (
@@ -24,6 +25,9 @@ return array (
       '20260620_ci_build_history.sql' => '7a22e16b49b418672d365675a990516793abae8ae57de6b771449ffb01918e8e',
       '20260726_version_scoped_ci_build_numbers.sql' => '4b15604d99f18101bef46ec273d839e96ab2926aba5d3e305d6746f96c830a9d',
       '20260728_project_access.sql' => 'dce11fb4867e38918f0ce6136a09b5b8277f57dcb648c00d3e619c2780df0c6a',
+      '20260818_build_explorer_v2.sql' => '347742375d8bf3a0c0cc8b13065b3c8be2d4b0c74b63270f8f5ccfcb85783722',
+      '20260818_build_explorer_v2_1_compatible_platforms.sql' => '1fab2007b54ad94f91caf2a63d8f0c44da4e02a300b2a32421dd39f7b8274fd1',
+      '20260818_build_explorer_v2_1_retention.sql' => '15cb0a282592a0b9facdff34d5b75f86cd7aa11b68df00eb3b102f762ec20374',
     ),
     'core_auth' =>
     array (
@@ -33,6 +37,9 @@ return array (
       '20260620_owner_and_operational_roles.sql' => '2046f785565f34d95263a7bb6890577fcf647308a57cabf03328197c408a05c5',
       '20260728_active_sessions.sql' => '6982e0b2f937e694a31ed5a2444591ff2ab0fce29e75606fda6211c890397761',
       '20260801_self_service_registration.sql' => '73daf5dc84f5210ded23362625f43179bdd0a993d852fdea9f0b210e53b0e5e2',
+    ),
+    'core_auth_policy_extension' =>
+    array (
     ),
     'core_pages' =>
     array (
@@ -76,7 +83,13 @@ return array (
     'remote_terminal' =>
     array (
     ),
+    'support' =>
+    array (
+    ),
     'system_admin' =>
+    array (
+    ),
+    'system_monitor' =>
     array (
     ),
     'team' =>

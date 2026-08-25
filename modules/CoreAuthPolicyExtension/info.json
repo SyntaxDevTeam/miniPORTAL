@@ -1,0 +1,21 @@
+{
+  "id": "core_auth_policy_extension",
+  "name": "Core Auth Policy Extension",
+  "version": "0.2.1",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.12.1",
+    "modules": [
+      "core_auth"
+    ]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

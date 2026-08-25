@@ -115,4 +115,12 @@ final class AdminMenuRegistry
 
         return $items;
     }
+
+    /** @param list<string> $permissions */
+    public function firstVisiblePath(array $permissions, string $fallback = '/'): string
+    {
+        $items = $this->visibleFor($permissions);
+
+        return $items[0]['path'] ?? $fallback;
+    }
 }

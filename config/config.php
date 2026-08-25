@@ -68,7 +68,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.11.1',
+        'version' => '0.12.1',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -151,7 +151,18 @@ return [
         'update_catalog_ttl' => $envInt('MODULE_UPDATE_CATALOG_TTL', 900, 1),
         'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
         'media_upload_max_bytes' => $envInt('MEDIA_UPLOAD_MAX_BYTES', 5242880, 1024),
-        'minecraft_console_upload_max_bytes' => $envInt('MINECRAFT_CONSOLE_UPLOAD_MAX_BYTES', 5242880, 1024),
+        'minecraft_console_upload_max_bytes' => $envInt('MINECRAFT_CONSOLE_UPLOAD_MAX_BYTES', 47185920, 1024),
+        'authgatewayx_local_self_service' => $envBool('AUTHGATEWAYX_LOCAL_SELF_SERVICE', false),
+        'authgatewayx_public_base_url' => trim((string) $env('AUTHGATEWAYX_PUBLIC_BASE_URL', $env('SITE_URL', 'https://syntaxdevteam.pl'))),
+        'authgatewayx_challenge_ttl_seconds' => $envInt('AUTHGATEWAYX_CHALLENGE_TTL_SECONDS', 120, 30),
+        'authgatewayx_hash_key' => (string) $env('AUTHGATEWAYX_HASH_KEY', $env('AUTH_AUDIT_HASH_KEY', '')),
+        'payments_secret_key' => trim((string) $env('PAYMENTS_SECRET_KEY', '')),
+        'payments_secret_key_id' => trim((string) $env('PAYMENTS_SECRET_KEY_ID', 'primary')),
+        'itemshop_secret_key' => trim((string) $env('ITEMSHOP_SECRET_KEY', '')),
+        'itemshop_agent_platform_key_id' => trim((string) $env('ITEMSHOP_AGENT_PLATFORM_KEY_ID', '')),
+        'itemshop_storefront_base_domain' => strtolower(trim((string) $env('ITEMSHOP_STOREFRONT_BASE_DOMAIN', 'syntaxcraft.pl'))),
+        'itemshop_test_checkout_enabled' => $envBool('ITEMSHOP_TEST_CHECKOUT_ENABLED', false),
+        'payments_webhook_payload_retention_days' => $envInt('PAYMENTS_WEBHOOK_PAYLOAD_RETENTION_DAYS', 30, 1),
         'mc_server_installer_root' => trim((string) $env(
             'MC_SERVER_INSTALLER_ROOT',
             '/home/debian/server'
@@ -167,7 +178,7 @@ return [
         ),
         'mc_server_installer_papermc_user_agent' => trim((string) $env(
             'MC_SERVER_INSTALLER_PAPERMC_USER_AGENT',
-            'SyntaxDevTeam/MCServerInstaller/0.8.1 (https://syntaxdevteam.pl)'
+            'SyntaxDevTeam/ServerProvisioner/1.0.0 (https://syntaxdevteam.pl)'
         )),
         'mc_server_installer_papermc_timeout' => $envInt('MC_SERVER_INSTALLER_PAPERMC_TIMEOUT', 20, 5),
         'mc_server_installer_papermc_catalog_ttl' => $envInt('MC_SERVER_INSTALLER_PAPERMC_CATALOG_TTL', 900, 60),

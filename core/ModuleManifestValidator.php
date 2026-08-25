@@ -43,6 +43,8 @@ final class ModuleManifestValidator
         $type = (string) $data['type'];
         $requires = is_array($data['requires']) ? $data['requires'] : [];
         $modules = $requires['modules'] ?? [];
+        $optional = $data['optional'] ?? [];
+        $providedCapabilities = $data['provides'] ?? [];
         $factory = $data['factory'] ?? null;
         $install = $data['install'] ?? null;
         $uninstall = $data['uninstall'] ?? null;
@@ -72,6 +74,16 @@ final class ModuleManifestValidator
         if (!is_array($modules)) {
             throw new RuntimeException("Lista zależności modułów w {$file} jest nieprawidłowa.");
         }
+        if (!is_array($optional)) {
+            throw new RuntimeException("Sekcja optional w {$file} jest nieprawidłowa.");
+        }
+        $optionalModules = $optional['modules'] ?? [];
+        if (!is_array($optionalModules)) {
+            throw new RuntimeException("Lista opcjonalnych modułów w {$file} jest nieprawidłowa.");
+        }
+        if (!is_array($providedCapabilities)) {
+            throw new RuntimeException("Lista capabilities w {$file} jest nieprawidłowa.");
+        }
 
         $requiredModules = [];
         foreach ($modules as $moduleId) {
@@ -79,6 +91,31 @@ final class ModuleManifestValidator
                 throw new RuntimeException("Manifest {$file} zawiera nieprawidłową zależność modułu.");
             }
             $requiredModules[] = $moduleId;
+        }
+        $requiredModules = array_values(array_unique($requiredModules));
+
+        $validatedOptionalModules = [];
+        foreach ($optionalModules as $moduleId) {
+            if (!is_string($moduleId) || preg_match('/^[a-z][a-z0-9_]{1,63}$/', $moduleId) !== 1) {
+                throw new RuntimeException("Manifest {$file} zawiera nieprawidłową opcjonalną zależność modułu.");
+            }
+            if (in_array($moduleId, $requiredModules, true)) {
+                throw new RuntimeException(
+                    "Manifest {$file} deklaruje moduł {$moduleId} jednocześnie jako wymagany i opcjonalny."
+                );
+            }
+            $validatedOptionalModules[] = $moduleId;
+        }
+
+        $validatedCapabilities = [];
+        foreach ($providedCapabilities as $capability) {
+            if (
+                !is_string($capability)
+                || preg_match('/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/', $capability) !== 1
+            ) {
+                throw new RuntimeException("Manifest {$file} zawiera nieprawidłowy identyfikator capability.");
+            }
+            $validatedCapabilities[] = $capability;
         }
 
         $phpConstraint = (string) ($requires['php'] ?? '');
@@ -140,7 +177,7 @@ final class ModuleManifestValidator
             trim((string) $data['author']),
             $phpConstraint,
             $miniportalConstraint,
-            array_values(array_unique($requiredModules)),
+            $requiredModules,
             $data['protected'],
             $factory,
             $install,
@@ -151,6 +188,8 @@ final class ModuleManifestValidator
             $signatureStatus,
             $distributionAccess,
             rtrim($directory, '/'),
+            array_values(array_unique($validatedOptionalModules)),
+            array_values(array_unique($validatedCapabilities)),
         );
     }
 

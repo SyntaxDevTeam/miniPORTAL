@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SyntaxDevTeam\Cms\Core;
 
 use RuntimeException;
+use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class ModuleBootstrapper
 {
@@ -32,6 +33,28 @@ final class ModuleBootstrapper
         ?array $onlyDirectories = null,
     ): void
     {
+        $runtimeServices = $services;
+        $runtimeServices['module_registry'] = $registry;
+        $runtimeServices['capabilities'] = $registry->capabilities();
+        $runtimeServices['event_bus'] = $registry->events();
+
+        // `database` is an existing, intentionally generic runtime service. New Core
+        // services may use CrudApp when available, but must not make a previously
+        // accepted custom database adapter a bootstrap-time incompatibility.
+        $database = ($services['database'] ?? null) instanceof CrudApp
+            ? $services['database']
+            : null;
+        $auditHashKey = is_array($services['auth_config'] ?? null)
+            ? (string) (($services['auth_config']['audit_hash_key'] ?? ''))
+            : '';
+        $runtimeServices['platform_audit'] = new AuditService(
+            $database !== null ? new DatabaseAuditStore($database) : null,
+            $auditHashKey,
+        );
+        $runtimeServices['api_tokens'] = new ApiTokenService(
+            $database !== null ? new DatabaseApiTokenStore($database) : null,
+        );
+
         $registeredDirectories = [];
         $states = $this->states?->all() ?? [];
         $selectedDirectories = $onlyDirectories !== null
@@ -52,7 +75,7 @@ final class ModuleBootstrapper
                 continue;
             }
 
-            $isEnabled = is_callable($enabled) ? (bool) $enabled($services) : $enabled === true;
+            $isEnabled = is_callable($enabled) ? (bool) $enabled($runtimeServices) : $enabled === true;
             if (!$isEnabled) {
                 continue;
             }
@@ -77,7 +100,7 @@ final class ModuleBootstrapper
             ) {
                 continue;
             }
-            $module = $factory($services);
+            $module = $factory($runtimeServices);
             if (!$module instanceof ModuleInterface) {
                 throw new RuntimeException("Fabryka {$directory} nie zwróciła ModuleInterface.");
             }
@@ -86,7 +109,7 @@ final class ModuleBootstrapper
         }
 
         if ($selectedDirectories === null) {
-            $this->registerPackageFactories($registeredDirectories, $services, $registry, $states);
+            $this->registerPackageFactories($registeredDirectories, $runtimeServices, $registry, $states);
         }
     }
 
@@ -94,7 +117,6 @@ final class ModuleBootstrapper
      * Ładuje kod pakietu dopiero po jego instalacji i aktywacji.
      *
      * @param list<string> $registeredDirectories
-     * @param array<string, mixed> $services
      */
     private function registerPackageFactories(
         array $registeredDirectories,

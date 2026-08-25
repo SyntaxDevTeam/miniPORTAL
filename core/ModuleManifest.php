@@ -8,6 +8,8 @@ final readonly class ModuleManifest
 {
     /**
      * @param list<string> $requiredModules
+     * @param list<string> $optionalModules
+     * @param list<string> $providedCapabilities
      */
     public function __construct(
         public string $id,
@@ -28,6 +30,8 @@ final readonly class ModuleManifest
         public string $signatureStatus,
         public string $distributionAccess,
         public string $directory,
+        public array $optionalModules = [],
+        public array $providedCapabilities = [],
     ) {
     }
 }

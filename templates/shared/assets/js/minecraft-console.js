@@ -18,6 +18,12 @@
     8: 8, 9: 12, a: 10, b: 14, c: 9, d: 13, e: 11, f: 15,
   };
 
+  document.querySelectorAll(".minecraft-file-modal").forEach((modal) => {
+    if (modal.parentElement !== document.body) {
+      document.body.append(modal);
+    }
+  });
+
   const newState = () => ({
     foreground: null,
     background: null,
@@ -388,5 +394,385 @@
       window.clearTimeout(pollTimer);
     });
     poll();
+  });
+
+  document.querySelectorAll("[data-minecraft-metrics]").forEach((root) => {
+    const histories = { cpu: [], memory: [] };
+    let timer = null;
+    let controller = null;
+
+    const formatBytes = (bytes) => {
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let value = Math.max(0, Number(bytes) || 0);
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit += 1; }
+      return `${value.toLocaleString("pl-PL", { maximumFractionDigits: 1 })} ${units[unit]}`;
+    };
+    const updateMetric = (key, value, detail, percent) => {
+      const valueNode = root.querySelector(`[data-metric-value="${key}"]`);
+      const detailNode = root.querySelector(`[data-metric-detail="${key}"]`);
+      const bar = root.querySelector(`[data-metric-bar="${key}"]`);
+      if (valueNode) valueNode.textContent = value;
+      if (detailNode) detailNode.textContent = detail;
+      if (bar) bar.style.width = `${Math.max(0, Math.min(100, percent || 0))}%`;
+    };
+    const draw = (key, value, label) => {
+      if (!Number.isFinite(value)) return;
+      const history = histories[key];
+      history.push(value);
+      if (history.length > 40) history.shift();
+      const svg = root.querySelector(`[data-metric-chart="${key}"]`);
+      if (!svg) return;
+      const maximum = 100;
+      const points = history.map((item, index) => {
+        const x = history.length === 1 ? 0 : (index / (history.length - 1)) * 360;
+        return `${x.toFixed(1)},${(115 - (Math.min(100, item) / maximum) * 105).toFixed(1)}`;
+      }).join(" ");
+      const line = svg.querySelector("[data-chart-line]");
+      const area = svg.querySelector("[data-chart-area]");
+      if (line) line.setAttribute("points", points);
+      if (area) area.setAttribute("d", points ? `M0 120 L${points.replaceAll(" ", " L")} L360 120 Z` : "");
+      const current = root.querySelector(`[data-chart-current="${key}"]`);
+      if (current) current.textContent = label;
+    };
+    const poll = async () => {
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const response = await fetch(root.dataset.metricsUrl || "", { cache: "no-store", headers: { Accept: "application/json" }, signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const metrics = data.metrics || {};
+        const cpu = Number(metrics.cpu_percent);
+        const memory = Number(metrics.memory_bytes);
+        const diskPercent = Number(metrics.disk_percent);
+        updateMetric("cpu", Number.isFinite(cpu) ? `${cpu.toLocaleString("pl-PL")}%` : "Pomiar…", `${metrics.processes || 0} procesów w drzewie serwera`, cpu);
+        const memoryTotal = Number(metrics.memory_total_bytes);
+        const memoryPercent = memoryTotal > 0 ? memory / memoryTotal * 100 : 0;
+        updateMetric("memory", formatBytes(memory), `${memoryPercent.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}% RAM hosta · RSS procesu`, memoryPercent);
+        updateMetric("disk", Number.isFinite(diskPercent) ? `${diskPercent.toLocaleString("pl-PL")}%` : "—", `${formatBytes(metrics.disk_used_bytes)} / ${formatBytes(metrics.disk_total_bytes)}`, diskPercent);
+        draw("cpu", cpu, Number.isFinite(cpu) ? `${cpu.toLocaleString("pl-PL")}%` : "Pomiar…");
+        draw("memory", memoryPercent, `${formatBytes(memory)} · ${memoryPercent.toLocaleString("pl-PL", { maximumFractionDigits: 1 })}%`);
+      } catch (error) {
+        if (error?.name !== "AbortError") updateMetric("cpu", "Brak danych", "Nie udało się wykonać pomiaru", 0);
+      } finally {
+        timer = window.setTimeout(poll, document.hidden ? 30000 : 5000);
+      }
+    };
+    document.addEventListener("visibilitychange", () => {
+      window.clearTimeout(timer);
+      if (!document.hidden) poll();
+    });
+    poll();
+  });
+
+  const renameModal = document.querySelector("#minecraft-file-rename-modal");
+  const renameSource = renameModal?.querySelector("[data-minecraft-file-rename-source]");
+  const renameInput = renameModal?.querySelector("[data-minecraft-file-rename-input]");
+
+  document.querySelectorAll("[data-minecraft-file-rename]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const name = button.dataset.name || "";
+      if (renameSource instanceof HTMLInputElement) renameSource.value = name;
+      if (renameInput instanceof HTMLInputElement) renameInput.value = name;
+    });
+  });
+
+  renameModal?.addEventListener("shown.bs.modal", () => {
+    if (!(renameInput instanceof HTMLInputElement)) return;
+    renameInput.focus();
+    const dot = renameInput.value.lastIndexOf(".");
+    const selectionEnd = dot > 0 ? dot : renameInput.value.length;
+    renameInput.setSelectionRange(0, selectionEnd);
+  });
+
+  const appendYamlToken = (target, type, value) => {
+    if (value === "") return;
+    if (type === "") {
+      target.append(document.createTextNode(value));
+      return;
+    }
+    const token = document.createElement("span");
+    token.className = `minecraft-yaml-token--${type}`;
+    token.textContent = value;
+    target.append(token);
+  };
+
+  const yamlMappingKey = (line) => {
+    let quote = "";
+    let keyStart = line.search(/\S/);
+    if (keyStart < 0) return null;
+    if (line[keyStart] === "-" && /\s/.test(line[keyStart + 1] || "")) {
+      keyStart += 1;
+      while (/\s/.test(line[keyStart] || "")) keyStart += 1;
+    }
+    for (let index = keyStart; index < line.length; index += 1) {
+      const character = line[index];
+      if (quote !== "") {
+        if (quote === '"' && character === "\\") {
+          index += 1;
+        } else if (character === quote) {
+          if (quote === "'" && line[index + 1] === "'") index += 1;
+          else quote = "";
+        }
+        continue;
+      }
+      if (character === '"' || character === "'") {
+        quote = character;
+        continue;
+      }
+      if (character === "#" && (index === 0 || /\s/.test(line[index - 1]))) return null;
+      if (character === ":" && (index + 1 === line.length || /[\s\[\]{},]/.test(line[index + 1]))) {
+        return index > keyStart ? { start: keyStart, end: index } : null;
+      }
+    }
+    return null;
+  };
+
+  const appendYamlValue = (target, value) => {
+    let index = 0;
+    while (index < value.length) {
+      const character = value[index];
+      if (/\s/.test(character)) {
+        const start = index;
+        while (index < value.length && /\s/.test(value[index])) index += 1;
+        appendYamlToken(target, "", value.slice(start, index));
+        continue;
+      }
+      if (character === "#" && (index === 0 || /\s/.test(value[index - 1]))) {
+        appendYamlToken(target, "comment", value.slice(index));
+        break;
+      }
+      if (character === '"' || character === "'") {
+        const quote = character;
+        const start = index;
+        index += 1;
+        while (index < value.length) {
+          if (quote === '"' && value[index] === "\\") {
+            index += 2;
+            continue;
+          }
+          if (value[index] === quote) {
+            if (quote === "'" && value[index + 1] === "'") {
+              index += 2;
+              continue;
+            }
+            index += 1;
+            break;
+          }
+          index += 1;
+        }
+        appendYamlToken(target, "string", value.slice(start, index));
+        continue;
+      }
+      if (/[&*!]/.test(character)) {
+        const match = value.slice(index).match(/^[&*!][^\s\[\]{},:#]+/);
+        if (match) {
+          appendYamlToken(target, "anchor", match[0]);
+          index += match[0].length;
+          continue;
+        }
+      }
+      const number = value.slice(index).match(/^[-+]?(?:0x[\da-f]+|0o[0-7]+|(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?)(?=$|[\s,\]}#])/i);
+      if (number) {
+        appendYamlToken(target, "number", number[0]);
+        index += number[0].length;
+        continue;
+      }
+      const keyword = value.slice(index).match(/^(?:true|false|null|yes|no|on|off|~)(?=$|[\s,\]}#])/i);
+      if (keyword) {
+        appendYamlToken(target, "keyword", keyword[0]);
+        index += keyword[0].length;
+        continue;
+      }
+      if (/[\[\]{},:|>%-]/.test(character)) {
+        appendYamlToken(target, "punctuation", character);
+        index += 1;
+        continue;
+      }
+      const start = index;
+      while (index < value.length && !/[\s'"&*!\[\]{},:|>%-]/.test(value[index])) index += 1;
+      if (index === start) index += 1;
+      appendYamlToken(target, "", value.slice(start, index));
+    }
+  };
+
+  const highlightYaml = (value, target) => {
+    const fragment = document.createDocumentFragment();
+    const rows = value.split("\n");
+    rows.forEach((line, row) => {
+      const key = yamlMappingKey(line);
+      if (key === null) {
+        appendYamlValue(fragment, line);
+      } else {
+        appendYamlToken(fragment, "", line.slice(0, key.start));
+        appendYamlToken(fragment, "key", line.slice(key.start, key.end));
+        appendYamlToken(fragment, "punctuation", ":");
+        appendYamlValue(fragment, line.slice(key.end + 1));
+      }
+      if (row < rows.length - 1) fragment.append(document.createTextNode("\n"));
+    });
+    target.replaceChildren(fragment);
+  };
+
+  document.querySelectorAll("[data-minecraft-editor-form]").forEach((form) => {
+    const editor = form.querySelector("[data-minecraft-editor]");
+    const lines = form.querySelector("[data-minecraft-editor-lines]");
+    const highlight = form.querySelector("[data-minecraft-editor-highlight]");
+    const yamlValidation = form.querySelector("[data-minecraft-yaml-validation]");
+    const status = form.querySelector("[data-minecraft-editor-status]");
+    const position = form.querySelector("[data-minecraft-editor-position]");
+    if (!(form instanceof HTMLFormElement) || !(editor instanceof HTMLTextAreaElement)) return;
+
+    const initialValue = editor.value;
+    let dirty = false;
+    let highlightFrame = 0;
+    let validationTimer = 0;
+
+    const updateLines = () => {
+      if (!(lines instanceof HTMLElement)) return;
+      const count = Math.max(1, editor.value.split("\n").length);
+      lines.textContent = Array.from({ length: count }, (_value, index) => String(index + 1)).join("\n");
+    };
+
+    const updatePosition = () => {
+      if (!(position instanceof HTMLElement)) return;
+      const before = editor.value.slice(0, editor.selectionStart ?? 0);
+      const split = before.split("\n");
+      position.textContent = `Ln ${split.length}, Col ${(split.at(-1)?.length || 0) + 1}`;
+    };
+
+    const updateDirty = () => {
+      dirty = editor.value !== initialValue;
+      if (!(status instanceof HTMLElement)) return;
+      status.textContent = dirty ? "Niezapisane zmiany" : "Zapisano";
+      status.classList.toggle("is-dirty", dirty);
+    };
+
+    const syncHighlightScroll = () => {
+      if (!(highlight instanceof HTMLElement)) return;
+      highlight.scrollTop = editor.scrollTop;
+      highlight.scrollLeft = editor.scrollLeft;
+    };
+
+    const updateHighlight = () => {
+      if (editor.dataset.editorLanguage !== "yaml" || !(highlight instanceof HTMLElement)) return;
+      const surface = editor.closest(".minecraft-code-editor__surface");
+      if (editor.value.length > 524288) {
+        highlight.replaceChildren();
+        surface?.classList.remove("has-syntax-highlighting");
+        return;
+      }
+      highlightYaml(editor.value, highlight);
+      surface?.classList.add("has-syntax-highlighting");
+      syncHighlightScroll();
+    };
+
+    const scheduleHighlight = () => {
+      if (highlightFrame !== 0) return;
+      highlightFrame = window.requestAnimationFrame(() => {
+        highlightFrame = 0;
+        updateHighlight();
+      });
+    };
+
+    const yamlErrorLabel = (reason) => {
+      const translations = [
+        [/duplicated mapping key/i, "powtórzony klucz"],
+        [/bad indentation/i, "nieprawidłowe wcięcie"],
+        [/missed comma/i, "brak przecinka"],
+        [/flow collection/i, "nieprawidłowy lub niedomknięty nawias"],
+        [/unexpected end/i, "nieoczekiwany koniec pliku"],
+        [/implicit mapping pair/i, "nieprawidłowa para klucz–wartość"],
+        [/document separator is expected/i, "nieoczekiwana treść"],
+      ];
+      return translations.find(([pattern]) => pattern.test(reason))?.[1] || "nieprawidłowa składnia";
+    };
+
+    const validateYaml = () => {
+      if (editor.dataset.editorLanguage !== "yaml" || !(yamlValidation instanceof HTMLElement)) return;
+      yamlValidation.classList.remove("is-checking", "is-valid", "is-invalid", "is-skipped");
+      yamlValidation.removeAttribute("aria-busy");
+      yamlValidation.removeAttribute("title");
+      if (new Blob([editor.value]).size > 524288) {
+        yamlValidation.textContent = "Walidacja YAML wyłączona powyżej 512 KiB";
+        yamlValidation.classList.add("is-skipped");
+        return;
+      }
+      if (typeof window.jsyaml?.load !== "function") {
+        yamlValidation.textContent = "Walidator YAML jest niedostępny";
+        yamlValidation.classList.add("is-skipped");
+        return;
+      }
+      try {
+        window.jsyaml.load(editor.value);
+        yamlValidation.textContent = "Składnia YAML poprawna";
+        yamlValidation.classList.add("is-valid");
+      } catch (error) {
+        const reason = typeof error?.reason === "string" ? error.reason : "";
+        const line = Number(error?.mark?.line);
+        const column = Number(error?.mark?.column);
+        const location = Number.isFinite(line) && Number.isFinite(column)
+          ? ` · linia ${line + 1}, kolumna ${column + 1}`
+          : "";
+        yamlValidation.textContent = `Błąd YAML${location}: ${yamlErrorLabel(reason)}`;
+        yamlValidation.classList.add("is-invalid");
+        if (reason !== "") yamlValidation.title = reason;
+      }
+    };
+
+    const scheduleYamlValidation = () => {
+      if (editor.dataset.editorLanguage !== "yaml" || !(yamlValidation instanceof HTMLElement)) return;
+      window.clearTimeout(validationTimer);
+      yamlValidation.classList.remove("is-valid", "is-invalid", "is-skipped");
+      yamlValidation.classList.add("is-checking");
+      yamlValidation.textContent = "Sprawdzanie składni…";
+      yamlValidation.setAttribute("aria-busy", "true");
+      validationTimer = window.setTimeout(validateYaml, 400);
+    };
+
+    const sync = () => {
+      updateLines();
+      updatePosition();
+      updateDirty();
+      scheduleHighlight();
+      scheduleYamlValidation();
+    };
+
+    editor.addEventListener("input", sync);
+    editor.addEventListener("click", updatePosition);
+    editor.addEventListener("keyup", updatePosition);
+    editor.addEventListener("scroll", () => {
+      if (lines instanceof HTMLElement) lines.scrollTop = editor.scrollTop;
+      syncHighlightScroll();
+    });
+    editor.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        form.requestSubmit();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      event.preventDefault();
+      const start = editor.selectionStart ?? 0;
+      const end = editor.selectionEnd ?? start;
+      const insert = "    ";
+      editor.setRangeText(insert, start, end, "end");
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    form.addEventListener("submit", () => {
+      dirty = false;
+      if (status instanceof HTMLElement) {
+        status.textContent = "Zapisywanie…";
+        status.classList.remove("is-dirty");
+      }
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+
+    sync();
   });
 })();

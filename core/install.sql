@@ -38,3 +38,48 @@ CREATE TABLE system_settings (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_system_settings_updated (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE core_api_tokens (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(16) NOT NULL,
+    label VARCHAR(120) NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    scopes_json TEXT NOT NULL,
+    subject_user_id BIGINT UNSIGNED NULL,
+    tenant_type VARCHAR(64) NULL,
+    tenant_id VARCHAR(128) NULL,
+    created_by BIGINT UNSIGNED NULL,
+    expires_at DATETIME NULL,
+    last_used_at DATETIME NULL,
+    revoked_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_core_api_tokens_public_id (public_id),
+    INDEX idx_core_api_tokens_tenant (tenant_type, tenant_id, revoked_at),
+    INDEX idx_core_api_tokens_subject (subject_user_id, revoked_at),
+    INDEX idx_core_api_tokens_expiry (expires_at, revoked_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE core_audit_events (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    event_id CHAR(36) NOT NULL,
+    module_id VARCHAR(64) NOT NULL,
+    action VARCHAR(128) NOT NULL,
+    result VARCHAR(32) NOT NULL,
+    actor_type VARCHAR(32) NOT NULL,
+    actor_id VARCHAR(128) NULL,
+    tenant_type VARCHAR(64) NULL,
+    tenant_id VARCHAR(128) NULL,
+    target_type VARCHAR(64) NULL,
+    target_id VARCHAR(128) NULL,
+    correlation_id VARCHAR(128) NULL,
+    metadata_json TEXT NULL,
+    ip_hash CHAR(64) NULL,
+    user_agent VARCHAR(500) NULL,
+    occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_core_audit_events_event_id (event_id),
+    INDEX idx_core_audit_events_module (module_id, occurred_at),
+    INDEX idx_core_audit_events_tenant (tenant_type, tenant_id, occurred_at),
+    INDEX idx_core_audit_events_actor (actor_type, actor_id, occurred_at),
+    INDEX idx_core_audit_events_target (target_type, target_id, occurred_at),
+    INDEX idx_core_audit_events_correlation (correlation_id, occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

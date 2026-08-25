@@ -25,6 +25,8 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
 final class BuildExplorerModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
 {
+    use BuildRetentionAdminTrait;
+
     private const CHANNELS = [
         'release' => 'Release',
         'snapshot' => 'Snapshot',
@@ -44,7 +46,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '1.8.1'; }
+    public function version(): string { return '2.1.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -85,6 +87,16 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerRoutes(Router $router): void
     {
+        (new BuildExplorerV2Controller(
+            $this->theme,
+            $this->builds,
+            $this->auth,
+            $this->audit,
+            $this->storage,
+            $this->ciToken,
+        ))->registerRoutes($router);
+        $this->registerRetentionAdminRoutes($router);
+
         $router->get('/builds', fn () => $this->renderPublicProjects());
         $router->get('/builds/download', fn (Request $request) => $this->download($request));
         $router->get('/builds/project', fn (Request $request) => $this->renderPublicChannels($request->queryString('slug')));
@@ -117,7 +129,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     {
         $projects = $this->builds->publicProjects($this->auth->actualUser() !== null);
         $this->theme->start_page('Build Explorer - SyntaxDevTeam', 'Downloadable SyntaxDevTeam project versions.', false);
-        $this->theme->start_header('Build Explorer', 'Choose a project to browse its release channels.', 'Build');
+        $this->theme->start_header('Build Explorer', 'Choose a project to download or explore its builds.', 'Build');
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->render_breadcrumb($this->buildBreadcrumb());
@@ -128,14 +140,187 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             foreach ($projects as $project) {
                 $this->theme->start_column(count($projects) === 1 ? '12' : (count($projects) === 2 || count($projects) === 4 ? 'lg-6' : 'lg-4'));
                 $this->theme->start_card($project['name'], $project['build_count'] . ' available builds');
-                $this->theme->render_link_list([['label' => 'Release channels', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP']]);
+                $this->theme->render_link_list([
+                    ['label' => 'Download', 'href' => '/builds/' . rawurlencode($project['slug']) . '/download', 'meta' => 'Choose platform / Minecraft / channel'],
+                    ['label' => 'Explore', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP'],
+                ]);
                 $this->theme->end_card();
                 $this->theme->end_column();
             }
             $this->theme->end_grid();
         }
         $this->theme->end_section();
+        $this->renderDownloadModal();
         $this->theme->end_page();
+    }
+
+    private function renderDownloadModal(): void
+    {
+        echo <<<'HTML'
+<style>
+.build-download-dialog{width:min(34rem,calc(100vw - 2rem));max-width:100%;padding:0;border:1px solid var(--bs-border-color,#495057);background:var(--bs-body-bg,#11151b);color:var(--bs-body-color,#f8f9fa);box-shadow:0 1.5rem 4rem rgba(0,0,0,.45)}
+.build-download-dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+.build-download-dialog__body{padding:1.25rem;display:grid;gap:1rem}
+.build-download-dialog__header,.build-download-dialog__actions{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.build-download-dialog__header h2{margin:0;font-size:1.25rem}
+.build-download-dialog__field{display:grid;gap:.4rem}
+.build-download-dialog__field label{font-weight:600}
+.build-download-dialog__field select{width:100%;padding:.65rem .75rem;border:1px solid var(--bs-border-color,#495057);background:var(--bs-secondary-bg,#1d232b);color:inherit}
+.build-download-dialog__filename{margin:0;padding:.8rem 0;font-weight:700;overflow-wrap:anywhere}
+.build-download-dialog__status{min-height:1.25rem;margin:0;font-size:.9rem;color:var(--bs-secondary-color,#adb5bd)}
+.build-download-dialog__actions{justify-content:flex-end}
+.build-download-dialog [data-build-download][aria-disabled="true"]{pointer-events:none;opacity:.5}
+</style>
+<dialog id="build-download-dialog" class="build-download-dialog" aria-labelledby="build-download-title">
+    <div class="build-download-dialog__body">
+        <div class="build-download-dialog__header">
+            <h2 id="build-download-title">Download</h2>
+            <button type="button" class="btn btn-sm btn-outline-light" data-build-download-close aria-label="Close">Close</button>
+        </div>
+        <div class="build-download-dialog__field">
+            <label for="build-download-platform">Server software</label>
+            <select id="build-download-platform" disabled><option value="">Choose</option></select>
+        </div>
+        <div class="build-download-dialog__field" data-build-download-game-wrap>
+            <label for="build-download-game">Minecraft version</label>
+            <select id="build-download-game" disabled><option value="">Choose</option></select>
+        </div>
+        <div class="build-download-dialog__field">
+            <label for="build-download-channel">Release channel</label>
+            <select id="build-download-channel" disabled><option value="">Choose</option></select>
+        </div>
+        <p class="build-download-dialog__status" data-build-download-status aria-live="polite"></p>
+        <p class="build-download-dialog__filename" data-build-download-filename hidden></p>
+        <div class="build-download-dialog__actions">
+            <button type="button" class="btn btn-outline-light" data-build-download-close>Close</button>
+            <a class="btn btn-primary" href="#" data-build-download aria-disabled="true" tabindex="-1">Download</a>
+        </div>
+    </div>
+</dialog>
+<script>
+(() => {
+    const dialog = document.getElementById('build-download-dialog');
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    const platform = document.getElementById('build-download-platform');
+    const game = document.getElementById('build-download-game');
+    const channel = document.getElementById('build-download-channel');
+    const gameWrap = dialog.querySelector('[data-build-download-game-wrap]');
+    const status = dialog.querySelector('[data-build-download-status]');
+    const filename = dialog.querySelector('[data-build-download-filename]');
+    const download = dialog.querySelector('[data-build-download]');
+    const closeButtons = dialog.querySelectorAll('[data-build-download-close]');
+    let project = '';
+    let gameRequired = false;
+    let resolveSequence = 0;
+
+    const resetResult = () => {
+        resolveSequence += 1;
+        filename.hidden = true;
+        filename.textContent = '';
+        status.textContent = '';
+        download.href = '#';
+        download.setAttribute('aria-disabled', 'true');
+        download.setAttribute('tabindex', '-1');
+    };
+
+    const setOptions = (select, values, labels = {}) => {
+        select.replaceChildren(new Option('Choose', ''));
+        values.forEach((value) => select.add(new Option(labels[value] || value, value)));
+        select.disabled = false;
+    };
+
+    const channelLabels = {release: 'Release', snapshot: 'Snapshot', dev: 'Dev', wip: 'WIP'};
+    const platformLabel = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+
+    const resolveArtifact = async () => {
+        resetResult();
+        const selectedPlatform = platform.value;
+        const selectedChannel = channel.value;
+        const selectedGame = gameRequired ? game.value : '';
+        if (!project || !selectedPlatform || !selectedChannel || (gameRequired && !selectedGame)) return;
+
+        const sequence = resolveSequence;
+        status.textContent = 'Finding build…';
+        const params = new URLSearchParams({platform: selectedPlatform, channel: selectedChannel});
+        if (selectedGame) params.set('game_version', selectedGame);
+
+        try {
+            const response = await fetch(`/api/v2/builds/${encodeURIComponent(project)}/resolve?${params.toString()}`, {
+                headers: {'Accept': 'application/json'},
+                credentials: 'same-origin'
+            });
+            if (sequence !== resolveSequence) return;
+            if (!response.ok) {
+                status.textContent = response.status === 404 ? 'No matching build.' : 'Unable to resolve this build.';
+                return;
+            }
+            const data = await response.json();
+            if (sequence !== resolveSequence || !data.filename || !data.download) return;
+            status.textContent = '';
+            filename.textContent = data.filename;
+            filename.hidden = false;
+            download.href = data.download;
+            download.removeAttribute('aria-disabled');
+            download.removeAttribute('tabindex');
+        } catch (_) {
+            if (sequence === resolveSequence) status.textContent = 'Unable to resolve this build.';
+        }
+    };
+
+    const openFor = async (href) => {
+        const match = href.match(/^\/builds\/([^/]+)\/download$/);
+        if (!match) return;
+        project = decodeURIComponent(match[1]);
+        resetResult();
+        setOptions(platform, []);
+        setOptions(channel, []);
+        setOptions(game, []);
+        platform.disabled = true;
+        channel.disabled = true;
+        game.disabled = true;
+        gameRequired = false;
+        gameWrap.hidden = true;
+        status.textContent = 'Loading…';
+        dialog.showModal();
+
+        try {
+            const response = await fetch(`/api/v2/builds/${encodeURIComponent(project)}/options`, {
+                headers: {'Accept': 'application/json'},
+                credentials: 'same-origin'
+            });
+            if (!response.ok) throw new Error('options');
+            const options = await response.json();
+            setOptions(platform, Array.isArray(options.platforms) ? options.platforms : [], Object.fromEntries((options.platforms || []).map((value) => [value, platformLabel(value)])));
+            setOptions(channel, Array.isArray(options.channels) ? options.channels : [], channelLabels);
+            const versions = Array.isArray(options.game_versions) ? options.game_versions : [];
+            gameRequired = versions.length > 0;
+            gameWrap.hidden = !gameRequired;
+            if (gameRequired) setOptions(game, versions);
+            status.textContent = '';
+        } catch (_) {
+            status.textContent = 'Unable to load download options.';
+        }
+    };
+
+    document.querySelectorAll('a[href^="/builds/"][href$="/download"]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            const href = link.getAttribute('href') || '';
+            if (!/^\/builds\/[^/]+\/download$/.test(href)) return;
+            event.preventDefault();
+            openFor(href);
+        });
+    });
+
+    [platform, game, channel].forEach((select) => select.addEventListener('change', resolveArtifact));
+    closeButtons.forEach((button) => button.addEventListener('click', () => dialog.close()));
+    dialog.addEventListener('close', () => {
+        project = '';
+        resetResult();
+    });
+})();
+</script>
+HTML;
     }
 
     private function renderPublicChannels(string $slug): void
@@ -550,6 +735,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             ),
         ]);
         $this->theme->end_admin_panel();
+        $this->renderRetentionPanel();
         $projectAccess = $this->builds->projectAccessSettings();
         $this->theme->start_admin_panel(
             'Widoczność projektów',

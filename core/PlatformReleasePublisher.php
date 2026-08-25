@@ -136,7 +136,9 @@ final class PlatformReleasePublisher
     public function publish(string $version, string $minimumVersion, array $changelog): string
     {
         if (!$this->available()) {
-            throw new RuntimeException('Generator wydań jest dostępny wyłącznie w instalacji macierzystej.');
+            throw new RuntimeException(
+                'Generator wydań jest dostępny wyłącznie w instalacji macierzystej.'
+            );
         }
         foreach ([$version, $minimumVersion] as $candidate) {
             if (preg_match('/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i', $candidate) !== 1) {
@@ -184,6 +186,7 @@ final class PlatformReleasePublisher
         if ($items === [] || count($items) > 50) {
             throw new RuntimeException('Lista zmian musi zawierać od 1 do 50 pozycji.');
         }
+        $this->validateSource();
         if (!is_dir($this->workPath) && !mkdir($this->workPath, 0770, true)) {
             throw new RuntimeException('Nie można utworzyć katalogu roboczego publikacji.');
         }
@@ -265,6 +268,44 @@ final class PlatformReleasePublisher
     private function generatorPath(): string
     {
         return rtrim($this->applicationRoot, '/') . '/bin/build-platform-release.php';
+    }
+
+    private function validateSource(): void
+    {
+        $root = rtrim($this->applicationRoot, '/');
+        foreach ([
+            'tests/run.php',
+            'tests/integration/core_auth_policy_runtime.php',
+            'tests/integration/theme_auth_entry_contract.php',
+            'tests/integration/commerce_modularity_foundation.php',
+            'tests/integration/commerce_platform_services.php',
+            'tests/integration/itemshop_api_security.php',
+            'tests/integration/module_backward_compatibility.php',
+            'tests/integration/wallet_domain.php',
+            'tests/integration/wallet_outbox.php',
+            'tests/integration/wallet_api_security.php',
+            'tests/integration/payments_domain.php',
+            'tests/integration/payment_provider_contract.php',
+            'tests/integration/payment_provider_accounts.php',
+            'tests/integration/payment_webhooks.php',
+            'tests/integration/payment_operations_model.php',
+            'tests/integration/payment_hotpay_provider.php',
+        ] as $relativeTest) {
+            $test = $root . '/' . $relativeTest;
+            if (!is_file($test)) {
+                continue;
+            }
+            try {
+                $this->runProcess([$this->phpBinary(), $test]);
+            } catch (\Throwable $exception) {
+                throw new RuntimeException(
+                    'Lokalna walidacja wydania nie przeszła (' . $relativeTest . '): '
+                    . $exception->getMessage(),
+                    0,
+                    $exception
+                );
+            }
+        }
     }
 
     private function latestPublishedVersion(): ?string

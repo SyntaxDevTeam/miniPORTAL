@@ -34,10 +34,12 @@ use SyntaxDevTeam\Cms\Core\RateLimiter;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\SeoIndex;
+use SyntaxDevTeam\Cms\Core\StorefrontHostResolverInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthProviderConfigStore;
+use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthPolicyRuntime;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthorizationService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\CrudAppUserRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\DiscordIdentityProvider;
@@ -147,7 +149,11 @@ $firstOwnerBootstrapper = $application->database() !== null
     ? new FirstAdminBootstrapper($application->database())
     : null;
 $auth = new AuthService($userRepository, $security, $firstOwnerBootstrapper);
-$auth->useRolePreview(str_starts_with($application->request()->path(), '/admin'));
+$previewAwarePath = $application->request()->path();
+$auth->useRolePreview(
+    str_starts_with($previewAwarePath, '/admin')
+    || str_starts_with($previewAwarePath, '/account')
+);
 $authorization = new AuthorizationService();
 $access = new AdminAccessGate($auth, $authorization);
 $audit = new AuditLogService(
@@ -376,6 +382,7 @@ $modules->boot(
     $isPollingKernel ? null : $dashboard,
     $isPollingKernel ? null : $hooks,
 );
+$theme->set_auth_entry_locations(AuthPolicyRuntime::provider()->loginEntryLocations());
 $moduleBootstrapDurationMs = (hrtime(true) - $moduleBootstrapStartedAt) / 1_000_000;
 if (!$isPollingKernel) {
     $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
@@ -702,6 +709,14 @@ if ($showMaintenance) {
     );
     $status = 200;
 } else {
+    if (
+        $modules->capabilities()->hasImplementation('itemshop.storefront_host', 'itemshop')
+        && ($hostResolver = $modules->capabilities()->implementation('itemshop.storefront_host', 'itemshop')) instanceof StorefrontHostResolverInterface
+        && ($hostRoute = $hostResolver->resolve($request)) !== null
+    ) {
+        $request = $request->withPath($hostRoute);
+        header('Vary: Host', false);
+    }
     $status = $router->dispatch($request);
 }
 

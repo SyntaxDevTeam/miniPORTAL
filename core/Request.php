@@ -73,6 +73,42 @@ final class Request
         return $this->path;
     }
 
+    public function host(): string
+    {
+        $value = $this->isFromTrustedProxy()
+            ? trim(explode(',', $this->header('X-Forwarded-Host'))[0] ?? '')
+            : $this->header('Host');
+        if ($value === '') {
+            $value = $this->stringValue($this->server, 'SERVER_NAME');
+        }
+        $value = strtolower(rtrim(trim($value), '.'));
+        if (str_starts_with($value, '[')) {
+            return '';
+        }
+        $value = preg_replace('/:\d{1,5}$/D', '', $value) ?? '';
+
+        return preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/D', $value) === 1
+            ? $value
+            : '';
+    }
+
+    public function withPath(string $path): self
+    {
+        $path = '/' . trim($path, '/');
+
+        return new self(
+            $this->method,
+            $path === '/' ? '/' : preg_replace('#/+#', '/', $path),
+            $this->query,
+            $this->post,
+            $this->server,
+            $this->files,
+            $this->rawBody,
+            $this->trustedProxies,
+            $this->routeParameters,
+        );
+    }
+
     /** @param array<string, string> $parameters */
     public function withRouteParameters(array $parameters): self
     {
@@ -180,6 +216,17 @@ final class Request
         return is_array($value) ? $value : [];
     }
 
+    /** @return array<string, string> */
+    public function postStrings(): array
+    {
+        $values = [];
+        foreach ($this->post as $key => $value) {
+            if (!is_string($key) || !is_scalar($value) || count($values) >= 128) continue;
+            $values[$key] = substr((string) $value, 0, 8192);
+        }
+        return $values;
+    }
+
     public function isSecure(): bool
     {
         $https = strtolower($this->stringValue($this->server, 'HTTPS'));
@@ -237,6 +284,26 @@ final class Request
         }
 
         return $default;
+    }
+
+    /** @return array<string, string> */
+    public function headers(): array
+    {
+        $headers = [];
+        foreach ($this->server as $key => $value) {
+            if (!is_string($key) || !is_scalar($value)) continue;
+            $name = match ($key) {
+                'CONTENT_TYPE' => 'Content-Type',
+                'CONTENT_LENGTH' => 'Content-Length',
+                'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION' => 'Authorization',
+                default => str_starts_with($key, 'HTTP_')
+                    ? str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($key, 5)))))
+                    : '',
+            };
+            if ($name === '' || isset($headers[$name]) || count($headers) >= 128) continue;
+            $headers[$name] = substr((string) $value, 0, 8192);
+        }
+        return $headers;
     }
 
     public function body(): string
