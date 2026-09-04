@@ -12,6 +12,7 @@ final readonly class WikiProject
         public string $slug,
         public string $summary,
         public string $status,
+        public bool $requiresAuth,
         public int $sortOrder,
         public string $createdAt,
         public string $updatedAt,

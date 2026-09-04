@@ -10,11 +10,12 @@ use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class WikiRepository
 {
-    private const PROJECT_COLUMNS = 'id, name, slug, summary, status, sort_order, created_at, updated_at';
+    private const PROJECT_COLUMNS = 'id, name, slug, summary, status, requires_auth, sort_order, created_at, updated_at';
 
     private const PAGE_COLUMNS = 'wiki_pages.id, wiki_pages.project_id, wiki_projects.name AS project_name, '
         . 'wiki_projects.slug AS project_slug, wiki_pages.title, wiki_pages.slug, wiki_pages.summary, '
-        . 'wiki_pages.content, wiki_pages.content_format, wiki_pages.status, wiki_pages.sort_order, '
+        . 'wiki_pages.content, wiki_pages.content_format, wiki_pages.status, wiki_pages.requires_auth, '
+        . 'wiki_projects.requires_auth AS project_requires_auth, wiki_pages.sort_order, '
         . 'wiki_pages.author_id, wiki_pages.published_at, wiki_pages.created_at, wiki_pages.updated_at';
 
     public function __construct(
@@ -40,12 +41,13 @@ final class WikiRepository
     /**
      * @return list<WikiProject>
      */
-    public function publishedProjects(): array
+    public function publishedProjects(bool $authenticated = false): array
     {
         $statement = $this->database->query(
             'SELECT ' . self::PROJECT_COLUMNS . ' FROM wiki_projects '
-            . 'WHERE status = :status ORDER BY sort_order ASC, name ASC',
-            [':status' => 'published']
+            . 'WHERE status = :status AND (requires_auth = 0 OR :authenticated = 1) '
+            . 'ORDER BY sort_order ASC, name ASC',
+            [':status' => 'published', ':authenticated' => $authenticated ? 1 : 0]
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać opublikowanych projektów dokumentacji.');
@@ -90,7 +92,7 @@ final class WikiRepository
     }
 
     /**
-     * @param array{name: string, slug: string, summary: string, sort_order: int} $data
+     * @param array{name: string, slug: string, summary: string, requires_auth: int, sort_order: int} $data
      */
     public function createProject(array $data): int
     {
@@ -101,7 +103,7 @@ final class WikiRepository
     }
 
     /**
-     * @param array{name: string, slug: string, summary: string, sort_order: int} $data
+     * @param array{name: string, slug: string, summary: string, requires_auth: int, sort_order: int} $data
      */
     public function updateProject(int $id, array $data): bool
     {
@@ -152,14 +154,15 @@ final class WikiRepository
     /**
      * @return list<WikiPage>
      */
-    public function publishedPages(int $projectId): array
+    public function publishedPages(int $projectId, bool $authenticated = false): array
     {
         $statement = $this->database->query(
             'SELECT ' . self::PAGE_COLUMNS . ' FROM wiki_pages '
             . 'JOIN wiki_projects ON wiki_projects.id = wiki_pages.project_id '
             . 'WHERE wiki_pages.project_id = :project_id AND wiki_pages.status = :status '
+            . 'AND ((wiki_projects.requires_auth = 0 AND wiki_pages.requires_auth = 0) OR :authenticated = 1) '
             . 'ORDER BY wiki_pages.sort_order ASC, wiki_pages.title ASC',
-            [':project_id' => $projectId, ':status' => 'published']
+            [':project_id' => $projectId, ':status' => 'published', ':authenticated' => $authenticated ? 1 : 0]
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać opublikowanych stron dokumentacji.');
@@ -219,6 +222,7 @@ final class WikiRepository
         string $summary,
         string $content,
         string $contentFormat,
+        bool $requiresAuth,
         int $sortOrder,
         int $authorId,
     ): int {
@@ -230,6 +234,7 @@ final class WikiRepository
             'content' => $content,
             'content_format' => $contentFormat,
             'status' => 'draft',
+            'requires_auth' => $requiresAuth ? 1 : 0,
             'sort_order' => $sortOrder,
             'author_id' => $authorId,
         ]);
@@ -243,6 +248,7 @@ final class WikiRepository
         string $summary,
         string $content,
         string $contentFormat,
+        bool $requiresAuth,
         int $sortOrder,
     ): bool {
         $statement = $this->database->update('wiki_pages', [
@@ -252,6 +258,7 @@ final class WikiRepository
             'summary' => $summary,
             'content' => $content,
             'content_format' => $contentFormat,
+            'requires_auth' => $requiresAuth ? 1 : 0,
             'sort_order' => $sortOrder,
         ], ['id' => $id]);
 
@@ -283,6 +290,7 @@ final class WikiRepository
             (string) $row['slug'],
             (string) $row['summary'],
             (string) $row['status'],
+            (bool) $row['requires_auth'],
             (int) $row['sort_order'],
             (string) $row['created_at'],
             (string) $row['updated_at'],
@@ -302,6 +310,8 @@ final class WikiRepository
             (string) $row['content'],
             (string) ($row['content_format'] ?? 'markdown'),
             (string) $row['status'],
+            (bool) $row['requires_auth'],
+            (bool) $row['project_requires_auth'],
             (int) $row['sort_order'],
             (int) $row['author_id'],
             $row['published_at'] !== null ? (string) $row['published_at'] : null,

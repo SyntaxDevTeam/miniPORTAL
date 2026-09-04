@@ -215,8 +215,46 @@
     });
   };
 
+  const initializeBulkActions = (root = document) => {
+    const forms = root === document
+      ? document.querySelectorAll("form.admin-bulk-action")
+      : root.querySelectorAll("form.admin-bulk-action");
+    forms.forEach((form) => {
+      if (!(form instanceof HTMLFormElement) || form.dataset.bulkReady === "true" || form.id === "") return;
+      const table = form.nextElementSibling?.querySelector("table");
+      const selectAll = table?.querySelector("[data-admin-bulk-all]");
+      const items = [...document.querySelectorAll(`[data-admin-bulk-item][form="${CSS.escape(form.id)}"]`)]
+        .filter((item) => item instanceof HTMLInputElement);
+      const submit = form.querySelector("[data-admin-bulk-submit]");
+      const count = form.querySelector("[data-admin-bulk-count]");
+      if (!(selectAll instanceof HTMLInputElement) || items.length === 0) return;
+
+      const update = () => {
+        const selected = items.filter((item) => item.checked).length;
+        selectAll.checked = selected === items.length;
+        selectAll.indeterminate = selected > 0 && selected < items.length;
+        if (submit instanceof HTMLButtonElement) submit.disabled = selected === 0;
+        if (count instanceof HTMLElement) {
+          count.textContent = selected === 0 ? "Nie zaznaczono pozycji" : `Zaznaczono: ${selected}`;
+        }
+      };
+      selectAll.addEventListener("change", () => {
+        items.forEach((item) => { item.checked = selectAll.checked; });
+        update();
+      });
+      items.forEach((item) => item.addEventListener("change", update));
+      form.addEventListener("submit", (event) => {
+        if (!items.some((item) => item.checked)) event.preventDefault();
+      });
+      form.dataset.bulkReady = "true";
+      update();
+    });
+  };
+
   initializeTables();
+  initializeBulkActions();
   document.addEventListener("miniportal:async-content-loaded", (event) => {
     initializeTables(event.detail?.region || document);
+    initializeBulkActions(event.detail?.region || document);
   });
 })();

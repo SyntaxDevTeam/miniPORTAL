@@ -46,7 +46,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '2.1.0'; }
+    public function version(): string { return '2.4.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -117,6 +117,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $router->get('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderEdit($request)));
         $router->post('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request, $this->builds->find($request->postInt('id', 0) ?? 0))));
         $router->post('/admin/builds/delete', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->delete($request)));
+        $router->post('/admin/builds/bulk-delete', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->bulkDelete($request)));
         $router->post('/admin/builds/project-visibility', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->updateProjectVisibility($request)));
     }
 
@@ -142,7 +143,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
                 $this->theme->start_card($project['name'], $project['build_count'] . ' available builds');
                 $this->theme->render_link_list([
                     ['label' => 'Download', 'href' => '/builds/' . rawurlencode($project['slug']) . '/download', 'meta' => 'Choose platform / Minecraft / channel'],
-                    ['label' => 'Explore', 'href' => '/builds/' . rawurlencode($project['slug']), 'meta' => 'Release / Snapshot / Dev / WIP'],
+                    ['label' => 'Explore', 'href' => '/builds/' . rawurlencode($project['slug']) . '/explore', 'meta' => 'Build history / artifacts'],
                 ]);
                 $this->theme->end_card();
                 $this->theme->end_column();
@@ -678,6 +679,59 @@ HTML;
         return 'index.php?route=/builds/download&id=' . $build->id;
     }
 
+    /** @param array{project_id:int,channel:string,published:string,search:string} $filters */
+    private function renderV2AdminPanel(array $filters): void
+    {
+        $releases = $this->builds->v2AdminRecent($filters, 100);
+        $this->theme->start_admin_panel(
+            'Build Explorer v2',
+            'Logiczne buildy z build_releases i ich artefakty. Legacy project_builds pozostaje poniżej do zgodności wstecznej.'
+        );
+        if ($releases === []) {
+            $this->theme->render_alert('Brak buildów v2 pasujących do bieżących filtrów.', 'info');
+            $this->theme->end_admin_panel();
+            return;
+        }
+
+        $rows = [];
+        foreach ($releases as $release) {
+            $platforms = array_values(array_filter(explode(',', (string) ($release['platforms'] ?? ''))));
+            $actions = [];
+            if ((bool) $release['is_published']) {
+                $actions[] = [
+                    'label' => 'Explore',
+                    'href' => 'index.php?' . http_build_query([
+                        'route' => '/builds/v2/release',
+                        'project' => (string) $release['project_slug'],
+                        'release' => (int) $release['id'],
+                    ]),
+                    'variant' => 'outline-light',
+                ];
+            }
+            $rows[] = [
+                'cells' => [
+                    (string) $release['project_name'],
+                    (string) $release['version_label'],
+                    self::CHANNELS[(string) $release['channel']] ?? ucfirst((string) $release['channel']),
+                    $platforms !== [] ? implode(', ', array_map('ucfirst', $platforms)) : 'Brak',
+                    (string) $release['artifact_count'],
+                    $this->fileSize((int) $release['file_size_bytes']),
+                    (string) ($release['build_number'] !== '' ? $release['build_number'] : '—'),
+                    (string) ($release['published_at'] ?? $release['ci_build_time'] ?? 'Brak daty'),
+                    (bool) $release['is_published'] ? 'Tak' : 'Nie',
+                ],
+                'actions' => $actions,
+            ];
+        }
+
+        $this->theme->render_admin_action_table(
+            ['Projekt', 'Wersja', 'Kanał', 'Platformy', 'Artefakty', 'Rozmiar', 'Build', 'Data', 'Publikacja'],
+            $rows,
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+    }
+
     private function renderAdmin(Request $request, string $message = '', string $variant = 'info'): void
     {
         $this->startPage('Build Explorer', 'Metadane plików i bezpieczne zewnętrzne adresy pobierania.', [[
@@ -709,7 +763,7 @@ HTML;
                 : 'brak danych';
         $this->theme->start_admin_panel('Statystyki buildów', 'Stan magazynu i katalogu');
         $this->theme->render_admin_fact_grid([
-            ['label' => 'Wszystkie buildy', 'value' => (string) $statistics['total'], 'detail' => 'W całym katalogu'],
+            ['label' => 'Wszystkie buildy', 'value' => (string) $statistics['total'], 'detail' => $statistics['legacy_builds'] . ' legacy; ' . $statistics['v2_releases'] . ' v2 releases'],
             [
                 'label' => 'Publicznie dostępne',
                 'value' => (string) $statistics['public_available'],
@@ -720,7 +774,7 @@ HTML;
                 'value' => (string) $statistics['published'],
                 'detail' => ($statistics['total'] - $statistics['published']) . ' buildów z wyłączoną publikacją',
             ],
-            ['label' => 'Lokalne artefakty', 'value' => (string) $statistics['local'], 'detail' => ($statistics['total'] - $statistics['local']) . ' linków zewnętrznych'],
+            ['label' => 'Lokalne artefakty', 'value' => (string) $statistics['local'], 'detail' => 'Legacy + V2; fizyczne artefakty zapisane lokalnie'],
             ['label' => 'Rozmiar wg bazy', 'value' => $this->fileSize($statistics['registered_bytes']), 'detail' => 'Suma lokalnych artefaktów przypisanych do buildów'],
             ['label' => 'Pliki na dysku', 'value' => (string) $storage['files'], 'detail' => 'Faktyczna zawartość magazynu buildów'],
             ['label' => 'Zajęte miejsce na dysku', 'value' => $this->fileSize($storage['bytes']), 'detail' => 'Fizyczny rozmiar wszystkich plików magazynu'],
@@ -736,6 +790,7 @@ HTML;
         ]);
         $this->theme->end_admin_panel();
         $this->renderRetentionPanel();
+        $this->renderV2AdminPanel($filters);
         $projectAccess = $this->builds->projectAccessSettings();
         $this->theme->start_admin_panel(
             'Widoczność projektów',
@@ -831,6 +886,7 @@ HTML;
             $rows = [];
             foreach ($builds as $index => $build) {
                 $rows[] = [
+                    'selection_value' => $build->id,
                     'cells' => [
                         (string) (($page - 1) * $perPage + $index + 1),
                         $build->projectName,
@@ -859,7 +915,12 @@ HTML;
                 $sortableHeader('Plik', 'filename'),
                 $sortableHeader('Rozmiar', 'size'),
                 $sortableHeader('Widoczność', 'published'),
-            ], $rows, $this->security->csrfToken());
+            ], $rows, $this->security->csrfToken(), $this->hasPermission('builds.manage') ? [
+                'action' => 'index.php?route=/admin/builds/bulk-delete',
+                'field' => 'ids[]',
+                'label' => 'Usuń zaznaczone',
+                'confirm' => 'Usunąć wszystkie zaznaczone buildy z katalogu? Lokalnych artefaktów nie będzie można odzyskać.',
+            ] : null);
         }
         if ($page > 1) {
             $this->theme->render_button('Poprzednia strona', 'index.php?' . http_build_query([...$pageQuery, 'page' => $page - 1]), 'outline-light');
@@ -994,6 +1055,64 @@ HTML;
         if ($ok) { $this->storage->delete($build?->storageKey); }
         $this->audit->record($request, 'build_delete', $ok ? 'success' : 'failed', 'build:' . $id, $actor?->id);
         $this->renderAdmin($request, $ok ? 'Build został usunięty.' : 'Nie udało się usunąć buildu.', $ok ? 'success' : 'danger');
+    }
+
+    private function bulkDelete(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'build_bulk_delete', 'invalid_csrf', 'builds', $actor?->id);
+            $this->renderAdmin($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+
+        $ids = $this->normalizeBuildIds($request->postStringList('ids'));
+        if ($ids === []) {
+            $this->audit->record($request, 'build_bulk_delete', 'failed', 'reason=no_selection', $actor?->id);
+            $this->renderAdmin($request, 'Zaznacz co najmniej jeden build do usunięcia.', 'warning');
+            return;
+        }
+
+        $deleted = 0;
+        $failed = [];
+        foreach ($ids as $id) {
+            $build = $this->builds->find($id);
+            if (!$build instanceof ProjectBuild || !$this->builds->delete($id)) {
+                $failed[] = $id;
+                continue;
+            }
+            $this->storage->delete($build->storageKey);
+            $deleted++;
+        }
+
+        $status = $failed === [] ? 'success' : ($deleted > 0 ? 'partial' : 'failed');
+        $details = 'selected=' . count($ids) . '; deleted=' . $deleted . '; failed=' . count($failed)
+            . ($failed !== [] ? '; failed_ids=' . implode(',', $failed) : '');
+        $this->audit->record($request, 'build_bulk_delete', $status, $details, $actor?->id);
+
+        if ($failed === []) {
+            $this->renderAdmin($request, 'Usunięto zaznaczone buildy: ' . $deleted . '.', 'success');
+            return;
+        }
+        $this->renderAdmin(
+            $request,
+            'Usunięto ' . $deleted . ' z ' . count($ids) . ' zaznaczonych buildów. Nie usunięto: ' . count($failed) . '.',
+            $deleted > 0 ? 'warning' : 'danger'
+        );
+    }
+
+    /** @param list<string|int> $values @return list<int> */
+    private function normalizeBuildIds(array $values): array
+    {
+        $ids = [];
+        foreach (array_slice($values, 0, 100) as $value) {
+            $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id !== false) {
+                $ids[(int) $id] = (int) $id;
+            }
+        }
+
+        return array_values($ids);
     }
 
     private function updateProjectVisibility(Request $request): void

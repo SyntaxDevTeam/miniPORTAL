@@ -48,6 +48,13 @@ final class BuildExplorerV2Controller
             $request,
             $request->routeString('project')
         ));
+        $router->get('/builds/{project}/explore', fn (Request $request) => $this->renderExplore(
+            $request->routeString('project')
+        ));
+        $router->get('/builds/v2/release', fn (Request $request) => $this->renderRelease(
+            $request->queryString('project'),
+            $request->queryInt('release', 0) ?? 0
+        ));
         $router->get('/builds/{project}/download', fn (Request $request) => $this->renderDownloadChooser(
             $request,
             $request->routeString('project')
@@ -325,6 +332,153 @@ final class BuildExplorerV2Controller
                 'artifact' => (int) $artifact['artifact_id'],
             ]),
         ]);
+    }
+
+    private function renderExplore(string $projectSlug): void
+    {
+        $project = $this->builds->publicProjectBySlug($projectSlug);
+        if ($project === null) {
+            $this->theme->render_public_error(404, 'Project unavailable', 'No published Build Explorer project was found.', 'Back to downloads', '/builds');
+            return;
+        }
+        if ($project['requires_auth'] && $this->auth->actualUser() === null) {
+            http_response_code(401);
+            $this->theme->render_public_error(401, 'Login required', 'This project is available only to signed-in users.', 'Sign in', 'index.php?route=/admin/login');
+            return;
+        }
+
+        $authenticated = $this->auth->actualUser() !== null;
+        $releases = $this->builds->v2ReleaseHistory($projectSlug, $authenticated);
+        if ($releases === []) {
+            header('Location: /builds/' . rawurlencode($projectSlug), true, 302);
+            return;
+        }
+
+        $this->theme->start_page($project['name'] . ' - Build Explorer', 'Logical builds and platform artifacts.', false);
+        $this->theme->start_header($project['name'], 'Build Explorer v2 history.', 'Build / Explore');
+        $this->theme->end_header();
+        $this->theme->start_section();
+        $this->theme->render_breadcrumb([
+            ['label' => 'Build', 'href' => '/builds'],
+            ['label' => $project['name']],
+            ['label' => 'Explore'],
+        ]);
+
+        $rows = [];
+        foreach ($releases as $release) {
+            $platforms = array_values(array_filter(explode(',', (string) ($release['platforms'] ?? ''))));
+            $rows[] = [
+                'cells' => [
+                    (string) $release['version_label'],
+                    self::CHANNELS[(string) $release['channel']] ?? ucfirst((string) $release['channel']),
+                    $platforms !== [] ? implode(', ', array_map('ucfirst', $platforms)) : 'None',
+                    (string) ($release['build_number'] ?: '—'),
+                    (string) ($release['published_at'] ?? $release['ci_build_time'] ?? 'No date'),
+                ],
+                'actions' => [[
+                    'label' => 'Explore build',
+                    'href' => 'index.php?' . http_build_query([
+                        'route' => '/builds/v2/release',
+                        'project' => $projectSlug,
+                        'release' => (int) $release['id'],
+                    ]),
+                    'variant' => 'primary',
+                ]],
+            ];
+        }
+        $this->theme->render_action_table(['Version', 'Channel', 'Platforms', 'Build', 'Date'], $rows);
+        $this->theme->end_section();
+        $this->theme->end_page();
+    }
+
+    private function renderRelease(string $projectSlug, int $releaseId): void
+    {
+        $project = $this->builds->publicProjectBySlug($projectSlug);
+        if ($project === null || $releaseId < 1) {
+            $this->theme->render_public_error(404, 'Build unavailable', 'No published Build Explorer build was found.', 'Back to Build Explorer', '/builds');
+            return;
+        }
+        if ($project['requires_auth'] && $this->auth->actualUser() === null) {
+            http_response_code(401);
+            $this->theme->render_public_error(401, 'Login required', 'This project is available only to signed-in users.', 'Sign in', 'index.php?route=/admin/login');
+            return;
+        }
+
+        $authenticated = $this->auth->actualUser() !== null;
+        $release = null;
+        foreach ($this->builds->v2ReleaseHistory($projectSlug, $authenticated) as $candidate) {
+            if ((int) $candidate['id'] === $releaseId) {
+                $release = $candidate;
+                break;
+            }
+        }
+        if ($release === null) {
+            $this->theme->render_public_error(404, 'Build unavailable', 'No published Build Explorer build was found.', 'Explore project', '/builds/' . rawurlencode($projectSlug) . '/explore');
+            return;
+        }
+
+        $artifacts = $this->builds->v2ReleaseArtifacts($releaseId, $projectSlug, $authenticated);
+        $this->theme->start_page($project['name'] . ' ' . $release['version_label'], 'Build artifacts and CI metadata.', false);
+        $this->theme->start_header(
+            $project['name'] . ' ' . $release['version_label'],
+            (self::CHANNELS[(string) $release['channel']] ?? ucfirst((string) $release['channel'])) . ' build',
+            'Build / Explore'
+        );
+        $this->theme->end_header();
+        $this->theme->start_section();
+        $this->theme->render_breadcrumb([
+            ['label' => 'Build', 'href' => '/builds'],
+            ['label' => $project['name'], 'href' => '/builds/' . rawurlencode($projectSlug) . '/explore'],
+            ['label' => (string) $release['version_label']],
+        ]);
+
+        $this->theme->render_detail_card(
+            'Build ' . ((string) ($release['build_number'] ?: $release['id'])),
+            self::CHANNELS[(string) $release['channel']] ?? ucfirst((string) $release['channel']),
+            [
+                ['label' => 'Version', 'value' => (string) $release['version_label']],
+                ['label' => 'CI run', 'value' => (string) ($release['ci_build_id'] ?? '—')],
+                ['label' => 'Branch', 'value' => (string) ($release['branch'] ?? '—')],
+                ['label' => 'Commit', 'value' => $release['commit_sha'] ? substr((string) $release['commit_sha'], 0, 12) : '—'],
+                ['label' => 'Published', 'value' => (string) ($release['published_at'] ?? $release['ci_build_time'] ?? 'No date')],
+            ]
+        );
+
+        foreach ($artifacts as $artifact) {
+            $versions = array_values(array_filter(explode(',', (string) ($artifact['game_versions'] ?? ''))));
+            $this->theme->render_detail_card(
+                ucfirst((string) $artifact['platform']),
+                ucfirst((string) $artifact['platform_family']),
+                [
+                    ['label' => 'File', 'value' => (string) $artifact['filename']],
+                    ['label' => 'Minecraft', 'value' => $versions !== [] ? implode(', ', $versions) : 'Not applicable'],
+                    ['label' => 'Java', 'value' => $artifact['java_version'] !== null ? (string) $artifact['java_version'] : 'Not specified'],
+                    ['label' => 'Size', 'value' => $this->fileSize($artifact['file_size_bytes'] !== null ? (int) $artifact['file_size_bytes'] : null)],
+                    ['label' => 'SHA-256', 'value' => (string) ($artifact['checksum_sha256'] ?? '—')],
+                ],
+                [],
+                [],
+                [[
+                    'label' => 'Download',
+                    'href' => 'index.php?' . http_build_query([
+                        'route' => '/builds/download/v2',
+                        'artifact' => (int) $artifact['artifact_id'],
+                    ]),
+                    'variant' => 'primary',
+                ]]
+            );
+        }
+
+        $this->theme->end_section();
+        $this->theme->end_page();
+    }
+
+    private function fileSize(?int $bytes): string
+    {
+        if ($bytes === null) { return 'Not specified'; }
+        if ($bytes >= 1048576) { return number_format($bytes / 1048576, 2, '.', ' ') . ' MB'; }
+        if ($bytes >= 1024) { return number_format($bytes / 1024, 1, '.', ' ') . ' KB'; }
+        return $bytes . ' B';
     }
 
     private function renderDownloadChooser(Request $request, string $projectSlug): void

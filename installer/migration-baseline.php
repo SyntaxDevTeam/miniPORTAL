@@ -112,6 +112,7 @@ return array (
     ),
     'wikipedia' =>
     array (
+      '20260831_authenticated_visibility.sql' => 'e07f145af28c9173c48d56b2f74d786a757b575dda397a47e9116eb90e793c1e',
     ),
   ),
 );

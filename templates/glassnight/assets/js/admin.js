@@ -802,7 +802,7 @@ document.querySelectorAll(".admin-filter-modal").forEach((modal) => {
   document.body.append(modal);
 });
 
-document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').forEach((form) => {
+document.querySelectorAll('form[action*="/admin/server-provisioner/install"]').forEach((form) => {
   const engine = form.querySelector('[name="engine"]');
   const version = form.querySelector('[name="minecraft_version"]');
   const build = form.querySelector('[name="requested_build_id"]');
@@ -841,7 +841,7 @@ document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').
     if (!version.value) return;
     build.disabled = true;
     try {
-      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
+      const response = await fetch(`index.php?route=/admin/server-provisioner/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
       fill(build, data.options, Object.keys(data.options || {}).length ? "Najnowszy dostępny build" : "Provider wybierze aktualny build", true);
@@ -856,7 +856,7 @@ document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').
     fill(version, {}, "Ładowanie katalogu wersji…");
     fill(build, {}, "Najnowszy dostępny build");
     try {
-      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}`, { headers: { Accept: "application/json" } });
+      const response = await fetch(`index.php?route=/admin/server-provisioner/catalog&engine=${encodeURIComponent(engine.value)}`, { headers: { Accept: "application/json" } });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
       fill(version, data.options, "Wybierz istniejącą wersję");
@@ -875,7 +875,7 @@ document.querySelectorAll('form[action*="/admin/mc-server-installer/install"]').
   loadVersions();
 });
 
-document.querySelectorAll('form[action*="/admin/mc-server-installer/update"]').forEach((form) => {
+document.querySelectorAll('form[action*="/admin/server-provisioner/update"]').forEach((form) => {
   const engine = form.querySelector('[name="engine"]');
   const version = form.querySelector('[name="minecraft_version"]');
   const build = form.querySelector('[name="requested_build_id"]');
@@ -892,7 +892,7 @@ document.querySelectorAll('form[action*="/admin/mc-server-installer/update"]').f
     build.disabled = true;
     build.replaceChildren(new Option("Ładowanie propozycji buildów…", ""));
     try {
-      const response = await fetch(`index.php?route=/admin/mc-server-installer/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
+      const response = await fetch(`index.php?route=/admin/server-provisioner/catalog&engine=${encodeURIComponent(engine.value)}&version=${encodeURIComponent(version.value)}`, { headers: { Accept: "application/json" } });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || "Błąd katalogu");
       const catalogEntries = Object.entries(data.options || {});

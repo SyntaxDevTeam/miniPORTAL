@@ -12,6 +12,12 @@ final class PlatformUpdater
 {
     private const EXACT_FILES = ['index.php', '.htaccess'];
     private const ROOTS = ['bin/', 'config/', 'core/', 'modules/', 'templates/', 'tools/'];
+    private const REMOVABLE_SOURCE_TOOLS = [
+        'bin/build-cms-distribution.php',
+        'bin/build-platform-release.php',
+        'bin/publish-cms-distribution.php',
+        'bin/set-platform-version.php',
+    ];
 
     public function __construct(
         private readonly string $applicationRoot,
@@ -59,9 +65,11 @@ final class PlatformUpdater
             }
             $payload = $stage . '/payload';
             $files = $manifest['files'];
+            $remove = $manifest['remove'];
             $this->validatePayload($payload, $files);
-            $this->assertWritableTargets(array_keys($files));
-            $changed = $this->replaceFiles($payload, array_keys($files), $backup);
+            $this->validateRemovePaths($remove);
+            $this->assertWritableTargets(array_values(array_unique([...array_keys($files), ...$remove])));
+            $changed = $this->replaceFiles($payload, array_keys($files), $remove, $backup);
             try {
                 $afterFiles();
             } catch (\Throwable $exception) {
@@ -104,7 +112,16 @@ final class PlatformUpdater
             throw new RuntimeException('Manifest wydania ma nieprawidłową strukturę.');
         }
 
-        return ['version' => (string) $data['version'], 'files' => $data['files']];
+        $remove = $data['remove'] ?? [];
+        if (!is_array($remove)) {
+            throw new RuntimeException('Manifest wydania ma nieprawidłową listę usuwanych plików.');
+        }
+
+        return [
+            'version' => (string) $data['version'],
+            'files' => $data['files'],
+            'remove' => array_values($remove),
+        ];
     }
 
     private function validatePayload(string $payload, array $files): void
@@ -118,6 +135,16 @@ final class PlatformUpdater
             $actual = is_file($file) && !is_link($file) ? hash_file('sha256', $file) : false;
             if (!is_string($actual) || !hash_equals($checksum, $actual)) {
                 throw new RuntimeException("Plik {$relative} nie odpowiada manifestowi wydania.");
+            }
+        }
+    }
+
+    /** @param list<mixed> $paths */
+    private function validateRemovePaths(array $paths): void
+    {
+        foreach ($paths as $path) {
+            if (!is_string($path) || !in_array($path, self::REMOVABLE_SOURCE_TOOLS, true)) {
+                throw new RuntimeException('Manifest wydania próbuje usunąć plik spoza listy narzędzi macierzystych.');
             }
         }
     }
@@ -175,7 +202,7 @@ final class PlatformUpdater
     /**
      * @return list<string>
      */
-    private function replaceFiles(string $payload, array $files, string $backup): array
+    private function replaceFiles(string $payload, array $files, array $remove, string $backup): array
     {
         $changed = [];
         try {
@@ -199,6 +226,21 @@ final class PlatformUpdater
                     throw new RuntimeException("Nie można zaktualizować pliku {$relative}.");
                 }
                 @chmod($target, fileperms($source) & 0777 ?: 0644);
+                if (function_exists('opcache_invalidate')) {
+                    @opcache_invalidate($target, true);
+                }
+                $changed[] = $relative;
+            }
+            foreach ($remove as $relative) {
+                $target = rtrim($this->applicationRoot, '/') . '/' . $relative;
+                if (!is_file($target) || is_link($target)) {
+                    continue;
+                }
+                $backupFile = $backup . '/files/' . $relative;
+                $this->ensureDirectory(dirname($backupFile));
+                if (!copy($target, $backupFile) || !unlink($target)) {
+                    throw new RuntimeException("Nie można usunąć narzędzia macierzystego {$relative}.");
+                }
                 if (function_exists('opcache_invalidate')) {
                     @opcache_invalidate($target, true);
                 }

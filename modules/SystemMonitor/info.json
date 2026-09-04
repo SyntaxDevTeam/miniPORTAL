@@ -1,7 +1,7 @@
 {
   "id": "system_monitor",
   "name": "System Monitor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

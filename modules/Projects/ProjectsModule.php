@@ -53,7 +53,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.4.1'; }
+    public function version(): string { return '1.5.0'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }

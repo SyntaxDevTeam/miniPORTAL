@@ -95,10 +95,10 @@ final class BuildRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /** @return array{total: int, published: int, public_available: int, authenticated_available: int, local: int, registered_bytes: int, release: int, snapshot: int, dev: int, wip: int} */
+    /** @return array{total:int,published:int,public_available:int,authenticated_available:int,local:int,registered_bytes:int,release:int,snapshot:int,dev:int,wip:int,legacy_builds:int,v2_releases:int,v2_artifacts:int} */
     public function statistics(): array
     {
-        $statement = $this->database->query(
+        $legacyStatement = $this->database->query(
             "SELECT COUNT(*) AS total, "
             . "COALESCE(SUM(project_builds.is_published = 1), 0) AS published, "
             . "COALESCE(SUM(project_builds.is_published = 1 AND projects.is_published = 1 "
@@ -113,21 +113,46 @@ final class BuildRepository
             . "COALESCE(SUM(project_builds.channel = 'wip'), 0) AS wip_count "
             . "FROM project_builds" . self::PROJECT_JOINS
         );
-        $row = $statement?->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($row)) {
+
+        $v2Statement = $this->database->query(
+            "SELECT COUNT(DISTINCT build_releases.id) AS total, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.is_published = 1 THEN build_releases.id END) AS published, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.is_published = 1 AND projects.is_published = 1 "
+            . "AND COALESCE(build_explorer_project_settings.requires_auth, 0) = 0 THEN build_releases.id END) AS public_available, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.is_published = 1 AND projects.is_published = 1 THEN build_releases.id END) AS authenticated_available, "
+            . "COUNT(DISTINCT CASE WHEN build_artifacts.storage_key IS NOT NULL AND build_artifacts.storage_key <> '' THEN build_artifacts.id END) AS local, "
+            . "COALESCE(SUM(CASE WHEN build_artifacts.storage_key IS NOT NULL AND build_artifacts.storage_key <> '' "
+            . "THEN build_artifacts.file_size_bytes ELSE 0 END), 0) AS registered_bytes, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.channel = 'release' THEN build_releases.id END) AS release_count, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.channel = 'snapshot' THEN build_releases.id END) AS snapshot_count, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.channel = 'dev' THEN build_releases.id END) AS dev_count, "
+            . "COUNT(DISTINCT CASE WHEN build_releases.channel = 'wip' THEN build_releases.id END) AS wip_count, "
+            . "COUNT(DISTINCT build_artifacts.id) AS artifact_count "
+            . "FROM build_releases JOIN projects ON projects.id = build_releases.project_id "
+            . "LEFT JOIN build_explorer_project_settings ON build_explorer_project_settings.project_id = projects.id "
+            . "LEFT JOIN build_artifacts ON build_artifacts.release_id = build_releases.id"
+        );
+
+        $legacy = $legacyStatement?->fetch(PDO::FETCH_ASSOC);
+        $v2 = $v2Statement?->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($legacy) || !is_array($v2)) {
             throw new RuntimeException('Nie można pobrać statystyk buildów.');
         }
+
         return [
-            'total' => (int) $row['total'],
-            'published' => (int) $row['published'],
-            'public_available' => (int) $row['public_available'],
-            'authenticated_available' => (int) $row['authenticated_available'],
-            'local' => (int) $row['local'],
-            'registered_bytes' => (int) $row['registered_bytes'],
-            'release' => (int) $row['release_count'],
-            'snapshot' => (int) $row['snapshot_count'],
-            'dev' => (int) $row['dev_count'],
-            'wip' => (int) $row['wip_count'],
+            'total' => (int) $legacy['total'] + (int) $v2['total'],
+            'published' => (int) $legacy['published'] + (int) $v2['published'],
+            'public_available' => (int) $legacy['public_available'] + (int) $v2['public_available'],
+            'authenticated_available' => (int) $legacy['authenticated_available'] + (int) $v2['authenticated_available'],
+            'local' => (int) $legacy['local'] + (int) $v2['local'],
+            'registered_bytes' => (int) $legacy['registered_bytes'] + (int) $v2['registered_bytes'],
+            'release' => (int) $legacy['release_count'] + (int) $v2['release_count'],
+            'snapshot' => (int) $legacy['snapshot_count'] + (int) $v2['snapshot_count'],
+            'dev' => (int) $legacy['dev_count'] + (int) $v2['dev_count'],
+            'wip' => (int) $legacy['wip_count'] + (int) $v2['wip_count'],
+            'legacy_builds' => (int) $legacy['total'],
+            'v2_releases' => (int) $v2['total'],
+            'v2_artifacts' => (int) $v2['artifact_count'],
         ];
     }
 
@@ -142,6 +167,65 @@ final class BuildRepository
         return is_array($row) ? $this->hydrate($row) : null;
     }
 
+    /** @return list<array<string, mixed>> */
+    public function pluginV2Artifacts(): array
+    {
+        $statement = $this->database->query(
+            $this->pluginV2ArtifactSelect()
+            . ' GROUP BY build_artifacts.id, build_artifacts.release_id, build_artifacts.platform, '
+            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.checksum_sha256, '
+            . 'build_releases.version_label, build_releases.channel, build_releases.build_number, '
+            . 'build_releases.is_published, build_releases.published_at, build_releases.ci_build_time, '
+            . 'projects.name, projects.sort_order, projects.is_published, build_explorer_project_settings.requires_auth '
+            . 'ORDER BY projects.sort_order ASC, projects.name ASC, '
+            . 'COALESCE(build_releases.published_at, build_releases.ci_build_time) DESC, '
+            . 'build_releases.id DESC, build_artifacts.id DESC'
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać artefaktów pluginów Build Explorera v2.');
+        }
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return array<string, string> */
+    public function projectIconUrls(): array
+    {
+        $statement = $this->database->query(
+            "SELECT name, icon_url FROM projects WHERE icon_url <> '' ORDER BY sort_order, name"
+        );
+        $rows = $statement?->fetchAll(PDO::FETCH_ASSOC);
+        if (!is_array($rows)) {
+            return [];
+        }
+        $icons = [];
+        foreach ($rows as $row) {
+            $name = trim((string) ($row['name'] ?? ''));
+            $iconUrl = trim((string) ($row['icon_url'] ?? ''));
+            if ($name !== '' && $iconUrl !== '') {
+                $icons[$name] = $iconUrl;
+            }
+        }
+        return $icons;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function findPluginV2Artifact(int $artifactId): ?array
+    {
+        $statement = $this->database->query(
+            $this->pluginV2ArtifactSelect()
+            . ' WHERE build_artifacts.id = :artifact_id '
+            . 'GROUP BY build_artifacts.id, build_artifacts.release_id, build_artifacts.platform, '
+            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.checksum_sha256, '
+            . 'build_releases.version_label, build_releases.channel, build_releases.build_number, '
+            . 'build_releases.is_published, build_releases.published_at, build_releases.ci_build_time, '
+            . 'projects.name, projects.sort_order, projects.is_published, build_explorer_project_settings.requires_auth '
+            . 'LIMIT 1',
+            [':artifact_id' => $artifactId]
+        );
+        $row = $statement?->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    }
+
     public function findPublic(int $id): ?ProjectBuild
     {
         $statement = $this->database->query(
@@ -152,6 +236,23 @@ final class BuildRepository
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $this->hydrate($row) : null;
+    }
+
+    private function pluginV2ArtifactSelect(): string
+    {
+        return 'SELECT build_artifacts.id AS artifact_id, build_artifacts.release_id, '
+            . 'build_artifacts.platform, build_artifacts.filename, build_artifacts.storage_key, '
+            . 'build_artifacts.checksum_sha256, build_releases.version_label, build_releases.channel, '
+            . 'build_releases.build_number, build_releases.is_published, projects.name AS project_name, '
+            . 'projects.is_published AS project_published, '
+            . 'COALESCE(build_explorer_project_settings.requires_auth, 0) AS project_requires_auth, '
+            . "GROUP_CONCAT(DISTINCT build_artifact_compatible_platforms.platform "
+            . "ORDER BY build_artifact_compatible_platforms.platform SEPARATOR ',') AS compatible_platforms "
+            . 'FROM build_artifacts JOIN build_releases ON build_releases.id = build_artifacts.release_id '
+            . 'JOIN projects ON projects.id = build_releases.project_id '
+            . 'LEFT JOIN build_explorer_project_settings ON build_explorer_project_settings.project_id = projects.id '
+            . 'LEFT JOIN build_artifact_compatible_platforms '
+            . 'ON build_artifact_compatible_platforms.artifact_id = build_artifacts.id';
     }
 
     public function findCi(int $projectId, string $channel, string $serverType, int $ciBuildId): ?ProjectBuild
@@ -822,6 +923,57 @@ final class BuildRepository
             [':locked' => $locked ? 1 : 0, ':id' => $releaseId]
         );
         return $statement !== null && $statement->rowCount() === 1;
+    }
+
+    /**
+     * @param array{project_id:int,channel:string,published:string,search:string} $filters
+     * @return list<array<string,mixed>>
+     */
+    public function v2AdminRecent(array $filters, int $limit = 100): array
+    {
+        $where = [];
+        $parameters = [];
+
+        if ($filters['project_id'] > 0) {
+            $where[] = 'projects.id = :project_id';
+            $parameters[':project_id'] = $filters['project_id'];
+        }
+        if (in_array($filters['channel'], ['release', 'snapshot', 'dev', 'wip'], true)) {
+            $where[] = 'build_releases.channel = :channel';
+            $parameters[':channel'] = $filters['channel'];
+        }
+        if (in_array($filters['published'], ['0', '1'], true)) {
+            $where[] = 'build_releases.is_published = :published';
+            $parameters[':published'] = (int) $filters['published'];
+        }
+        if ($filters['search'] !== '') {
+            $where[] = '(projects.name LIKE :search OR projects.slug LIKE :search OR build_releases.version_label LIKE :search '
+                . 'OR build_releases.build_number LIKE :search OR build_releases.branch LIKE :search OR build_releases.commit_sha LIKE :search)';
+            $parameters[':search'] = '%' . $filters['search'] . '%';
+        }
+
+        $sql = "SELECT build_releases.id, build_releases.version_label, build_releases.channel, build_releases.build_number, "
+            . "build_releases.is_published, build_releases.published_at, build_releases.ci_build_id, build_releases.ci_build_time, "
+            . "build_releases.commit_sha, build_releases.branch, projects.name AS project_name, projects.slug AS project_slug, "
+            . "COUNT(DISTINCT build_artifacts.id) AS artifact_count, "
+            . "COALESCE(SUM(build_artifacts.file_size_bytes), 0) AS file_size_bytes, "
+            . "GROUP_CONCAT(DISTINCT build_artifacts.platform ORDER BY build_artifacts.platform SEPARATOR ',') AS platforms "
+            . "FROM build_releases JOIN projects ON projects.id = build_releases.project_id "
+            . "LEFT JOIN build_artifacts ON build_artifacts.release_id = build_releases.id";
+        if ($where !== []) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+        $sql .= " GROUP BY build_releases.id, build_releases.version_label, build_releases.channel, build_releases.build_number, "
+            . "build_releases.is_published, build_releases.published_at, build_releases.ci_build_id, build_releases.ci_build_time, "
+            . "build_releases.commit_sha, build_releases.branch, projects.name, projects.slug "
+            . "ORDER BY COALESCE(build_releases.published_at, build_releases.ci_build_time) DESC, build_releases.id DESC LIMIT "
+            . max(1, min(500, $limit));
+
+        $statement = $this->database->query($sql, $parameters);
+        if ($statement === null) {
+            throw new RuntimeException('Nie można pobrać administracyjnej listy buildów v2.');
+        }
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**

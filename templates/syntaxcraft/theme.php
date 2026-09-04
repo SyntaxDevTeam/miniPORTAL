@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace SyntaxDevTeam\Cms\Templates\SyntaxcraftTheme;
 
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
+use SyntaxDevTeam\Cms\Core\AdminCatalogComponentsTrait;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
 final class Theme implements ThemeInterface
 {
+    use AdminCatalogComponentsTrait;
+
     private const ADSENSE_CLIENT = 'ca-pub-3086258607996589';
 
     private readonly string $appVersion;
@@ -693,7 +696,7 @@ final class Theme implements ThemeInterface
 
     public function require_asset(string $asset): void
     {
-        if (in_array($asset, ['charts', 'minecraft_console'], true)) {
+        if (in_array($asset, ['charts', 'minecraft_console', 'admin_catalog'], true)) {
             $this->requiredAssets[$asset] = true;
         }
     }
@@ -929,13 +932,17 @@ final class Theme implements ThemeInterface
         if ($points === []) { $this->render_alert('Brak danych do narysowania wykresu.', 'info'); return; }
         $values = array_map(static fn (array $point): float => (float) $point['value'], $points);
         $min = min($values); $max = max($values); $range = max(1.0, $max - $min); $count = count($points);
+        $average = is_numeric($points[0]['average'] ?? null) ? (float) $points[0]['average'] : null;
+        $averageY = $average !== null ? round(196 - (($average - $min) / $range) * 172, 2) : null;
         $coordinates = [];
         foreach ($values as $index => $value) { $coordinates[] = round(24 + ($count === 1 ? 296 : $index * 592 / ($count - 1)), 2) . ',' . round(196 - (($value - $min) / $range) * 172, 2); }
         $payload = json_encode($points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?: '[]';
         $chartId = 'amchart-line-' . substr(hash('sha256', $label . $payload), 0, 12);
         echo '<figure class="line-chart" role="group" aria-label="' . $this->escape($label) . '"><div id="' . $chartId . '" class="amchart-host amchart-line" data-amchart="line" data-chart-label="' . $this->escape($label) . '" data-chart-payload="' . $this->escape($payload) . '" hidden></div><div class="chart-fallback"><svg viewBox="0 0 640 220" role="img" aria-labelledby="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">';
-        echo '<title id="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">' . $this->escape($label) . '</title><line x1="24" y1="196" x2="616" y2="196" class="line-chart-axis"/><polyline points="' . implode(' ', $coordinates) . '" class="line-chart-series"/></svg>';
-        echo '<figcaption><span>' . $this->escape((string) $points[0]['label']) . '</span><strong>' . $this->escape($label) . ' (' . $this->escape((string) $min) . '-' . $this->escape((string) $max) . ')</strong><span>' . $this->escape((string) $points[array_key_last($points)]['label']) . '</span></figcaption></div></figure>';
+        echo '<title id="line-chart-title-' . substr(hash('sha256', $label), 0, 10) . '">' . $this->escape($label) . '</title><line x1="24" y1="196" x2="616" y2="196" class="line-chart-axis"/>';
+        if ($averageY !== null) { echo '<line x1="24" y1="' . $averageY . '" x2="616" y2="' . $averageY . '" class="line-chart-average"/>'; }
+        echo '<polyline points="' . implode(' ', $coordinates) . '" class="line-chart-series"/></svg>';
+        echo '<figcaption><span>' . $this->escape((string) $points[0]['label']) . '</span><strong>' . $this->escape($label) . ' (' . $this->escape((string) $min) . '-' . $this->escape((string) $max) . ')' . ($average !== null ? ' · Średnia ' . $this->escape((string) $average) : '') . '</strong><span>' . $this->escape((string) $points[array_key_last($points)]['label']) . '</span></figcaption></div></figure>';
     }
 
     public function render_bar_chart(array $items, string $label): void
@@ -1265,6 +1272,11 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
+        if (isset($this->requiredAssets['admin_catalog'])) {
+            $catalogStyles = dirname(__DIR__) . '/shared/assets/css/admin-catalog.css';
+            echo '<link rel="stylesheet" href="/templates/shared/assets/css/admin-catalog.css?v=';
+            echo $this->escape(is_file($catalogStyles) ? (string) filemtime($catalogStyles) : '1') . '">';
+        }
         $consoleStylesFile = dirname(__DIR__) . '/shared/assets/css/minecraft-console.css';
         $consoleStylesVersion = is_file($consoleStylesFile) ? (string) filemtime($consoleStylesFile) : '1';
         echo '<link rel="stylesheet" href="/templates/shared/assets/css/minecraft-console.css?v='
@@ -1331,6 +1343,11 @@ final class Theme implements ThemeInterface
         echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/admin.js') . '"></script>';
+        if (isset($this->requiredAssets['admin_catalog'])) {
+            $catalogScript = dirname(__DIR__) . '/shared/assets/js/admin-catalog.js';
+            echo '<script src="/templates/shared/assets/js/admin-catalog.js?v=';
+            echo $this->escape(is_file($catalogScript) ? (string) filemtime($catalogScript) : '1') . '"></script>';
+        }
         $consoleFile = dirname(__DIR__) . '/shared/assets/js/minecraft-console.js';
         $consoleVersion = is_file($consoleFile) ? (string) filemtime($consoleFile) : '1';
         echo '<script src="/templates/shared/assets/js/minecraft-console.js?v='
@@ -1552,10 +1569,21 @@ final class Theme implements ThemeInterface
         echo '</tbody></table></div>';
     }
 
-    public function render_admin_action_table(array $headers, array $rows, string $csrfToken): void
+    public function render_admin_action_table(array $headers, array $rows, string $csrfToken, ?array $bulkAction = null): void
     {
+        static $bulkTableSequence = 0;
+        $bulkFormId = '';
+        $bulkField = 'ids[]';
+        if ($bulkAction !== null && ($bulkAction['action'] ?? '') !== '') {
+            $bulkFormId = 'admin-bulk-' . substr(hash('sha256', (string) $bulkAction['action'] . (string) ($bulkAction['label'] ?? '')), 0, 12) . '-' . (++$bulkTableSequence);
+            $bulkField = preg_match('/^[A-Za-z0-9_-]+\[\]$/', (string) ($bulkAction['field'] ?? 'ids[]')) === 1 ? (string) $bulkAction['field'] : 'ids[]';
+            echo '<form class="admin-bulk-action" id="' . $this->escape($bulkFormId) . '" action="' . $this->escape((string) $bulkAction['action']) . '" method="post"' . (($bulkAction['confirm'] ?? '') !== '' ? ' data-confirm="' . $this->escape((string) $bulkAction['confirm']) . '"' : '') . '>';
+            $this->csrf_field($csrfToken);
+            echo '<button class="btn btn-sm btn-danger" type="submit" data-admin-bulk-submit disabled>' . $this->escape((string) ($bulkAction['label'] ?? 'Wykonaj dla zaznaczonych')) . '</button><span data-admin-bulk-count aria-live="polite">Nie zaznaczono pozycji</span></form>';
+        }
         echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
         echo '<thead><tr>';
+        if ($bulkFormId !== '') { echo '<th scope="col" class="admin-bulk-select"><input class="form-check-input" type="checkbox" data-admin-bulk-all aria-label="Zaznacz wszystkie pozycje na tej stronie"></th>'; }
         foreach ($headers as $header) {
             if (is_array($header)) {
                 $direction = in_array(($header['direction'] ?? ''), ['asc', 'desc'], true) ? $header['direction'] : '';
@@ -1571,6 +1599,7 @@ final class Theme implements ThemeInterface
 
         foreach ($rows as $row) {
             echo '<tr>';
+            if ($bulkFormId !== '') { echo '<td class="admin-bulk-select"><input class="form-check-input" type="checkbox" name="' . $this->escape($bulkField) . '" value="' . $this->escape((string) ($row['selection_value'] ?? '')) . '" form="' . $this->escape($bulkFormId) . '" data-admin-bulk-item aria-label="Zaznacz pozycję"></td>'; }
             foreach ($row['cells'] as $cell) {
                 echo '<td>' . $this->escape((string) $cell) . '</td>';
             }

@@ -17,6 +17,8 @@ final readonly class WikiPage
         public string $content,
         public string $contentFormat,
         public string $status,
+        public bool $requiresAuth,
+        public bool $projectRequiresAuth,
         public int $sortOrder,
         public int $authorId,
         public ?string $publishedAt,

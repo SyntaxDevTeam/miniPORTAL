@@ -355,6 +355,46 @@ final class Request
         ];
     }
 
+    /**
+     * @return list<array{name: string, type: string, tmp_name: string, error: int, size: int}>
+     */
+    public function files(string $key): array
+    {
+        $group = $this->files[$key] ?? null;
+        if (!is_array($group)) {
+            return [];
+        }
+        if (!is_array($group['name'] ?? null)) {
+            $file = $this->file($key);
+
+            return $file === null ? [] : [$file];
+        }
+
+        $files = [];
+        foreach (array_keys($group['name']) as $index) {
+            if (count($files) >= 100) {
+                break;
+            }
+            $name = $group['name'][$index] ?? '';
+            $tmpName = $group['tmp_name'][$index] ?? '';
+            $type = $group['type'][$index] ?? '';
+            $error = $group['error'][$index] ?? UPLOAD_ERR_NO_FILE;
+            $size = $group['size'][$index] ?? 0;
+            if (!is_scalar($name) || !is_scalar($tmpName) || !is_scalar($type) || !is_scalar($error) || !is_scalar($size)) {
+                continue;
+            }
+            $files[] = [
+                'name' => basename(self::normalizeString((string) $name)),
+                'type' => substr(self::normalizeString((string) $type), 0, 120),
+                'tmp_name' => self::normalizeString((string) $tmpName),
+                'error' => (int) $error,
+                'size' => (int) $size,
+            ];
+        }
+
+        return $files;
+    }
+
     private static function resolvePath(array $query, array $server): string
     {
         $route = $query['route'] ?? null;

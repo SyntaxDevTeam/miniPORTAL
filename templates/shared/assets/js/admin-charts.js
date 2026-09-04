@@ -84,6 +84,30 @@
         strokeWidth: 2,
       }),
     }));
+    const hasAverage = data.some((point) => Number.isFinite(Number(point.average)));
+    if (hasAverage) {
+      const averageSeries = chart.series.push(am5xy.LineSeries.new(root, {
+        name: "Średnia",
+        xAxis,
+        yAxis,
+        categoryXField: "label",
+        valueYField: "average",
+        stroke: colors.accent,
+        tooltip: am5.Tooltip.new(root, { labelText: "Średnia: {valueY}" }),
+      }));
+      averageSeries.strokes.template.setAll({
+        strokeWidth: 2,
+        strokeDasharray: [8, 5],
+      });
+      averageSeries.data.setAll(data);
+      const legend = chart.children.unshift(am5.Legend.new(root, {
+        centerX: am5.percent(50),
+        x: am5.percent(50),
+      }));
+      legend.labels.template.setAll({ fill: colors.text, fontSize: 12 });
+      legend.valueLabels.template.set("forceHidden", true);
+      legend.data.setAll([series, averageSeries]);
+    }
     chart.set("cursor", am5xy.XYCursor.new(root, { behavior: "zoomX", xAxis }));
     xAxis.data.setAll(data);
     series.data.setAll(data);

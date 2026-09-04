@@ -207,7 +207,7 @@ interface ThemeInterface
     public function render_team_member_profile(array $profile): void;
 
     /**
-     * @param list<array{label: string, value: int|float}> $points
+     * @param list<array{label: string, value: int|float, average?: int|float}> $points
      */
     public function render_line_chart(array $points, string $label): void;
 
@@ -337,6 +337,54 @@ interface ThemeInterface
      */
     public function render_admin_panel_actions(array $actions): void;
 
+    public function start_admin_catalog_toolbar(): void;
+
+    public function end_admin_catalog_toolbar(): void;
+
+    /**
+     * @param list<array{key:string,label:string,href:string,active?:bool,disabled?:bool}> $sources
+     * @param list<array{
+     *     title:string,description:string,source:string,field:string,value?:string,
+     *     options?:array<string,string>,meta?:string,icon?:string,group?:string
+     * }> $items
+     * @param list<array{key:string,label:string,href:string,active?:bool}> $sorts
+     * @param array<string, scalar> $hiddenFields
+     */
+    public function render_admin_catalog(
+        array $sources,
+        array $items,
+        string $action,
+        string $csrfToken,
+        array $hiddenFields = [],
+        array $sorts = [],
+    ): void;
+
+    /**
+     * @param list<array{
+     *     title:string,
+     *     items:list<array{
+     *         label:string,filename:string,size:string,status?:string,id?:int,
+     *         update_field?:string,update_value?:string,update_options?:array<string,string>,
+     *         update_required?:bool,force_update?:bool
+     *     }>
+     * }> $groups
+     */
+    public function render_admin_file_collection_modal(
+        string $id,
+        string $title,
+        string $description,
+        array $groups,
+        string $uploadAction,
+        string $deleteAction,
+        string $updateAction,
+        string $csrfToken,
+        int $profileId,
+        string $uploadLimit,
+        string $uploadField = 'file',
+        string $uploadAccept = '',
+        array $bulkUpdate = [],
+    ): void;
+
     /**
      * @param list<string> $headers
      * @param list<list<scalar|null>> $rows
@@ -346,6 +394,7 @@ interface ThemeInterface
     /**
      * @param list<string> $headers
      * @param list<array{
+     *     selection_value?: scalar,
      *     cells: list<scalar|null>,
      *     actions: list<array{
      *         label: string,
@@ -356,8 +405,9 @@ interface ThemeInterface
      *         confirm?: string
      *     }>
      * }> $rows
+     * @param array{action:string,field?:string,label?:string,confirm?:string}|null $bulkAction
      */
-    public function render_admin_action_table(array $headers, array $rows, string $csrfToken): void;
+    public function render_admin_action_table(array $headers, array $rows, string $csrfToken, ?array $bulkAction = null): void;
 
     /** @param list<array<string, mixed>> $fields */
     public function render_admin_filter_modal(

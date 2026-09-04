@@ -107,7 +107,9 @@ $moduleDefinitionsBase[] = [
         $modulesConfig = is_array($services['config']['modules'] ?? null)
             ? $services['config']['modules']
             : [];
-        $agent = new UnixSocketNodeAgentClient(NodeAgentConfig::fromModuleConfig($modulesConfig));
+        $agent = class_exists(UnixSocketNodeAgentClient::class)
+            ? new UnixSocketNodeAgentClient(NodeAgentConfig::fromModuleConfig($modulesConfig))
+            : null;
         $applicationRoot = dirname(__DIR__);
 
         return new SystemMonitorDashboardModule(

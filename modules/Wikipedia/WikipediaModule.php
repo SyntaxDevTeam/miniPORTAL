@@ -42,7 +42,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     public function version(): string
     {
-        return '1.0.4';
+        return '1.1.0';
     }
 
     public function dependencies(): array
@@ -149,9 +149,9 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     public function registerSeo(SeoIndex $seo): void
     {
-        $projects = $this->wiki->publishedProjects();
+        $projects = $this->wiki->publishedProjects(false);
         foreach ($projects as $project) {
-            foreach ($this->wiki->publishedPages($project->id) as $page) {
+            foreach ($this->wiki->publishedPages($project->id, false) as $page) {
                 if (!$this->isIndexableWikiPage($page)) {
                     continue;
                 }
@@ -172,7 +172,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
     private function renderPublicIndex(): void
     {
         echo $this->cachedPublic('wiki:index', function (): string {
-            $projects = $this->wiki->publishedProjects();
+            $projects = $this->wiki->publishedProjects($this->isPublicUserAuthenticated());
 
             return $this->capture(function () use ($projects): void {
                 $this->theme->start_page('Project documentation - SyntaxDevTeam', 'Knowledge base for SyntaxDevTeam projects.', false);
@@ -216,9 +216,13 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $this->theme->render_page_not_found('Documentation not found', 'This project does not exist or has not been published.');
             return;
         }
+        if ($project->requiresAuth && !$this->isPublicUserAuthenticated()) {
+            $this->publicLoginRequired($this->wikiProjectHref($project->slug));
+            return;
+        }
 
         echo $this->cachedPublic('wiki:project:' . $project->slug, function () use ($project): string {
-            $pages = $this->wiki->publishedPages($project->id);
+            $pages = $this->wiki->publishedPages($project->id, $this->isPublicUserAuthenticated());
 
             return $this->capture(function () use ($project, $pages): void {
                 $this->theme->start_page($project->name . ' - documentation', $project->summary, false);
@@ -266,6 +270,10 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         if ($page === null) {
             http_response_code(404);
             $this->theme->render_page_not_found('Documentation page not found', 'This page does not exist or has not been published.');
+            return;
+        }
+        if (($page->requiresAuth || $page->projectRequiresAuth) && !$this->isPublicUserAuthenticated()) {
+            $this->publicLoginRequired($this->wikiPageHref($page));
             return;
         }
 
@@ -324,12 +332,13 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
         $this->theme->start_admin_panel('Projekty dokumentacji', count($projects) . ' rekordów');
         $this->theme->render_admin_action_table(
-            ['Projekt', 'Slug', 'Status', 'Kolejność'],
+            ['Projekt', 'Slug', 'Status', 'Dostęp', 'Kolejność'],
             array_map(fn (WikiProject $project): array => [
                 'cells' => [
                     $project->name,
                     $project->slug,
                     $project->status === 'published' ? 'Opublikowany' : 'Szkic',
+                    $project->requiresAuth ? 'Tylko zalogowani' : 'Publiczny',
                     (string) $project->sortOrder,
                 ],
                 'actions' => array_values(array_filter([
@@ -364,13 +373,16 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
         $this->theme->start_admin_panel('Strony dokumentacji', count($pages) . ' rekordów');
         $this->theme->render_admin_action_table(
-            ['Tytuł', 'Projekt', 'Slug', 'Status', 'Aktualizacja'],
+            ['Tytuł', 'Projekt', 'Slug', 'Status', 'Dostęp', 'Aktualizacja'],
             array_map(fn (WikiPage $page): array => [
                 'cells' => [
                     $page->title,
                     $page->projectName,
                     $page->slug,
                     $page->status === 'published' ? 'Opublikowana' : 'Szkic',
+                    $page->projectRequiresAuth
+                        ? 'Tylko zalogowani (projekt)'
+                        : ($page->requiresAuth ? 'Tylko zalogowani' : 'Publiczna'),
                     $page->updatedAt,
                 ],
                 'actions' => array_values(array_filter([
@@ -437,6 +449,13 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
                 ['name' => 'name', 'label' => 'Nazwa projektu', 'value' => $project?->name ?? ''],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $project?->slug ?? ''],
                 ['name' => 'summary', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 3, 'value' => $project?->summary ?? ''],
+                [
+                    'name' => 'requires_auth',
+                    'label' => 'Dostęp',
+                    'type' => 'select',
+                    'value' => $project?->requiresAuth ? '1' : '0',
+                    'options' => ['0' => 'Publiczny', '1' => 'Tylko dla zalogowanych'],
+                ],
                 ['name' => 'sort_order', 'label' => 'Kolejność', 'type' => 'number', 'value' => (string) ($project?->sortOrder ?? 100)],
             ],
             $editing ? 'Zapisz projekt' : 'Utwórz projekt',
@@ -496,6 +515,13 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
                 ['name' => 'summary', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 3, 'value' => $page?->summary ?? ''],
+                [
+                    'name' => 'requires_auth',
+                    'label' => 'Dostęp',
+                    'type' => 'select',
+                    'value' => $page?->requiresAuth ? '1' : '0',
+                    'options' => ['0' => 'Publiczna', '1' => 'Tylko dla zalogowanych'],
+                ],
                 ['name' => 'sort_order', 'label' => 'Kolejność', 'type' => 'number', 'value' => (string) ($page?->sortOrder ?? 100)],
                 [
                     'name' => 'content',
@@ -583,12 +609,12 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         if (!$this->validCsrf($request, 'wiki_page_create')) {
             return;
         }
-        [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, $error] = $this->validatedPageInput($request);
+        [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, $error] = $this->validatedPageInput($request);
         if ($error !== '') {
             $this->renderPageForm(null, $projectId, $error, 'danger');
             return;
         }
-        $id = $this->wiki->createPage($projectId, $title, $slug, $summary, $content, $format, $sortOrder, $this->auth->user()?->id ?? 0);
+        $id = $this->wiki->createPage($projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, $this->auth->user()?->id ?? 0);
         $page = $this->wiki->findPage($id);
         $this->invalidateWikiCache($page?->projectSlug, $page?->slug);
         $this->audit->record($request, 'wiki_page_create', 'success', null, $this->auth->user()?->id);
@@ -606,12 +632,12 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $this->renderDashboard('Nie znaleziono strony do edycji.', 'danger');
             return;
         }
-        [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, $error] = $this->validatedPageInput($request, $id);
+        [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, $error] = $this->validatedPageInput($request, $id);
         if ($error !== '') {
             $this->renderPageForm($page, null, $error, 'danger');
             return;
         }
-        $this->wiki->updatePage($id, $projectId, $title, $slug, $summary, $content, $format, $sortOrder);
+        $this->wiki->updatePage($id, $projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder);
         $updated = $this->wiki->findPage($id);
         $this->invalidateWikiCache($page->projectSlug, $page->slug, $updated?->projectSlug, $updated?->slug);
         $this->audit->record($request, 'wiki_page_update', 'success', null, $this->auth->user()?->id);
@@ -646,15 +672,16 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
     }
 
     /**
-     * @return array{0: array{name: string, slug: string, summary: string, sort_order: int}, 1: string}
+     * @return array{0: array{name: string, slug: string, summary: string, requires_auth: int, sort_order: int}, 1: string}
      */
     private function validatedProjectInput(Request $request, ?int $exceptId = null): array
     {
         $name = $request->postString('name');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $name);
         $summary = $request->postString('summary');
+        $requiresAuth = $request->postString('requires_auth') === '1' ? 1 : 0;
         $sortOrder = max(0, min(65535, $request->postInt('sort_order', 100) ?? 100));
-        $data = ['name' => $name, 'slug' => $slug, 'summary' => $summary, 'sort_order' => $sortOrder];
+        $data = ['name' => $name, 'slug' => $slug, 'summary' => $summary, 'requires_auth' => $requiresAuth, 'sort_order' => $sortOrder];
         if ($name === '' || strlen($name) > 160) {
             return [$data, 'Nazwa projektu jest wymagana i może mieć maksymalnie 160 znaków.'];
         }
@@ -669,7 +696,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
     }
 
     /**
-     * @return array{0: int, 1: string, 2: string, 3: string, 4: string, 5: string, 6: int, 7: string}
+     * @return array{0: int, 1: string, 2: string, 3: string, 4: string, 5: string, 6: bool, 7: int, 8: string}
      */
     private function validatedPageInput(Request $request, ?int $exceptId = null): array
     {
@@ -679,24 +706,25 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $summary = $request->postString('summary');
         $format = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
         $content = (new ContentRenderer())->prepareForStorage($request->postString('content'), $format);
+        $requiresAuth = $request->postString('requires_auth') === '1';
         $sortOrder = max(0, min(65535, $request->postInt('sort_order', 100) ?? 100));
         if ($this->wiki->findProject($projectId) === null) {
-            return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, 'Wybierz istniejący projekt dokumentacji.'];
+            return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, 'Wybierz istniejący projekt dokumentacji.'];
         }
         if ($title === '' || strlen($title) > 180) {
-            return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
+            return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
         }
         if ($slug === '' || strlen($slug) > 191 || $this->wiki->pageSlugExists($projectId, $slug, $exceptId)) {
-            return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, 'Slug strony jest nieprawidłowy albo już używany w projekcie.'];
+            return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, 'Slug strony jest nieprawidłowy albo już używany w projekcie.'];
         }
         if ($summary === '' || strlen($summary) > 500) {
-            return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, 'Opis strony jest wymagany i może mieć maksymalnie 500 znaków.'];
+            return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, 'Opis strony jest wymagany i może mieć maksymalnie 500 znaków.'];
         }
         if ($content === '') {
-            return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, 'Treść dokumentacji jest wymagana.'];
+            return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, 'Treść dokumentacji jest wymagana.'];
         }
 
-        return [$projectId, $title, $slug, $summary, $content, $format, $sortOrder, ''];
+        return [$projectId, $title, $slug, $summary, $content, $format, $requiresAuth, $sortOrder, ''];
     }
 
     private function normalizeSlug(string $value): string
@@ -713,7 +741,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
      */
     private function wikiPageNavigation(WikiPage $current): array
     {
-        $pages = $this->wiki->publishedPages($current->projectId);
+        $pages = $this->wiki->publishedPages($current->projectId, $this->isPublicUserAuthenticated());
         $previous = null;
         $next = null;
         foreach ($pages as $index => $page) {
@@ -762,6 +790,23 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         return '/wiki/project/' . rawurlencode($projectSlug);
     }
 
+    private function isPublicUserAuthenticated(): bool
+    {
+        return $this->auth->actualUser() !== null;
+    }
+
+    private function publicLoginRequired(string $returnPath): void
+    {
+        http_response_code(401);
+        $this->theme->render_public_error(
+            401,
+            'Login required',
+            'This documentation is available only to signed-in users.',
+            'Sign in',
+            'index.php?' . http_build_query(['route' => '/admin/login', 'next' => $returnPath])
+        );
+    }
+
     private function validCsrf(Request $request, string $event): bool
     {
         if ($this->security->validateCsrfToken($request->postString('_token'))) {
@@ -780,7 +825,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
      */
     private function cachedPublic(string $key, callable $renderer, array $tags): string
     {
-        return $this->auth->user() === null
+        return !$this->isPublicUserAuthenticated()
             ? $this->templateCache->remember('public', $key, $renderer, $tags)
             : $renderer();
     }

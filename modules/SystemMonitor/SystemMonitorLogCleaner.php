@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SyntaxDevTeam\Cms\Modules\SystemMonitor;
 
-use SyntaxDevTeam\Cms\Modules\NodeManager\NodeAgentException;
-use SyntaxDevTeam\Cms\Modules\NodeManager\UnixSocketNodeAgentClient;
+use RuntimeException;
+use SyntaxDevTeam\Cms\Core\SystemLogAgentInterface;
 use Throwable;
 
 /**
@@ -21,7 +21,7 @@ final class SystemMonitorLogCleaner
     private const MAX_RETENTION_DAYS = 3650;
 
     public function __construct(
-        private readonly UnixSocketNodeAgentClient $agent,
+        private readonly ?SystemLogAgentInterface $agent,
         private readonly string $applicationRoot,
     ) {
     }
@@ -30,6 +30,10 @@ final class SystemMonitorLogCleaner
     public function preview(?int $retentionDays = null): array
     {
         $retentionDays = $this->retentionDays($retentionDays);
+
+        if ($this->agent === null) {
+            return $this->unavailablePreview($retentionDays);
+        }
 
         try {
             $snapshot = $this->agent->systemLogs($retentionDays);
@@ -58,6 +62,9 @@ final class SystemMonitorLogCleaner
     public function clean(?int $retentionDays = null, bool $includeJournal = true): array
     {
         $retentionDays = $this->retentionDays($retentionDays);
+        if ($this->agent === null) {
+            throw new RuntimeException('Node Agent nie jest zainstalowany w tej instancji miniPORTAL.');
+        }
 
         return $this->agent->submitJob(
             self::uuid(),
@@ -73,6 +80,9 @@ final class SystemMonitorLogCleaner
     /** @return array<string, mixed> */
     public function job(string $jobId): array
     {
+        if ($this->agent === null) {
+            throw new RuntimeException('Node Agent nie jest zainstalowany w tej instancji miniPORTAL.');
+        }
         $job = $this->agent->job($jobId);
         if ((string) ($job['status'] ?? '') === 'succeeded') {
             $this->invalidateInfrastructureCache();
@@ -103,14 +113,29 @@ final class SystemMonitorLogCleaner
 
     private function agentError(Throwable $exception): string
     {
-        if ($exception instanceof NodeAgentException) {
-            $message = trim($exception->getMessage());
-            if ($message !== '') {
-                return $message;
-            }
+        $message = trim($exception->getMessage());
+        if ($message !== '') {
+            return $message;
         }
 
         return 'Node Agent nie udostępnia jeszcze obsługi logów systemowych.';
+    }
+
+    /** @return array<string, mixed> */
+    private function unavailablePreview(int $retentionDays): array
+    {
+        return [
+            'available' => false,
+            'retention_days' => $retentionDays,
+            'execution' => 'node_agent',
+            'agent_required' => true,
+            'candidate_files' => 0,
+            'candidate_bytes' => 0,
+            'reclaimable_bytes' => 0,
+            'protected_bytes' => 0,
+            'candidates' => [],
+            'error' => 'Node Agent nie jest zainstalowany w tej instancji miniPORTAL.',
+        ];
     }
 
     private static function uuid(): string

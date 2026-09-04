@@ -16,7 +16,13 @@ final class PlatformReleasePublisher
 
     public function available(): bool
     {
-        return is_file($this->generatorPath());
+        foreach ($this->sourceToolchainPaths() as $path) {
+            if (!is_file($path)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function suggestedVersion(string $currentVersion): string
@@ -270,6 +276,20 @@ final class PlatformReleasePublisher
         return rtrim($this->applicationRoot, '/') . '/bin/build-platform-release.php';
     }
 
+    /** @return list<string> */
+    private function sourceToolchainPaths(): array
+    {
+        $root = rtrim($this->applicationRoot, '/');
+
+        return [
+            $this->generatorPath(),
+            $root . '/bin/build-cms-distribution.php',
+            $root . '/bin/publish-cms-distribution.php',
+            $root . '/bin/set-platform-version.php',
+            $root . '/install/cms-source/Installer.php',
+        ];
+    }
+
     private function validateSource(): void
     {
         $root = rtrim($this->applicationRoot, '/');
@@ -296,7 +316,12 @@ final class PlatformReleasePublisher
                 continue;
             }
             try {
-                $this->runProcess([$this->phpBinary(), $test]);
+                $this->runProcess([
+                    $this->phpBinary(),
+                    '-d',
+                    'session.save_path=' . sys_get_temp_dir(),
+                    $test,
+                ]);
             } catch (\Throwable $exception) {
                 throw new RuntimeException(
                     'Lokalna walidacja wydania nie przeszła (' . $relativeTest . '): '

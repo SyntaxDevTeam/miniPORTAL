@@ -532,6 +532,10 @@ body.admin-stylebook {
   margin: 0;
 }
 
+.admin-bulk-action { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; margin: 0 1.25rem .85rem; }
+.admin-bulk-action span { color: var(--mp-muted); font-size: .8rem; }
+.admin-bulk-select { width: 2.75rem; text-align: center; }
+
 .admin-table-sort {
   display: inline-flex;
   align-items: center;

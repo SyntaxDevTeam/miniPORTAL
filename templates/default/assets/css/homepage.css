@@ -497,28 +497,35 @@
 .project-public-title {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 1.15rem;
   min-width: 0;
   margin: 0 0 1.1rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.18);
+  border-radius: 1.2rem;
+  background: linear-gradient(135deg, rgba(var(--mp-primary-rgb), 0.1), rgba(var(--mp-primary-rgb), 0.025) 68%);
 }
 
 .project-public-title h2 {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  line-height: 1.15;
 }
 
 .project-public-icon {
   display: grid;
-  flex: 0 0 4rem;
-  width: 4rem;
-  height: 4rem;
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  height: 5.5rem;
   margin: 0 0 1.25rem;
-  padding: 0.55rem;
+  padding: 0.35rem;
   place-items: center;
-  border: 1px solid rgba(var(--mp-primary-rgb), 0.28);
-  border-radius: 0.95rem;
-  background: rgba(var(--mp-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--mp-primary-rgb), 0.42);
+  border-radius: 1.05rem;
+  background: rgba(7, 15, 28, 0.58);
+  box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
 }
 
 .project-public-title .project-public-icon {
@@ -527,9 +534,15 @@
 
 .project-public-icon img {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  border-radius: 0.72rem;
+}
+
+@media (max-width: 575.98px) {
+  .project-public-title { gap: 0.85rem; padding: 0.65rem; }
+  .project-public-icon { flex-basis: 4.75rem; width: 4.75rem; height: 4.75rem; }
 }
 
 .project-number {

@@ -462,6 +462,13 @@ a {
   stroke-width: 1;
 }
 
+.line-chart-average {
+  stroke: var(--mp-orange);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  vector-effect: non-scaling-stroke;
+}
+
 .line-chart-series {
   fill: none;
   stroke: var(--mp-cyan);

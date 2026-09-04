@@ -466,6 +466,29 @@
     poll();
   });
 
+  const imagePreviewModal = document.querySelector("#minecraft-image-preview-modal");
+  const imagePreviewTarget = imagePreviewModal?.querySelector("[data-minecraft-image-preview-target]");
+  const imagePreviewTitle = imagePreviewModal?.querySelector("[data-minecraft-image-preview-title]");
+
+  document.querySelectorAll("[data-minecraft-image-preview]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (!(imagePreviewModal instanceof HTMLElement) || !(imagePreviewTarget instanceof HTMLImageElement)) return;
+      event.preventDefault();
+      imagePreviewTarget.src = link.href;
+      imagePreviewTarget.alt = `Podgląd pliku ${link.dataset.imageName || "graficznego"}`;
+      if (imagePreviewTitle instanceof HTMLElement) {
+        imagePreviewTitle.textContent = link.dataset.imageName || "Podgląd obrazu";
+      }
+      window.bootstrap?.Modal.getOrCreateInstance(imagePreviewModal).show();
+    });
+  });
+
+  imagePreviewModal?.addEventListener("hidden.bs.modal", () => {
+    if (!(imagePreviewTarget instanceof HTMLImageElement)) return;
+    imagePreviewTarget.removeAttribute("src");
+    imagePreviewTarget.alt = "";
+  });
+
   const renameModal = document.querySelector("#minecraft-file-rename-modal");
   const renameSource = renameModal?.querySelector("[data-minecraft-file-rename-source]");
   const renameInput = renameModal?.querySelector("[data-minecraft-file-rename-input]");
@@ -615,6 +638,26 @@
     target.replaceChildren(fragment);
   };
 
+  const highlightLog = (value, target) => {
+    const fragment = document.createDocumentFragment();
+    const rows = value.split("\n");
+    const errorPattern = /(?:\b(?:ERROR|SEVERE|FATAL)\b|\bCaused by:|\b[\w.$]+(?:Exception|Error):)/i;
+    const warningPattern = /\bWARN(?:ING)?\b/i;
+    rows.forEach((line, row) => {
+      const severity = errorPattern.test(line) ? "error" : (warningPattern.test(line) ? "warning" : "");
+      if (severity === "") {
+        fragment.append(document.createTextNode(line));
+      } else {
+        const span = document.createElement("span");
+        span.className = `minecraft-log-line--${severity}`;
+        span.textContent = line;
+        fragment.append(span);
+      }
+      if (row < rows.length - 1) fragment.append(document.createTextNode("\n"));
+    });
+    target.replaceChildren(fragment);
+  };
+
   document.querySelectorAll("[data-minecraft-editor-form]").forEach((form) => {
     const editor = form.querySelector("[data-minecraft-editor]");
     const lines = form.querySelector("[data-minecraft-editor-lines]");
@@ -656,14 +699,17 @@
     };
 
     const updateHighlight = () => {
-      if (editor.dataset.editorLanguage !== "yaml" || !(highlight instanceof HTMLElement)) return;
+      const language = editor.dataset.editorLanguage;
+      if (!(["yaml", "log"].includes(language)) || !(highlight instanceof HTMLElement)) return;
       const surface = editor.closest(".minecraft-code-editor__surface");
-      if (editor.value.length > 524288) {
+      const limit = language === "log" ? 2097152 : 524288;
+      if (new Blob([editor.value]).size > limit) {
         highlight.replaceChildren();
         surface?.classList.remove("has-syntax-highlighting");
         return;
       }
-      highlightYaml(editor.value, highlight);
+      if (language === "log") highlightLog(editor.value, highlight);
+      else highlightYaml(editor.value, highlight);
       surface?.classList.add("has-syntax-highlighting");
       syncHighlightScroll();
     };
@@ -749,9 +795,11 @@
     editor.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
+        if (editor.readOnly) return;
         form.requestSubmit();
         return;
       }
+      if (editor.readOnly) return;
       if (event.key !== "Tab") return;
       event.preventDefault();
       const start = editor.selectionStart ?? 0;

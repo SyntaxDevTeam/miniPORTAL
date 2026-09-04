@@ -100,12 +100,27 @@ final class ModuleBootstrapper
             ) {
                 continue;
             }
-            $module = $factory($runtimeServices);
-            if (!$module instanceof ModuleInterface) {
-                throw new RuntimeException("Fabryka {$directory} nie zwróciła ModuleInterface.");
-            }
+            try {
+                $module = $factory($runtimeServices);
+                if (!$module instanceof ModuleInterface) {
+                    throw new RuntimeException("Fabryka {$directory} nie zwróciła ModuleInterface.");
+                }
 
-            $registry->add($module, $manifest);
+                $registry->add($module, $manifest);
+            } catch (\Throwable $exception) {
+                if ($required) {
+                    throw new RuntimeException(
+                        "Nie można uruchomić wymaganego modułu {$directory}: " . $exception->getMessage(),
+                        0,
+                        $exception
+                    );
+                }
+                error_log(
+                    '[miniPORTAL] optional_module_bootstrap_failed module=' . $manifest->id
+                    . ' exception=' . $exception::class
+                    . ' message=' . str_replace(["\r", "\n"], ' ', $exception->getMessage())
+                );
+            }
         }
 
         if ($selectedDirectories === null) {

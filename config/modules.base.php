@@ -9,6 +9,9 @@ use SyntaxDevTeam\Cms\Modules\AuthGatewayX\AuthGatewayXApiController;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\AuthGatewayXRepository;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\AuthGatewayXService;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\MinecraftIdentityRepository;
+use SyntaxDevTeam\Cms\Modules\AuthGatewayX\LinkedMinecraftProfileRepository;
+use SyntaxDevTeam\Cms\Modules\AuthGatewayX\MinecraftMicrosoftProfileClient;
+use SyntaxDevTeam\Cms\Modules\AuthGatewayX\NativeMinecraftApiTransport;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\Security\ChallengeCodeGenerator;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\Security\IpBinding;
 use SyntaxDevTeam\Cms\Modules\AuthGatewayX\Security\ProviderAuthenticator;
@@ -94,6 +97,8 @@ use SyntaxDevTeam\Cms\Modules\Projects\ProjectRepository;
 use SyntaxDevTeam\Cms\Modules\Projects\ProjectsModule;
 use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalConfig;
 use SyntaxDevTeam\Cms\Modules\RemoteTerminal\RemoteTerminalModule;
+use SyntaxDevTeam\Cms\Modules\ServerResourceMonitor\ServerResourceMonitorModule;
+use SyntaxDevTeam\Cms\Modules\ServerResourceMonitor\ServerResourceRepository;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\RegistrationConfig;
 use SyntaxDevTeam\Cms\Modules\System\SystemAdminModule;
 use SyntaxDevTeam\Cms\Modules\System\SystemLogRepository;
@@ -456,10 +461,15 @@ return [
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
         'factory' => static function (array $services): AuthGatewayXModule {
             $config = $services['config']['modules'] ?? [];
+            $microsoft = $services['auth_config']['providers']['microsoft'] ?? [];
+            $publicUrl = rtrim((string) ($services['config']['app']['public_url'] ?? ''), '/');
             $repository = new AuthGatewayXRepository($services['database']);
             return new AuthGatewayXModule(
                 $services['theme'], $services['admin_menu'], $services['auth'], $services['security'], $services['audit'],
-                new AuthGatewayXService(new MinecraftIdentityRepository($services['database'])),
+                new AuthGatewayXService(
+                    new MinecraftIdentityRepository($services['database']),
+                    new LinkedMinecraftProfileRepository($services['database']),
+                ),
                 $repository,
                 new AuthGatewayXApiController(
                     $repository,
@@ -469,6 +479,18 @@ return [
                     $services['rate_limiter'],
                     (string) ($config['authgatewayx_public_base_url'] ?? 'https://syntaxdevteam.pl'),
                     (int) ($config['authgatewayx_challenge_ttl_seconds'] ?? 120),
+                ),
+                new MinecraftMicrosoftProfileClient(
+                    new NativeMinecraftApiTransport(),
+                    (string) ($microsoft['client_id'] ?? ''),
+                    (string) ($microsoft['client_secret'] ?? ''),
+                    $publicUrl . '/account/minecraft/connect/callback',
+                ),
+                new OAuthStateStore(),
+                new OAuthAttemptLimiter(
+                    (int) ($services['auth_config']['oauth_window_seconds'] ?? 600),
+                    (int) ($services['auth_config']['oauth_start_limit'] ?? 10),
+                    (int) ($services['auth_config']['oauth_callback_limit'] ?? 20),
                 ),
                 filter_var($config['authgatewayx_local_self_service'] ?? false, FILTER_VALIDATE_BOOL),
             );
@@ -528,6 +550,18 @@ return [
             $services['audit'],
             dirname(__DIR__) . '/cache/minecraft-console',
             (int) ($services['config']['modules']['minecraft_console_upload_max_bytes'] ?? 47185920)
+        ),
+    ],
+    [
+        'directory' => 'ServerResourceMonitor',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): ServerResourceMonitorModule => new ServerResourceMonitorModule(
+            $services['theme'],
+            $services['admin_menu'],
+            new ServerResourceRepository($services['database']),
+            $services['auth'],
+            $services['security'],
+            $services['audit'],
         ),
     ],
     [
@@ -648,6 +682,12 @@ return [
                 new \SyntaxDevTeam\Cms\Modules\PluginManager\SpigotPluginCatalog(
                     $userAgent,
                     dirname(__DIR__) . '/cache/plugin-manager-spigot-plugins',
+                    $timeout,
+                    min($maxBytes, 67108864)
+                ),
+                new \SyntaxDevTeam\Cms\Modules\PluginManager\HangarPluginCatalog(
+                    $userAgent,
+                    dirname(__DIR__) . '/cache/plugin-manager-hangar-plugins',
                     $timeout,
                     min($maxBytes, 67108864)
                 ),
