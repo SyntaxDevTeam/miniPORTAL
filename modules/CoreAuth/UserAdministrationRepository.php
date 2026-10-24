@@ -307,6 +307,48 @@ final class UserAdministrationRepository
         }
     }
 
+    public function deleteAccount(int $userId, int $actorId): void
+    {
+        if ($userId < 1 || $this->database->count('users', ['id' => $userId]) !== 1) {
+            throw new RuntimeException('Nie znaleziono użytkownika.');
+        }
+        if ($userId === $actorId) {
+            throw new RuntimeException('Nie można usunąć własnego konta.');
+        }
+
+        $targetIsOwner = $this->hasRole($userId, 'owner');
+        $targetIsPrivileged = $this->hasRole($userId, 'administrator')
+            || $this->hasRole($userId, 'maintainer');
+        $actorIsOwner = $this->hasRole($actorId, 'owner');
+        $actorIsAdministrator = $this->hasRole($actorId, 'administrator');
+        if ($targetIsOwner && !$actorIsOwner) {
+            throw new RuntimeException('Tylko Owner może usunąć konto Ownera.');
+        }
+        if ($targetIsPrivileged && !$actorIsOwner && !$actorIsAdministrator) {
+            throw new RuntimeException('Tylko Owner lub Administrator może usunąć konto uprzywilejowane.');
+        }
+        if ($targetIsOwner && $this->isLastActiveOwner($userId)) {
+            throw new RuntimeException('Nie można usunąć ostatniego aktywnego Ownera.');
+        }
+
+        try {
+            $statement = $this->database->delete('users', ['id' => $userId]);
+            if ($statement === false || $statement->rowCount() !== 1) {
+                throw new RuntimeException('Nie udało się usunąć konta użytkownika.');
+            }
+        } catch (\PDOException $exception) {
+            if ((string) $exception->getCode() === '23000') {
+                throw new RuntimeException(
+                    'Konto ma powiązane treści, zamówienia lub inne dane wymagające zachowania. '
+                    . 'Najpierw przenieś te dane albo użyj procedury anonimizacji w module Prywatność kont.',
+                    0,
+                    $exception
+                );
+            }
+            throw $exception;
+        }
+    }
+
     /**
      * @param list<string> $permissions
      */

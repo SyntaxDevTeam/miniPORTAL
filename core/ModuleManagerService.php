@@ -153,6 +153,9 @@ final class ModuleManagerService
      */
     public function update(string $moduleId): array
     {
+        // Pakiet mógł zostać atomowo podmieniony po odczycie katalogu.
+        $this->manifestCache = null;
+        $this->moduleCache = null;
         $manifest = $this->manifest($moduleId);
         $this->assertLoadable($manifest);
         foreach ($manifest->requiredModules as $dependency) {
@@ -169,6 +172,9 @@ final class ModuleManagerService
      */
     public function refresh(string $moduleId): array
     {
+        // Pakiet mógł zostać atomowo podmieniony po odczycie katalogu.
+        $this->manifestCache = null;
+        $this->moduleCache = null;
         $manifest = $this->manifest($moduleId);
         $this->assertLoadable($manifest);
         foreach ($manifest->requiredModules as $dependency) {
@@ -221,7 +227,7 @@ final class ModuleManagerService
      */
     public function exportPackageTo(string $moduleId, string $targetDirectory): array
     {
-        if ($this->packageSigner === null) {
+        if (!$this->signsExportsAutomatically()) {
             throw new RuntimeException('Eksport modułów jest dostępny wyłącznie na skonfigurowanej instancji wydawniczej.');
         }
         $manifest = $this->manifest($moduleId);
@@ -242,7 +248,7 @@ final class ModuleManagerService
      */
     public function publishPackageTo(string $moduleId, string $targetDirectory): array
     {
-        if ($this->packageSigner === null) {
+        if (!$this->signsExportsAutomatically()) {
             throw new RuntimeException('Publikowanie modułów wymaga skonfigurowanego klucza wydawniczego.');
         }
         $manifest = $this->manifest($moduleId);
@@ -260,7 +266,10 @@ final class ModuleManagerService
 
     public function signsExportsAutomatically(): bool
     {
-        return $this->packageSigner !== null;
+        $root = dirname(rtrim($this->modulesPath, '/'));
+
+        return $this->packageSigner !== null
+            && (new PlatformReleasePublisher($root, $root . '/cache/platform-updates/publisher'))->available();
     }
 
     public function toggle(string $moduleId, bool $active): void

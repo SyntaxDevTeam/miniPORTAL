@@ -28,7 +28,6 @@ final class CoreAuthPolicyProvider implements AuthPolicyProviderInterface
         'modules.install',
         'modules.toggle',
         'modules.remove',
-        'itemshop.stores.manage',
     ];
 
     /** @var array<string, string> */

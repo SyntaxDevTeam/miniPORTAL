@@ -359,9 +359,12 @@ return [
             $services['audit'],
             new BuildArtifactStorage(
                 dirname(__DIR__) . '/cache/build-artifacts',
-                (int) ($services['config']['modules']['build_upload_max_bytes'] ?? 20971520)
+                (int) ($services['config']['modules']['build_upload_max_bytes'] ?? 47185920)
             ),
-            (string) ($services['config']['modules']['build_ci_token'] ?? '')
+            (string) ($services['config']['modules']['build_ci_token'] ?? ''),
+            \SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildCiPolicy::fromFile(
+                __DIR__ . '/modules/build-ci-projects.json'
+            )
         ),
     ],
     [
@@ -540,17 +543,23 @@ return [
     [
         'directory' => 'MinecraftConsole',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static fn (array $services): MinecraftConsoleModule => new MinecraftConsoleModule(
-            $services['theme'],
-            $services['admin_menu'],
-            new MinecraftConsoleRepository($services['database']),
-            $services['auth'],
-            $services['access'],
-            $services['security'],
-            $services['audit'],
-            dirname(__DIR__) . '/cache/minecraft-console',
-            (int) ($services['config']['modules']['minecraft_console_upload_max_bytes'] ?? 47185920)
-        ),
+        'factory' => static function (array $services): MinecraftConsoleModule {
+            $agentConfig = NodeAgentConfig::fromModuleConfig($services['config']['modules'] ?? []);
+
+            return new MinecraftConsoleModule(
+                $services['theme'],
+                $services['admin_menu'],
+                new MinecraftConsoleRepository($services['database']),
+                $services['auth'],
+                $services['access'],
+                $services['security'],
+                $services['audit'],
+                dirname(__DIR__) . '/cache/minecraft-console',
+                (int) ($services['config']['modules']['minecraft_console_upload_max_bytes'] ?? 47185920),
+                new UnixSocketNodeAgentClient($agentConfig),
+                $services['hooks']
+            );
+        },
     ],
     [
         'directory' => 'ServerResourceMonitor',
@@ -670,7 +679,7 @@ return [
                     new BuildRepository($services['database']),
                     new BuildArtifactStorage(
                         dirname(__DIR__) . '/cache/build-artifacts',
-                        (int) ($moduleConfig['build_upload_max_bytes'] ?? 20971520)
+                        (int) ($moduleConfig['build_upload_max_bytes'] ?? 47185920)
                     )
                 ),
                 new CommonPluginCatalog(

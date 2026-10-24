@@ -233,7 +233,7 @@ body.admin-stylebook {
 }
 
 .admin-preview {
-  min-height: 54rem;
+  min-height: 100vh;
   overflow: hidden;
   background: var(--mp-bg-deep);
   border: 1px solid var(--mp-border);
@@ -242,7 +242,7 @@ body.admin-stylebook {
 }
 
 .admin-shell {
-  min-height: 54rem;
+  min-height: 100vh;
   display: grid;
   grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
 }
@@ -612,6 +612,9 @@ body.admin-stylebook {
   background: var(--mp-surface);
   border: 1px solid var(--mp-border);
 }
+
+.admin-form-modal { z-index: 1200; }
+.admin-form-modal .modal-body { padding: 1.25rem; }
 
 .admin-filter-modal .modal-header,
 .admin-filter-modal .modal-footer {
@@ -1639,7 +1642,7 @@ body.admin-stylebook {
 
   .admin-preview,
   .admin-shell {
-    min-height: 48rem;
+    min-height: 100vh;
   }
 
   .admin-topbar {

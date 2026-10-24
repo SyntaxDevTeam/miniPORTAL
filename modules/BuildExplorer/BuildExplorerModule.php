@@ -43,10 +43,11 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         private readonly AuditLogService $audit,
         private readonly BuildArtifactStorage $storage,
         private readonly string $ciToken = '',
+        private readonly ?BuildCiPolicy $ciPolicy = null,
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '2.4.0'; }
+    public function version(): string { return '2.5.0'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -94,6 +95,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $this->audit,
             $this->storage,
             $this->ciToken,
+            $this->ciPolicy,
         ))->registerRoutes($router);
         $this->registerRetentionAdminRoutes($router);
 
@@ -179,7 +181,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             <button type="button" class="btn btn-sm btn-outline-light" data-build-download-close aria-label="Close">Close</button>
         </div>
         <div class="build-download-dialog__field">
-            <label for="build-download-platform">Server software</label>
+            <label for="build-download-platform">Platform</label>
             <select id="build-download-platform" disabled><option value="">Choose</option></select>
         </div>
         <div class="build-download-dialog__field" data-build-download-game-wrap>
@@ -388,6 +390,7 @@ HTML;
                 $build->serverType,
                 [
                     ['label' => 'File', 'value' => $build->filename],
+                    ['label' => 'Published', 'value' => $build->publishedAt ?? 'No date'],
                     ['label' => 'CI time', 'value' => $build->ciBuildTime ?? $build->publishedAt ?? 'None'],
                     ['label' => 'SHA-256', 'value' => $build->checksumSha256 ?: 'None'],
                     ['label' => 'Size', 'value' => $this->fileSize($build->fileSizeBytes)],

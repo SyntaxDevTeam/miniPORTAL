@@ -27,6 +27,7 @@ final class BuildExplorerV2Controller
         private readonly AuditLogService $audit,
         private readonly BuildArtifactStorage $storage,
         private readonly string $ciToken,
+        private readonly ?BuildCiPolicy $ciPolicy = null,
     ) {}
 
     public function registerRoutes(Router $router): void
@@ -64,7 +65,8 @@ final class BuildExplorerV2Controller
 
     private function importCi(Request $request, string $projectSlug): void
     {
-        if (!$this->authorized($request)) {
+        $policy = $this->ciPolicy?->authorize($request, $projectSlug);
+        if ($policy === null && !$this->authorized($request)) {
             $this->audit->record($request, 'build_v2_ci_import', 'denied', 'project:' . $projectSlug, null);
             $this->jsonResponse(401, ['error' => 'Invalid build token.']);
             return;
@@ -118,6 +120,9 @@ final class BuildExplorerV2Controller
                 $payload['compatible_platforms'] ?? [],
                 $platform
             );
+            if ($policy !== null && $compatiblePlatforms !== [$platform]) {
+                throw new \RuntimeException('Application artifacts cannot declare compatibility with other platforms.');
+            }
             if (!in_array($platformFamily, ['server', 'proxy', 'other'], true)) {
                 throw new \RuntimeException('Platform family must be server, proxy or other.');
             }
@@ -127,8 +132,15 @@ final class BuildExplorerV2Controller
             if (in_array($channel, ['dev', 'wip'], true) && $buildNumber === '') {
                 throw new \RuntimeException('DEV/WIP builds require build_number.');
             }
-            if (preg_match('/^[A-Za-z0-9._-]{1,251}\.jar$/i', $filename) !== 1) {
-                throw new \RuntimeException('Artifact filename must be a safe .jar basename.');
+            $extension = BuildCiPolicy::extension($filename);
+            if (strlen($filename) > 255 || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D', $filename) !== 1
+                || !in_array($extension, $policy['extensions'] ?? ['jar'], true)
+                || $extension !== BuildCiPolicy::extension($artifact['name'])) {
+                throw new \RuntimeException('Artifact filename or format is not permitted.');
+            }
+            if ($policy !== null && ($platformFamily !== 'other'
+                || preg_match('/^(windows|macos|linux)-(x64|arm64)$/D', $platform) !== 1)) {
+                throw new \RuntimeException('Application artifacts require an OS/architecture platform and family other.');
             }
             if ($commitSha !== '' && preg_match('/^[a-f0-9]{40}$/', $commitSha) !== 1) {
                 throw new \RuntimeException('commit_sha must be a full 40-character Git SHA.');
@@ -139,7 +151,7 @@ final class BuildExplorerV2Controller
 
             (new BuildRetentionService($this->builds, $this->storage))->prepareForUpload((int) $artifact['size']);
 
-            $stored = $this->storage->store($artifact);
+            $stored = $this->storage->store($artifact, $policy);
             $expectedChecksum = strtolower(trim((string) ($payload['sha256'] ?? $payload['checksum_sha256'] ?? '')));
             if ($expectedChecksum !== '' && (
                 preg_match('/^[a-f0-9]{64}$/', $expectedChecksum) !== 1
@@ -451,6 +463,7 @@ final class BuildExplorerV2Controller
                 ucfirst((string) $artifact['platform_family']),
                 [
                     ['label' => 'File', 'value' => (string) $artifact['filename']],
+                    ['label' => 'Published (UTC)', 'value' => (string) ($release['published_at'] ?? $release['ci_build_time'] ?? 'No date')],
                     ['label' => 'Minecraft', 'value' => $versions !== [] ? implode(', ', $versions) : 'Not applicable'],
                     ['label' => 'Java', 'value' => $artifact['java_version'] !== null ? (string) $artifact['java_version'] : 'Not specified'],
                     ['label' => 'Size', 'value' => $this->fileSize($artifact['file_size_bytes'] !== null ? (int) $artifact['file_size_bytes'] : null)],
@@ -531,7 +544,7 @@ final class BuildExplorerV2Controller
         ]);
         $fields = [
             ['name' => 'route', 'label' => 'Route', 'type' => 'hidden', 'value' => '/builds/' . $projectSlug . '/download'],
-            ['name' => 'platform', 'label' => 'Server software', 'type' => 'select', 'value' => $platform, 'options' => $this->labels($options['platforms'])],
+            ['name' => 'platform', 'label' => 'Platform', 'type' => 'select', 'value' => $platform, 'options' => $this->labels($options['platforms'])],
         ];
         if ($options['game_versions'] !== []) {
             $fields[] = ['name' => 'game_version', 'label' => 'Minecraft version', 'type' => 'select', 'value' => $gameVersion, 'options' => array_combine($options['game_versions'], $options['game_versions']) ?: []];
@@ -551,9 +564,10 @@ final class BuildExplorerV2Controller
         } else {
             $facts = [
                 ['label' => 'Platform', 'value' => ucfirst((string) $artifact['platform'])],
-                ['label' => 'Plugin version', 'value' => (string) $artifact['version_label']],
+                ['label' => 'Project version', 'value' => (string) $artifact['version_label']],
                 ['label' => 'Channel', 'value' => self::CHANNELS[(string) $artifact['channel']] ?? (string) $artifact['channel']],
                 ['label' => 'File', 'value' => (string) $artifact['filename']],
+                ['label' => 'Published (UTC)', 'value' => (string) ($artifact['published_at'] ?? 'No date')],
                 ['label' => 'SHA-256', 'value' => (string) $artifact['checksum_sha256']],
             ];
             if ($gameVersion !== '') {
@@ -594,7 +608,9 @@ final class BuildExplorerV2Controller
         }
         $path = $this->storage->path((string) ($artifact['storage_key'] ?? ''));
         if ($path !== null) {
-            DownloadResponse::send($path, (string) $artifact['filename'], 'application/java-archive', false);
+            DownloadResponse::send($path, (string) $artifact['filename'],
+                BuildCiPolicy::extension((string) $artifact['filename']) === 'jar' ? 'application/java-archive' : 'application/octet-stream',
+                (bool) $artifact['requires_auth']);
             return;
         }
         $url = trim((string) ($artifact['download_url'] ?? ''));

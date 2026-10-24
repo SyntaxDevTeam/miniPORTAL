@@ -1,0 +1,13 @@
+
+/* Template-owned SVG previews for the shop's closed icon choices. */
+.admin-option-grid:has(.admin-shop-icon-choice){grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.admin-shop-icon-choice{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 8px;gap:7px;min-width:0}
+.admin-shop-icon-choice strong{font-size:.72rem;line-height:1.4}
+.admin-shop-icon-choice p:empty{display:none}
+.admin-shop-icon-choice p{font-size:.65rem;margin:4px 0 0}
+.admin-shop-symbol{display:block;width:60px;height:60px;flex-shrink:0;color:#b8a6ca}
+.admin-shop-symbol svg{display:block;width:100%;height:100%}
+.admin-shop-icon-bronze{color:#c78e5f}.admin-shop-icon-silver{color:#c4d0e0}.admin-shop-icon-gold{color:#edc363}.admin-shop-icon-neon{color:#d17aff;filter:drop-shadow(0 0 7px #bd48ff60)}
+@media(max-width:600px){.admin-option-grid:has(.admin-shop-icon-choice){grid-template-columns:repeat(3,minmax(0,1fr))}.admin-shop-symbol{width:48px;height:48px}}
+.admin-shop-icon-choice:has(.admin-option-input:checked){border-color:#c686f3;background:#b569e51a;box-shadow:inset 0 0 0 1px #c686f340}
+.admin-shop-icon-choice:has(.admin-option-input:focus-visible){outline:3px solid #d1a4f3;outline-offset:3px}

@@ -42,7 +42,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     public function version(): string
     {
-        return '1.1.0';
+        return '1.2.0';
     }
 
     public function dependencies(): array
@@ -83,7 +83,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $router->get('/admin/wikipedia', fn (Request $request) => $this->guard(
             $request,
             'wikipedia.view',
-            fn () => $this->renderDashboard()
+            fn () => $this->renderDashboard(request: $request)
         ));
         $router->get('/admin/wikipedia/projects/create', fn (Request $request) => $this->guard(
             $request,
@@ -139,6 +139,11 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $request,
             'wikipedia.publish',
             fn () => $this->changePagePublication($request)
+        ));
+        $router->post('/admin/wikipedia/pages/visibility', fn (Request $request) => $this->guard(
+            $request,
+            'wikipedia.edit',
+            fn () => $this->changePagesVisibility($request)
         ));
         $router->post('/admin/wikipedia/pages/delete', fn (Request $request) => $this->guard(
             $request,
@@ -310,14 +315,25 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         }, ['wikipedia', 'wiki:project:' . $page->projectSlug, 'wiki:page:' . $page->projectSlug . ':' . $page->slug, 'theme']);
     }
 
-    private function renderDashboard(string $message = '', string $variant = 'info'): void
+    private function renderDashboard(string $message = '', string $variant = 'info', ?Request $request = null): void
     {
         $user = $this->auth->user();
         if ($user === null) {
             return;
         }
         $projects = $this->wiki->projects();
-        $pages = $this->wiki->pages();
+        $sessionKey = 'wiki_project_' . $user->id;
+        $selectedId = $request?->queryInt('project_id') ?? ($_SESSION[$sessionKey] ?? 0);
+        $selectedProject = null;
+        foreach ($projects as $project) {
+            if ($project->id === $selectedId) {
+                $selectedProject = $project;
+                break;
+            }
+        }
+        $selectedProject ??= $projects[0] ?? null;
+        $_SESSION[$sessionKey] = $selectedProject?->id ?? 0;
+        $pages = $selectedProject === null ? [] : $this->wiki->pages($selectedProject->id);
         $allows = $this->allows($user);
         $this->startAdminPage(
             $user,
@@ -330,6 +346,65 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         }
         $this->theme->render_button('Zobacz publiczną dokumentację', 'index.php?route=/wiki', 'outline-light');
 
+        $this->theme->render_tabs(array_map(static fn (WikiProject $project): array => [
+            'label' => $project->name,
+            'href' => 'index.php?route=/admin/wikipedia&project_id=' . $project->id,
+            'active' => $project->id === $selectedProject?->id,
+        ], $projects));
+        $this->theme->start_admin_panel($selectedProject?->name ?? 'Strony dokumentacji', count($pages) . ' stron');
+        if ($selectedProject !== null && $allows('wikipedia.create')) {
+            $this->theme->render_button('Dodaj stronę', 'index.php?route=/admin/wikipedia/pages/create&project_id=' . $selectedProject->id, 'primary');
+        }
+        if ($selectedProject?->requiresAuth) {
+            $this->theme->render_alert('Projekt jest dostępny po zalogowaniu. Ustawienie strony jako publicznej nie znosi ograniczenia projektu.', 'info');
+        }
+        $this->theme->render_admin_action_table(
+            ['Tytuł', 'Projekt', 'Slug', 'Status', 'Dostęp', 'Aktualizacja'],
+            array_map(fn (WikiPage $page): array => [
+                'selection_value' => $page->id,
+                'cells' => [
+                    $page->title,
+                    $page->projectName,
+                    $page->slug,
+                    $page->status === 'published' ? 'Opublikowana' : 'Szkic',
+                    $page->projectRequiresAuth
+                        ? 'Tylko zalogowani (projekt)'
+                        : ($page->requiresAuth ? 'Tylko zalogowani' : 'Publiczna'),
+                    $page->updatedAt,
+                ],
+                'actions' => array_values(array_filter([
+                    $allows('wikipedia.edit') ? [
+                        'label' => 'Edytuj',
+                        'href' => 'index.php?route=/admin/wikipedia/pages/edit&id=' . $page->id,
+                        'variant' => 'outline-light',
+                    ] : null,
+                    $allows('wikipedia.publish') ? [
+                        'label' => $page->status === 'published' ? 'Cofnij' : 'Publikuj',
+                        'action' => 'index.php?route=/admin/wikipedia/pages/publish',
+                        'fields' => ['id' => $page->id, 'action' => $page->status === 'published' ? 'draft' : 'publish'],
+                        'variant' => 'outline-primary',
+                    ] : null,
+                    $allows('wikipedia.delete') ? [
+                        'label' => 'Usuń',
+                        'action' => 'index.php?route=/admin/wikipedia/pages/delete',
+                        'fields' => ['id' => $page->id],
+                        'variant' => 'outline-danger',
+                    ] : null,
+                ])),
+            ], $pages),
+            $this->security->csrfToken(),
+            $allows('wikipedia.edit') && $selectedProject !== null ? [
+                'action' => 'index.php?route=/admin/wikipedia/pages/visibility&project_id=' . $selectedProject->id,
+                'label' => 'Zmień dostęp zaznaczonych',
+                'confirm' => 'Zmienić dostęp wszystkich zaznaczonych stron?',
+                'choice' => [
+                    'name' => 'visibility',
+                    'label' => 'Dostęp stron',
+                    'options' => ['public' => 'Publiczna', 'authenticated' => 'Po zalogowaniu'],
+                ],
+            ] : null
+        );
+        $this->theme->end_admin_panel();
         $this->theme->start_admin_panel('Projekty dokumentacji', count($projects) . ' rekordów');
         $this->theme->render_admin_action_table(
             ['Projekt', 'Slug', 'Status', 'Dostęp', 'Kolejność'],
@@ -371,43 +446,6 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         );
         $this->theme->end_admin_panel();
 
-        $this->theme->start_admin_panel('Strony dokumentacji', count($pages) . ' rekordów');
-        $this->theme->render_admin_action_table(
-            ['Tytuł', 'Projekt', 'Slug', 'Status', 'Dostęp', 'Aktualizacja'],
-            array_map(fn (WikiPage $page): array => [
-                'cells' => [
-                    $page->title,
-                    $page->projectName,
-                    $page->slug,
-                    $page->status === 'published' ? 'Opublikowana' : 'Szkic',
-                    $page->projectRequiresAuth
-                        ? 'Tylko zalogowani (projekt)'
-                        : ($page->requiresAuth ? 'Tylko zalogowani' : 'Publiczna'),
-                    $page->updatedAt,
-                ],
-                'actions' => array_values(array_filter([
-                    $allows('wikipedia.edit') ? [
-                        'label' => 'Edytuj',
-                        'href' => 'index.php?route=/admin/wikipedia/pages/edit&id=' . $page->id,
-                        'variant' => 'outline-light',
-                    ] : null,
-                    $allows('wikipedia.publish') ? [
-                        'label' => $page->status === 'published' ? 'Cofnij' : 'Publikuj',
-                        'action' => 'index.php?route=/admin/wikipedia/pages/publish',
-                        'fields' => ['id' => $page->id, 'action' => $page->status === 'published' ? 'draft' : 'publish'],
-                        'variant' => 'outline-primary',
-                    ] : null,
-                    $allows('wikipedia.delete') ? [
-                        'label' => 'Usuń',
-                        'action' => 'index.php?route=/admin/wikipedia/pages/delete',
-                        'fields' => ['id' => $page->id],
-                        'variant' => 'outline-danger',
-                    ] : null,
-                ])),
-            ], $pages),
-            $this->security->csrfToken()
-        );
-        $this->theme->end_admin_panel();
         $this->endAdminPage();
     }
 
@@ -642,6 +680,34 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $this->invalidateWikiCache($page->projectSlug, $page->slug, $updated?->projectSlug, $updated?->slug);
         $this->audit->record($request, 'wiki_page_update', 'success', null, $this->auth->user()?->id);
         header('Location: index.php?route=/admin/wikipedia/pages/edit&id=' . $id, true, 303);
+    }
+
+    private function changePagesVisibility(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'wiki_pages_visibility')) {
+            return;
+        }
+        $projectId = $request->queryInt('project_id') ?? 0;
+        $visibility = $request->postString('visibility');
+        $ids = [];
+        $rawIds = $request->postArray('ids');
+        foreach ($rawIds as $value) {
+            if (!is_scalar($value) || filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                $this->renderDashboard('Nieprawidłowy wybór stron.', 'warning', $request);
+                return;
+            }
+            $ids[] = (int) $value;
+        }
+        $ids = array_values(array_unique($ids));
+        if ($ids === [] || count($ids) > 500 || !in_array($visibility, ['public', 'authenticated'], true)
+            || $this->wiki->findProject($projectId) === null) {
+            $this->renderDashboard('Wybierz strony i prawidłowy dostęp (maksymalnie 500 stron).', 'warning', $request);
+            return;
+        }
+        $changed = $this->wiki->setPagesVisibility($projectId, $ids, $visibility === 'authenticated');
+        $this->invalidateWikiCache();
+        $this->audit->record($request, 'wiki_pages_visibility', $visibility . ':' . $changed, null, $this->auth->user()?->id);
+        $this->renderDashboard('Zmieniono dostęp stron: ' . $changed . '.', 'success', $request);
     }
 
     private function changePagePublication(Request $request): void

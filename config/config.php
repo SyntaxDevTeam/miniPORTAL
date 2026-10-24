@@ -68,7 +68,7 @@ return [
     ],
     'app' => [
         'name' => (string) $env('APP_NAME', 'miniPORTAL'),
-        'version' => '0.12.3',
+        'version' => '0.13.2',
         'debug' => $envBool('APP_DEBUG', false),
         'timezone' => (string) $env('APP_TIMEZONE', 'Europe/Warsaw'),
         'request_max_body_bytes' => $envInt('REQUEST_MAX_BODY_BYTES', 1048576, 1024),
@@ -149,7 +149,7 @@ return [
             'https://syntaxdevteam.pl/api/module-updates/catalog'
         )),
         'update_catalog_ttl' => $envInt('MODULE_UPDATE_CATALOG_TTL', 900, 1),
-        'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 20971520, 1024),
+        'build_upload_max_bytes' => $envInt('BUILD_UPLOAD_MAX_BYTES', 47185920, 1024),
         'media_upload_max_bytes' => $envInt('MEDIA_UPLOAD_MAX_BYTES', 5242880, 1024),
         'minecraft_console_upload_max_bytes' => $envInt('MINECRAFT_CONSOLE_UPLOAD_MAX_BYTES', 47185920, 1024),
         'authgatewayx_local_self_service' => $envBool('AUTHGATEWAYX_LOCAL_SELF_SERVICE', false),
@@ -265,7 +265,7 @@ return [
         'remote_terminal_require_secure_request' => $envBool('REMOTE_TERMINAL_REQUIRE_HTTPS', true),
         'node_agent_socket' => trim((string) $env(
             'NODE_AGENT_SOCKET',
-            '/run/syntaxcraft-agent/agent.sock'
+            '/run/miniportal-node-agent/agent.sock'
         )),
         'node_agent_connect_timeout_ms' => $envInt('NODE_AGENT_CONNECT_TIMEOUT_MS', 500, 50),
         'node_agent_request_timeout_ms' => $envInt('NODE_AGENT_REQUEST_TIMEOUT_MS', 3000, 100),

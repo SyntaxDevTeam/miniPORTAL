@@ -39,7 +39,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     public function version(): string
     {
-        return '1.9.3';
+        return '1.11.1';
     }
 
     public function dependencies(): array
@@ -105,6 +105,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     public function registerRoutes(Router $router): void
     {
         $router->get('/admin/login', fn (Request $request) => $this->renderLogin($request));
+        $router->get('/account', fn () => $this->redirectToAccountHome());
         $router->get('/admin/account-pending', fn () => $this->renderPendingAccount());
         $router->get('/account/registration', fn () => $this->renderRegistration());
         $router->post('/account/registration', fn (Request $request) => $this->acceptRegistration($request));
@@ -134,6 +135,11 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             $request,
             'users.manage',
             fn () => $this->acceptUser($request)
+        ));
+        $router->post('/admin/users/delete', fn (Request $request) => $this->guard(
+            $request,
+            'users.manage',
+            fn () => $this->deleteUser($request)
         ));
         $router->get('/admin/roles', fn (Request $request) => $this->guard(
             $request,
@@ -185,7 +191,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     private function renderLogin(?Request $request = null, string $message = '', string $variant = 'info'): void
     {
         if ($request !== null) {
-            $this->rememberAfterLoginRedirect($request->queryString('next'));
+            $this->rememberLoginRequestTarget($request);
         }
         $user = $this->auth->user();
         if ($user !== null) {
@@ -250,6 +256,27 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             '/',
             'Przejdź do strony głównej'
         );
+    }
+
+    private function redirectToAccountHome(): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            header('Location: index.php?route=/admin/login&next=%2Faccount', true, 303);
+            return;
+        }
+        if (!$user->isActive()) {
+            header('Location: index.php?route=/admin/account-pending', true, 303);
+            return;
+        }
+
+        header('Location: ' . $this->accountHomePath($user), true, 303);
+    }
+
+    private function accountHomePath(User $user): string
+    {
+        $target = $this->menu->firstVisiblePath($user->permissions, '/');
+        return $target === '/account' ? '/' : $target;
     }
 
     private function renderRegistration(string $message = '', string $variant = 'info'): void
@@ -460,6 +487,13 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                             'variant' => 'primary',
                             'confirm' => 'Aktywować konto oczekującego użytkownika?',
                         ] : null,
+                        $record->id !== $user->id ? [
+                            'label' => 'Usuń',
+                            'action' => 'index.php?route=/admin/users/delete',
+                            'fields' => ['id' => $record->id],
+                            'variant' => 'danger',
+                            'confirm' => 'Trwale usunąć konto użytkownika „' . $record->displayName . '”? Tej operacji nie można cofnąć.',
+                        ] : null,
                     ])) : [],
                 ],
                 $records
@@ -644,6 +678,30 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             $this->renderUsers('Konto zostało zaakceptowane i aktywowane.', 'success');
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'user_accept', 'failed', null, $actor->id);
+            $this->renderUsers($exception->getMessage(), 'danger');
+        }
+    }
+
+    private function deleteUser(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if ($actor === null || $this->userAdministration === null) {
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'user_delete', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderUsers('Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+
+        $userId = $request->postInt('id') ?? 0;
+        try {
+            $this->userAdministration->deleteAccount($userId, $actor->id);
+            $this->audit->record($request, 'user_delete', 'success', 'target:' . $userId, $actor->id);
+            $this->renderUsers('Konto użytkownika zostało trwale usunięte.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'user_delete', 'failed', 'target:' . $userId, $actor->id);
             $this->renderUsers($exception->getMessage(), 'danger');
         }
     }
@@ -970,7 +1028,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     private function startProviderLogin(Request $request, string $name, string $purpose = 'login'): void
     {
-        $this->rememberAfterLoginRedirect($request->queryString('next'));
+        $this->rememberLoginRequestTarget($request);
         $provider = $this->providers->get($name);
         $user = $this->auth->user();
 
@@ -1135,6 +1193,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     private function consumeAfterLoginRedirect(User $user): string
     {
+        AuthPolicyRuntime::applyLoginRedirectPolicy();
         $redirect = $_SESSION['_miniportal_after_login'] ?? '';
         unset($_SESSION['_miniportal_after_login']);
         if (!is_string($redirect) || trim($redirect) === '') {
@@ -1146,6 +1205,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     private function consumeRegistrationRedirect(User $user): string
     {
+        AuthPolicyRuntime::applyLoginRedirectPolicy();
         $redirect = $_SESSION['_miniportal_after_login'] ?? '';
         unset($_SESSION['_miniportal_after_login']);
         if (!is_string($redirect) || trim($redirect) === '') {
@@ -1170,33 +1230,46 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             : $redirect;
     }
 
+    private function rememberLoginRequestTarget(Request $request): void
+    {
+        $explicit = $request->queryString('next');
+        if ($explicit !== '') {
+            $this->rememberAfterLoginRedirect($explicit);
+            return;
+        }
+        $referer = parse_url($request->header('Referer'));
+        if (!is_array($referer)
+            || $request->host() === ''
+            || strtolower((string) ($referer['host'] ?? '')) !== $request->host()
+            || ($referer['scheme'] ?? '') !== ($request->isSecure() ? 'https' : 'http')
+            || isset($referer['user']) || isset($referer['pass'])
+        ) {
+            return;
+        }
+        $path = (string) ($referer['path'] ?? '/');
+        if ($path === '/index.php') {
+            parse_str((string) ($referer['query'] ?? ''), $query);
+            $route = $query['route'] ?? '/';
+            if (!is_string($route) || AuthPolicyRuntime::normalizeLocalRedirect($route) === null) {
+                return;
+            }
+        }
+        $this->rememberAfterLoginRedirect(
+            $path . (isset($referer['query']) ? '?' . $referer['query'] : '')
+        );
+    }
+
     private function rememberAfterLoginRedirect(string $redirect): void
     {
-        $redirect = $this->normalizeAfterLoginRedirect($redirect);
-        if ($redirect !== 'index.php?route=/admin') {
+        $redirect = AuthPolicyRuntime::normalizeLocalRedirect($redirect);
+        if ($redirect !== null) {
             $_SESSION['_miniportal_after_login'] = $redirect;
         }
     }
 
     private function normalizeAfterLoginRedirect(string $redirect): string
     {
-        $redirect = trim($redirect);
-        if ($redirect === ''
-            || str_contains($redirect, "\r")
-            || str_contains($redirect, "\n")
-            || str_starts_with($redirect, '//')
-            || str_contains($redirect, '\\')
-        ) {
-            return 'index.php?route=/admin';
-        }
-        if (str_starts_with($redirect, 'index.php?route=/')) {
-            return $redirect;
-        }
-        if (str_starts_with($redirect, '/') && !str_starts_with($redirect, '/admin/auth/') && $redirect !== '/admin/login') {
-            return $redirect;
-        }
-
-        return 'index.php?route=/admin';
+        return AuthPolicyRuntime::normalizeLocalRedirect($redirect) ?? 'index.php?route=/admin';
     }
 
     private function isAdminRedirect(string $redirect): bool
@@ -1415,7 +1488,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             $status === 401
                 ? 'Ta trasa wymaga aktywnej sesji.'
                 : "Twoje konto nie posiada uprawnienia {$permission}.",
-            $status === 401 ? 'index.php?route=/admin/login' : 'index.php?route=/admin',
+            $status === 401 ? 'index.php?route=/admin/login&next=' . rawurlencode($request->path()) : 'index.php?route=/admin',
             $status === 401 ? 'Przejdź do logowania' : 'Wróć do dashboardu'
         );
     }

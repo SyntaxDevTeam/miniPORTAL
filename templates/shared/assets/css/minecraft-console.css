@@ -151,6 +151,7 @@
 .minecraft-files__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
 .minecraft-files__tool { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 36px; padding: .4rem .65rem; font-size: .74rem; }
 .minecraft-files__tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.minecraft-files__path svg { display: block; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .minecraft-file-list { overflow: visible; border: 1px solid #2a3340; border-radius: 11px; background: #151a22; }
 .minecraft-file-list__header, .minecraft-file-row { display: grid; grid-template-columns: minmax(260px, 1fr) 100px 160px 96px; align-items: center; gap: 0; }
 .minecraft-file-list__header { min-height: 38px; border-bottom: 1px solid #344052; color: #8490a4; background: #12171e; font-size: .64rem; font-weight: 800; letter-spacing: .055em; text-transform: uppercase; }
@@ -200,6 +201,14 @@
 .minecraft-code-editor__status { color: #6f8197; font-size: .7rem; font-weight: 700; }
 .minecraft-code-editor__status.is-dirty { color: #ffbf4a; }
 .minecraft-code-editor__shortcut { margin-left: .35rem; opacity: .68; font: .65rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.minecraft-code-editor__search-toggle { white-space: nowrap; }
+.minecraft-code-editor__search { display: flex; align-items: center; gap: .45rem; padding: .55rem .8rem; border-bottom: 1px solid #28303c; background: #10161e; }
+.minecraft-code-editor__search[hidden] { display: none !important; }
+.minecraft-code-editor__search .form-control { min-width: 0; flex: 1 1 280px; color: #dce6f3; border-color: #344052; background: #0d1117; }
+.minecraft-code-editor__search .form-control:focus { border-color: #3e91a3; box-shadow: 0 0 0 .15rem rgba(85, 202, 229, .12); }
+.minecraft-code-editor__search-count { flex: none; min-width: 72px; color: #8490a4; text-align: center; font: .68rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.minecraft-code-editor__search .btn { flex: none; min-width: 34px; }
+
 .minecraft-code-editor__surface { display: grid; grid-template-columns: auto minmax(0, 1fr); min-height: 520px; height: min(68vh, 780px); overflow: hidden; background: #0d1117; }
 .minecraft-code-editor__lines { width: max-content; min-width: 3.25rem; height: 100%; margin: 0; padding: .85rem .7rem; overflow: hidden; border-right: 1px solid #252e3a; color: #586779; background: #0a0e14; text-align: right; user-select: none; font: .8rem/1.25rem ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
 .minecraft-code-editor__viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #0d1117; }
@@ -209,6 +218,41 @@
 .minecraft-code-editor__surface.has-syntax-highlighting .minecraft-code-editor__input { color: transparent; background: transparent; -webkit-text-fill-color: transparent; }
 .minecraft-code-editor__highlight { position: absolute; z-index: 1; inset: 0; display: none; overflow: hidden; color: #d9e2ef; background: #0d1117; pointer-events: none; }
 .minecraft-code-editor__surface.has-syntax-highlighting .minecraft-code-editor__highlight { display: block; }
+.minecraft-code-editor__surface.has-codemirror-editor { grid-template-columns: minmax(0, 1fr); }
+.minecraft-code-editor__surface.has-codemirror-editor .minecraft-code-editor__lines,
+.minecraft-code-editor__surface.has-codemirror-editor .minecraft-code-editor__input,
+.minecraft-code-editor__surface.has-codemirror-editor .minecraft-code-editor__highlight { display: none !important; }
+.minecraft-code-editor__surface.has-codemirror-editor .minecraft-code-editor__viewport { grid-column: 1 / -1; }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  color: #d9e2ef;
+  background: #0d1117;
+  font: .8rem/1.25rem ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-variant-ligatures: none;
+  letter-spacing: 0;
+}
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-scroll { min-height: 100%; }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-gutters {
+  border-right: 1px solid #252e3a;
+  background: #0a0e14;
+}
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-linenumber { color: #586779; }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-cursor { border-left-color: #55d7ee; }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-selected { background: rgba(85, 215, 238, .2); }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-focused .CodeMirror-selected { background: rgba(85, 215, 238, .24); }
+.minecraft-code-editor__surface.has-codemirror-editor .CodeMirror-activeline-background { background: rgba(85, 215, 238, .035); }
+.minecraft-code-editor__surface.has-codemirror-editor .cm-comment { color: #708197; }
+.minecraft-code-editor__surface.has-codemirror-editor .cm-string,
+.minecraft-code-editor__surface.has-codemirror-editor .cm-string-2 { color: #a7e3a1; }
+.minecraft-code-editor__surface.has-codemirror-editor .cm-number { color: #c4a7ff; }
+.minecraft-code-editor__surface.has-codemirror-editor .cm-atom,
+.minecraft-code-editor__surface.has-codemirror-editor .cm-keyword { color: #ff9f7c; }
+.minecraft-code-editor__surface.has-codemirror-editor .cm-meta,
+.minecraft-code-editor__surface.has-codemirror-editor .cm-def,
+.minecraft-code-editor__surface.has-codemirror-editor .cm-property { color: #7dd3fc; }
 .minecraft-yaml-token--key { color: #7dd3fc; }
 .minecraft-yaml-token--string { color: #a7e3a1; }
 .minecraft-yaml-token--number { color: #c4a7ff; }
@@ -278,9 +322,18 @@
   .minecraft-file-time { display: none; }
   .minecraft-file-actions { padding: .4rem .65rem; }
   .minecraft-code-editor__toolbar { align-items: stretch; flex-direction: column; }
-  .minecraft-code-editor__actions { justify-content: space-between; }
+  .minecraft-code-editor__actions { justify-content: space-between; flex-wrap: wrap; }
+  .minecraft-code-editor__search { flex-wrap: wrap; }
+  .minecraft-code-editor__search .form-control { flex-basis: 100%; }
+  .minecraft-code-editor__search-count { margin-right: auto; text-align: left; }
   .minecraft-code-editor__surface { min-height: 400px; height: 58vh; }
   .minecraft-code-editor__shortcut { display: none; }
   .minecraft-code-editor__footer { align-items: flex-start; flex-direction: column; gap: .25rem; }
   .minecraft-code-editor__validation { margin-left: 0; }
 }
+
+/* Logger severity remains visible even when a plugin supplies its own ANSI color. */
+.minecraft-console__line--error,
+.minecraft-console__line--error span { color: #ff8794 !important; }
+.minecraft-console__line--warning,
+.minecraft-console__line--warning span { color: #ffd166 !important; }

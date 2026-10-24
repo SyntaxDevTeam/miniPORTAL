@@ -78,6 +78,7 @@ final class Theme implements ThemeInterface
     private bool $publicAuthenticated = false;
 
     private bool $publicStandalone = false;
+    private string $storefrontColorScheme = 'light';
 
     private array $publicStandaloneNavigation = [];
 
@@ -164,9 +165,10 @@ final class Theme implements ThemeInterface
         $this->publicAuthenticated = $authenticated;
     }
 
-    public function set_public_standalone(bool $standalone = true): void
+    public function set_public_standalone(bool $standalone = true, string $colorScheme = 'light'): void
     {
         $this->publicStandalone = $standalone;
+        $this->storefrontColorScheme = $colorScheme === 'dark' ? 'dark' : 'light';
     }
 
     public function set_public_standalone_navigation(array $items): void
@@ -217,15 +219,14 @@ final class Theme implements ThemeInterface
         }
         echo '<title>' . $this->escape($pageTitle) . '</title>';
         $this->renderBrandHead($pageTitle, $this->publicMetaDescription);
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/syntaxcraft.css') . '">';
         $this->renderPrivacyStyles();
         echo '</head>';
-        echo '<body class="syntaxcraft-theme" hx-boost="true" hx-target="#content" hx-select="#content" ';
-        echo 'hx-swap="innerHTML show:window:top" hx-push-url="true">';
+        echo '<body class="syntaxcraft-theme">';
         echo '<div class="site-grid" aria-hidden="true"></div><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($pages, $authenticated, $sections, true);
         echo '<main id="content" tabindex="-1">';
@@ -244,8 +245,7 @@ final class Theme implements ThemeInterface
         echo '</main>';
         $this->renderPublicFooter($pages);
         $this->renderPrivacyNotice($pages);
-        echo '<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" crossorigin="anonymous"></script>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
         $this->renderFastStatsScript(true);
@@ -276,7 +276,7 @@ final class Theme implements ThemeInterface
                 $contactSection = $section;
                 continue;
             }
-            echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($section['key']) . '">';
+            echo '<li class="nav-item"><a class="nav-link" hx-boost="false" href="#' . $this->escape($section['key']) . '">';
             echo $this->escape($this->navigationLabel($section)) . '</a></li>';
         }
         foreach ($pages as $page) {
@@ -285,17 +285,17 @@ final class Theme implements ThemeInterface
             }
             $href = $this->navigationHref($page);
             echo '<li class="nav-item"><a class="nav-link" href="' . $this->escape($href) . '"';
-            echo $this->publicStandalone ? ' hx-boost="false"' : '';
+            echo ($this->publicStandalone || str_contains($href, '#')) ? ' hx-boost="false"' : '';
             echo (($page['active'] ?? false) === true || $this->isCurrentPublicHref($href)) ? ' aria-current="page"' : '';
             echo '>';
             echo $this->escape($page['navigation_label'] !== '' ? $page['navigation_label'] : $page['title']);
             echo '</a></li>';
         }
         if ($contactSection !== null) {
-            echo '<li class="nav-item"><a class="nav-link" href="#' . $this->escape($contactSection['key']) . '">';
+            echo '<li class="nav-item"><a class="nav-link" hx-boost="false" href="#' . $this->escape($contactSection['key']) . '">';
             echo $this->escape($this->navigationLabel($contactSection)) . '</a></li>';
         } elseif (!$this->publicStandalone) {
-            echo '<li class="nav-item"><a class="nav-link" href="/#contact">Kontakt</a></li>';
+            echo '<li class="nav-item"><a class="nav-link" hx-boost="false" href="/#contact">Kontakt</a></li>';
         }
         if (!$this->publicStandalone && in_array('header', $this->authEntryLocations, true)) {
             echo '<li class="nav-item ms-lg-2"><a class="btn btn-sm btn-outline-light" hx-boost="false" href="';
@@ -423,14 +423,17 @@ final class Theme implements ThemeInterface
         }
         echo '<title>' . $this->escape($pageTitle) . '</title>';
         $this->renderBrandHead($pageTitle, $metaDescription, $indexable);
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/homepage.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/syntaxcraft.css') . '">';
         $this->renderPrivacyStyles();
-        echo '</head><body class="syntaxcraft-theme" hx-boost="true" hx-target="#content" hx-select="#content" ';
-        echo 'hx-swap="innerHTML show:window:top" hx-push-url="true"><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
+        if ($this->publicStandalone) {
+            $version = filemtime(dirname(__DIR__) . '/shared/assets/css/storefront.css');
+            echo '<link rel="stylesheet" href="/templates/shared/assets/css/storefront.css?v=' . $version . '">';
+        }
+        echo '</head><body' . ($this->publicStandalone ? ' data-storefront="' . $this->storefrontColorScheme . '"' : '') . ' class="syntaxcraft-theme"><a class="visually-hidden-focusable skip-link" href="#content">Skip to content</a>';
         $this->renderPublicNavbar($this->publicNavigation, $this->publicAuthenticated);
         echo '<main id="content" tabindex="-1">';
     }
@@ -440,8 +443,7 @@ final class Theme implements ThemeInterface
         echo '</main>';
         $this->renderPublicFooter($this->publicNavigation);
         $this->renderPrivacyNotice($this->publicNavigation);
-        echo '<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" crossorigin="anonymous"></script>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
         $this->renderFastStatsScript($this->currentPageIndexable);
@@ -480,6 +482,26 @@ final class Theme implements ThemeInterface
     public function end_header(): void
     {
         echo '</div></header>';
+    }
+
+    public function render_storefront_header(string $name, string $description, string $eyebrow, string $logoUrl, string $bannerUrl): void
+    {
+        $logoUrl = $this->safeHref($logoUrl);
+        $bannerUrl = $this->safeHref($bannerUrl);
+        echo '<header class="storefront-hero' . ($bannerUrl !== '' ? ' has-banner' : '') . '">';
+        if ($bannerUrl !== '') {
+            echo '<img class="storefront-hero-banner" src="' . $this->escape($bannerUrl) . '" alt="" fetchpriority="high">';
+        }
+        echo '<div class="storefront-hero-shade" aria-hidden="true"></div><div class="container storefront-hero-content">';
+        if ($logoUrl !== '') {
+            echo '<img class="storefront-hero-logo" src="' . $this->escape($logoUrl) . '" alt="Logo ' . $this->escape($name) . '">';
+        }
+        echo '<div class="storefront-hero-copy"><p class="eyebrow mb-2">' . $this->escape($eyebrow) . '</p>';
+        echo '<h1>' . $this->escape($name) . '</h1>';
+        if ($description !== '') {
+            echo '<p>' . $this->escape($description) . '</p>';
+        }
+        echo '</div></div></header>';
     }
 
     public function start_section(): void
@@ -556,8 +578,10 @@ final class Theme implements ThemeInterface
     public function render_button(string $label, string $href, string $variant = 'primary'): void
     {
         $variant = $this->buttonVariant($variant);
-        $fullPageNavigation = str_starts_with($href, '/admin')
-            || str_starts_with($href, 'index.php?route=/admin');
+        $fullPageNavigation = $this->publicStandalone
+            || str_starts_with($href, '/admin')
+            || str_starts_with($href, 'index.php?route=/admin')
+            || str_contains($href, '#');
 
         echo '<a class="btn btn-' . $variant . '" href="' . $this->escape($href) . '"'
             . ($fullPageNavigation ? ' hx-boost="false"' : '') . '>';
@@ -1008,6 +1032,7 @@ final class Theme implements ThemeInterface
         $hasFile = array_any($fields, static fn (array $field): bool => ($field['type'] ?? '') === 'file');
         $formClass = $fields === [] ? 'showcase-card form-action-only' : 'showcase-card';
         echo '<form class="' . $formClass . '" action="' . $this->escape($action) . '" method="' . $method . '"';
+        echo $this->publicStandalone ? ' hx-boost="false"' : '';
         echo $hasFile ? ' enctype="multipart/form-data"' : '';
         echo '>';
 
@@ -1017,11 +1042,12 @@ final class Theme implements ThemeInterface
 
         foreach ($fields as $field) {
             $name = $this->escape($field['name']);
+            $fieldId = $this->escape((string) ($field['id'] ?? $field['name']));
             $label = $this->escape((string) ($field['label'] ?? ''));
             $type = $field['type'] ?? 'text';
             $rawValue = (string) ($field['value'] ?? '');
             $value = $this->escape($rawValue);
-            $helpId = $name . '-help';
+            $helpId = $fieldId . '-help';
             $controlAttributes = ($field['required'] ?? false) ? ' required' : '';
             if (isset($field['maxlength'])) {
                 $controlAttributes .= ' maxlength="' . max(1, min(10000, (int) $field['maxlength'])) . '"';
@@ -1047,8 +1073,8 @@ final class Theme implements ThemeInterface
                 $checked = ($field['checked'] ?? false) ? ' checked' : '';
                 $switchClass = $type === 'switch' ? ' form-switch' : '';
                 echo '<div class="form-check' . $switchClass . ' mb-3">';
-                echo '<input class="form-check-input" id="' . $name . '" name="' . $name . '" type="checkbox" value="1"' . $checked . $controlAttributes . '>';
-                echo '<label class="form-check-label" for="' . $name . '">' . $label . $helpBadge . '</label>';
+                echo '<input class="form-check-input" id="' . $fieldId . '" name="' . $name . '" type="checkbox" value="1"' . $checked . $controlAttributes . '>';
+                echo '<label class="form-check-label" for="' . $fieldId . '">' . $label . $helpBadge . '</label>';
                 if (($field['help'] ?? '') !== '') {
                     echo '<div class="form-text" id="' . $helpId . '">' . $this->escape((string) $field['help']) . '</div>';
                 }
@@ -1058,9 +1084,9 @@ final class Theme implements ThemeInterface
 
             echo '<div class="mb-3">';
             if (in_array($type, ['richtext', 'checkbox_groups', 'option_cards', 'plugin_build_picker'], true)) {
-                echo '<span class="form-label" id="' . $name . '-label">' . $label . $helpBadge . '</span>';
+                echo '<span class="form-label" id="' . $fieldId . '-label">' . $label . $helpBadge . '</span>';
             } else {
-                echo '<label class="form-label" for="' . $name . '">' . $label . $helpBadge . '</label>';
+                echo '<label class="form-label" for="' . $fieldId . '">' . $label . $helpBadge . '</label>';
             }
 
             if ($type === 'richtext') {
@@ -1112,15 +1138,15 @@ final class Theme implements ThemeInterface
                     echo '<option value="' . $optionValue . '"' . ($optionValue === 'none' ? ' selected' : '') . '>' . $optionLabel . '</option>';
                 }
                 echo '</select></label><label class="richtext-image-width">Szerokość <input class="form-control form-control-sm" type="text" value="24rem" placeholder="np. 12rem albo 320px" data-richtext-image-width>';
-                echo '</label></div><div class="richtext-surface form-control" id="' . $name . '-editor" contenteditable="true" ';
-                echo 'data-richtext-surface aria-labelledby="' . $name . '-label"';
+                echo '</label></div><div class="richtext-surface form-control" id="' . $fieldId . '-editor" contenteditable="true" ';
+                echo 'data-richtext-surface aria-labelledby="' . $fieldId . '-label"';
                 echo $format === ContentRenderer::MARKDOWN ? ' hidden' : '';
                 echo '>' . $safeValue . '</div>';
                 echo '<textarea class="richtext-markdown form-control" data-richtext-markdown rows="18" ';
-                echo 'aria-labelledby="' . $name . '-label"' . ($format === ContentRenderer::HTML ? ' hidden' : '') . '>';
+                echo 'aria-labelledby="' . $fieldId . '-label"' . ($format === ContentRenderer::HTML ? ' hidden' : '') . '>';
                 echo $format === ContentRenderer::MARKDOWN ? $value : '';
                 echo '</textarea>';
-                echo '<textarea class="visually-hidden" id="' . $name . '" name="' . $name . '" data-richtext-input>';
+                echo '<textarea class="visually-hidden" id="' . $fieldId . '" name="' . $name . '" data-richtext-input>';
                 echo $value . '</textarea>';
                 echo '<p class="form-text mb-0 mt-2" data-richtext-hint>';
                 echo $format === ContentRenderer::MARKDOWN
@@ -1129,11 +1155,11 @@ final class Theme implements ThemeInterface
                 echo '</p></div>';
             } elseif ($type === 'textarea') {
                 $rows = max(2, min(20, (int) ($field['rows'] ?? 5)));
-                echo '<textarea class="form-control" id="' . $name . '" name="' . $name . '" rows="' . $rows . '"';
+                echo '<textarea class="form-control" id="' . $fieldId . '" name="' . $name . '" rows="' . $rows . '"';
                 echo $controlAttributes . '>';
                 echo $value . '</textarea>';
             } elseif ($type === 'select') {
-                echo '<select class="form-select" id="' . $name . '" name="' . $name . '"' . $controlAttributes . '>';
+                echo '<select class="form-select" id="' . $fieldId . '" name="' . $name . '"' . $controlAttributes . '>';
                 foreach ($field['groups'] ?? [] as $groupLabel => $groupOptions) {
                     echo '<optgroup label="' . $this->escape((string) $groupLabel) . '">';
                     foreach ($groupOptions as $optionValue => $optionLabel) {
@@ -1150,13 +1176,13 @@ final class Theme implements ThemeInterface
                 }
                 echo '</select>';
             } elseif ($type === 'option_cards') {
-                echo '<div class="admin-option-grid admin-option-grid-form" role="radiogroup" aria-labelledby="' . $name . '-label">';
+                echo '<div class="admin-option-grid admin-option-grid-form" role="radiogroup" aria-labelledby="' . $fieldId . '-label">';
                 foreach ($field['cards'] ?? [] as $option) {
                     $key = (string) ($option['key'] ?? '');
                     if ($key === '') {
                         continue;
                     }
-                    $optionId = $name . '-' . substr(hash('sha256', $key), 0, 10);
+                    $optionId = $fieldId . '-' . substr(hash('sha256', $key), 0, 10);
                     $preview = preg_replace('/[^a-z0-9_-]/i', '', (string) ($option['preview'] ?? 'default')) ?: 'default';
                     $checked = $key === $rawValue ? ' checked' : '';
                     echo '<label class="admin-option-card admin-option-choice" for="' . $optionId . '">';
@@ -1171,7 +1197,7 @@ final class Theme implements ThemeInterface
                 echo '</div>';
             } elseif ($type === 'plugin_build_picker') {
                 $catalog = is_array($field['catalog'] ?? null) ? $field['catalog'] : [];
-                echo '<div class="plugin-build-picker" data-plugin-build-picker aria-labelledby="' . $name . '-label">';
+                echo '<div class="plugin-build-picker" data-plugin-build-picker aria-labelledby="' . $fieldId . '-label">';
                 if ($catalog === []) {
                     echo '<p class="form-text mb-0">Brak lokalnych buildów pluginów SyntaxDevTeam.</p>';
                 }
@@ -1202,7 +1228,7 @@ final class Theme implements ThemeInterface
             } elseif ($type === 'multiselect') {
                 $selectedValues = array_map('strval', $field['values'] ?? []);
                 $size = max(3, min(12, count($field['options'] ?? [])));
-                echo '<select class="form-select" id="' . $name . '" name="' . $name . '[]" multiple size="' . $size . '">';
+                echo '<select class="form-select" id="' . $fieldId . '" name="' . $name . '[]" multiple size="' . $size . '">';
                 foreach ($field['options'] ?? [] as $optionValue => $optionLabel) {
                     $selected = in_array((string) $optionValue, $selectedValues, true) ? ' selected' : '';
                     echo '<option value="' . $this->escape((string) $optionValue) . '"' . $selected . '>';
@@ -1211,7 +1237,7 @@ final class Theme implements ThemeInterface
                 echo '</select>';
             } elseif ($type === 'checkbox_groups') {
                 $selectedValues = array_map('strval', $field['values'] ?? []);
-                echo '<div class="permission-groups" aria-labelledby="' . $name . '-label">';
+                echo '<div class="permission-groups" aria-labelledby="' . $fieldId . '-label">';
                 foreach ($field['groups'] ?? [] as $groupLabel => $options) {
                     $groupId = $name . '-' . substr(hash('sha256', (string) $groupLabel), 0, 10);
                     echo '<fieldset class="permission-group" data-checkbox-group>';
@@ -1237,13 +1263,13 @@ final class Theme implements ThemeInterface
             } elseif ($type === 'file') {
                 $accept = isset($field['accept']) ? ' accept="' . $this->escape((string) $field['accept']) . '"' : '';
                 echo '<div class="file-dropzone">';
-                echo '<input class="form-control" id="' . $name . '" name="' . $name . '" type="file"' . $accept . $controlAttributes . '>';
+                echo '<input class="form-control" id="' . $fieldId . '" name="' . $name . '" type="file"' . $accept . $controlAttributes . '>';
                 echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
                 $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'color'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';
                 $class = $type === 'color' ? 'form-control form-control-color' : 'form-control';
-                echo '<input class="' . $class . '" id="' . $name . '" name="' . $name . '" type="' . $type;
+                echo '<input class="' . $class . '" id="' . $fieldId . '" name="' . $name . '" type="' . $type;
                 echo '" value="' . $value . '"' . $controlAttributes . '>';
             }
 
@@ -1268,7 +1294,7 @@ final class Theme implements ThemeInterface
         echo '<meta name="description" content="Panel administracyjny miniPORTAL">';
         $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape($title) . ' - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
@@ -1339,8 +1365,7 @@ final class Theme implements ThemeInterface
     public function end_admin_page(): void
     {
         echo '</main></div></div></div>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" crossorigin="anonymous"></script>';
-        echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" ';
+        echo '<script src="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.bundle.min.js" ';
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/admin.js') . '"></script>';
         if (isset($this->requiredAssets['admin_catalog'])) {
@@ -1576,9 +1601,19 @@ final class Theme implements ThemeInterface
         $bulkField = 'ids[]';
         if ($bulkAction !== null && ($bulkAction['action'] ?? '') !== '') {
             $bulkFormId = 'admin-bulk-' . substr(hash('sha256', (string) $bulkAction['action'] . (string) ($bulkAction['label'] ?? '')), 0, 12) . '-' . (++$bulkTableSequence);
-            $bulkField = preg_match('/^[A-Za-z0-9_-]+\[\]$/', (string) ($bulkAction['field'] ?? 'ids[]')) === 1 ? (string) $bulkAction['field'] : 'ids[]';
+            $bulkField = preg_match('/^[A-Za-z0-9_-]+\[\]$/', (string) ($bulkAction['field'] ?? 'ids[]')) === 1 ? (string) ($bulkAction['field'] ?? 'ids[]') : 'ids[]';
             echo '<form class="admin-bulk-action" id="' . $this->escape($bulkFormId) . '" action="' . $this->escape((string) $bulkAction['action']) . '" method="post"' . (($bulkAction['confirm'] ?? '') !== '' ? ' data-confirm="' . $this->escape((string) $bulkAction['confirm']) . '"' : '') . '>';
             $this->csrf_field($csrfToken);
+            if (isset($bulkAction['choice'])) {
+                $choice = $bulkAction['choice'];
+                echo '<label for="' . $this->escape($bulkFormId . '-choice') . '">' . $this->escape((string) $choice['label']) . '</label>';
+                echo '<select class="form-select form-select-sm w-auto mw-100" id="' . $this->escape($bulkFormId . '-choice') . '" name="' . $this->escape((string) $choice['name']) . '">';
+                foreach ($choice['options'] as $value => $label) {
+                    echo '<option value="' . $this->escape((string) $value) . '">' . $this->escape((string) $label) . '</option>';
+                }
+                echo '</select>';
+            }
+
             echo '<button class="btn btn-sm btn-danger" type="submit" data-admin-bulk-submit disabled>' . $this->escape((string) ($bulkAction['label'] ?? 'Wykonaj dla zaznaczonych')) . '</button><span data-admin-bulk-count aria-live="polite">Nie zaznaczono pozycji</span></form>';
         }
         echo '<div class="table-responsive"><table class="table admin-table align-middle mb-0">';
@@ -1609,6 +1644,12 @@ final class Theme implements ThemeInterface
                 $variant = $this->buttonVariant($action['variant'] ?? 'outline-light');
                 $label = $this->escape($action['label']);
 
+                if (($action['modal'] ?? '') !== '') {
+                    $modalId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $action['modal']);
+                    echo '<button class="btn btn-sm btn-' . $variant . '" type="button" data-bs-toggle="modal" data-bs-target="#' . $this->escape($modalId) . '">' . $label . '</button>';
+                    continue;
+                }
+
                 if (isset($action['href'])) {
                     echo '<a class="btn btn-sm btn-' . $variant . '" href="';
                     echo $this->escape($action['href']) . '">' . $label . '</a>';
@@ -1636,6 +1677,19 @@ final class Theme implements ThemeInterface
         }
 
         echo '</tbody></table></div>';
+    }
+
+    public function render_admin_form_modal(string $id,string $title,string $action,array $fields,string $submitLabel,string $csrfToken,string $triggerLabel='',string $triggerVariant='primary'):void
+    {
+        $modalId=preg_replace('/[^A-Za-z0-9_-]/','',$id);if($modalId==='')return;
+        if($triggerLabel!=='')echo '<button class="btn btn-'.$this->buttonVariant($triggerVariant).'" type="button" data-bs-toggle="modal" data-bs-target="#'.$this->escape($modalId).'">'.$this->escape($triggerLabel).'</button>';
+        echo '<div class="modal fade admin-filter-modal admin-form-modal" id="'.$this->escape($modalId).'" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5">'.$this->escape($title).'</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button></div><div class="modal-body">';
+        foreach ($fields as &$field) {
+            $field['id'] = $modalId . '-' . $field['name'];
+        }
+        unset($field);
+        $this->render_form($action,$fields,$submitLabel,$csrfToken);
+        echo '</div></div></div></div>';
     }
 
     public function render_admin_filter_modal(string $id, string $title, string $action, array $fields, string $clearHref): void
@@ -1666,7 +1720,7 @@ final class Theme implements ThemeInterface
         echo '<meta name="description" content="Załóż darmowe konto SyntaxCraft i uruchom własny sklep dla graczy Minecraft.">';
         $this->renderBrandHead('', '', false);
         echo '<title>Darmowe konto - SyntaxCraft</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" ';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet" ';
         echo 'integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
@@ -1730,7 +1784,7 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         $this->renderBrandHead('', '', false);
         echo '<title>' . $this->escape((string) $status) . ' - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/syntaxcraft.css') . '">';
@@ -1757,7 +1811,7 @@ final class Theme implements ThemeInterface
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         $this->renderBrandHead('', '', false);
         echo '<title>Połączone konta - miniPORTAL Admin</title>';
-        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '<link href="/templates/shared/assets/vendor/bootstrap/5.3.8/bootstrap.min.css" rel="stylesheet">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/stylebook.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/admin.css') . '">';
         echo '<link rel="stylesheet" href="' . $this->asset('css/syntaxcraft.css') . '">';
@@ -2390,7 +2444,8 @@ final class Theme implements ThemeInterface
             if ($href === '') {
                 continue;
             }
-            echo '<a class="' . $this->escape($class) . '" href="' . $this->escape($href) . '">';
+            echo '<a class="' . $this->escape($class) . '" href="' . $this->escape($href) . '"'
+                . (str_contains($href, '#') ? ' hx-boost="false"' : '') . '>';
             echo $this->escape($button['label']) . '</a>';
         }
     }

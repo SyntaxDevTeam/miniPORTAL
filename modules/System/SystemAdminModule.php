@@ -462,6 +462,14 @@ final class SystemAdminModule implements ModuleInterface
             $latest = $this->platformReleases->latestFor($currentVersion);
             $permissionIssues = FilesystemPermissions::platformUpdateIssues(dirname(__DIR__, 2));
             $this->theme->start_admin_panel('Stan platformy', 'Wersja ' . $currentVersion);
+            if (!$this->platformReleasePublisher->available()) {
+                $this->theme->render_alert(
+                    'Instalacja odbiorcza miniPORTAL. Publikowanie silnika i centralnego katalogu modułów jest wyłączone. '
+                    . 'Źródło aktualizacji silnika: ' . (string) ($this->config['updates']['catalog_url'] ?? '')
+                    . '; modułów: ' . (string) ($this->config['modules']['update_catalog_url'] ?? ''),
+                    'info'
+                );
+            }
             if ($releases === []) {
                 $this->theme->render_alert(
                     $this->platformReleases->usesRemoteCatalog()
@@ -594,6 +602,11 @@ final class SystemAdminModule implements ModuleInterface
 
     private function servePlatformReleaseCatalog(): void
     {
+        if (!$this->platformReleasePublisher->available()) {
+            http_response_code(404);
+            return;
+        }
+
         try {
             $payload = json_encode(
                 ['releases' => $this->platformReleases->all()],
@@ -630,6 +643,11 @@ final class SystemAdminModule implements ModuleInterface
 
     private function servePlatformReleaseArchive(Request $request): void
     {
+        if (!$this->platformReleasePublisher->available()) {
+            http_response_code(404);
+            return;
+        }
+
         $filename = $request->routeString('filename');
         $release = $this->platformReleases->findByFilename($filename);
         if ($release === null) {
@@ -3202,7 +3220,7 @@ final class SystemAdminModule implements ModuleInterface
                 401,
                 'Wymagane logowanie',
                 'Ta trasa panelu jest dostępna wyłącznie dla zalogowanych użytkowników.',
-                'index.php?route=/admin/login',
+                'index.php?route=/admin/login&next=' . rawurlencode($request->path()),
                 'Przejdź do logowania'
             );
             return;

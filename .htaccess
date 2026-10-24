@@ -1,5 +1,13 @@
 Options -Indexes
 
+# Build Explorer accepts project-scoped application artifacts up to 90 MiB. Keep the PHP transport
+# ceiling slightly higher because multipart boundaries and JSON metadata are
+# part of the POST body as well.
+<IfModule php_module>
+    php_value upload_max_filesize 90M
+    php_value post_max_size 96M
+</IfModule>
+
 <IfModule mod_headers.c>
     <FilesMatch "\.(?:css|js|mjs|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot)$">
         <If "%{REQUEST_URI} =~ m#^/templates/shared/assets/vendor/#">

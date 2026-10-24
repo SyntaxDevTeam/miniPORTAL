@@ -138,7 +138,7 @@ $authDemoEnabled = ($authConfig['demo_enabled'] ?? false) === true;
 /** @var UserRepositoryInterface $userRepository */
 $userRepository = match ($authStorage) {
     'database' => $application->database() !== null
-        ? new CrudAppUserRepository($application->database())
+        ? new CrudAppUserRepository($application->database(), $hooks)
         : new UnavailableUserRepository(),
     'memory' => $authDemoEnabled
         ? new InMemoryUserRepository()
@@ -336,6 +336,10 @@ $pollingModuleDirectories = match (true) {
     $requestPath === '/admin/minecraft-console/command' => ['CoreAuth', 'MinecraftConsole'],
     default => null,
 };
+// Authorization providers must also be present in the lightweight polling kernel.
+if ($pollingModuleDirectories !== null) {
+    $pollingModuleDirectories = array_merge($pollingModuleDirectories, ['PlayerProfile', 'ServerStaff']);
+}
 $isPollingKernel = $pollingModuleDirectories !== null;
 $moduleBootstrapStartedAt = hrtime(true);
 $moduleBootstrapper->register($moduleDefinitions, [
@@ -383,6 +387,11 @@ $modules->boot(
     $isPollingKernel ? null : $hooks,
 );
 $theme->set_auth_entry_locations(AuthPolicyRuntime::provider()->loginEntryLocations());
+if (!$isPollingKernel) {
+    // Establish module/account context even for public previews rendered by admin routes.
+    $theme->set_public_navigation([], $auth->user() !== null, $modules->ids());
+}
+
 $moduleBootstrapDurationMs = (hrtime(true) - $moduleBootstrapStartedAt) / 1_000_000;
 if (!$isPollingKernel) {
     $theme->set_admin_search_items($adminSearch->visibleFor($auth->user()?->permissions ?? []));
@@ -470,13 +479,18 @@ $publicNavigationItems = static function () use (
     return $resolved = is_array($navigation) ? $navigation : [];
 };
 $requestPath = $application->request()->path();
-$requiresPublicNavigation = $requestPath !== '/'
-    && !str_starts_with($requestPath, '/admin')
+$requiresPublicNavigation = !str_starts_with($requestPath, '/admin')
     && !str_starts_with($requestPath, '/api/')
     && !str_starts_with($requestPath, '/metrics/')
     && !in_array($requestPath, ['/robots.txt', '/sitemap.xml', '/ads.txt'], true);
 if ($requiresPublicNavigation) {
     $theme->set_public_navigation($publicNavigationItems(), $auth->user() !== null, $modules->ids());
+    if ($theme instanceof \SyntaxDevTeam\Cms\Core\PublicSectionNavigationInterface) {
+        $theme->set_public_section_navigation(array_map(
+            static fn ($section): array => $section->toThemeData(),
+            $homepageSectionRepository?->visible() ?? []
+        ));
+    }
 }
 
 $siteMaintenanceEnabled = static function () use ($application): bool {
@@ -681,13 +695,13 @@ if ($showMaintenance) {
     http_response_code(503);
     header('Cache-Control: no-store, private');
     header('Retry-After: 3600');
-    $theme->set_public_navigation([], false, $modules->ids());
+    $theme->set_public_navigation($publicNavigationItems(), false, $modules->ids());
     $theme->render_public_error(
         503,
         $title !== '' ? $title : 'Site under construction',
         $message !== '' ? $message : 'Please check back soon.',
         'Sign in',
-        '/admin/login'
+        '/admin/login?next=' . rawurlencode($request->path())
     );
     $status = 200;
 } elseif ($auth->rolePreviewBlocks($request)) {

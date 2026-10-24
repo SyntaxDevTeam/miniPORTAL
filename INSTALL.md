@@ -67,3 +67,9 @@ Wartość `{provider}` to `github`, `discord`, `google` albo `microsoft`.
 Po instalacji warto dodatkowo ograniczyć prawa `config/installed.env` do odczytu
 przez użytkownika PHP. Na serwerach bez Apache trzeba odtworzyć reguły blokujące
 dostęp HTTP do `config/`, `core/`, `modules/`, `installer/`, `cache/` i plików SQL.
+
+Strona główna jest zarządzana przez sekcje CorePages. Motyw Equestria nie
+wyświetla ukrytych treści zastępczych: po pierwszym logowaniu Owner może w
+**Treść → Strona główna** wybrać **Dodaj treści startowe motywu**. Import
+tworzy pięć edytowalnych sekcji wraz z kartami i przyciskami; działa wyłącznie
+na pustej stronie głównej. Usunięte lub ukryte sekcje nie wracają automatycznie.

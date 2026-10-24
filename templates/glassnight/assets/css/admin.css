@@ -581,6 +581,9 @@ body.admin-stylebook {
   border: 1px solid var(--mp-border);
 }
 
+.admin-form-modal { z-index: 1200; }
+.admin-form-modal .modal-body { padding: 1.25rem; }
+
 .admin-filter-modal .modal-header,
 .admin-filter-modal .modal-footer {
   border-color: var(--mp-border);

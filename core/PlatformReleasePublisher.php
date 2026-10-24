@@ -16,6 +16,9 @@ final class PlatformReleasePublisher
 
     public function available(): bool
     {
+        if (is_file(rtrim($this->applicationRoot, '/') . '/' . InstallationState::LOCAL_INSTALLATION_MARKER)) {
+            return false;
+        }
         foreach ($this->sourceToolchainPaths() as $path) {
             if (!is_file($path)) {
                 return false;

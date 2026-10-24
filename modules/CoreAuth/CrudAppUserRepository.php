@@ -12,6 +12,7 @@ final class CrudAppUserRepository implements UserRepositoryInterface
 {
     public function __construct(
         private readonly CrudApp $database,
+        private readonly ?\SyntaxDevTeam\Cms\Core\HookRegistry $hooks = null,
     ) {
     }
 
@@ -250,8 +251,11 @@ final class CrudAppUserRepository implements UserRepositoryInterface
     private function hydrate(array $row): User
     {
         $userId = (int) $row['id'];
+        $derived = $row['status']==='active' && $this->hooks!==null
+            ? (new SupplementalRoleResolver($this->database))->forUser($this->hooks, $userId)
+            : ['roles'=>[], 'permissions'=>[]];
 
-        return new User(
+        $user = new User(
             $userId,
             (string) $row['display_name'],
             $row['email'] !== null ? (string) $row['email'] : null,
@@ -275,6 +279,14 @@ final class CrudAppUserRepository implements UserRepositoryInterface
             ),
             $this->identities($userId)
         );
+        if ($derived['roles']===[]) return $user;
+        $roles = array_values(array_unique(array_merge(
+            array_values(array_filter($user->roles, static fn ($role) => $role!=='user')),
+            $derived['roles'],
+            array_values(array_filter($user->roles, static fn ($role) => $role==='user')),
+        )));
+        return new User($user->id, $user->displayName, $user->email, $user->avatarUrl, $user->status,
+            $roles, array_values(array_unique(array_merge($user->permissions, $derived['permissions']))), $user->identities);
     }
 
     /**

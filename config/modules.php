@@ -210,8 +210,7 @@ $moduleDefinitionsBase[] = [
                 ];
             },
         );
-        $factories = new PaymentProviderFactoryRegistry();
-        $factories->register(new HotPayProviderFactory(new HotPayHttpClient()));
+        $factories = PaymentProviderFactoryRegistry::installed();
         $webhooks = new PaymentWebhookController(
             $providerAccounts,
             $factories,
@@ -233,6 +232,7 @@ $moduleDefinitionsBase[] = [
             $factories,
             $services['platform_audit'],
             $services['event_bus'],
+            (string) ($services['config']['app']['public_url'] ?? ''),
         );
         return new PaymentsModule($payments, $panel, $webhooks, $refunds, $checkout, $providerAccounts);
     },
@@ -266,19 +266,74 @@ $moduleDefinitionsBase[] = [
         $storefrontBaseDomain=(string)($modulesConfig['itemshop_storefront_base_domain']??'syntaxcraft.pl');
         $platformDomain=strtolower((string)(parse_url($publicUrl,PHP_URL_HOST)?:''));
         $domains=new ItemShopStoreDomainService($services['database'],$storefrontBaseDomain,$platformDomain);
-        $agent=new ItemShopAgentService($services['database'],$services['platform_audit'],trim((string)($modulesConfig['itemshop_agent_platform_key_id']??'')));
+        $agent=class_exists(ItemShopAgentService::class)
+            ? new ItemShopAgentService($services['database'],$services['platform_audit'],trim((string)($modulesConfig['itemshop_agent_platform_key_id']??'')))
+            : null;
+        $paymentFactories = $paymentAccounts instanceof PaymentProviderAccountService ? PaymentProviderFactoryRegistry::installed() : null;
+        $paymentSettings = $paymentAccounts instanceof PaymentProviderAccountService
+            ? new \SyntaxDevTeam\Cms\Modules\Payments\StorePaymentSettingsService($paymentAccounts, $paymentFactories, $publicUrl) : null;
+        $paymentContext = new \SyntaxDevTeam\Cms\Modules\ItemShop\ItemShopPaymentStoreContext($services['database']);
+        $storePaymentAccounts = static function(string $storeId) use ($paymentContext, $paymentAccounts, $paymentFactories): array {
+            $store = $paymentContext->store($storeId);
+            return array_values(array_filter($paymentAccounts->accountsForStore($store['tenant'], $storeId),
+                static fn($account): bool => $paymentFactories?->has($account->providerId) && match($account->providerId) { 'hotpay', 'simpay', 'paybylink', 'paypal'=>$store['currency']==='PLN', 'stripe'=>in_array($store['currency'],['PLN','EUR','USD','GBP'],true), default=>false }));
+        };
         $directPayment=$paymentService instanceof PaymentServiceInterface&&$paymentCheckoutService instanceof PaymentCheckoutServiceInterface&&$paymentAccounts instanceof PaymentProviderAccountReaderInterface&&str_starts_with(strtolower($publicUrl),'https://')?new CallableItemShopPaymentCheckout(
-            static function($tenant,string$storeId)use($paymentAccounts):array{$result=[];foreach($paymentAccounts->accountsForStore($tenant,$storeId)as$account)$result[$account->id]='Płatność online · '.$account->name;return$result;},
-            static function($tenant,string$userId,string$storeId,array$order,string$accountId)use($paymentService,$paymentCheckoutService,$publicUrl):string{$payment=$paymentService->create(new PaymentCreateRequest($tenant,(int)$order['total_amount_minor'],(string)$order['currency'],new PaymentReference('itemshop','order',(string)$order['id'],'Zamówienie ItemShop '.substr((string)$order['id'],0,8)),'itemshop-order-'.(string)$order['id'],'user',$userId,(string)$order['correlation_id']))->payment;$session=$paymentCheckoutService->checkout(new PaymentCheckoutRequest($tenant,$payment->id,$accountId,$publicUrl.'/account/itemshop?payment=return',$publicUrl.'/account/itemshop?payment=cancel','itemshop-checkout-'.(string)$order['id'].'-'.$accountId,'user',$userId,['store_id'=>$storeId,'order_id'=>(string)$order['id']],(string)$order['correlation_id']));return$session->checkoutUrl;}
+            static function($tenant,string $storeId) use($storePaymentAccounts): array {
+                $result=[];
+                foreach($storePaymentAccounts($storeId) as $account) $result[$account->id]='Płatność online · '.$account->name;
+                return $result;
+            },
+            static function($tenant,string $userId,string $storeId,array $order,string $accountId) use($paymentService,$paymentCheckoutService,$publicUrl,$paymentContext,$storePaymentAccounts): string {
+                if ($tenant->type !== 'account' || $tenant->id !== $userId) throw new RuntimeException('Brak dostępu do checkoutu.');
+                $store = $paymentContext->store($storeId);
+                $order = $paymentContext->order($storeId, $userId, (string)$order['id']);
+                if (!in_array($accountId, array_column($storePaymentAccounts($storeId), 'id'), true)) throw new RuntimeException('Bramka nie jest dostępna w tym sklepie.');
+                $sellerTenant = $store['tenant'];
+                $returnUrl = $publicUrl.'/shop/'.rawurlencode($store['slug']);
+                $payment=$paymentService->create(new PaymentCreateRequest($sellerTenant,(int)$order['total_amount_minor'],(string)$order['currency'],new PaymentReference('itemshop','order',(string)$order['id'],'Zamówienie ItemShop '.substr((string)$order['id'],0,8)),'itemshop-order-'.(string)$order['id'],'user',$userId,(string)$order['correlation_id']))->payment;
+                $session=$paymentCheckoutService->checkout(new PaymentCheckoutRequest($sellerTenant,$payment->id,$accountId,$returnUrl.'?payment=return',$returnUrl.'?payment=cancel','itemshop-checkout-'.(string)$order['id'].'-'.$accountId,'user',$userId,['store_id'=>$storeId,'order_id'=>(string)$order['id']],(string)$order['correlation_id']));
+                return $session->checkoutUrl;
+            }
         ):null;
         $api = new ItemShopApiController($catalog,$orders,$fulfillment,$services['api_tokens'],$services['rate_limiter'],$webhooks);
-        return new ItemShopModule($catalog, new ItemShopPanelController($catalog,$services['theme'],$services['admin_menu'],$services['security'],$currentUser,$orders,$fulfillment,$cart,$walletCheckout,$directPayment,$testCheckout,$domains,$publicUrl,$services['rate_limiter'],$agent), $orders, $fulfillment, $cart, $api, $domains);
+        return new ItemShopModule($catalog, new ItemShopPanelController($catalog,$services['theme'],$services['admin_menu'],$services['security'],$currentUser,$orders,$fulfillment,$cart,$walletCheckout,$directPayment,$testCheckout,$domains,$publicUrl,$services['rate_limiter'],$agent,
+            $paymentSettings === null ? null : $paymentSettings->settings(...),
+            $paymentSettings === null ? null : static function($tenant, string $userId, string $storeId, \SyntaxDevTeam\Cms\Core\Request $request) use($paymentSettings): void {
+                $paymentSettings->save($tenant,$userId,$storeId,$request->postString('operation'),$request->postString('account_id'),$request->postString('provider_id'),$request->postString('name'),[
+                    'service_secret'=>$request->postString('service_secret'), 'notification_password'=>$request->postString('notification_password'),
+                    'secret_key'=>$request->postString('secret_key'), 'webhook_secret'=>$request->postString('webhook_secret'),
+                    'service_id'=>$request->postString('service_id'), 'api_key'=>$request->postString('api_key'), 'ipn_key'=>$request->postString('ipn_key'),
+                    'shop_id'=>$request->postString('shop_id'), 'private_key'=>$request->postString('private_key'),
+                    'paypal_email'=>$request->postString('paypal_email'), 'paypal_mode'=>$request->postString('paypal_mode'),
+                ]);
+            }), $orders, $fulfillment, $cart, $api, $domains);
     },
 ];
 
 $moduleDefinitionsBase[] = [
     'directory' => 'Support',
     'factory' => static fn (array $services): SupportModule => new SupportModule(),
+];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'PlayerProfile',
+    'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\PlayerProfile\PlayerProfileModule =>
+        (require dirname(__DIR__) . '/modules/PlayerProfile/factory.php')($services),
+];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'ServerStaff',
+    'enabled' => static fn(array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static fn(array $services): \SyntaxDevTeam\Cms\Modules\ServerStaff\ServerStaffModule =>
+        (require dirname(__DIR__).'/modules/ServerStaff/factory.php')($services),
+];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'MoonValeShop',
+    'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\MoonValeShop\ShopModule =>
+        (require dirname(__DIR__) . '/modules/MoonValeShop/factory.php')($services),
 ];
 
 return $moduleDefinitionsBase;

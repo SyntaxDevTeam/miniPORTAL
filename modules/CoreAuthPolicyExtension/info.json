@@ -1,7 +1,7 @@
 {
   "id": "core_auth_policy_extension",
   "name": "Core Auth Policy Extension",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "extension",
   "author": "SyntaxDevTeam",
   "requires": {

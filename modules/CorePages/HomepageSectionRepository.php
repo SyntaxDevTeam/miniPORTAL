@@ -167,6 +167,45 @@ final class HomepageSectionRepository
         return $statement !== null && $statement->rowCount() === 1;
     }
 
+    /** Import only into an empty homepage; never replace an editor's sections.
+     * @param list<array<string, mixed>> $sections
+     */
+    public function importDefaults(array $sections, int $authorId): void
+    {
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            // Serializes imports, including when the sections table is empty.
+            $this->database->query('SELECT module_id FROM modules_config WHERE module_id = :id FOR UPDATE', [':id' => 'core_pages']);
+            if ($this->all() !== []) {
+                throw new RuntimeException('Import wymaga pustej strony głównej. Istniejące sekcje pozostają bez zmian.');
+            }
+            $items = new HomepageSectionItemRepository($this->database);
+            foreach ($sections as $section) {
+                $buttons = $section['buttons'] ?? [];
+                $id = $this->create([
+                    'section_key' => $section['key'], 'section_type' => $section['type'],
+                    'eyebrow' => $section['eyebrow'] ?? '', 'title' => $section['title'],
+                    'content_html' => $section['content_html'],
+                    'content_format' => $section['content_format'] ?? 'markdown',
+                    'layout' => $section['layout'], 'author_id' => $authorId,
+                    'button_label' => $buttons !== [] ? implode("\n", array_column($buttons, 'label')) : ($section['button_label'] ?? ''),
+                    'button_url' => $buttons !== [] ? implode("\n", array_column($buttons, 'url')) : ($section['button_url'] ?? ''),
+                ]);
+                foreach ($section['items'] ?? [] as $item) {
+                    $items->create($id, array_intersect_key($item, array_flip([
+                        'label', 'title', 'content', 'content_format', 'item_kind', 'icon_key',
+                        'button_label', 'button_url', 'variant', 'width',
+                    ])));
+                }
+            }
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            $pdo->rollBack();
+            throw $exception;
+        }
+    }
+
     private function nextSortOrder(): int
     {
         $statement = $this->database->query(

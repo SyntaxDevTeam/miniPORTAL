@@ -144,6 +144,9 @@ final class PlatformReleaseRepository
         if (!is_dir($directory) && !mkdir($directory, 0770, true)) {
             throw new RuntimeException('Nie można utworzyć cache pobieranych wydań.');
         }
+        if (!is_writable($directory)) {
+            throw new RuntimeException('Cache pobieranych wydań nie jest zapisywalny przez proces PHP. Sprawdź prawa katalogu cache/platform-updates/downloads.');
+        }
         $target = $directory . '/' . $release['filename'];
         if (is_file($target)) {
             $checksum = hash_file('sha256', $target);
@@ -207,10 +210,10 @@ final class PlatformReleaseRepository
         if (!is_resource($input)) {
             throw new RuntimeException('Nie można pobrać katalogu albo archiwum wydania.');
         }
-        $output = fopen($target, 'wb');
+        $output = @fopen($target, 'wb');
         if (!is_resource($output)) {
             fclose($input);
-            throw new RuntimeException('Nie można zapisać pobieranego wydania.');
+            throw new RuntimeException('Nie można utworzyć pliku pobieranego wydania w cache. Sprawdź prawa katalogu cache/platform-updates/downloads.');
         }
         $written = 0;
         try {

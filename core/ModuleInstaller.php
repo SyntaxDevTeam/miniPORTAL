@@ -205,6 +205,22 @@ final class ModuleInstaller
         }
 
         $pdo = $this->database->connection()->pdo;
+        // Preserve published migration checksums while supporting MariaDB DDL on MySQL.
+        if (preg_match(
+            '/\AALTER TABLE\s+(`?[a-zA-Z0-9_]+`?)\s+ADD COLUMN IF NOT EXISTS\s+(`?[a-zA-Z0-9_]+`?)\s+([^;]+);?\s*\z/i',
+            $sql,
+            $column
+        ) === 1 && !str_contains((string) $pdo->getAttribute(\PDO::ATTR_SERVER_VERSION), 'MariaDB')) {
+            $exists = $pdo->prepare(
+                'SELECT COUNT(*) FROM information_schema.COLUMNS '
+                . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+            );
+            $exists->execute([trim($column[1], '`'), trim($column[2], '`')]);
+            if ((int) $exists->fetchColumn() > 0) {
+                return;
+            }
+            $sql = 'ALTER TABLE ' . $column[1] . ' ADD COLUMN ' . $column[2] . ' ' . $column[3];
+        }
         $pdo->exec($sql);
     }
 }

@@ -95,6 +95,7 @@ return array (
     'team' =>
     array (
       '20260704_rich_public_profiles.sql' => '5fcd818a3275340d8ae5e8a528f207bc5f69c499c75e02df037fafc8a0afeaf4',
+      '20261018_staff_roster.sql' => 'e23fe88aaafc81513e0a92711c43e9127a7d24c71e36c1a52b072841e8815810',
     ),
     'uptime' =>
     array (

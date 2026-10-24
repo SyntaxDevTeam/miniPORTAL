@@ -435,7 +435,7 @@ final class Installer
             'DB_CHARSET' => 'utf8mb4',
             'DB_COLLATION' => 'utf8mb4_general_ci',
             'DB_LOGGING' => 'false',
-            'BUILD_UPLOAD_MAX_BYTES' => '20971520',
+            'BUILD_UPLOAD_MAX_BYTES' => '47185920',
             'BUILD_CI_TOKEN' => bin2hex(random_bytes(32)),
             'MEDIA_UPLOAD_MAX_BYTES' => '5242880',
             'TINIFY_ENABLED' => 'false',
@@ -512,7 +512,7 @@ final class Installer
     {
         $content = json_encode([
             'installed_at' => gmdate(DATE_ATOM),
-            'version' => '0.12.3',
+            'version' => '0.13.2',
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         if (file_put_contents($this->lockFile(), $content . PHP_EOL, LOCK_EX) === false) {
             throw new RuntimeException('Nie można zablokować instalatora po instalacji.');

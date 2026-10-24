@@ -43,7 +43,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
 
     public function version(): string
     {
-        return '1.2.0';
+        return '1.3.1';
     }
 
     public function dependencies(): array

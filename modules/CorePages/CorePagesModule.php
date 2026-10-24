@@ -13,6 +13,7 @@ use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\SeoIndex;
 use SyntaxDevTeam\Cms\Core\SeoProviderInterface;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
+use SyntaxDevTeam\Cms\Core\HomepageDefaultsProviderInterface;
 use SyntaxDevTeam\Cms\Core\TemplateCacheInterface;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AdminAccessGate;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
@@ -45,7 +46,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
 
     public function version(): string
     {
-        return '1.6.1';
+        return '1.6.2';
     }
 
     public function dependencies(): array
@@ -113,6 +114,11 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             $request,
             'pages.view',
             fn () => $this->renderHomepageList()
+        ));
+        $router->post('/admin/homepage/import-defaults', fn (Request $request) => $this->guard(
+            $request,
+            'pages.create',
+            fn () => $this->importHomepageDefaults($request)
         ));
         $router->get('/admin/homepage/preview', fn (Request $request) => $this->guard(
             $request,
@@ -270,6 +276,15 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         $this->theme->start_admin_panel('Sekcje', count($sections) . ' elementów');
         if ($sections === []) {
             $this->theme->render_alert('Brak sekcji. Dodaj pierwszą sekcję strony głównej.', 'info');
+            if ($allows('pages.create') && $this->theme instanceof HomepageDefaultsProviderInterface) {
+                $this->theme->render_alert('Możesz zaimportować treści startowe motywu. Sekcje i karty będą dostępne do edycji w tym panelu.', 'info');
+                $this->theme->render_form(
+                    'index.php?route=/admin/homepage/import-defaults',
+                    [],
+                    'Dodaj treści startowe motywu',
+                    $this->security->csrfToken()
+                );
+            }
         } else {
             $this->theme->render_admin_action_table(
                 ['Kolejność', 'Sekcja', 'Typ i układ', 'Status'],
@@ -341,6 +356,31 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         $this->renderHomepageForm($section);
     }
 
+    private function importHomepageDefaults(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'homepage_defaults_import')) {
+            return;
+        }
+        if (!$this->theme instanceof HomepageDefaultsProviderInterface) {
+            $this->renderHomepageList('Motyw nie udostępnia treści startowych.', 'warning');
+            return;
+        }
+        try {
+            $this->homepageSections->importDefaults(
+                $this->theme->homepageDefaults(),
+                $this->auth->user()?->id ?? 0
+            );
+            $this->templateCache->invalidateTags(['homepage', 'pages']);
+            $this->audit->record($request, 'homepage_defaults_import', 'success', null, $this->auth->user()?->id);
+            $this->renderHomepageList('Dodano edytowalne treści startowe motywu.', 'success');
+        } catch (\PDOException $exception) {
+            $this->audit->record($request, 'homepage_defaults_import', 'failed', null, $this->auth->user()?->id);
+            $this->renderHomepageList('Nie udało się dodać treści startowych. Żadna sekcja nie została zapisana.', 'danger');
+        } catch (\RuntimeException $exception) {
+            $this->renderHomepageList($exception->getMessage(), 'warning');
+        }
+    }
+
     /**
      * @param array<string, string|bool> $values
      */
@@ -373,6 +413,8 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                 'layout' => $section?->layout ?? $fallback,
                 'button_label' => $section?->buttonLabel ?? $fallback,
                 'button_url' => $section?->buttonUrl ?? $fallback,
+                'primary_button_action' => str_starts_with($section?->buttonUrl ?? '', 'copy:') ? 'copy' : 'link',
+                'primary_button_copy_value' => str_starts_with($section?->buttonUrl ?? '', 'copy:') ? substr(explode("\n", $section->buttonUrl)[0], 5) : '',
                 default => $fallback,
             };
         };
@@ -490,12 +532,27 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                     'help' => 'Jeden przycisk w linii, np. Zobacz projekty. Kolejność musi odpowiadać adresom poniżej.',
                 ],
                 [
+                    'name' => 'primary_button_action',
+                    'label' => 'Funkcja pierwszego przycisku (Equestria)',
+                    'type' => 'select',
+                    'value' => $value('primary_button_action', 'link'),
+                    'options' => ['link' => 'Otwórz link', 'copy' => 'Skopiuj adres'],
+                    'help' => 'Kopiowanie zastępuje pierwszy adres poniżej. Pozostałe przyciski zachowują swoje adresy.',
+                ],
+                [
+                    'name' => 'primary_button_copy_value',
+                    'label' => 'Adres do skopiowania',
+                    'value' => $value('primary_button_copy_value'),
+                    'maxlength' => 495,
+                    'placeholder' => 'moonvale.pl',
+                ],
+                [
                     'name' => 'button_url',
                     'label' => 'Adresy przycisków',
                     'type' => 'textarea',
                     'rows' => 4,
                     'value' => $value('button_url'),
-                    'help' => 'Jeden adres w linii. Dozwolone: https://, http://, mailto:, kotwica # lub index.php. Puste pola oznaczają brak przycisków.',
+                    'help' => 'Jeden adres w linii. Dozwolone: https://, http://, mailto:, kotwica # lub index.php. W motywie Equestria wpisz copy:moonvale.pl, aby przycisk kopiował podaną wartość. Puste pola oznaczają brak przycisków.',
                 ],
                 [
                     'name' => 'is_visible',
@@ -678,6 +735,12 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         $layout = $request->postString('layout');
         $buttonLabels = $this->normalizeButtonLines($request->postString('button_label'), 120);
         $buttonUrls = $this->normalizeButtonLines($request->postString('button_url'), 500);
+        $buttonAction = $request->postString('primary_button_action', 'link');
+        $copyValue = trim($request->postString('primary_button_copy_value'));
+        if ($buttonAction === 'copy') {
+            $buttonUrls[0] = 'copy:' . $copyValue;
+        }
+
         $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
         $acrosticWords = preg_split(
             '/\s+/u',
@@ -703,6 +766,10 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             'is_visible' => $request->postBool('is_visible') ? 1 : 0,
         ];
 
+        if (!in_array($buttonAction, ['link', 'copy'], true)
+            || ($buttonAction === 'copy' && ($copyValue === '' || strlen($copyValue) > 495 || preg_match('/[\r\n\x00]/', $copyValue)))) {
+            return [$data, 'Wybierz prawidłową funkcję i podaj adres do skopiowania (maksymalnie 495 znaków, jedna linia).'];
+        }
         if ($title === '' || strlen($title) > 220) {
             return [$data, 'Nagłówek jest wymagany i może mieć maksymalnie 220 znaków.'];
         }
@@ -765,6 +832,9 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             return 'Możesz dodać maksymalnie pięć przycisków.';
         }
         foreach ($urls as $url) {
+            if (str_starts_with($url, 'copy:') && trim(substr($url, 5)) !== '') {
+                continue;
+            }
             if (preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $url) !== 1) {
                 return 'Adres przycisku używa niedozwolonego schematu.';
             }
@@ -1073,7 +1143,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                     'type' => 'textarea',
                     'rows' => 4,
                     'value' => $value('button_url'),
-                    'help' => 'Jeden adres w linii. Dozwolone: https://, http://, mailto:, kotwica # lub index.php. Jeśli wybierzesz powiązaną podstronę, ona ma pierwszeństwo dla pierwszego linku.',
+                    'help' => 'Jeden adres w linii. Dozwolone: https://, http://, mailto:, kotwica # lub index.php. W motywie Equestria wpisz copy:moonvale.pl, aby przycisk kopiował podaną wartość. Jeśli wybierzesz powiązaną podstronę, ona ma pierwszeństwo dla pierwszego linku.',
                 ],
                 [
                     'name' => 'variant',

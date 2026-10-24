@@ -10,7 +10,7 @@ use ZipArchive;
 
 final class PlatformUpdater
 {
-    private const EXACT_FILES = ['index.php', '.htaccess'];
+    private const EXACT_FILES = ['index.php', '.htaccess', '.user.ini'];
     private const ROOTS = ['bin/', 'config/', 'core/', 'modules/', 'templates/', 'tools/'];
     private const REMOVABLE_SOURCE_TOOLS = [
         'bin/build-cms-distribution.php',
@@ -53,8 +53,17 @@ final class PlatformUpdater
         $stage = $run . '/stage';
         $backup = rtrim($this->workPath, '/') . '/backups/'
             . $release['version'] . '-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
-        if (!mkdir($stage, 0770, true) || !mkdir($backup, 0770, true)) {
-            throw new RuntimeException('Nie można utworzyć katalogu roboczego aktualizacji.');
+        $backupRoot = dirname($backup);
+        if ((!is_dir($backupRoot) && !mkdir($backupRoot, 0770, true)) || !is_writable($backupRoot)) {
+            throw new RuntimeException('Katalog kopii aktualizacji nie jest zapisywalny. Sprawdź prawa cache/platform-updates/backups.');
+        }
+        if (!mkdir($stage, 0770, true)) {
+            throw new RuntimeException('Nie można utworzyć katalogu stagingu w cache/platform-updates.');
+        }
+        if (!mkdir($backup, 0770)) {
+            @rmdir($stage);
+            @rmdir($run);
+            throw new RuntimeException('Nie można utworzyć kopii rollbacku w cache/platform-updates/backups.');
         }
 
         try {

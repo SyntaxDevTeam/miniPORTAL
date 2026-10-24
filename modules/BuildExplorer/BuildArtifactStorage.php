@@ -12,7 +12,7 @@ final class BuildArtifactStorage
 
     public function __construct(
         private readonly string $directory,
-        private readonly int $maxBytes = 20971520,
+        private readonly int $maxBytes = 47185920,
     ) {
         if (!is_dir($this->directory) && !mkdir($this->directory, 0770, true)) {
             throw new RuntimeException('Nie można utworzyć magazynu buildów.');
@@ -43,24 +43,53 @@ final class BuildArtifactStorage
      * @param array{name: string, type: string, tmp_name: string, error: int, size: int} $file
      * @return array{storage_key: string, size: int, checksum: string}
      */
-    public function store(array $file): array
+    public function store(array $file, ?array $policy = null): array
     {
-        if ($file['error'] !== UPLOAD_ERR_OK || $file['size'] <= 0 || $file['size'] > $this->maxBytes) {
-            throw new RuntimeException('Plik JAR jest pusty, uszkodzony albo przekracza limit uploadu.');
+        $uploadError = (int) $file['error'];
+        if ($uploadError !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(self::uploadErrorMessage($uploadError));
         }
-        if (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) !== 'jar' || !is_file($file['tmp_name'])) {
-            throw new RuntimeException('Dozwolone są wyłącznie pliki .jar.');
+
+        $extension = BuildCiPolicy::extension($file['name']);
+        $extensions = $policy['extensions'] ?? ['jar'];
+        if (!in_array($extension, $extensions, true) || !is_file($file['tmp_name']) || is_link($file['tmp_name'])) {
+            throw new RuntimeException('Artifact format is not permitted.');
         }
-        $this->assertFilesystemReserve((int) $file['size'], self::DEFAULT_RESERVE_BYTES);
+        $size = (int) filesize($file['tmp_name']);
+        if ($size !== (int) $file['size']) {
+            throw new RuntimeException('Artifact size does not match the uploaded file.');
+        }
+        $maxBytes = $policy['max_bytes'] ?? $this->maxBytes;
+        if ($size <= 0) {
+            throw new RuntimeException('Plik artefaktu jest pusty.');
+        }
+        if ($size > $maxBytes) {
+            throw new RuntimeException(sprintf(
+                'Plik artefaktu przekracza limit Build Explorer (%d MiB).',
+                (int) ceil($maxBytes / 1048576)
+            ));
+        }
+        $this->assertFilesystemReserve($size, self::DEFAULT_RESERVE_BYTES);
 
         $handle = fopen($file['tmp_name'], 'rb');
-        $signature = is_resource($handle) ? fread($handle, 4) : false;
-        if (is_resource($handle)) { fclose($handle); }
-        if (!is_string($signature) || !str_starts_with($signature, "PK")) {
-            throw new RuntimeException('Plik JAR nie ma prawidłowej struktury ZIP.');
+        $signature = is_resource($handle) ? fread($handle, 512) : false;
+        $dmgTrailer = false;
+        if (is_resource($handle)) {
+            if ($size >= 512 && fseek($handle, -512, SEEK_END) === 0) { $dmgTrailer = fread($handle, 4); }
+            fclose($handle);
         }
+        $valid = is_string($signature) && match ($extension) {
+            'jar', 'zip' => str_starts_with($signature, "PK"),
+            'tar.gz' => str_starts_with($signature, "\x1f\x8b\x08"),
+            'exe' => str_starts_with($signature, 'MZ'),
+            'msi' => str_starts_with($signature, "\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"),
+            'dmg' => $dmgTrailer === 'koly',
+            'appimage' => str_starts_with($signature, "\x7fELF") && substr($signature, 8, 2) === 'AI',
+            default => false,
+        };
+        if (!$valid) { throw new RuntimeException('Artifact signature does not match its format.'); }
 
-        $key = bin2hex(random_bytes(24)) . '.jar';
+        $key = bin2hex(random_bytes(24)) . '.' . $extension;
         $temporary = $this->directory . '/upload-' . bin2hex(random_bytes(8));
         $moved = is_uploaded_file($file['tmp_name'])
             ? move_uploaded_file($file['tmp_name'], $temporary)
@@ -78,7 +107,7 @@ final class BuildArtifactStorage
 
     public function path(string $key): ?string
     {
-        if (preg_match('/^[a-f0-9]{48}\.jar$/', $key) !== 1) { return null; }
+        if (preg_match('/^[a-f0-9]{48}\.(?:jar|exe|msi|dmg|appimage|zip|tar\.gz)$/', $key) !== 1) { return null; }
         $path = $this->directory . '/' . $key;
         return is_file($path) && !is_link($path) ? $path : null;
     }
@@ -106,7 +135,7 @@ final class BuildArtifactStorage
         foreach ($iterator as $entry) {
             if (!$entry->isFile() || $entry->isLink()) { continue; }
             $name = $entry->getFilename();
-            if (preg_match('/^[a-f0-9]{48}\.jar$/', $name) === 1) {
+            if (preg_match('/^[a-f0-9]{48}\.(?:jar|exe|msi|dmg|appimage|zip|tar\.gz)$/', $name) === 1) {
                 $keys[] = $name;
             }
         }
@@ -195,6 +224,20 @@ final class BuildArtifactStorage
                 ]
             );
         }
+    }
+
+    private static function uploadErrorMessage(int $error): string
+    {
+        return match ($error) {
+            UPLOAD_ERR_INI_SIZE => 'Upload JAR został odrzucony przez limit PHP upload_max_filesize.',
+            UPLOAD_ERR_FORM_SIZE => 'Upload JAR przekracza limit zadeklarowany przez formularz.',
+            UPLOAD_ERR_PARTIAL => 'Upload JAR został przesłany tylko częściowo.',
+            UPLOAD_ERR_NO_FILE => 'Nie przesłano pliku JAR.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Serwer PHP nie ma katalogu tymczasowego dla uploadu.',
+            UPLOAD_ERR_CANT_WRITE => 'Serwer PHP nie może zapisać uploadu do katalogu tymczasowego.',
+            UPLOAD_ERR_EXTENSION => 'Upload JAR został zatrzymany przez rozszerzenie PHP.',
+            default => sprintf('Upload JAR nie powiódł się (PHP upload error %d).', $error),
+        };
     }
 
     private static function segment(string $value): string

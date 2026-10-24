@@ -1,4 +1,0 @@
-<?php
-declare(strict_types=1);
-use SyntaxDevTeam\Cms\Core\Autoloader;use SyntaxDevTeam\Cms\Database\CrudApp;use SyntaxDevTeam\Cms\Modules\ItemShop\{ItemShopSecretVault,ItemShopWebhookDispatcher,ItemShopWebhookTransport,ItemShopWebhookUrlPolicy};
-require_once dirname(__DIR__).'/core/Autoloader.php';Autoloader::register();$config=require dirname(__DIR__).'/config/config.php';$database=is_array($config['database']??null)?$config['database']:[];$key=trim((string)($config['modules']['itemshop_secret_key']??''));if(($database['enabled']??false)!==true||$key===''){fwrite(STDERR,"ItemShop webhook worker nie jest skonfigurowany.\n");exit(1);}$dispatcher=new ItemShopWebhookDispatcher(CrudApp::make($database),new ItemShopSecretVault($key),new ItemShopWebhookTransport(new ItemShopWebhookUrlPolicy()));echo json_encode(['processed'=>$dispatcher->dispatch((int)($argv[1]??25))],JSON_THROW_ON_ERROR).PHP_EOL;

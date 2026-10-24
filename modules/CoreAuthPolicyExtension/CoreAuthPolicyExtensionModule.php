@@ -46,7 +46,7 @@ final class CoreAuthPolicyExtensionModule implements ModuleInterface
 
     public function version(): string
     {
-        return '0.2.1';
+        return '0.2.2';
     }
 
     public function dependencies(): array

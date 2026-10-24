@@ -265,6 +265,27 @@ final class WikiRepository
         return $statement !== null;
     }
 
+    /** @param list<int> $ids */
+    public function setPagesVisibility(int $projectId, array $ids, bool $requiresAuth): int
+    {
+        if ($projectId < 1 || $ids === [] || count($ids) > 500) {
+            throw new \InvalidArgumentException('Nieprawidłowy wybór stron.');
+        }
+        foreach ($ids as $id) {
+            if (!is_int($id) || $id < 1) {
+                throw new \InvalidArgumentException('Nieprawidłowy identyfikator strony.');
+            }
+        }
+        // One atomic statement; project scope also protects against stale or forged selections.
+        $statement = $this->database->update('wiki_pages', [
+            'requires_auth' => $requiresAuth ? 1 : 0,
+        ], ['project_id' => $projectId, 'id' => array_values(array_unique($ids))]);
+        if ($statement === null) {
+            throw new RuntimeException('Nie można zmienić dostępu stron dokumentacji.');
+        }
+        return $statement->rowCount();
+    }
+
     public function setPagePublished(int $id, bool $published): bool
     {
         $statement = $this->database->update('wiki_pages', [

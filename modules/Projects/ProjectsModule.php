@@ -53,7 +53,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.5.0'; }
+    public function version(): string { return '1.5.1'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }
@@ -650,7 +650,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         if ($project->wikiStatus === 'published') {
             $links[] = ['label' => 'Documentation', 'href' => '/wiki/project/' . rawurlencode($project->wikiSlug), 'meta' => $project->wikiName];
         }
-        $links[] = ['label' => 'Build Explorer', 'href' => '/builds/' . rawurlencode($project->slug), 'meta' => 'Versions and downloadable files'];
+        $links[] = ['label' => 'Build Explorer', 'href' => '/builds/' . rawurlencode($project->slug) . '/explore', 'meta' => 'Versions and downloadable files'];
 
         return $links;
     }

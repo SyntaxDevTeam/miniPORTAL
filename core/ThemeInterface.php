@@ -72,7 +72,7 @@ interface ThemeInterface
     public function set_public_navigation(array $items, bool $authenticated, array $activeModules = []): void;
 
     /** Isolate a microsite or storefront from the platform's public navigation and auth links. */
-    public function set_public_standalone(bool $standalone = true): void;
+    public function set_public_standalone(bool $standalone = true, string $colorScheme = 'light'): void;
 
     /** @param list<array<string, mixed>> $items Navigation owned by an isolated microsite. */
     public function set_public_standalone_navigation(array $items): void;
@@ -90,6 +90,8 @@ interface ThemeInterface
     public function start_header(string $title, string $lead = '', string $eyebrow = ''): void;
 
     public function end_header(): void;
+
+    public function render_storefront_header(string $name, string $description, string $eyebrow, string $logoUrl, string $bannerUrl): void;
 
     public function start_section(): void;
 
@@ -400,14 +402,18 @@ interface ThemeInterface
      *         label: string,
      *         variant?: string,
      *         href?: string,
+     *         modal?: string,
      *         action?: string,
      *         fields?: array<string, scalar>,
      *         confirm?: string
      *     }>
      * }> $rows
-     * @param array{action:string,field?:string,label?:string,confirm?:string}|null $bulkAction
+     * @param array{action:string,field?:string,label?:string,confirm?:string,choice?:array{name:string,label:string,options:array<string,string>}}|null $bulkAction
      */
     public function render_admin_action_table(array $headers, array $rows, string $csrfToken, ?array $bulkAction = null): void;
+
+    /** @param list<array<string, mixed>> $fields */
+    public function render_admin_form_modal(string $id,string $title,string $action,array $fields,string $submitLabel,string $csrfToken,string $triggerLabel='',string $triggerVariant='primary'):void;
 
     /** @param list<array<string, mixed>> $fields */
     public function render_admin_filter_modal(

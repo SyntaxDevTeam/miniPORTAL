@@ -182,6 +182,44 @@
     return classes;
   };
 
+  const logSeverity = (line, previous = "") => {
+    // Read the logger header, rather than words in chat or ordinary messages.
+    const level = line.match(/^\s*(?:\[[^\]\n]*\]\s*)*\[(?:[^\]\n]*[ /])?(INFO|DEBUG|TRACE|WARN|WARNING|ERROR|SEVERE|FATAL)\](?=[:\s]|$)/i)
+      || line.match(/^\s*(ERROR|SEVERE|FATAL|WARN|WARNING|INFO|DEBUG|TRACE)\b[:\s]/i);
+    if (level) {
+      return /^(ERROR|SEVERE|FATAL)$/i.test(level[1]) ? "error"
+        : (/^WARN(?:ING)?$/i.test(level[1]) ? "warning" : "");
+    }
+    if (/^\s*(?:Caused by:|Suppressed:|Exception in thread |(?:[\w$]+\.)*[\w$]*(?:Exception|Error)(?::|$))/i.test(line)) return "error";
+    return previous === "error" && /^\s+(?:at\s|\.\.\. \d+ (?:more|common frames omitted))/.test(line) ? "error" : "";
+  };
+
+  const highlightConsoleLines = (fragment) => {
+    const result = document.createDocumentFragment();
+    let line = document.createElement("span");
+    let previous = "";
+    const flushLine = () => {
+      previous = logSeverity(line.textContent, previous);
+      if (previous) line.classList.add(`minecraft-console__line--${previous}`);
+      result.append(line);
+      line = document.createElement("span");
+    };
+    for (const node of Array.from(fragment.childNodes)) {
+      const parts = node.textContent.split("\n");
+      parts.forEach((part, index) => {
+        if (index > 0) {
+          flushLine();
+          result.append(document.createTextNode("\n"));
+        }
+        const copy = node.nodeType === 3 ? document.createTextNode(part) : node.cloneNode(false);
+        if (node.nodeType !== 3) copy.textContent = part;
+        line.append(copy);
+      });
+    }
+    flushLine();
+    return result;
+  };
+
   const renderConsoleOutput = (element, source) => {
     const fragment = document.createDocumentFragment();
     const state = newState();
@@ -248,7 +286,7 @@
       index += 1;
     }
     flush();
-    element.replaceChildren(fragment);
+    element.replaceChildren(highlightConsoleLines(fragment));
   };
 
   document.querySelectorAll("[data-minecraft-console]").forEach((root) => {
@@ -509,6 +547,39 @@
     renameInput.setSelectionRange(0, selectionEnd);
   });
 
+  const transferModal = document.querySelector("#minecraft-file-transfer-modal");
+  const transferSource = transferModal?.querySelector("[data-minecraft-file-transfer-source]");
+  const transferMode = transferModal?.querySelector("[data-minecraft-file-transfer-mode]");
+  const transferDestination = transferModal?.querySelector("[data-minecraft-file-transfer-destination]");
+  const transferTitle = transferModal?.querySelector("[data-minecraft-file-transfer-title]");
+  const transferDescription = transferModal?.querySelector("[data-minecraft-file-transfer-description]");
+  const transferSubmit = transferModal?.querySelector("[data-minecraft-file-transfer-submit]");
+
+  document.querySelectorAll("[data-minecraft-file-transfer]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const name = button.dataset.name || "";
+      const mode = button.dataset.mode === "move" ? "move" : "copy";
+      const currentPath = transferModal?.dataset.currentPath || "";
+      const verb = mode === "move" ? "Przenieś" : "Kopiuj";
+      if (transferSource instanceof HTMLInputElement) transferSource.value = name;
+      if (transferMode instanceof HTMLInputElement) transferMode.value = mode;
+      if (transferDestination instanceof HTMLInputElement) transferDestination.value = currentPath;
+      if (transferTitle instanceof HTMLElement) transferTitle.textContent = `${verb}: ${name}`;
+      if (transferDescription instanceof HTMLElement) {
+        transferDescription.textContent = mode === "move"
+          ? "Pozycja zostanie przeniesiona do wskazanego katalogu."
+          : "Pozycja zostanie skopiowana do wskazanego katalogu.";
+      }
+      if (transferSubmit instanceof HTMLButtonElement) transferSubmit.textContent = verb;
+    });
+  });
+
+  transferModal?.addEventListener("shown.bs.modal", () => {
+    if (!(transferDestination instanceof HTMLInputElement)) return;
+    transferDestination.focus();
+    transferDestination.select();
+  });
+
   const appendYamlToken = (target, type, value) => {
     if (value === "") return;
     if (type === "") {
@@ -665,43 +736,180 @@
     const yamlValidation = form.querySelector("[data-minecraft-yaml-validation]");
     const status = form.querySelector("[data-minecraft-editor-status]");
     const position = form.querySelector("[data-minecraft-editor-position]");
+    const searchPanel = form.querySelector("[data-minecraft-editor-search]");
+    const searchToggle = form.querySelector("[data-minecraft-editor-search-toggle]");
+    const searchInput = form.querySelector("[data-minecraft-editor-search-input]");
+    const searchCount = form.querySelector("[data-minecraft-editor-search-count]");
+    const searchPrevious = form.querySelector("[data-minecraft-editor-search-previous]");
+    const searchNext = form.querySelector("[data-minecraft-editor-search-next]");
+    const searchClose = form.querySelector("[data-minecraft-editor-search-close]");
     if (!(form instanceof HTMLFormElement) || !(editor instanceof HTMLTextAreaElement)) return;
 
     const initialValue = editor.value;
+    const surface = editor.closest(".minecraft-code-editor__surface");
+    const viewport = editor.closest(".minecraft-code-editor__viewport");
+    let codeMirrorEditor = null;
     let dirty = false;
     let highlightFrame = 0;
     let validationTimer = 0;
+    let searchMatches = [];
+    let searchIndex = -1;
+
+    const currentValue = () => codeMirrorEditor ? codeMirrorEditor.getValue() : editor.value;
+
+    const updateSearchCount = () => {
+      if (!(searchCount instanceof HTMLElement)) return;
+      if (!(searchInput instanceof HTMLInputElement) || searchInput.value === "") {
+        searchCount.textContent = "0 wyników";
+        return;
+      }
+      if (searchMatches.length === 0) {
+        searchCount.textContent = "Brak wyników";
+        return;
+      }
+      searchCount.textContent = `${searchIndex + 1} / ${searchMatches.length}`;
+    };
+
+    const findSearchMatches = () => {
+      if (!(searchInput instanceof HTMLInputElement)) return [];
+      const query = searchInput.value;
+      if (query === "") return [];
+      const haystack = currentValue().toLowerCase();
+      const needle = query.toLowerCase();
+      const matches = [];
+      let offset = 0;
+      while (offset <= haystack.length - needle.length) {
+        const found = haystack.indexOf(needle, offset);
+        if (found < 0) break;
+        matches.push({ start: found, end: found + query.length });
+        offset = found + Math.max(needle.length, 1);
+      }
+      return matches;
+    };
+
+    const selectSearchMatch = (index) => {
+      if (searchMatches.length === 0) {
+        searchIndex = -1;
+        updateSearchCount();
+        return;
+      }
+      searchIndex = (index + searchMatches.length) % searchMatches.length;
+      const match = searchMatches[searchIndex];
+      if (codeMirrorEditor) {
+        const from = codeMirrorEditor.posFromIndex(match.start);
+        const to = codeMirrorEditor.posFromIndex(match.end);
+        codeMirrorEditor.setSelection(from, to);
+        codeMirrorEditor.scrollIntoView({ from, to }, 80);
+      } else {
+        editor.setSelectionRange(match.start, match.end);
+        const before = editor.value.slice(0, match.start);
+        const line = Math.max(0, before.split("\n").length - 1);
+        editor.scrollTop = Math.max(0, line * 20 - editor.clientHeight / 3);
+        syncHighlightScroll();
+      }
+      updatePosition();
+      updateSearchCount();
+    };
+
+    const refreshSearch = (preserveIndex = false) => {
+      const previousIndex = searchIndex;
+      searchMatches = findSearchMatches();
+      if (searchMatches.length === 0) {
+        searchIndex = -1;
+        updateSearchCount();
+        return;
+      }
+
+      if (preserveIndex && previousIndex >= 0) {
+        selectSearchMatch(Math.min(previousIndex, searchMatches.length - 1));
+        return;
+      }
+
+      const cursorOffset = codeMirrorEditor
+        ? codeMirrorEditor.indexFromPos(codeMirrorEditor.getCursor("from"))
+        : (editor.selectionStart ?? 0);
+      const nextIndex = searchMatches.findIndex((match) => match.start >= cursorOffset);
+      selectSearchMatch(nextIndex >= 0 ? nextIndex : 0);
+    };
+
+    const openSearch = () => {
+      if (!(searchPanel instanceof HTMLElement) || !(searchInput instanceof HTMLInputElement)) return;
+      searchPanel.hidden = false;
+      const selected = codeMirrorEditor
+        ? codeMirrorEditor.getSelection()
+        : editor.value.slice(editor.selectionStart ?? 0, editor.selectionEnd ?? 0);
+      if (searchInput.value === "" && selected !== "" && !selected.includes("\n") && selected.length <= 200) {
+        searchInput.value = selected;
+      }
+      refreshSearch();
+      searchInput.focus();
+      searchInput.select();
+    };
+
+    const closeSearch = () => {
+      if (!(searchPanel instanceof HTMLElement)) return;
+      searchPanel.hidden = true;
+      searchMatches = [];
+      searchIndex = -1;
+      if (codeMirrorEditor) codeMirrorEditor.focus();
+      else editor.focus();
+    };
+
+    const stepSearch = (direction) => {
+      if (searchMatches.length === 0) refreshSearch();
+      if (searchMatches.length === 0) return;
+      selectSearchMatch(searchIndex + direction);
+    };
 
     const updateLines = () => {
-      if (!(lines instanceof HTMLElement)) return;
+      if (codeMirrorEditor || !(lines instanceof HTMLElement)) return;
       const count = Math.max(1, editor.value.split("\n").length);
       lines.textContent = Array.from({ length: count }, (_value, index) => String(index + 1)).join("\n");
     };
 
     const updatePosition = () => {
       if (!(position instanceof HTMLElement)) return;
+      if (codeMirrorEditor) {
+        const cursor = codeMirrorEditor.getCursor();
+        position.textContent = `Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
+        return;
+      }
       const before = editor.value.slice(0, editor.selectionStart ?? 0);
       const split = before.split("\n");
       position.textContent = `Ln ${split.length}, Col ${(split.at(-1)?.length || 0) + 1}`;
     };
 
     const updateDirty = () => {
-      dirty = editor.value !== initialValue;
+      dirty = currentValue() !== initialValue;
       if (!(status instanceof HTMLElement)) return;
       status.textContent = dirty ? "Niezapisane zmiany" : "Zapisano";
       status.classList.toggle("is-dirty", dirty);
     };
 
     const syncHighlightScroll = () => {
-      if (!(highlight instanceof HTMLElement)) return;
+      if (codeMirrorEditor || !(highlight instanceof HTMLElement)) return;
       highlight.scrollTop = editor.scrollTop;
       highlight.scrollLeft = editor.scrollLeft;
     };
 
+    const disableInteractiveHighlight = () => {
+      if (codeMirrorEditor || editor.dataset.editorLanguage !== "yaml" || editor.readOnly) return;
+      if (highlight instanceof HTMLElement) highlight.replaceChildren();
+      surface?.classList.remove("has-syntax-highlighting");
+    };
+
     const updateHighlight = () => {
+      if (codeMirrorEditor) return;
       const language = editor.dataset.editorLanguage;
       if (!(["yaml", "log"].includes(language)) || !(highlight instanceof HTMLElement)) return;
-      const surface = editor.closest(".minecraft-code-editor__surface");
+
+      // Fallback only. The primary editable YAML path uses CodeMirror, where
+      // highlighted text, selection and caret share one editor surface.
+      if (language === "yaml" && !editor.readOnly && document.activeElement === editor) {
+        disableInteractiveHighlight();
+        return;
+      }
+
       const limit = language === "log" ? 2097152 : 524288;
       if (new Blob([editor.value]).size > limit) {
         highlight.replaceChildren();
@@ -715,7 +923,7 @@
     };
 
     const scheduleHighlight = () => {
-      if (highlightFrame !== 0) return;
+      if (codeMirrorEditor || highlightFrame !== 0) return;
       highlightFrame = window.requestAnimationFrame(() => {
         highlightFrame = 0;
         updateHighlight();
@@ -740,7 +948,8 @@
       yamlValidation.classList.remove("is-checking", "is-valid", "is-invalid", "is-skipped");
       yamlValidation.removeAttribute("aria-busy");
       yamlValidation.removeAttribute("title");
-      if (new Blob([editor.value]).size > 524288) {
+      const value = currentValue();
+      if (new Blob([value]).size > 524288) {
         yamlValidation.textContent = "Walidacja YAML wyłączona powyżej 512 KiB";
         yamlValidation.classList.add("is-skipped");
         return;
@@ -751,7 +960,7 @@
         return;
       }
       try {
-        window.jsyaml.load(editor.value);
+        window.jsyaml.load(value);
         yamlValidation.textContent = "Składnia YAML poprawna";
         yamlValidation.classList.add("is-valid");
       } catch (error) {
@@ -783,32 +992,104 @@
       updateDirty();
       scheduleHighlight();
       scheduleYamlValidation();
+      if (searchPanel instanceof HTMLElement && !searchPanel.hidden) refreshSearch(true);
     };
 
-    editor.addEventListener("input", sync);
-    editor.addEventListener("click", updatePosition);
-    editor.addEventListener("keyup", updatePosition);
-    editor.addEventListener("scroll", () => {
-      if (lines instanceof HTMLElement) lines.scrollTop = editor.scrollTop;
-      syncHighlightScroll();
-    });
-    editor.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    const canUseCodeMirror = editor.dataset.editorLanguage === "yaml"
+      && !editor.readOnly
+      && viewport instanceof HTMLElement
+      && typeof window.CodeMirror?.fromTextArea === "function";
+
+    if (canUseCodeMirror) {
+      codeMirrorEditor = window.CodeMirror.fromTextArea(editor, {
+        mode: "yaml",
+        lineNumbers: true,
+        lineWrapping: false,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        showCursorWhenSelecting: true,
+        viewportMargin: 20,
+        extraKeys: {
+          "Ctrl-S": () => form.requestSubmit(),
+          "Cmd-S": () => form.requestSubmit(),
+          "Ctrl-F": openSearch,
+          "Cmd-F": openSearch,
+          "Tab": (cm) => {
+            if (cm.somethingSelected()) {
+              cm.indentSelection("add");
+              return;
+            }
+            cm.replaceSelection("    ", "end", "+input");
+          },
+          "Shift-Tab": (cm) => cm.indentSelection("subtract"),
+        },
+      });
+      codeMirrorEditor.setSize("100%", "100%");
+
+      surface?.classList.remove("has-syntax-highlighting");
+      surface?.classList.add("has-codemirror-editor");
+
+      codeMirrorEditor.on("change", () => {
+        updateDirty();
+        scheduleYamlValidation();
+        if (searchPanel instanceof HTMLElement && !searchPanel.hidden) refreshSearch(true);
+      });
+      codeMirrorEditor.on("cursorActivity", updatePosition);
+
+      window.requestAnimationFrame(() => codeMirrorEditor?.refresh());
+      window.addEventListener("resize", () => codeMirrorEditor?.refresh());
+    } else {
+      editor.addEventListener("input", sync);
+      editor.addEventListener("pointerdown", disableInteractiveHighlight);
+      editor.addEventListener("focus", disableInteractiveHighlight);
+      editor.addEventListener("blur", scheduleHighlight);
+      editor.addEventListener("click", updatePosition);
+      editor.addEventListener("keyup", updatePosition);
+      editor.addEventListener("scroll", () => {
+        if (lines instanceof HTMLElement) lines.scrollTop = editor.scrollTop;
+        syncHighlightScroll();
+      });
+      editor.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+          event.preventDefault();
+          openSearch();
+          return;
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+          event.preventDefault();
+          if (editor.readOnly) return;
+          form.requestSubmit();
+          return;
+        }
+        if (editor.readOnly || event.key !== "Tab") return;
         event.preventDefault();
-        if (editor.readOnly) return;
-        form.requestSubmit();
+        const start = editor.selectionStart ?? 0;
+        const end = editor.selectionEnd ?? start;
+        const insert = "    ";
+        editor.setRangeText(insert, start, end, "end");
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    searchToggle?.addEventListener("click", openSearch);
+    searchPrevious?.addEventListener("click", () => stepSearch(-1));
+    searchNext?.addEventListener("click", () => stepSearch(1));
+    searchClose?.addEventListener("click", closeSearch);
+    searchInput?.addEventListener("input", () => refreshSearch());
+    searchInput?.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSearch();
         return;
       }
-      if (editor.readOnly) return;
-      if (event.key !== "Tab") return;
+      if (event.key !== "Enter") return;
       event.preventDefault();
-      const start = editor.selectionStart ?? 0;
-      const end = editor.selectionEnd ?? start;
-      const insert = "    ";
-      editor.setRangeText(insert, start, end, "end");
-      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      stepSearch(event.shiftKey ? -1 : 1);
     });
+
     form.addEventListener("submit", () => {
+      codeMirrorEditor?.save();
       dirty = false;
       if (status instanceof HTMLElement) {
         status.textContent = "Zapisywanie…";

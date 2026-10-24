@@ -1140,3 +1140,105 @@ body.admin-stylebook.syntaxcraft-theme {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Storefront: a customer-facing shop, visually separate from content pages. */
+.storefront-hero {
+  position: relative;
+  height: clamp(17rem, 26vw, 23rem);
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, #102d27, #1d4a3d);
+  isolation: isolate;
+}
+
+.storefront-hero-banner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
+
+.storefront-hero-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, rgba(5, 20, 17, .94) 0%, rgba(5, 20, 17, .7) 48%, rgba(5, 20, 17, .16) 100%);
+}
+
+.storefront-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  height: 100%;
+  align-items: end;
+  gap: clamp(1rem, 3vw, 2.25rem);
+  padding-top: clamp(3.5rem, 7vw, 6rem);
+  padding-bottom: clamp(1.5rem, 4vw, 2.75rem);
+}
+
+.storefront-hero-logo {
+  width: clamp(4.5rem, 8vw, 6.75rem);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  object-fit: contain;
+  padding: .55rem;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 1.25rem;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 1.25rem 3rem rgba(0,0,0,.3);
+}
+
+.storefront-hero-copy { max-width: 48rem; }
+.storefront-hero-copy .eyebrow { color: #f8df82; }
+.storefront-hero-copy h1 {
+  margin: 0;
+  font-size: clamp(2.35rem, 5vw, 4.5rem);
+  line-height: .92;
+  letter-spacing: -.055em;
+  text-wrap: balance;
+}
+.storefront-hero-copy > p:last-child {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: rgba(255,255,255,.84);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+body:has(.storefront-hero) main > .container {
+  max-width: 1220px;
+  padding-top: clamp(3rem, 7vw, 5.5rem) !important;
+}
+
+body:has(.storefront-hero) .row.g-4 { --bs-gutter-x: 1.5rem; --bs-gutter-y: 1.5rem; }
+body:has(.storefront-hero) .showcase-card {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.35rem, 3vw, 2rem);
+  border-width: 1px;
+  border-radius: 1.1rem;
+  box-shadow: 0 .75rem 2.5rem rgba(25, 56, 47, .09);
+}
+body:has(.storefront-hero) .showcase-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1.1rem 3rem rgba(25, 56, 47, .15);
+}
+body:has(.storefront-hero) .showcase-card .h4 { font-size: 1.45rem; }
+body:has(.storefront-hero) .showcase-card form {
+  margin-top: auto;
+  padding: 1rem;
+  border: 0;
+  border-radius: .85rem;
+  background: #f3f7ed;
+  box-shadow: none;
+}
+body:has(.storefront-hero) .showcase-card .btn { width: fit-content; }
+
+@media (max-width: 575.98px) {
+  .storefront-hero { height: 22rem; }
+  .storefront-hero-content { align-items: flex-start; flex-direction: column; justify-content: end; }
+  .storefront-hero-logo { width: 5.5rem; border-radius: 1rem; }
+  .storefront-hero-shade { background: linear-gradient(0deg, rgba(5,20,17,.96), rgba(5,20,17,.25)); }
+}
