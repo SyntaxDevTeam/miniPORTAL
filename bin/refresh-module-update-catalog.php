@@ -23,7 +23,7 @@ Autoloader::register();
 $root = dirname(__DIR__);
 $repositoryPath = $root . '/cache/module-repository';
 $queue = new ModuleUpdateRefreshQueue($repositoryPath);
-$job = $queue->claim();
+$job = $queue->claim(refreshIntervalSeconds: in_array('--automatic', $argv, true) ? 900 : null);
 if ($job === null) {
     exit(0);
 }

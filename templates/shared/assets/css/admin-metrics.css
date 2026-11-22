@@ -1,0 +1,77 @@
+/* Compact summaries keep related panels together without changing other grids. */
+.admin-panel-grid.admin-panel-grid-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+}
+
+.admin-panel-grid-metrics > .admin-panel {
+  height: auto;
+  margin: 0;
+}
+
+.admin-panel-grid-metrics .admin-panel-header {
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .75rem 1rem;
+}
+
+.admin-panel-grid-metrics .admin-panel-header h2 {
+  font-size: 1rem;
+}
+
+.admin-panel-grid-metrics .admin-panel-header .status-badge {
+  white-space: normal;
+}
+
+.admin-panel-grid-metrics .admin-panel-body {
+  min-width: 0;
+  padding: .85rem;
+}
+
+.admin-panel-grid-metrics .profile-fact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: .5rem;
+  padding: 0;
+}
+
+.admin-panel-grid-metrics .profile-fact {
+  display: block;
+  padding: .65rem .75rem;
+  border-radius: .5rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-panel-grid-metrics .profile-fact span {
+  font-size: .72rem;
+  letter-spacing: .025em;
+}
+
+.admin-panel-grid-metrics .profile-fact strong {
+  margin: .25rem 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.admin-panel-grid-metrics .profile-fact small {
+  font-size: .75rem;
+  line-height: 1.4;
+}
+
+.admin-panel-grid-metrics .profile-fact-grid + .table-responsive {
+  margin-top: .85rem;
+}
+
+.admin-panel-grid-metrics .table {
+  font-size: .8rem;
+}
+
+.admin-panel-grid-metrics > .admin-panel > .admin-panel-body > .alert:only-child {
+  min-height: 3.5rem;
+}
+
+@media (max-width: 1399.98px) {
+  .admin-panel-grid.admin-panel-grid-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

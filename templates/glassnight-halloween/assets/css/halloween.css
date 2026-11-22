@@ -1,0 +1,93 @@
+/* Seasonal glass: presentation only, with no external resources. */
+:root {
+  --mp-bg: #120c16;
+  --mp-bg-deep: #09060e;
+  --mp-surface: rgba(37, 22, 35, .58);
+  --mp-surface-raised: rgba(54, 31, 44, .66);
+  --mp-border: rgba(255, 173, 102, .22);
+  --mp-primary: #ffad66;
+  --mp-primary-rgb: 255, 173, 102;
+  --mp-cyan: #ffc58a;
+  --mp-violet: #a78bfa;
+  --mp-glass-bg: linear-gradient(145deg, rgba(53, 30, 44, .62), rgba(19, 10, 25, .48));
+  --mp-glass-border: rgba(255, 181, 125, .2);
+}
+body {
+  background:
+    radial-gradient(ellipse at 90% 8%, #e96b1929, transparent 36rem),
+    radial-gradient(ellipse at 8% 48%, #9c46c41a, transparent 32rem),
+    var(--mp-bg);
+}
+.home-hero {
+  background:
+    radial-gradient(ellipse at 76% 32%, #ff8a2426, transparent 30rem),
+    radial-gradient(ellipse at 12% 70%, #773e9b1f, transparent 28rem);
+}
+.home-hero::before { opacity: .45; }
+.btn-primary {
+  --bs-btn-bg: #ffad66;
+  --bs-btn-border-color: #ffad66;
+  --bs-btn-color: #211021;
+  --bs-btn-hover-bg: #ffc58a;
+  --bs-btn-hover-border-color: #ffc58a;
+  --bs-btn-hover-color: #211021;
+}
+.halloween-scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1025;
+  contain: strict;
+}
+.halloween-scene img { position: absolute; user-select: none; }
+.halloween-web { top: 0; width: clamp(90px, 15vw, 205px); opacity: .32; }
+.halloween-web-left { left: 0; }
+.halloween-web-right { right: 0; transform: scaleX(-1); }
+.halloween-pumpkins { bottom: -10px; right: 14px; width: clamp(100px, 13vw, 190px); filter: drop-shadow(0 0 22px #ff741638); }
+.halloween-bat { width: 48px; opacity: .65; top: 110px; right: 8%; transform: rotate(-14deg); }
+.halloween-bat-small { width: 30px; top: 155px; right: 4%; transform: rotate(18deg); }
+.halloween-dracula { width: clamp(125px, 16vw, 205px); opacity: 0; visibility: hidden; }
+.halloween-dracula[data-entry="top"] { top: -5px; left: 70%; --arrival: translateY(-110%) rotate(180deg); --peek: translateY(-12%) rotate(180deg); }
+.halloween-dracula[data-entry="left"] { left: -8px; top: 42%; --arrival: translateX(-110%) rotate(30deg); --peek: translateX(-12%) rotate(22deg); }
+.halloween-dracula[data-entry="right"] { right: -8px; top: 35%; --arrival: translateX(110%) rotate(-30deg); --peek: translateX(12%) rotate(-22deg); }
+.halloween-dracula.is-visiting { visibility: visible; animation: halloween-visit 6s ease-in-out both; }
+@keyframes halloween-visit {
+  0%, 100% { transform: var(--arrival); opacity: 0; }
+  20%, 78% { transform: var(--peek); opacity: 1; }
+}
+.halloween-motion-toggle {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1026;
+  padding: .45rem .7rem;
+  border: 1px solid #ffad6659;
+  border-radius: 2rem;
+  background: #160f1ef2;
+  color: #ffd2aa;
+  font: 500 .75rem/1.4 system-ui, sans-serif;
+}
+.halloween-motion-toggle:hover { background: #332033; }
+.halloween-motion-toggle:focus-visible { outline: 3px solid #ffad66; outline-offset: 3px; }
+@media (max-width: 575px) {
+  .halloween-pumpkins { width: 94px; right: 0; bottom: -6px; }
+  .halloween-web { width: 85px; opacity: .22; }
+  .halloween-dracula[data-entry="top"] { left: 50%; }
+  .halloween-bat { width: 34px; right: 5%; }
+  .halloween-bat-small { width: 24px; right: 1%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .halloween-dracula, .halloween-motion-toggle { display: none; }
+  .halloween-dracula.is-visiting { animation: none; }
+}
+
+/* Wiki inherits the seasonal button accent and neutral graphite glass instead of base Glassnight blue. */
+:root {
+  --wiki-accent: #ffad66;
+  --wiki-accent-ink: #21170f;
+  --wiki-panel: linear-gradient(145deg, rgba(27, 29, 34, .92), rgba(14, 16, 21, .9));
+  --wiki-soft: #22252b;
+  --wiki-border: rgba(255, 173, 102, .16);
+  --wiki-input: #101216;
+}

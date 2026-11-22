@@ -1,0 +1,20 @@
+.code-example{margin:1.5rem 0;border:1px solid #536077;border-radius:1.1rem;background:#202633;color:#e9edf7;overflow:hidden;max-width:100%;min-width:0;color-scheme:dark}
+.code-example-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.9rem 1rem;background:#2c3443;flex-wrap:wrap}
+.code-example-actions{display:flex;gap:.4rem;flex-wrap:wrap}
+.code-example button{border:1px solid #6a7890;border-radius:.6rem;background:#343f52;color:#fff;padding:.45rem .7rem;font:inherit;font-size:.85rem;cursor:pointer}
+.code-example button:hover{background:#465670}
+.code-example button:focus-visible,.code-example textarea:focus-visible,.code-example summary:focus-visible{outline:2px solid #adc7ff;outline-offset:3px}
+.code-example button[hidden],.code-example pre[hidden]{display:none}
+.code-example-source,.code-example-inputs textarea{display:block;box-sizing:border-box;width:100%;resize:vertical;border:0;background:#202633;color:#e9edf7;padding:1rem;font:14px/1.65 ui-monospace,monospace;tab-size:4}
+.code-example .CodeMirror{background:#202633;color:#e9edf7;height:auto;min-height:10rem;max-height:30rem;font:14px/1.65 ui-monospace,monospace}
+.code-example .CodeMirror-scroll{max-height:30rem;min-height:10rem}
+.code-example .CodeMirror-gutters{background:#252d3c;border-color:#3d485e}
+.code-example .CodeMirror-linenumber{color:#9caac1}
+.code-example .CodeMirror-cursor{border-left-color:#fff}
+.code-example .CodeMirror-selected{background:#44516b}
+.code-example .cm-keyword{color:#d5afff}.code-example .cm-string{color:#afe2b5}.code-example .cm-number{color:#ffc18a}.code-example .cm-comment{color:#a5b3c9}.code-example .cm-builtin{color:#a9c9ff}.code-example .cm-def{color:#ffe4a6}.code-example .cm-operator{color:#eeb5cc}
+.code-example-inputs{padding:.6rem 1rem;border-top:1px solid #3d485e;font-size:.9rem}
+.code-example-inputs summary{cursor:pointer}.code-example-inputs textarea{margin-top:.5rem;border:1px solid #536077;border-radius:.5rem}
+.code-example-status{padding:.7rem 1rem!important;margin:0!important;color:#c3cfe3;font-size:.85rem}
+.code-example pre.code-example-output{margin:0!important;border:0!important;border-top:1px solid #536077!important;border-radius:0!important;padding:1rem!important;background:#141b26!important;color:#e9edf7!important;max-height:20rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace}
+@media(max-width:480px){.code-example-toolbar{padding:.75rem}.code-example-actions{width:100%}.code-example button{flex:1}.code-example .CodeMirror{font-size:13px}}

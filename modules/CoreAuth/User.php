@@ -20,6 +20,7 @@ final readonly class User
         public array $roles,
         public array $permissions,
         public array $identities = [],
+        public int $sessionVersion = 0,
     ) {
     }
 

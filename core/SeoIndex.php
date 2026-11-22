@@ -10,6 +10,8 @@ use Throwable;
 
 final class SeoIndex
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, array{path:string,title:string,description:string,lastmod:string,priority:float,changefreq:string,type:string}> */
     private array $entries = [];
 

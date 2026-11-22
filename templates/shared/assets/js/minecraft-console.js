@@ -1,6 +1,14 @@
 (() => {
   "use strict";
 
+  document.querySelectorAll("[data-minecraft-server-picker]").forEach((select) => {
+    const form = select.form;
+    if (!form) return;
+    select.addEventListener("change", () => form.requestSubmit());
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.hidden = true;
+  });
+
   const MAX_OUTPUT_LENGTH = 262144;
   const COLOR_NAMES = [
     "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",

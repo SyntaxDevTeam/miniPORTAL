@@ -19,7 +19,7 @@ final class CrudAppUserRepository implements UserRepositoryInterface
     public function findById(int $id): ?User
     {
         $statement = $this->database->query(
-            'SELECT id, display_name, email, avatar_url, status FROM users WHERE id = :id LIMIT 1',
+            'SELECT * FROM users WHERE id = :id LIMIT 1',
             [':id' => $id]
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
@@ -277,7 +277,8 @@ final class CrudAppUserRepository implements UserRepositoryInterface
                 . 'WHERE user_roles.user_id = :user_id ORDER BY permissions.name',
                 $userId
             ),
-            $this->identities($userId)
+            $this->identities($userId),
+            (int) ($row['session_version'] ?? 0),
         );
         if ($derived['roles']===[]) return $user;
         $roles = array_values(array_unique(array_merge(
@@ -286,7 +287,7 @@ final class CrudAppUserRepository implements UserRepositoryInterface
             array_values(array_filter($user->roles, static fn ($role) => $role==='user')),
         )));
         return new User($user->id, $user->displayName, $user->email, $user->avatarUrl, $user->status,
-            $roles, array_values(array_unique(array_merge($user->permissions, $derived['permissions']))), $user->identities);
+            $roles, array_values(array_unique(array_merge($user->permissions, $derived['permissions']))), $user->identities, $user->sessionVersion);
     }
 
     /**

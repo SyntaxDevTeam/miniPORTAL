@@ -20,6 +20,9 @@ final readonly class Article
         public ?string $publishedAt,
         public string $createdAt,
         public string $updatedAt,
+        public string $language = 'und',
+        public string $seoTitle = '',
+        public string $seoDescription = '',
     ) {
     }
 }

@@ -135,7 +135,7 @@ CREATE TABLE homepage_sections (
     title VARCHAR(220) NOT NULL,
     content_html MEDIUMTEXT NOT NULL,
     content_format ENUM('html', 'markdown') NOT NULL DEFAULT 'html',
-    layout ENUM('full', 'split', 'columns', 'accent', 'contact') NOT NULL DEFAULT 'full',
+    layout ENUM('full', 'split', 'columns', 'accent', 'contact', 'technologies') NOT NULL DEFAULT 'full',
     button_label TEXT NULL,
     button_url TEXT NULL,
     sort_order INT UNSIGNED NOT NULL DEFAULT 10,
@@ -150,6 +150,7 @@ CREATE TABLE homepage_sections (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE homepage_section_items (
+    contact_ref VARCHAR(120) NOT NULL DEFAULT '',
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     section_id BIGINT UNSIGNED NOT NULL,
     page_id BIGINT UNSIGNED NULL,
@@ -159,6 +160,7 @@ CREATE TABLE homepage_section_items (
     content_format ENUM('html', 'markdown') NOT NULL DEFAULT 'html',
     item_kind ENUM('card', 'channel', 'person') NOT NULL DEFAULT 'card',
     icon_key VARCHAR(32) NOT NULL DEFAULT '',
+    logo_url VARCHAR(500) NOT NULL DEFAULT '',
     button_label TEXT NULL,
     button_url TEXT NULL,
     variant ENUM('primary', 'violet', 'neutral') NOT NULL DEFAULT 'primary',

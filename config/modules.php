@@ -323,6 +323,13 @@ $moduleDefinitionsBase[] = [
 ];
 
 $moduleDefinitionsBase[] = [
+    'directory' => 'MinecraftMonitor',
+    'enabled' => static fn(array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static fn(array $services): \SyntaxDevTeam\Cms\Modules\MinecraftMonitor\MinecraftMonitorModule =>
+        (require dirname(__DIR__).'/modules/MinecraftMonitor/factory.php')($services),
+];
+
+$moduleDefinitionsBase[] = [
     'directory' => 'ServerStaff',
     'enabled' => static fn(array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
     'factory' => static fn(array $services): \SyntaxDevTeam\Cms\Modules\ServerStaff\ServerStaffModule =>
@@ -335,5 +342,39 @@ $moduleDefinitionsBase[] = [
     'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\MoonValeShop\ShopModule =>
         (require dirname(__DIR__) . '/modules/MoonValeShop/factory.php')($services),
 ];
+
+$moduleDefinitionsBase[] = [
+    'directory' => 'TaskBoard',
+    'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+    'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\TaskBoard\TaskBoardModule =>
+        (require dirname(__DIR__) . '/modules/TaskBoard/factory.php')($services),
+];
+
+if (is_dir(dirname(__DIR__) . '/modules/SyntaxDevBot')) {
+    $moduleDefinitionsBase[] = [
+        'directory' => 'SyntaxDevBot',
+        'enabled' => static fn(array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+        'factory' => static fn(array $services): \SyntaxDevTeam\Cms\Modules\SyntaxDevBot\SyntaxDevBotModule =>
+            (require dirname(__DIR__) . '/modules/SyntaxDevBot/factory.php')($services),
+    ];
+}
+
+if (is_dir(dirname(__DIR__) . '/modules/Exams')) {
+    $moduleDefinitionsBase[] = [
+        'directory' => 'Exams',
+        'enabled' => static fn (array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+        'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\Exams\ExamsModule =>
+            (require dirname(__DIR__) . '/modules/Exams/factory.php')($services),
+    ];
+}
+
+if (is_dir(dirname(__DIR__) . '/modules/DiscordIntegration')) {
+    $moduleDefinitionsBase[] = [
+        'directory' => 'DiscordIntegration',
+        'enabled' => static fn(array $services): bool => ($services['database'] ?? null) instanceof CrudApp,
+        'factory' => static fn(array $services): \SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordIntegrationModule =>
+            (require dirname(__DIR__).'/modules/DiscordIntegration/factory.php')($services),
+    ];
+}
 
 return $moduleDefinitionsBase;

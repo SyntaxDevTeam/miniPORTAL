@@ -168,7 +168,55 @@ const escapeHtml = (value) => value
   .replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;");
 
-const inlineMarkdownToHtml = (value) => escapeHtml(value)
+const markdownHtmlTag = (tag) => {
+  const match = tag.match(/^<(\/?)([a-z][a-z0-9]*)\b/i);
+  const name = match?.[2].toLowerCase();
+  const allowed = ["p", "br", "strong", "b", "em", "i", "u", "s", "del", "ul", "ol", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "div", "span", "hr", "pre", "code", "a", "img", "details", "summary", "sub", "sup", "kbd", "mark"];
+  if (!allowed.includes(name)) return "";
+  if (match[1]) return ["img", "br", "hr"].includes(name) ? "" : `</${name}>`;
+  if (name === "code") {
+    const node = new DOMParser().parseFromString(tag + "</code>", "text/html").querySelector("code");
+    const language = node?.getAttribute("class") || "";
+    return /^language-[a-zA-Z0-9_-]{1,40}$/.test(language) ? `<code class="${language}">` : "<code>";
+  }
+  if (!["a", "img"].includes(name)) {
+    let alignment = "";
+    if (["div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "th", "td"].includes(name)) {
+      // A neutral element also parses attributes of table cells outside a table.
+      const attributes = tag.replace(/^<[a-z][a-z0-9]*/i, "<div");
+      const node = new DOMParser().parseFromString(attributes, "text/html").querySelector("div");
+      const align = (node?.getAttribute("align") || "").trim().toLowerCase();
+      if (["left", "center", "right", "justify"].includes(align)) alignment = ` align="${align}"`;
+    }
+    return `<${name}${alignment}>`;
+  }
+  const node = new DOMParser().parseFromString(tag, "text/html").querySelector(name);
+  const url = (node?.getAttribute(name === "a" ? "href" : "src") || "").trim();
+  const safe = url && !/[\x00-\x20\x7F\\]/.test(url) && !url.startsWith("//")
+    && (/^(https?:\/\/|\/)/i.test(url) || (name === "a" && /^(mailto:|#|\.\.?\/|[a-z0-9][a-z0-9._~/?#%&=+\-]*$)/i.test(url)));
+  if (name === "a") {
+    const anchor = (node?.getAttribute("id") ?? node?.getAttribute("name") ?? "").trim();
+    const anchorAttribute = /^[a-z][a-z0-9_-]{0,99}$/i.test(anchor) ? ` id="${anchor}"` : "";
+    return `<a${anchorAttribute}${safe ? ` href="${escapeHtml(url)}" rel="nofollow noopener noreferrer"` : ""}>`;
+  }
+  if (!safe) return "";
+  const width = richtextImageWidthFromElement(node);
+  const attrs = [...node.classList].filter(value => /^content-image-(left|right|center|wide|original|small|medium|large|custom)$/.test(value)).map(value => `.${value}`).join(" ");
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(node.getAttribute("alt") || "")}" class="${richtextImageClasses(`${attrs} ${width ? ".content-image-custom" : ""}`)}"${richtextImageStyle(width)} loading="lazy">`;
+};
+
+const inlineMarkdownToHtml = (value) => {
+  const tokens = [];
+  const token = (html) => { tokens.push(html); return `\x1A${tokens.length - 1}\x1A`; };
+  const hasHtml = /<\/?[a-z][a-z0-9]*\b/i.test(value);
+  value = value.replaceAll("\x1A", "")
+    .replace(/`[^`\n]+`|<(pre|code)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, html => html.startsWith("`") ? html : token(sanitizeMarkdownPreview(html)))
+    .replace(/\\([\\`*{}\[\]()#+\-.!_>~|])/g, (_match, literal) => token(escapeHtml(literal)))
+    .replace(/`([^`\n]+)`/g, (_match, code) => token(`<code>${escapeHtml(code)}</code>`))
+    .replace(/<(script|style|iframe|object|embed|svg|math)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\/?[a-z][a-z0-9]*(?:\s+(?:[^"'<>]|"[^"]*"|'[^']*')*)?\s*\/?>/gi, tag => token(markdownHtmlTag(tag)))
+    .replace(/&(?:#[0-9]+|#x[a-f0-9]+|[a-z][a-z0-9]+);/gi, entity => hasHtml ? token(entity) : entity);
+  const html = escapeHtml(value)
   .replace(
     /\[!\[([^\]]*)]\((https?:\/\/[^ )]+|\/[^ )]+)\)]\((https?:\/\/[^ )]+|\/[^ )]+)\)/g,
     '<a href="$3"><img class="content-image content-image-original" src="$2" alt="$1" loading="lazy"></a>'
@@ -181,12 +229,29 @@ const inlineMarkdownToHtml = (value) => escapeHtml(value)
     /!\[([^\]]*)]\((https?:\/\/[^ )]+|\/[^ )]+)\)/g,
     '<img src="$2" alt="$1" class="content-image content-image-original" loading="lazy">'
   )
-  .replace(/`([^`]+)`/g, "<code>$1</code>")
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
   .replace(/__(.+?)__/g, "<strong>$1</strong>")
   .replace(/~~(.+?)~~/g, "<s>$1</s>")
   .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
   .replace(/\[([^\]]+)]\((https?:\/\/|mailto:|\/|#|index\.php)([^ )]+)\)/g, '<a href="$2$3">$1</a>');
+
+  const restored = html.replace(/\x1A(\d+)\x1A/g, (_match, index) => tokens[Number(index)] || "");
+  return restored;
+};
+
+const sanitizeMarkdownPreview = (html) => {
+  // Sanitize the assembled document so HTML containers can span Markdown paragraphs.
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const walk = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent);
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+    if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "SVG", "MATH"].includes(node.tagName)) return "";
+    const opening = markdownHtmlTag(node.outerHTML.match(/^<(?:[^"'>]|"[^"]*"|'[^']*')*>/)?.[0] || "");
+    const content = [...node.childNodes].map(walk).join("");
+    return opening + content + (opening ? markdownHtmlTag(`</${node.tagName}>`) : "");
+  };
+  return [...doc.body.childNodes].map(walk).join("");
+};
 
 const markdownToHtml = (markdown) => {
   const lines = markdown.replaceAll("\r\n", "\n").split("\n");
@@ -194,6 +259,7 @@ const markdownToHtml = (markdown) => {
   let paragraph = [];
   let list = null;
   let code = null;
+  let codeLanguage = "";
 
   const flushParagraph = () => {
     if (paragraph.length) {
@@ -225,7 +291,7 @@ const markdownToHtml = (markdown) => {
     const line = lines[index];
     if (code !== null) {
       if (/^ {0,3}```/.test(line)) {
-        output.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+        output.push(`<pre><code${codeLanguage ? ` class="language-${codeLanguage}"` : ""}>${escapeHtml(code.join("\n"))}</code></pre>`);
         code = null;
       } else {
         code.push(line);
@@ -235,7 +301,16 @@ const markdownToHtml = (markdown) => {
     if (/^ {0,3}```/.test(line)) {
       flushParagraph();
       closeList();
+      codeLanguage = line.match(/^ {0,3}```([a-zA-Z0-9_-]*)\s*$/)?.[1] || "";
       code = [];
+      continue;
+    }
+    if (/^ {0,3}<\/?(?:p|div|h[1-6]|ul|ol|li|blockquote|table|thead|tbody|tfoot|tr|th|td|pre|hr|details|summary|script|style|iframe|object|embed|svg|math)\b/i.test(line)) {
+      flushParagraph();
+      closeList();
+      const raw = [line];
+      while (index + 1 < lines.length && lines[index + 1].trim() !== "") raw.push(lines[++index]);
+      output.push(inlineMarkdownToHtml(raw.join("\n")));
       continue;
     }
     const heading = line.match(/^ {0,3}(#{1,6})\s+(.+)$/);
@@ -291,77 +366,24 @@ const markdownToHtml = (markdown) => {
   }
   flushParagraph();
   closeList();
-  if (code !== null) output.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+  if (code !== null) output.push(`<pre><code${codeLanguage ? ` class="language-${codeLanguage}"` : ""}>${escapeHtml(code.join("\n"))}</code></pre>`);
 
-  return output.join("");
+  return sanitizeMarkdownPreview(output.join(""));
 };
 
+// HTML is valid in mixed Markdown. Keep its structure instead of a lossy conversion.
 const htmlToMarkdown = (html) => {
   const root = document.createElement("div");
-  root.innerHTML = html;
-  const walk = (node, depth = 0) => {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
-    if (node.nodeType !== Node.ELEMENT_NODE) return "";
-    const content = [...node.childNodes].map((child) => walk(child, depth + 1)).join("");
-    switch (node.tagName.toLowerCase()) {
-      case "h1": return `# ${content}\n\n`;
-      case "h2": return `## ${content}\n\n`;
-      case "h3": return `### ${content}\n\n`;
-      case "h4": return `#### ${content}\n\n`;
-      case "h5": return `##### ${content}\n\n`;
-      case "h6": return `###### ${content}\n\n`;
-      case "p": return `${content.trim()}\n\n`;
-      case "br": return "  \n";
-      case "strong":
-      case "b": return `**${content}**`;
-      case "em":
-      case "i": return `*${content}*`;
-      case "s":
-      case "strike": return `~~${content}~~`;
-      case "code": return node.parentElement?.tagName.toLowerCase() === "pre" ? content : `\`${content}\``;
-      case "pre": return `\`\`\`\n${node.textContent || ""}\n\`\`\`\n\n`;
-      case "blockquote": return `${content.trim().split("\n").map((line) => `> ${line}`).join("\n")}\n\n`;
-      case "a": return `[${content}](${node.getAttribute("href") || "#"})`;
-      case "table": {
-        const rows = [...node.querySelectorAll("tr")]
-          .map((row) => [...row.children]
-            .filter((cell) => ["TH", "TD"].includes(cell.tagName))
-            .map((cell) => [...cell.childNodes]
-              .map((child) => walk(child, depth + 1))
-              .join("")
-              .replace(/\s+/g, " ")
-              .trim()
-              .replaceAll("|", "\\|")))
-          .filter((row) => row.length > 0);
-        if (rows.length === 0) return "";
-        const columnCount = Math.max(...rows.map((row) => row.length));
-        const normalizeRow = (row) => Array.from({ length: columnCount }, (_value, index) => row[index] || "");
-        const header = normalizeRow(rows[0]);
-        const body = rows.slice(1).map(normalizeRow);
-        return [
-          `| ${header.join(" | ")} |`,
-          `| ${header.map(() => "---").join(" | ")} |`,
-          ...body.map((row) => `| ${row.join(" | ")} |`),
-        ].join("\n") + "\n\n";
-      }
-      case "img": {
-        const classes = [...node.classList]
-          .filter((className) => /^content-image-(left|right|center|wide|original|small|medium|large|custom)$/.test(className))
-          .map((className) => `.${className}`)
-          .join(" ");
-        const width = richtextImageWidthFromElement(node);
-        const attrs = [classes, width ? `width=${width}` : ""].filter(Boolean).join(" ");
-        return `![${node.getAttribute("alt") || ""}](${node.getAttribute("src") || ""})${attrs ? `{${attrs}}` : ""}`;
-      }
-      case "li": return `${node.parentElement?.tagName === "OL" ? "1." : "-"} ${content.trim()}\n`;
-      case "ul":
-      case "ol": return `${content}\n`;
-      case "hr": return "---\n\n";
-      default: return content;
+  root.innerHTML = sanitizeMarkdownPreview(html);
+  const walk = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      node.textContent = node.textContent.replace(/[\\`*_~[\]!]/g, "\\$&");
+    } else if (!["PRE", "CODE"].includes(node.tagName)) {
+      [...node.childNodes].forEach(walk);
     }
   };
-
-  return walk(root).replace(/\n{3,}/g, "\n\n").trim();
+  walk(root);
+  return root.innerHTML;
 };
 
 const richtextImageClasses = (attributes = "") => {
@@ -413,7 +435,9 @@ const richtextImageWidth = (attributes = "") => {
 const richtextImageStyle = (width) => width ? ` style="--content-image-width:${width};"` : "";
 
 const richtextImageWidthFromElement = (image) => {
-  return richtextNormalizeImageWidth(image.style.getPropertyValue("--content-image-width"));
+  const custom = richtextNormalizeImageWidth(image.style.getPropertyValue("--content-image-width"));
+  const width = image.getAttribute("width") || "";
+  return custom || (/^[0-9]{1,4}$/.test(width) ? richtextNormalizeImageWidth(`${Number(width)}px`) : null);
 };
 
 const richtextImageMarkdown = (url, alt, size, align, width) => {
@@ -446,30 +470,68 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
     return;
   }
 
+  let activeMode = formatInput.value;
+  const source = document.createElement("textarea");
+  source.className = "richtext-markdown form-control";
+  source.rows = 18;
+  source.hidden = true;
+  source.setAttribute("aria-label", "Kod HTML treści");
+  source.spellcheck = false;
+  markdown.after(source);
+  // Keep the authored document separate from the rendered visual view.
+  let documentFormat = formatInput.value === "markdown" ? "markdown" : "html";
+  let content = documentFormat === "markdown" ? markdown.value : input.value;
+  let visualSnapshot = sanitizeMarkdownPreview(surface.innerHTML);
   const sync = () => {
-    input.value = formatInput.value === "markdown" ? markdown.value : surface.innerHTML;
-  };
-  const setMode = (mode, convert = true) => {
-    const nextMode = mode === "markdown" ? "markdown" : "html";
-    if (convert && formatInput.value !== nextMode) {
-      if (nextMode === "markdown") {
-        markdown.value = htmlToMarkdown(surface.innerHTML);
-      } else {
-        surface.innerHTML = markdownToHtml(markdown.value);
+    if (activeMode === "source") content = source.value;
+    else if (activeMode === "markdown") content = markdown.value;
+    else {
+      const visualContent = sanitizeMarkdownPreview(surface.innerHTML);
+      if (visualContent !== visualSnapshot) {
+        // Ignore selection markers; only a content edit changes the stored format.
+        content = visualContent;
+        documentFormat = "html";
+        visualSnapshot = visualContent;
       }
     }
-    formatInput.value = nextMode;
+    input.value = content;
+    formatInput.value = documentFormat;
+  };
+  source.addEventListener("input", sync);
+  const setMode = (mode, convert = true) => {
+    const nextMode = ["markdown", "source"].includes(mode) ? mode : "html";
+    if (convert) sync();
+    if (selectedImage) selectImage(null);
+    if (nextMode === "markdown" && documentFormat === "html") {
+      content = htmlToMarkdown(content);
+      documentFormat = "markdown";
+    }
+    if (nextMode === "html") {
+      surface.innerHTML = documentFormat === "markdown"
+        ? markdownToHtml(content) : sanitizeMarkdownPreview(content);
+      visualSnapshot = sanitizeMarkdownPreview(surface.innerHTML);
+    }
+    source.value = content;
+    markdown.value = content;
+    activeMode = nextMode;
+    source.setAttribute("aria-label", documentFormat === "markdown" ? "Źródło Markdown i HTML" : "Kod HTML treści");
+    const sourceButton = editor.querySelector('[data-richtext-mode="source"]');
+    if (sourceButton) sourceButton.textContent = documentFormat === "markdown" ? "Źródło Markdown / HTML" : "Kod HTML";
     surface.hidden = nextMode !== "html";
     toolbar.hidden = nextMode !== "html";
+    if (imageOptions) imageOptions.hidden = nextMode === "source";
     markdown.hidden = nextMode !== "markdown";
+    source.hidden = nextMode !== "source";
     editor.querySelectorAll("[data-richtext-mode]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.richtextMode === nextMode);
       button.setAttribute("aria-pressed", button.dataset.richtextMode === nextMode ? "true" : "false");
     });
     if (hint) {
       hint.textContent = nextMode === "markdown"
-        ? "Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy."
-        : "Tryb wizualny zapisuje kontrolowany HTML.";
+        ? "Markdown + bezpieczny HTML: tabele, listy, kod, linki i obrazy. Kod dosłowny umieść w backtickach."
+        : nextMode === "source"
+          ? "Edytujesz źródło w wybranym formacie zapisu. Przełączanie widoków zachowuje treść."
+          : "Tryb wizualny zapisuje kontrolowany HTML.";
     }
     sync();
   };
@@ -477,8 +539,65 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   editor.querySelectorAll("[data-richtext-mode]").forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.richtextMode));
   });
-  formatInput.addEventListener("change", () => setMode(formatInput.value));
+  editor.querySelector("[data-richtext-python]")?.addEventListener("click", () => {
+    const example = 'import math\n\nkat_stopnie = 30\nsinus = math.sin(math.radians(kat_stopnie))\nprint(f"{sinus:.4f}")';
+    if (activeMode === "html") {
+      surface.focus();
+      const html = `<pre><code class="language-python-run">${escapeHtml(example)}</code></pre><p><br></p>`;
+      const selection = window.getSelection();
+      if (!selection?.anchorNode || !surface.contains(selection.anchorNode)) {
+        const range = document.createRange();
+        range.selectNodeContents(surface);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+      document.execCommand("insertHTML", false, html);
+    } else {
+      const area = activeMode === "source" ? source : markdown;
+      const text = documentFormat === "markdown" ? `\n\n\`\`\`python-run\n${example}\n\`\`\`\n\n`
+        : `\n<pre><code class="language-python-run">${escapeHtml(example)}</code></pre>\n`;
+      area.setRangeText(text, area.selectionStart, area.selectionEnd, "end");
+      area.focus();
+    }
+    sync();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  editor.querySelector("[data-richtext-kotlin]")?.addEventListener("click", () => {
+    const example = 'fun main() {\n    println("Witaj, Kotlin!")\n}';
+    if (activeMode === "html") {
+      surface.focus();
+      const html = `<pre><code class="language-kotlin-run">${escapeHtml(example)}</code></pre><p><br></p>`;
+      const selection = window.getSelection();
+      if (!selection?.anchorNode || !surface.contains(selection.anchorNode)) {
+        const range = document.createRange();
+        range.selectNodeContents(surface);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+      document.execCommand("insertHTML", false, html);
+    } else {
+      const area = activeMode === "source" ? source : markdown;
+      const text = documentFormat === "markdown" ? `\n\n\`\`\`kotlin-run\n${example}\n\`\`\`\n\n`
+        : `\n<pre><code class="language-kotlin-run">${escapeHtml(example)}</code></pre>\n`;
+      area.setRangeText(text, area.selectionStart, area.selectionEnd, "end");
+      area.focus();
+    }
+    sync();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  formatInput.addEventListener("change", () => {
+    const requestedFormat = formatInput.value;
+    sync();
+    if (requestedFormat !== documentFormat) {
+      content = requestedFormat === "html" ? markdownToHtml(content) : htmlToMarkdown(content);
+      documentFormat = requestedFormat;
+    }
+    setMode(requestedFormat === "markdown" ? "markdown" : "source", false);
+  });
   editor.querySelectorAll("[data-richtext-command]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => event.preventDefault());
     button.addEventListener("click", () => {
       surface.focus();
       document.execCommand(button.dataset.richtextCommand, false);
@@ -742,20 +861,60 @@ document.querySelectorAll("[data-richtext]").forEach((editor) => {
   });
   surface.addEventListener("scroll", positionResizeHandle);
   window.addEventListener("resize", positionResizeHandle);
+  markdown.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+    if (markdown.selectionStart !== markdown.selectionEnd) return;
+    const cursor = markdown.selectionStart;
+    const start = markdown.value.lastIndexOf("\n", cursor - 1) + 1;
+    const line = markdown.value.slice(start, cursor);
+    // Do not interpret sample lists inside fenced code as editable lists.
+    if ((markdown.value.slice(0, start).match(/^\s*```/gm) || []).length % 2) return;
+    const item = line.match(/^( {0,3})([-+*]|(\d+)[.)]) (.*)$/);
+    if (!item) return;
+    event.preventDefault();
+    if (!item[4].trim()) {
+      markdown.setRangeText("", start, cursor, "end");
+    } else {
+      const marker = item[3] ? `${Number(item[3]) + 1}${item[2].slice(-1)}` : item[2];
+      markdown.setRangeText(`\n${item[1]}${marker} `, cursor, cursor, "end");
+      if (item[3]) {
+        const caret = markdown.selectionStart;
+        let number = Number(item[3]) + 1;
+        const tail = markdown.value.slice(caret).split("\n");
+        for (let index = 1; index < tail.length; index += 1) {
+          const next = tail[index].match(/^( {0,3})(\d+)([.)]) (.*)$/);
+          if (!next || next[1] !== item[1]) break;
+          tail[index] = `${next[1]}${++number}${next[3]} ${next[4]}`;
+        }
+        markdown.setRangeText(tail.join("\n"), caret, markdown.value.length, "start");
+      }
+    }
+    markdown.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   markdown.addEventListener("input", sync);
   surface.addEventListener("paste", (event) => {
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") || "";
-    document.execCommand("insertText", false, text);
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode;
+    const element = anchor?.nodeType === Node.ELEMENT_NODE ? anchor : anchor?.parentElement;
+    if (element?.closest("li") && !element.closest("pre, code")) {
+      // insertText with newlines creates line breaks within one item in Chromium.
+      // Native paragraph insertion splits the item and retains browser undo.
+      text.replace(/\r\n?/g, "\n").split("\n").forEach((line, index) => {
+        if (index) document.execCommand("insertParagraph", false);
+        if (line) document.execCommand("insertText", false, line);
+      });
+    } else {
+      document.execCommand("insertText", false, text);
+    }
+    sync();
   });
   surface.closest("form")?.addEventListener("submit", sync);
   editor.refreshRichtext = () => {
-    if (formatInput.value === "markdown") {
-      markdown.value = input.value;
-    } else {
-      surface.innerHTML = input.value;
-    }
-    setMode(formatInput.value, false);
+    documentFormat = formatInput.value === "markdown" ? "markdown" : "html";
+    content = input.value;
+    setMode(documentFormat, false);
   };
   setMode(formatInput.value, false);
 });

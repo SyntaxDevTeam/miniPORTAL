@@ -9,6 +9,8 @@ use RuntimeException;
 
 final class HookRegistry
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, list<array{priority: int, order: int, listener: Closure}>> */
     private array $actions = [];
 
@@ -16,6 +18,12 @@ final class HookRegistry
     private array $filters = [];
 
     private int $registrationOrder = 0;
+    private ?string $optionalModule = null;
+
+    public function isolateModule(?string $moduleId): void
+    {
+        $this->optionalModule = $moduleId;
+    }
 
     public function addAction(string $name, callable $listener, int $priority = 100): void
     {
@@ -56,6 +64,25 @@ final class HookRegistry
             throw new RuntimeException("Priorytet hooka {$name} jest poza dozwolonym zakresem.");
         }
 
+        $owner = $this->optionalModule;
+        if ($owner !== null) {
+            $callback = $listener;
+            $listener = static function (mixed ...$arguments) use ($callback, $owner): mixed {
+                $level = ob_get_level();
+                ob_start();
+                try {
+                    $result = $callback(...$arguments);
+                    ob_end_flush();
+                    return $result;
+                } catch (\Throwable $exception) {
+                    while (ob_get_level() > $level) {
+                        ob_end_clean();
+                    }
+                    error_log('[miniPORTAL] module_hook_failed module=' . $owner . ' exception=' . $exception::class);
+                    return $arguments[0] ?? null;
+                }
+            };
+        }
         $registry[$name][] = [
             'priority' => $priority,
             'order' => $this->registrationOrder++,

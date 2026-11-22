@@ -7,10 +7,14 @@ namespace SyntaxDevTeam\Cms\Core;
 final class ContentRenderer
 {
     public const HTML = 'html';
+    public const TEXT = 'text';
     public const MARKDOWN = 'markdown';
 
     public function render(string $content, string $format): string
     {
+        if ($format === self::TEXT) {
+            return '<p>' . nl2br(htmlspecialchars($content, ENT_QUOTES, 'UTF-8')) . '</p>';
+        }
         return $this->normalizeFormat($format) === self::MARKDOWN
             ? (new MarkdownRenderer())->render($content)
             : (new RichTextSanitizer())->sanitize($content);

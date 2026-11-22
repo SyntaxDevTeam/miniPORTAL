@@ -14,7 +14,7 @@ final class OAuthStateStore
     /**
      * @return array{state: string, verifier: string, challenge: string, nonce: string}
      */
-    public function issue(string $provider, string $purpose = 'login', ?int $userId = null): array
+    public function issue(string $provider, string $purpose = 'login', ?int $userId = null, bool $remember = false): array
     {
         $this->assertSession();
         $this->prune();
@@ -33,6 +33,7 @@ final class OAuthStateStore
             'nonce' => $nonce,
             'purpose' => $purpose,
             'user_id' => $userId,
+            'remember' => $purpose === 'login' && $remember,
             'created_at' => time(),
         ];
 
@@ -68,7 +69,8 @@ final class OAuthStateStore
             $verifier,
             $nonce,
             $purpose,
-            is_int($userId) ? $userId : null
+            is_int($userId) ? $userId : null,
+            ($entry['remember'] ?? false) === true,
         );
     }
 

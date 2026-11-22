@@ -1,0 +1,37 @@
+[
+  {
+    "library": "dompdf/dompdf",
+    "version": "3.1.6",
+    "commit": "6d4b4eb8500f7a786da8868ba463a71b725a4005",
+    "source": "https://api.github.com/repos/dompdf/dompdf/zipball/6d4b4eb8500f7a786da8868ba463a71b725a4005",
+    "archive_sha256": "dc041bc855af64def8b050c915588ccebbb3d5e169ea9f452be3aa01d66cf168"
+  },
+  {
+    "library": "dompdf/php-font-lib",
+    "version": "1.0.2",
+    "commit": "a6e9a688a2a80016ac080b97be73d3e10c444c9a",
+    "source": "https://api.github.com/repos/dompdf/php-font-lib/zipball/a6e9a688a2a80016ac080b97be73d3e10c444c9a",
+    "archive_sha256": "124fe45d1e2db72fb1b628ae4cc174cafa7029f4716c4e18adbab684797f2f4d"
+  },
+  {
+    "library": "dompdf/php-svg-lib",
+    "version": "1.0.2",
+    "commit": "8259ffb930817e72b1ff1caef5d226501f3dfeb1",
+    "source": "https://api.github.com/repos/dompdf/php-svg-lib/zipball/8259ffb930817e72b1ff1caef5d226501f3dfeb1",
+    "archive_sha256": "9e62c3b1d178e593efe229913f8b1e7dc6b6b2b35e1d42358e964107ab72b43e"
+  },
+  {
+    "library": "Masterminds/html5-php",
+    "version": "2.12.0",
+    "commit": "15e16663bd6f512352209d0e3a789c0a691c0d9b",
+    "source": "https://api.github.com/repos/Masterminds/html5-php/zipball/15e16663bd6f512352209d0e3a789c0a691c0d9b",
+    "archive_sha256": "b902de978c46b17ddef7303ab38fa4f4fadbcb7735cbb3b4c033650dbf2bdbc5"
+  },
+  {
+    "library": "MyIntervals/PHP-CSS-Parser",
+    "version": "9.5.0",
+    "commit": "f284e63b6e891e0c28631e54ba06c3ed102a9ef3",
+    "source": "https://api.github.com/repos/MyIntervals/PHP-CSS-Parser/zipball/f284e63b6e891e0c28631e54ba06c3ed102a9ef3",
+    "archive_sha256": "2cc14494f126f7f89aadad8ffe73939557c0a44c0a1caa2b9be1320c0a2f5bc0"
+  }
+]

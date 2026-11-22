@@ -18,10 +18,12 @@
         return;
       }
       running = true;
-      const h = String(Math.floor(remaining / 3600)).padStart(2, '0');
+      const days = Math.floor(remaining / 86400);
+      const dayLabel = days > 0 ? `${days} ${days === 1 ? 'dzień' : 'dni'} ` : '';
+      const h = String(Math.floor(remaining % 86400 / 3600)).padStart(2, '0');
       const m = String(Math.floor(remaining % 3600 / 60)).padStart(2, '0');
       const s = String(remaining % 60).padStart(2, '0');
-      timer.output.textContent = `${timer.element.dataset.countdownPrefix || 'Twoja ranga kończy się za '}${h}:${m}:${s}`;
+      timer.output.textContent = `${timer.element.dataset.countdownPrefix || 'Twoja ranga kończy się za '}${dayLabel}${h}:${m}:${s}`;
     });
     return running;
   };

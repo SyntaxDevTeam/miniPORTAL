@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace SyntaxDevTeam\Cms\Modules\Articles;
 
+use DateTimeImmutable;
+use DomainException;
+use PDOException;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
+use SyntaxDevTeam\Cms\Core\ArticleThemeInterface;
 use SyntaxDevTeam\Cms\Core\ContentRenderer;
+use SyntaxDevTeam\Cms\Core\HookProviderInterface;
+use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationProviderInterface;
 use SyntaxDevTeam\Cms\Core\PublicNavigationRegistry;
@@ -23,8 +29,25 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAsset;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
 
-final class ArticlesModule implements ModuleInterface, PublicNavigationProviderInterface, SeoProviderInterface
+final class ArticlesModule implements ModuleInterface, PublicNavigationProviderInterface, SeoProviderInterface, HookProviderInterface
 {
+    private const LANGUAGES = ['pl' => 'Polski', 'en' => 'English', 'und' => 'Unspecified'];
+    private const STATUSES = [
+        'draft' => 'Szkic',
+        'published' => 'Opublikowany',
+        'hidden' => 'Ukryty',
+        'archived' => 'Zarchiwizowany',
+    ];
+    private const BULK_ACTIONS = [
+        'category' => ['Zmień kategorię', 'articles.edit'],
+        'language' => ['Zmień język', 'articles.edit'],
+        'publish' => ['Opublikuj', 'articles.publish'],
+        'hide' => ['Ukryj', 'articles.publish'],
+        'archive' => ['Archiwizuj', 'articles.publish'],
+        'restore' => ['Przywróć do szkiców', 'articles.publish'],
+        'delete' => ['Usuń trwale', 'articles.delete'],
+    ];
+
     public function __construct(
         private readonly ThemeInterface $theme,
         private readonly AdminMenuRegistry $menu,
@@ -35,6 +58,8 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         private readonly AuditLogService $audit,
         private readonly TemplateCacheInterface $templateCache,
         private readonly ?MediaAssetRepository $mediaAssets = null,
+        private readonly ?HookRegistry $hooks = null,
+        private readonly string $publicUrl = '',
     ) {
     }
 
@@ -45,7 +70,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     public function version(): string
     {
-        return '1.0.5';
+        return '1.7.3';
     }
 
     public function dependencies(): array
@@ -75,13 +100,21 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     public function registerRoutes(Router $router): void
     {
+        $router->get('/articles/code-runner', fn (Request $request) => $this->renderCodeRunner($request));
         $router->get('/articles', fn (Request $request) => $this->renderPublicList($request));
         $router->get('/article', fn (Request $request) => $this->renderPublicArticle($request));
+        $router->post('/article/{slug}/statistics', fn (Request $request) => $this->trackBrowserEvent($request));
+        $router->get('/article/{slug}/pdf', fn (Request $request) => $this->downloadPdf($request));
         $router->get('/article/{slug}', fn (Request $request) => $this->renderPublicArticleSlug($request->routeString('slug')));
         $router->get('/admin/articles', fn (Request $request) => $this->guard(
             $request,
             'articles.view',
-            fn () => $this->renderList()
+            fn () => $this->renderList(request: $request)
+        ));
+        $router->post('/admin/articles/bulk', fn (Request $request) => $this->guard(
+            $request,
+            'articles.view',
+            fn () => $this->bulk($request)
         ));
         $router->get('/admin/articles/create', fn (Request $request) => $this->guard(
             $request,
@@ -130,25 +163,62 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         ));
     }
 
+    public function registerHooks(HookRegistry $hooks): void
+    {
+        $hooks->addAction('articles.public.attachment_downloaded', fn (int $article) => $this->track('downloads', $article, $this->auth->actualUser()));
+    }
+
+    private function trackBrowserEvent(Request $request): void
+    {
+        header('Cache-Control: private, no-store');
+        $event = $request->header('X-Article-Event');
+        $column = match ($event) {
+            'view' => 'views',
+            'share' => 'shares',
+            default => null,
+        };
+        $slug = $request->routeString('slug');
+        if ($column === null || !preg_match('/\A[a-z0-9-]{1,191}\z/', $slug)) {
+            http_response_code(400);
+            return;
+        }
+
+        // The custom header keeps cross-origin forms from submitting events.
+        $this->track($column, $slug, $this->auth->actualUser());
+        http_response_code(204);
+    }
+
+    private function track(string $column, string|int $article, ?User $user): void
+    {
+        if ($user !== null && in_array('owner', $user->roles, true)) {
+            return;
+        }
+
+        try {
+            $this->articles->incrementStatistic($column, $article);
+        } catch (\PDOException $exception) {
+            error_log('miniPORTAL article statistics unavailable: ' . $exception->getCode());
+        }
+    }
+
     public function registerSeo(SeoIndex $seo): void
     {
-        $articles = $this->articles->published();
-        $lastModified = $articles[0]->updatedAt ?? null;
+        $articles = $this->articles->seoEntries();
         $seo->add(
             '/articles',
-            'Articles - SyntaxDevTeam',
-            'News, tutorials and project updates from SyntaxDevTeam.',
-            $lastModified,
+            'Articles',
+            'Browse published articles, tutorials and project updates.',
+            $articles[0]['updated_at'] ?? null,
             0.7,
             'weekly',
             'CollectionPage'
         );
         foreach ($articles as $article) {
             $seo->add(
-                '/article/' . rawurlencode($article->slug),
-                $article->title,
-                $article->summary,
-                $article->updatedAt,
+                $this->articleHref($article['slug']),
+                $article['seo_title'] !== '' ? $article['seo_title'] : $article['title'],
+                $article['seo_description'] !== '' ? $article['seo_description'] : $article['summary'],
+                $article['updated_at'],
                 0.7,
                 'monthly',
                 'Article'
@@ -158,47 +228,153 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
     private function renderPublicList(Request $request): void
     {
-        $category = $this->normalizeSlug($request->queryString('category'));
-        echo $this->cachedPublic(
-            'articles:index:' . ($category !== '' ? $category : 'all'),
-            function () use ($category): string {
-                $articles = $this->articles->published($category !== '' ? $category : null);
+        $query = mb_substr(mb_scrub($request->queryString('q'), 'UTF-8'), 0, 120, 'UTF-8');
+        $category = substr($this->normalizeSlug($request->queryString('category')), 0, 191);
+        $language = strtolower($request->queryString('lang'));
+        $language = isset(self::LANGUAGES[$language]) ? $language : '';
+        $page = max(1, $request->queryInt('page', 1) ?? 1);
+        $filtered = $query !== '' || $category !== '' || $language !== '';
 
-                return $this->capture(function () use ($articles, $category): void {
-        $this->theme->start_page('Articles - SyntaxDevTeam', 'Published SyntaxDevTeam articles.');
-        $this->theme->start_header(
-            'Articles',
-            $category !== '' ? 'Category: ' . $category : 'News, tutorials and project updates.',
-            'SyntaxDevTeam / Articles'
+        $render = fn (): string => $this->capture(
+            fn () => $this->renderCatalog($query, $category, $language, $page, $filtered)
         );
-        $this->theme->end_header();
-        $this->theme->start_section();
+        echo !$filtered && $page === 1
+            ? $this->cachedPublic('articles:catalog:v3', $render, ['articles', 'articles:index', 'theme'])
+            : $render();
+    }
 
-        if ($articles === []) {
-            $this->theme->render_alert('There are no published articles in the selected category yet.', 'info');
-        } else {
-            $this->theme->start_grid();
-            foreach ($articles as $article) {
-                $this->theme->start_column('md-6');
-                $this->theme->start_card($article->title, $article->categoryName);
-                $this->theme->render_text($article->summary);
-                $this->theme->render_button(
-                    'Read article',
-                    $this->articleHref($article->slug),
-                    'outline-light'
-                );
-                $this->theme->end_card();
-                $this->theme->end_column();
+    private function renderCatalog(string $query, string $category, string $language, int $page, bool $filtered): void
+    {
+        $result = $this->articles->searchPublished($query, $category, $language, $page);
+        $page = $result['page'];
+        $filters = array_filter(['q' => $query, 'category' => $category, 'lang' => $language], static fn (string $value): bool => $value !== '');
+        $categories = [];
+        foreach ($this->articles->categories(public: true) as $entry) {
+            $categories[$entry->id] = $entry;
+        }
+        $categoryHref = fn (string $slug): string => $this->catalogHref(array_replace($filters, ['category' => $slug]));
+        $tree = [];
+        $categoryLabel = '';
+        foreach ($categories as $entry) {
+            if ($entry->parentId === null) {
+                $tree[$entry->id] = [
+                    'slug' => $entry->slug,
+                    'name' => $entry->name,
+                    'href' => $categoryHref($entry->slug),
+                    'children' => [],
+                ];
             }
-            $this->theme->end_grid();
+        }
+        foreach ($categories as $entry) {
+            $parent = $categories[$entry->parentId] ?? null;
+            if ($parent !== null) {
+                $tree[$parent->id]['children'][] = [
+                    'slug' => $entry->slug,
+                    'name' => $entry->name,
+                    'href' => $categoryHref($entry->slug),
+                ];
+            }
+            if ($entry->slug === $category) {
+                $categoryLabel = $parent === null ? $entry->name : $parent->name . ' / ' . $entry->name;
+            }
         }
 
-        $this->theme->end_section();
+        $without = fn (string $key): string => $this->catalogHref(array_diff_key($filters, [$key => true]));
+        $activeFilters = [];
+        $filterLabels = [
+            'q' => $query,
+            'category' => $categoryLabel !== '' ? $categoryLabel : $category,
+            'lang' => self::LANGUAGES[$language] ?? '',
+        ];
+        foreach (array_keys($filters) as $key) {
+            $activeFilters[] = ['label' => $filterLabels[$key], 'href' => $without($key)];
+        }
+
+        $languageLinks = ['' => $without('lang')];
+        foreach (array_keys(self::LANGUAGES) as $code) {
+            $languageLinks[$code] = $this->catalogHref(array_replace($filters, ['lang' => $code]));
+        }
+
+        $items = [];
+        foreach ($result['items'] as $row) {
+            $entry = $categories[(int) $row['category_id']] ?? null;
+            $parent = $categories[$entry?->parentId] ?? null;
+            $links = [];
+            foreach (array_filter([$parent, $entry]) as $itemCategory) {
+                $links[] = [
+                    'name' => $itemCategory->name,
+                    'href' => $categoryHref($itemCategory->slug),
+                ];
+            }
+            $items[] = [
+                'title' => $row['title'],
+                'href' => $this->articleHref($row['slug']),
+                'categories' => $links,
+                'language' => $row['language'],
+                'date' => substr($row['published_at'] ?? '', 0, 10),
+                'summary' => $row['summary'],
+            ];
+        }
+
+        $canonical = $this->catalogHref([], $page);
+        $title = $page > 1 ? 'Articles - Page ' . $page : 'Articles';
+        $description = 'Browse published articles, tutorials and project updates.';
+        $catalogTheme = $this->theme instanceof ArticleThemeInterface ? $this->theme : null;
+        $previous = $page > 1 ? $this->catalogHref($filters, $page - 1) : null;
+        $next = $page < $result['pages'] ? $this->catalogHref($filters, $page + 1) : null;
+        if ($catalogTheme !== null) {
+            $catalogTheme->start_article_page($title, $description, ['path' => $canonical, 'language' => 'en'], !$filtered);
+            $first = ($page - 1) * ArticleRepository::PAGE_SIZE + 1;
+            $catalogTheme->render_article_catalog([
+                'query' => $query,
+                'category' => $category,
+                'language' => $language,
+                'categories' => $tree,
+                'all_categories' => $without('category'),
+                'languages' => self::LANGUAGES,
+                'language_links' => $languageLinks,
+                'filtered' => $filtered,
+                'active_filters' => $activeFilters,
+                'results_title' => match (true) {
+                    $query !== '' => 'Search results',
+                    $categoryLabel !== '' => $categoryLabel,
+                    default => 'All articles',
+                },
+                'items' => $items,
+                'page' => $page,
+                'pages' => $result['pages'],
+                'total' => $result['total'],
+                'first' => $first,
+                'last' => $first + count($items) - 1,
+                'previous' => $previous,
+                'next' => $next,
+            ]);
+        } else {
+            $this->theme->start_page($title, $description, !$filtered);
+            $this->theme->start_header('Articles', $description);
+            $this->theme->end_header();
+            $this->theme->start_section();
+            foreach ($items as $item) {
+                $this->theme->render_button($item['title'], $item['href'], 'outline-light');
+            }
+            if ($previous !== null) {
+                $this->theme->render_button('Previous', $previous, 'outline-light');
+            }
+            if ($next !== null) {
+                $this->theme->render_button('Next', $next, 'outline-light');
+            }
+            $this->theme->end_section();
+        }
         $this->theme->end_page();
-                });
-            },
-            ['articles', 'articles:index', $category !== '' ? 'article-category:' . $category : 'article-category:all', 'theme']
-        );
+    }
+
+    private function catalogHref(array $filters, int $page = 1): string
+    {
+        if ($page > 1) {
+            $filters['page'] = $page;
+        }
+
+        return '/articles' . ($filters === [] ? '' : '?' . http_build_query($filters, '', '&', PHP_QUERY_RFC3986));
     }
 
     private function renderPublicArticle(Request $request): void
@@ -220,33 +396,105 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         }
 
         echo $this->cachedPublic(
-            'article:' . $article->slug,
-            fn (): string => $this->capture(function () use ($article): void {
-        $this->theme->start_page($article->title . ' - SyntaxDevTeam', $article->summary);
-        $this->theme->start_header(
-            $article->title,
-            $article->categoryName . ' | Published: ' . ($article->publishedAt ?? $article->updatedAt),
-            'Article / ' . $article->categoryName
+            'article:seo-v1:' . $article->slug,
+            fn (): string => $this->capture(fn () => $this->renderArticle($article)),
+            ['articles', 'article:' . $article->slug, 'article-category:' . $article->categoryName, 'theme']
         );
-        $this->theme->end_header();
+    }
+
+    private function renderArticle(Article $article): void
+    {
+        $path = $this->articleHref($article->slug);
+        $published = (new DateTimeImmutable($article->publishedAt ?? $article->createdAt))->format(DATE_ATOM);
+        $modified = (new DateTimeImmutable($article->updatedAt))->format(DATE_ATOM);
+        $seoTitle = $article->seoTitle !== '' ? $article->seoTitle : $article->title;
+        $description = $article->seoDescription !== '' ? $article->seoDescription : $article->summary;
+        if ($this->theme instanceof ArticleThemeInterface) {
+            $this->theme->start_article_page($seoTitle, $description, [
+                'path' => $path,
+                'language' => $article->language,
+                'published' => $published,
+                'modified' => $modified,
+            ]);
+        } else {
+            $this->theme->start_page($seoTitle, $description);
+        }
+
+        $lead = $article->categoryName . ' | Published: ' . substr($published, 0, 10);
+        $eyebrow = 'Article / ' . $article->categoryName;
+        if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\DocumentHeaderThemeInterface) {
+            $this->theme->render_document_header([
+                'title' => $article->title,
+                'lead' => $lead,
+                'eyebrow' => $eyebrow,
+                'path' => $path,
+                'download_url' => $path . '/pdf',
+                'track_statistics' => true,
+            ]);
+        } else {
+            $this->theme->start_header($article->title, $lead, $eyebrow);
+            $this->theme->render_button('Pobierz jako PDF', $path . '/pdf');
+            $this->theme->end_header();
+        }
         $this->theme->start_section();
         $this->theme->start_card('', 'Article');
-        $this->theme->render_rich_content($article->content, $article->contentFormat);
+        if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\CodeExamplesThemeInterface) {
+            $this->theme->render_code_examples($article->content, $article->contentFormat);
+        } else {
+            $this->theme->render_rich_content($article->content, $article->contentFormat);
+        }
+        $this->hooks?->doAction('articles.public.attachments', $article->id);
         $this->theme->render_button('Back to articles', '/articles', 'outline-light');
         $this->theme->end_card();
+
+        $canonical = rtrim($this->publicUrl, '/') . $path;
         $this->theme->render_structured_data([
             '@type' => 'Article',
             'headline' => $article->title,
-            'description' => $article->summary,
+            'description' => $description,
             'articleSection' => $article->categoryName,
-            'datePublished' => $article->publishedAt ?? $article->createdAt,
-            'dateModified' => $article->updatedAt,
+            'datePublished' => $published,
+            'dateModified' => $modified,
+            'url' => $canonical,
+            'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $canonical],
+            ...($article->language !== 'und' ? ['inLanguage' => $article->language] : []),
         ]);
         $this->theme->end_section();
         $this->theme->end_page();
-            }),
-            ['articles', 'article:' . $article->slug, 'article-category:' . $article->categoryName, 'theme']
-        );
+    }
+
+    private function renderCodeRunner(Request $request): void
+    {
+        if (!$this->theme instanceof \SyntaxDevTeam\Cms\Core\CodeExamplesThemeInterface) {
+            http_response_code(404);
+            return;
+        }
+        $this->security->closeSession();
+        $origin = $this->publicUrl !== '' ? rtrim($this->publicUrl, '/')
+            : ($request->isSecure() ? 'https://' : 'http://') . $request->host();
+        $runtimeBase = $origin . '/templates/shared/assets/vendor/pyodide/0.27.7/';
+        $nonce = bin2hex(random_bytes(16));
+        $this->security->sendCodeRunnerHeaders($runtimeBase, $nonce);
+        $this->theme->render_code_runner($runtimeBase, $nonce);
+    }
+
+    private function downloadPdf(Request $request): void
+    {
+        header('Cache-Control: private, no-store');
+        $article=$this->articles->findPublishedBySlug($request->routeString('slug'));
+        if(!$article){http_response_code(404);return;}
+        $limit=(new \SyntaxDevTeam\Cms\Core\RateLimiter(dirname(__DIR__,2).'/cache/rate-limits'))->hit('article-pdf',$request->clientIp(),30,60);
+        if($limit['limited']){http_response_code(429);header('Retry-After: '.$limit['retry_after']);return;}
+        $user = $this->auth->actualUser();
+        if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
+        try{$bytes=(new ArticlePdf(dirname(__DIR__,2).'/cache/article-pdf',$this->publicUrl))->render($article);}
+        catch(\RuntimeException){http_response_code(503);header('Retry-After: 5');header('Content-Type: text/plain; charset=utf-8');echo 'Nie udało się przygotować PDF. Spróbuj ponownie za chwilę.';return;}
+        if ($request->method() === 'GET') {
+            $this->track('downloads', $article->id, $user);
+        }
+        header('Content-Type: application/pdf');header('X-Content-Type-Options: nosniff');
+        header('Content-Disposition: attachment; filename="'.$article->slug.'.pdf"');
+        header('Content-Length: '.strlen($bytes));echo $bytes;
     }
 
     private function articleHref(string $slug): string
@@ -254,7 +502,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         return '/article/' . rawurlencode($slug);
     }
 
-    private function renderList(string $message = '', string $variant = 'info'): void
+    private function renderList(string $message = '', string $variant = 'info', ?Request $request = null): void
     {
         $user = $this->auth->user();
 
@@ -262,14 +510,37 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             return;
         }
 
-        $articles = $this->articles->all();
+        $filters = $this->adminListFilters($request);
+        ['articles' => $articles, 'page' => $page, 'pages' => $pages, 'total' => $total] = $this->articles->adminPage(
+            $filters['status'] ?? '',
+            $filters['category'] ?? 0,
+            $filters['page'] ?? 1,
+        );
+        $categories = $this->categoryLabels($this->articles->categories());
+        $ids = array_map(static fn (Article $article): int => $article->id, $articles);
+        try {
+            $statistics = $ids === [] ? [] : $this->articles->statistics($ids);
+        } catch (\PDOException $exception) {
+            error_log('miniPORTAL article statistics unavailable: ' . $exception->getCode());
+            $statistics = null;
+        }
+        $count = static fn (Article $article, string $column): string => $statistics !== null && ($article->status === 'published' || isset($statistics[$article->id]))
+            ? ($statistics[$article->id][$column] ?? '0')
+            : '—';
         $allows = static fn (string $permission): bool => in_array('*', $user->permissions, true)
             || in_array($permission, $user->permissions, true);
+
+        $actions = ['' => 'Wybierz operację'];
+        foreach (self::BULK_ACTIONS as $operation => [$label, $permission]) {
+            if ($allows($permission)) {
+                $actions[$operation] = $label;
+            }
+        }
 
         $this->startAdminPage(
             $user,
             'Artykuły',
-            'Twórz niezależne treści kategoryzowane i publikowane przez moduł articles.',
+            'Zarządzaj publikacjami, szkicami i archiwum.',
             $allows('articles.create')
                 ? ['label' => 'Dodaj artykuł', 'href' => 'index.php?route=/admin/articles/create']
                 : null
@@ -292,20 +563,35 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             'outline-light'
         );
 
-        $this->theme->start_admin_panel('Lista artykułów', count($articles) . ' rekordów');
+        $this->theme->start_admin_panel('Lista artykułów', "{$total} wyników · strona {$page}/{$pages}");
+        $this->theme->render_admin_filter_modal('articles', 'Filtruj artykuły', 'index.php', [
+            ['type' => 'hidden', 'name' => 'route', 'value' => '/admin/articles'],
+            [
+                'name' => 'status', 'label' => 'Status', 'type' => 'select',
+                'value' => $filters['status'] ?? '', 'options' => ['' => 'Wszystkie statusy'] + self::STATUSES,
+            ],
+            [
+                'name' => 'category', 'label' => 'Kategoria', 'type' => 'select',
+                'value' => (string) ($filters['category'] ?? ''), 'options' => ['' => 'Wszystkie kategorie'] + $categories,
+            ],
+        ], $this->adminListHref());
         if ($articles === []) {
-            $this->theme->render_alert('Brak artykułów. Utwórz pierwszy szkic, aby rozpocząć.', 'info');
+            $this->theme->render_alert('Brak artykułów spełniających wybrane kryteria.', 'info');
         } else {
             $this->theme->render_admin_action_table(
-                ['Tytuł', 'Kategoria', 'Slug', 'Status', 'Aktualizacja'],
+                ['Tytuł', 'Kategoria', 'Slug', 'Status', 'Aktualizacja', 'Odsłony', 'Udostępnienia', 'Pobrania'],
                 array_map(
                     static fn (Article $article): array => [
+                        'selection_value' => $article->id,
                         'cells' => [
                             $article->title,
-                            $article->categoryName,
+                            $categories[$article->categoryId] ?? $article->categoryName,
                             $article->slug,
-                            $article->status === 'published' ? 'Opublikowany' : 'Szkic',
+                            self::STATUSES[$article->status] ?? 'Nieustawiony',
                             $article->updatedAt,
+                            $count($article, 'views'),
+                            $count($article, 'shares'),
+                            $count($article, 'downloads'),
                         ],
                         'actions' => array_values(array_filter([
                             $allows('articles.edit') ? [
@@ -314,11 +600,19 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                                 'variant' => 'outline-light',
                             ] : null,
                             $allows('articles.publish') ? [
-                                'label' => $article->status === 'published' ? 'Cofnij' : 'Publikuj',
+                                'label' => match ($article->status) {
+                                    'published' => 'Ukryj',
+                                    'archived' => 'Przywróć szkic',
+                                    default => 'Publikuj',
+                                },
                                 'action' => 'index.php?route=/admin/articles/publish',
                                 'fields' => [
                                     'id' => $article->id,
-                                    'action' => $article->status === 'published' ? 'draft' : 'publish',
+                                    'action' => match ($article->status) {
+                                        'published' => 'hide',
+                                        'archived' => 'restore',
+                                        default => 'publish',
+                                    },
                                 ],
                                 'variant' => 'outline-primary',
                             ] : null,
@@ -327,14 +621,193 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                                 'action' => 'index.php?route=/admin/articles/delete',
                                 'fields' => ['id' => $article->id],
                                 'variant' => 'outline-danger',
+                                'confirm' => 'Czy trwale usunąć ten artykuł?',
                             ] : null,
                         ])),
                     ],
                     $articles
                 ),
-                $this->security->csrfToken()
+                $this->security->csrfToken(),
+                count($actions) > 1 ? [
+                    'action' => $this->adminListHref($filters, '/admin/articles/bulk'),
+                    'label' => 'Sprawdź wybór',
+                    'choice' => ['name' => 'operation', 'label' => 'Operacja zbiorcza', 'options' => $actions],
+                ] : null
             );
+            if ($page > 1) {
+                $this->theme->render_button('Poprzednia strona', $this->adminListHref(array_replace($filters, ['page' => $page - 1])), 'outline-light');
+            }
+            if ($page < $pages) {
+                $this->theme->render_button('Następna strona', $this->adminListHref(array_replace($filters, ['page' => $page + 1])), 'outline-light');
+            }
         }
+        $this->theme->end_admin_panel();
+        $this->endAdminPage();
+    }
+
+    private function adminListFilters(?Request $request): array
+    {
+        $status = $request?->queryString('status') ?? '';
+        return array_filter([
+            'status' => isset(self::STATUSES[$status]) ? $status : '',
+            'category' => max(0, $request?->queryInt('category') ?? 0),
+            'page' => max(0, $request?->queryInt('page') ?? 0),
+        ], static fn (int|string $value): bool => $value !== '' && $value !== 0);
+    }
+
+    private function adminListHref(array $filters = [], string $path = '/admin/articles'): string
+    {
+        return 'index.php?route=' . $path . ($filters === [] ? '' : '&' . http_build_query($filters));
+    }
+
+    private function bulk(Request $request): void
+    {
+        $operation = $request->postString('operation');
+        $action = self::BULK_ACTIONS[$operation] ?? null;
+        if ($action === null) {
+            http_response_code(422);
+            $this->renderList('Wybierz operację zbiorczą.', 'warning', $request);
+            return;
+        }
+
+        $this->guard($request, $action[1], fn () => $this->handleBulk($request, $operation, $action[0]));
+    }
+
+    private function handleBulk(Request $request, string $operation, string $label): void
+    {
+        $event = 'article_bulk_' . $operation;
+        if (!$this->validCsrf($request, $event)) {
+            return;
+        }
+
+        $ids = $this->bulkIds($request);
+        if ($ids === []) {
+            http_response_code(422);
+            $this->renderList('Zaznacz poprawne artykuły z jednej strony listy.', 'warning', $request);
+            return;
+        }
+        $selection = $this->articles->bulkSelection($ids);
+        if (count($selection) !== count($ids)) {
+            http_response_code(409);
+            $this->renderList('Część zaznaczonych artykułów została usunięta. Zaznacz artykuły ponownie.', 'warning', $request);
+            return;
+        }
+        if (!$request->postBool('confirmed')) {
+            $this->renderBulkConfirmation($request, $operation, $label, $selection);
+            return;
+        }
+
+        $target = match ($operation) {
+            'category' => $request->postInt('target'),
+            'language' => $request->postString('target'),
+            default => null,
+        };
+        $error = match ($operation) {
+            'category' => $this->articles->categoryExists($target ?? 0) ? '' : 'Wybierz istniejącą kategorię.',
+            'language' => isset(self::LANGUAGES[$target]) ? '' : 'Wybierz dostępny język.',
+            default => '',
+        };
+        if ($error !== '') {
+            http_response_code(422);
+            $this->renderBulkConfirmation($request, $operation, $label, $selection, $error);
+            return;
+        }
+
+        try {
+            $changed = $this->articles->applyBulk($operation, $ids, $target);
+        } catch (DomainException $exception) {
+            $this->renderPublicationSchemaError($request, $event, $exception);
+            return;
+        } catch (PDOException $exception) {
+            if ((string) $exception->getCode() !== '23000') {
+                throw $exception;
+            }
+            $this->audit->record($request, $event, 'conflict', null, $this->auth->user()?->id);
+            http_response_code(409);
+            $this->renderList('Dane powiązane z artykułami uległy zmianie. Sprawdź zaznaczenie i spróbuj ponownie.', 'warning', $request);
+            return;
+        }
+
+        if ($changed > 0) {
+            $this->invalidateArticleCache();
+        }
+        $skipped = count($ids) - $changed;
+        $this->audit->record(
+            $request,
+            $event,
+            $changed === 0 ? 'no_changes' : ($skipped === 0 ? 'success' : 'partial'),
+            'selected=' . count($ids) . ';changed=' . $changed,
+            $this->auth->user()?->id
+        );
+        $message = ($operation === 'delete' ? 'Liczba usuniętych artykułów' : 'Liczba zmienionych artykułów') . ': ' . $changed . '.';
+        if ($skipped > 0) {
+            $message .= ' Bez zmian: ' . $skipped . '.';
+        }
+        $this->renderList($message, $changed > 0 ? 'success' : 'info', $request);
+    }
+
+    /** @return list<int> */
+    private function bulkIds(Request $request): array
+    {
+        $selection = $request->postArray('ids');
+        if (count($selection) > ArticleRepository::ADMIN_PAGE_SIZE) {
+            return [];
+        }
+        $ids = [];
+        foreach ($selection as $value) {
+            $id = is_string($value) || is_int($value)
+                ? filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+                : false;
+            if ($id === false) {
+                return [];
+            }
+            $ids[$id] = $id;
+        }
+
+        return array_values($ids);
+    }
+
+    private function renderBulkConfirmation(Request $request, string $operation, string $label, array $selection, string $error = ''): void
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return;
+        }
+
+        $filters = $this->adminListFilters($request);
+        $this->startAdminPage($user, $label, 'Sprawdź artykuły wybrane do operacji zbiorczej.');
+        $this->theme->start_admin_panel('Potwierdzenie operacji', 'Wybrane artykuły: ' . count($selection));
+        if ($error !== '') {
+            $this->theme->render_alert($error, 'danger');
+        }
+        if ($operation === 'delete') {
+            $this->theme->render_alert('Artykuły zostaną trwale usunięte wraz z ich statystykami.', 'danger');
+        }
+        $this->theme->render_admin_table(
+            ['Tytuł', 'Status'],
+            array_map(static fn (array $row): array => [$row['title'], self::STATUSES[$row['status']] ?? 'Nieustawiony'], $selection)
+        );
+        $fields = [
+            ['type' => 'hidden', 'name' => 'operation', 'value' => $operation],
+            ['type' => 'hidden', 'name' => 'confirmed', 'value' => '1'],
+            ...array_map(static fn (array $row): array => ['type' => 'hidden', 'name' => 'ids[]', 'value' => (string) $row['id']], $selection),
+        ];
+        if (in_array($operation, ['category', 'language'], true)) {
+            $options = $operation === 'category'
+                ? $this->categoryLabels($this->articles->categories())
+                : array_replace(self::LANGUAGES, ['und' => 'Nieustawiony']);
+            $fields[] = [
+                'name' => 'target', 'label' => $operation === 'category' ? 'Kategoria docelowa' : 'Język',
+                'type' => 'select', 'value' => '', 'required' => true, 'options' => ['' => 'Wybierz'] + $options,
+            ];
+        }
+        $this->theme->render_form(
+            $this->adminListHref($filters, '/admin/articles/bulk'),
+            $fields,
+            $operation === 'delete' ? 'Usuń trwale zaznaczone artykuły' : 'Zatwierdź operację',
+            $this->security->csrfToken()
+        );
+        $this->theme->render_button('Anuluj', $this->adminListHref($filters), 'outline-light');
         $this->theme->end_admin_panel();
         $this->endAdminPage();
     }
@@ -348,10 +821,17 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         }
 
         $categories = $this->articles->categories();
+        $labels = $this->categoryLabels($categories);
+        $parents = ['' => 'Brak (kategoria główna)'];
+        foreach ($categories as $category) {
+            if ($category->parentId === null) {
+                $parents[$category->id] = $category->name;
+            }
+        }
         $this->startAdminPage(
             $user,
             'Kategorie artykułów',
-            'Kategorie są własnością modułu articles i nie wpływają na core_pages.'
+            'Wybierz kategorię nadrzędną, aby dodać podkategorię.'
         );
 
         if ($message !== '') {
@@ -364,6 +844,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             [
                 ['name' => 'name', 'label' => 'Nazwa kategorii'],
                 ['name' => 'slug', 'label' => 'Slug (opcjonalnie)'],
+                ['name' => 'parent_id', 'label' => 'Kategoria nadrzędna', 'type' => 'select', 'value' => '', 'options' => $parents],
             ],
             'Dodaj kategorię',
             $this->security->csrfToken()
@@ -375,7 +856,7 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             ['Nazwa', 'Slug'],
             array_map(
                 static fn (Category $category): array => [
-                    'cells' => [$category->name, $category->slug],
+                    'cells' => [$labels[$category->id], $category->slug],
                     'actions' => [[
                         'label' => 'Usuń',
                         'action' => 'index.php?route=/admin/articles/categories/delete',
@@ -389,6 +870,24 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         );
         $this->theme->end_admin_panel();
         $this->endAdminPage();
+    }
+
+    /** @param list<Category> $categories */
+    private function categoryLabels(array $categories): array
+    {
+        $names = [];
+        foreach ($categories as $category) {
+            $names[$category->id] = $category->name;
+        }
+
+        $labels = [];
+        foreach ($categories as $category) {
+            $parent = $names[$category->parentId] ?? null;
+            $labels[$category->id] = $parent === null ? $category->name : $parent . ' / ' . $category->name;
+        }
+        asort($labels, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $labels;
     }
 
     private function renderEdit(Request $request): void
@@ -410,7 +909,12 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         $this->renderForm($article);
     }
 
-    private function renderForm(?Article $article = null, string $message = '', string $variant = 'info'): void
+    private function renderForm(
+        ?Article $article = null,
+        string $message = '',
+        string $variant = 'info',
+        ?Request $submitted = null,
+    ): void
     {
         $user = $this->auth->user();
 
@@ -420,16 +924,14 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
         $editing = $article !== null;
         $title = $editing ? 'Edytuj artykuł' : 'Dodaj artykuł';
-        $this->startAdminPage($user, $title, 'Formularz modułu articles korzysta z ogólnych komponentów Theme.');
+        $this->startAdminPage($user, $title, 'Treść, kategoria, język i metadane publikacji.');
 
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
 
-        $categories = [];
-        foreach ($this->articles->categories() as $category) {
-            $categories[(string) $category->id] = $category->name;
-        }
+        $categories = $this->categoryLabels($this->articles->categories());
+        $value = static fn (string $name, string $default): string => $submitted?->postString($name, $default) ?? $default;
 
         $this->theme->start_admin_panel('Dane artykułu', $editing ? 'ID ' . $article->id : 'Nowy szkic');
         $this->theme->render_form(
@@ -453,17 +955,40 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                     'name' => 'category_id',
                     'label' => 'Kategoria',
                     'type' => 'select',
-                    'value' => (string) ($article?->categoryId ?? array_key_first($categories) ?? ''),
+                    'value' => $value('category_id', (string) ($article?->categoryId ?? array_key_first($categories) ?? '')),
                     'options' => $categories,
                 ],
-                ['name' => 'title', 'label' => 'Tytuł', 'value' => $article?->title ?? ''],
-                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $article?->slug ?? ''],
+                [
+                    'name' => 'language',
+                    'label' => 'Język artykułu',
+                    'type' => 'select',
+                    'value' => $value('language', $article?->language ?? 'und'),
+                    'options' => array_replace(self::LANGUAGES, ['und' => 'Nieustawiony']),
+                ],
+                ['name' => 'title', 'label' => 'Tytuł', 'value' => $value('title', $article?->title ?? '')],
+                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $value('slug', $article?->slug ?? '')],
                 [
                     'name' => 'summary',
                     'label' => 'Zajawka',
                     'type' => 'textarea',
                     'rows' => 3,
-                    'value' => $article?->summary ?? '',
+                    'value' => $value('summary', $article?->summary ?? ''),
+                ],
+                [
+                    'name' => 'seo_title',
+                    'label' => 'Tytuł SEO',
+                    'value' => $value('seo_title', $article?->seoTitle ?? ''),
+                    'maxlength' => 180,
+                    'help' => 'Jeżeli pole jest puste, użyjemy tytułu artykułu.',
+                ],
+                [
+                    'name' => 'seo_description',
+                    'label' => 'Opis SEO',
+                    'type' => 'textarea',
+                    'rows' => 2,
+                    'value' => $value('seo_description', $article?->seoDescription ?? ''),
+                    'maxlength' => 320,
+                    'help' => 'Jeżeli pole jest puste, użyjemy zajawki.',
                 ],
                 [
                     'name' => 'content_media_path',
@@ -477,16 +1002,18 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
                     'name' => 'content',
                     'label' => 'Treść',
                     'type' => 'richtext',
-                    'value' => $article?->content ?? '',
+                    'value' => $value('content', $article?->content ?? ''),
                     'format_name' => 'content_format',
-                    'format_value' => $article?->contentFormat ?? 'html',
-                    'help' => 'Przełączaj między edytorem wizualnym i Markdown w stylu GitHub.',
+                    'format_value' => $value('content_format', $article?->contentFormat ?? 'html'),
+                    'code_examples' => true,
+                    'help' => 'Przykład Python dodaje edytowalny blok z przyciskiem Uruchom. W Markdown użyj bloku python-run. Kod działa lokalnie w przeglądarce; zmiany czytelnika nie zmieniają artykułu.',
                 ],
             ],
             $editing ? 'Zapisz zmiany' : 'Utwórz szkic',
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
+        if($editing)$this->hooks?->doAction('articles.admin.attachments',$article->id);
         $this->endAdminPage();
     }
 
@@ -496,9 +1023,9 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             return;
         }
 
-        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $error] = $this->validatedInput($request);
+        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $metadata, $error] = $this->validatedInput($request);
         if ($error !== '') {
-            $this->renderForm(null, $error, 'danger');
+            $this->renderForm(null, $error, 'danger', $request);
             return;
         }
 
@@ -510,7 +1037,8 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             $summary,
             $content,
             $contentFormat,
-            $user?->id ?? 0
+            $user?->id ?? 0,
+            ...$metadata
         );
         $this->invalidateArticleCache($slug);
         $this->audit->record($request, 'article_create', 'success', null, $user?->id);
@@ -536,13 +1064,13 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             return;
         }
 
-        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $error] = $this->validatedInput($request, $id);
+        [$categoryId, $title, $slug, $summary, $content, $contentFormat, $metadata, $error] = $this->validatedInput($request, $article);
         if ($error !== '') {
-            $this->renderForm($article, $error, 'danger');
+            $this->renderForm($article, $error, 'danger', $request);
             return;
         }
 
-        $this->articles->update($id, $categoryId, $title, $slug, $summary, $content, $contentFormat);
+        $this->articles->update($id, $categoryId, $title, $slug, $summary, $content, $contentFormat, ...$metadata);
         $this->invalidateArticleCache($article->slug, $slug);
         $userId = $this->auth->user()?->id;
         $this->audit->record($request, 'article_update', 'success', null, $userId);
@@ -561,21 +1089,37 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         }
 
         $id = $request->postInt('id') ?? 0;
-        $publish = $request->postString('action') === 'publish';
-        $changed = $publish ? $this->articles->publish($id) : $this->articles->unpublish($id);
+        $operation = $request->postString('action');
+        try {
+            $changed = match ($operation) {
+                'publish', 'hide', 'restore' => $id > 0 && $this->articles->applyBulk($operation, [$id]) === 1,
+                'draft' => $this->articles->unpublish($id),
+                default => false,
+            };
+        } catch (DomainException $exception) {
+            $this->renderPublicationSchemaError($request, 'article_publish', $exception);
+            return;
+        }
         $article = $this->articles->find($id);
         $this->invalidateArticleCache($article?->slug);
         $this->audit->record(
             $request,
             'article_publish',
-            $changed ? ($publish ? 'published' : 'draft') : 'not_found',
+            $changed ? $operation : 'not_changed',
             null,
             $this->auth->user()?->id
         );
         $this->renderList(
-            $changed ? 'Status publikacji został zaktualizowany.' : 'Nie znaleziono artykułu.',
+            $changed ? 'Status publikacji został zaktualizowany.' : 'Status artykułu pozostaje bez zmian.',
             $changed ? 'success' : 'warning'
         );
+    }
+
+    private function renderPublicationSchemaError(Request $request, string $event, DomainException $exception): void
+    {
+        $this->audit->record($request, $event, 'schema_update_required', null, $this->auth->user()?->id);
+        http_response_code(409);
+        $this->renderList($exception->getMessage(), 'warning', $request);
     }
 
     private function delete(Request $request): void
@@ -609,6 +1153,11 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
 
         $name = $request->postString('name');
         $slug = $this->normalizeSlug($request->postString('slug') ?: $name);
+        $parentId = $request->postInt('parent_id');
+        if ($request->postString('parent_id') !== '' && !$this->articles->rootCategoryExists($parentId ?? 0)) {
+            $this->renderCategories('Wybierz istniejącą kategorię główną.', 'danger');
+            return;
+        }
 
         if ($name === '' || strlen($name) > 120 || $slug === '' || strlen($slug) > 191) {
             $this->renderCategories('Nazwa lub slug kategorii są nieprawidłowe.', 'danger');
@@ -619,7 +1168,15 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             return;
         }
 
-        $this->articles->createCategory($name, $slug);
+        try {
+            $this->articles->createCategory($name, $slug, $parentId);
+        } catch (PDOException $error) {
+            if ((string) $error->getCode() !== '23000') {
+                throw $error;
+            }
+            $this->renderCategories('Nazwa lub slug są już używane albo kategoria nadrzędna została usunięta.', 'warning');
+            return;
+        }
         $this->invalidateArticleCache();
         $this->audit->record(
             $request,
@@ -637,7 +1194,14 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             return;
         }
 
-        $deleted = $this->articles->deleteCategory($request->postInt('id') ?? 0);
+        try {
+            $deleted = $this->articles->deleteCategory($request->postInt('id') ?? 0);
+        } catch (PDOException $error) {
+            if ((string) $error->getCode() !== '23000') {
+                throw $error;
+            }
+            $deleted = false;
+        }
         $this->invalidateArticleCache();
         $this->audit->record(
             $request,
@@ -649,15 +1213,15 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
         $this->renderCategories(
             $deleted
                 ? 'Kategoria została usunięta.'
-                : 'Nie można usunąć nieistniejącej kategorii albo kategorii używanej przez artykuły.',
+                : 'Nie można usunąć kategorii, która nie istnieje, zawiera artykuły albo ma podkategorie.',
             $deleted ? 'success' : 'warning'
         );
     }
 
     /**
-     * @return array{0: int, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string}
+     * @return array{int, string, string, string, string, string, array{language: string, seoTitle: string, seoDescription: string}, string}
      */
-    private function validatedInput(Request $request, ?int $exceptId = null): array
+    private function validatedInput(Request $request, ?Article $article = null): array
     {
         $categoryId = $request->postInt('category_id') ?? 0;
         $title = $request->postString('title');
@@ -673,23 +1237,28 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
             $content = $this->appendMediaToContent($content, $contentFormat, $media);
         }
 
-        if (!$this->articles->categoryExists($categoryId)) {
-            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Wybierz istniejącą kategorię.'];
-        }
-        if ($title === '' || strlen($title) > 180) {
-            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
-        }
-        if ($slug === '' || strlen($slug) > 191 || $this->articles->slugExists($slug, $exceptId)) {
-            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Slug jest nieprawidłowy albo już używany.'];
-        }
-        if ($summary === '' || strlen($summary) > 500) {
-            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Zajawka jest wymagana i może mieć maksymalnie 500 znaków.'];
-        }
-        if ($content === '') {
-            return [$categoryId, $title, $slug, $summary, $content, $contentFormat, 'Treść artykułu jest wymagana.'];
-        }
+        $language = strtolower($request->postString('language', $article?->language ?? 'und'));
+        $seoTitle = $this->metadataText($request->postString('seo_title', $article?->seoTitle ?? ''));
+        $seoDescription = $this->metadataText($request->postString('seo_description', $article?->seoDescription ?? ''));
+        $metadata = compact('language', 'seoTitle', 'seoDescription');
+        $error = match (true) {
+            !$this->articles->categoryExists($categoryId) => 'Wybierz istniejącą kategorię.',
+            $title === '' || mb_strlen($title, 'UTF-8') > 180 => 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.',
+            $slug === '' || strlen($slug) > 191 || $this->articles->slugExists($slug, $article?->id) => 'Slug jest nieprawidłowy albo już używany.',
+            $summary === '' || mb_strlen($summary, 'UTF-8') > 500 => 'Zajawka jest wymagana i może mieć maksymalnie 500 znaków.',
+            $content === '' => 'Treść artykułu jest wymagana.',
+            !isset(self::LANGUAGES[$language]) => 'Wybierz dostępny język artykułu.',
+            mb_strlen($seoTitle, 'UTF-8') > 180 => 'Tytuł SEO może mieć maksymalnie 180 znaków.',
+            mb_strlen($seoDescription, 'UTF-8') > 320 => 'Opis SEO może mieć maksymalnie 320 znaków.',
+            default => '',
+        };
 
-        return [$categoryId, $title, $slug, $summary, $content, $contentFormat, ''];
+        return [$categoryId, $title, $slug, $summary, $content, $contentFormat, $metadata, $error];
+    }
+
+    private function metadataText(string $value): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', mb_scrub($value, 'UTF-8')) ?? '');
     }
 
     /** @return array<string, string> */
@@ -765,9 +1334,12 @@ final class ArticlesModule implements ModuleInterface, PublicNavigationProviderI
     private function capture(callable $renderer): string
     {
         ob_start();
-        $renderer();
-
-        return (string) ob_get_clean();
+        try {
+            $renderer();
+            return (string) ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
     }
 
     private function invalidateArticleCache(?string ...$slugs): void

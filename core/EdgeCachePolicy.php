@@ -192,7 +192,7 @@ final class EdgeCachePolicy
         }
         foreach (explode(';', $request->header('Cookie')) as $cookie) {
             [$name] = array_pad(explode('=', trim($cookie), 2), 2, '');
-            if (hash_equals($this->sessionName, trim($name))) {
+            if (in_array(trim($name), [$this->sessionName, 'REMEMBER_' . $this->sessionName], true)) {
                 return true;
             }
         }
@@ -211,7 +211,8 @@ final class EdgeCachePolicy
                 continue;
             }
             $cookie = trim(substr($header, strlen('Set-Cookie:')));
-            if (str_starts_with($cookie, $this->sessionName . '=')) {
+            if (str_starts_with($cookie, $this->sessionName . '=')
+                || str_starts_with($cookie, 'REMEMBER_' . $this->sessionName . '=')) {
                 return true;
             }
         }

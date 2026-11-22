@@ -17,3 +17,28 @@
 @media(max-width:991px){.eq-element-panel{grid-template-columns:80px 1fr;gap:1.3rem;padding:1.4rem}.eq-element-explore{grid-column:2;justify-self:start}.eq-element-particles{left:64px}.eq-element-copy h2{font-size:1.5rem}.home-section:before{background-size:auto 100%}}
 @media(max-width:600px){.eq-element-panel{grid-template-columns:55px 1fr;gap:1rem;padding:1.2rem 1rem}.eq-element-emblem>span{font-size:35px}.eq-element-copy h2{font-size:1.3rem}.eq-element-copy p{font-size:.76rem}.eq-element-copy .eq-small-label{font-size:8px}.eq-element-chips span{font-size:8px}.eq-element-particles{left:43px}.eq-element-explore{font-size:.7rem}.home-section:before{opacity:.65;mask-image:linear-gradient(90deg,transparent 8%,#0005 55%,#000 100%)}.home-section:nth-of-type(4n+3):before{mask-image:linear-gradient(90deg,#000,#0005 40%,transparent 90%)}}
 @media(prefers-reduced-motion:reduce){.eq-element-particles{display:none}.eq-scene-flash{display:none}.eq-element-emblem i{animation:none}}
+
+/* MoonVale contacts — Krok 5C: theme presentation of homepage channels. */
+.eq-contact{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
+.eq-contact::before{content:none}
+.eq-contact .contact-hub-heading{max-width:46rem;margin:0 0 2.5rem;text-align:left}
+.eq-contact .contact-kicker{padding:0;border:0;background:none;border-radius:0;font:10px/1.6 ui-monospace,monospace;letter-spacing:.2em;color:#dcb4e5}
+.eq-contact .contact-hub-heading h2{font:400 clamp(2.4rem,4vw,3.8rem)/1.1 Georgia,serif;letter-spacing:-.045em;text-wrap:balance;color:var(--mp-text)}
+.eq-contact .contact-intro{margin:0;color:var(--mp-muted);font-size:.95rem;line-height:1.8}
+.eq-contact .contact-group{padding:0;background:none;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;min-width:0}
+.eq-contact .contact-group-heading{margin-bottom:1.2rem}
+.eq-contact .contact-group-heading h3{font:400 1.5rem/1.25 Georgia,serif;color:var(--mp-text)}
+.eq-contact .contact-hub-grid{grid-template-columns:minmax(0,1fr);gap:2.5rem}
+.eq-contact-social-only .contact-group-heading{display:none}
+.eq-contact .contact-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:1rem}
+.eq-contact .contact-item{padding:1.5rem;gap:1rem;background:linear-gradient(150deg,#271930ee,#100c18f5);border:1px solid #9c4dd145;border-radius:16px;box-shadow:none;grid-template-columns:auto minmax(0,1fr);align-items:start}
+.eq-contact .contact-item:hover{background:linear-gradient(150deg,#35203fee,#160e20);border-color:#d246cb90;transform:none}
+.eq-contact .contact-icon{width:3rem;height:3rem;color:#ecc6f4;background:#9c4dd11c;border:1px solid #9c4dd15c;border-radius:12px}
+.eq-contact .contact-icon svg{width:1.65rem;height:1.65rem}
+.eq-contact .contact-item-label{color:#dcb4e5;font-size:.65rem;letter-spacing:.15em}
+.eq-contact .contact-item h4{color:var(--mp-text);font-size:1.05rem;line-height:1.5}
+.eq-contact .contact-item-description{font-size:.85rem;line-height:1.7;color:var(--mp-muted)}
+.eq-contact .contact-item> .d-flex{grid-column:2}
+.eq-contact .contact-item-action{min-height:44px;padding:.6rem 1rem;border:1px solid #d246cb66;border-radius:8px;color:#f6d6f2;background:#d246cb12;white-space:normal}
+.eq-contact .contact-item-action:hover{color:#180b22;background:#ff9cef;border-color:#ff9cef}
+@media(max-width:600px){.eq-contact .contact-list{grid-template-columns:minmax(0,1fr)}.eq-contact .contact-item{padding:1.2rem}.eq-contact .contact-hub-heading{margin-bottom:2rem}}

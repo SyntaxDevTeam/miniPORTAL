@@ -22,13 +22,42 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Canonical public GET links. Never redirect forms, OAuth callbacks or API calls.
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^presentation=card$
+    RewriteRule ^(players/(?:server/[1-9][0-9]*/)?[A-Za-z0-9_]{1,16})/?$ /$1/card [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^category=([1-9][0-9]*)$
+    RewriteRule ^itemshop/?$ /itemshop/category/%1 [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^server=([1-9][0-9]*)$
+    RewriteRule ^account/player-profile/card/?$ /account/player-profile/card/%1 [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^server=([1-9][0-9]*)&q=&page=([1-9][0-9]*)$
+    RewriteRule ^players/?$ /players/server/%1/page/%2 [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^page=([1-9][0-9]*)$
+    RewriteRule ^players/?$ /players/page/%1 [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^server=([1-9][0-9]*)$
+    RewriteRule ^players/?$ /players/server/%1 [R=302,L,QSD]
+
+    RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+    RewriteCond %{QUERY_STRING} ^route=(/(?:players|p|articles|article|wiki|server-staff|team|itemshop)(?:/[A-Za-z0-9_-]+)*)(?:&([A-Za-z0-9_%=&.+-]*))?$
+    RewriteRule ^index\.php$ %1?%2 [R=302,L]
+
     # Preserve API credentials when the request is internally routed to index.php.
     RewriteCond %{HTTP:Authorization} ^(.+)$
     RewriteRule ^ - [E=HTTP_AUTHORIZATION:%1]
 
     # Public requests may enter through index.php and template assets only.
     RewriteRule ^(?:\.git|\.svn|\.hg)(?:/|$) - [F,L,NC]
-    RewriteRule ^(?:bin|cache|config|core|docs|install|installer|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:bin|cache|config|core|dedicated|docs|install|installer|modules|tests|theme|vendor)(?:/|$) - [F,L,NC]
     RewriteRule ^(?:AGENTS\.md|README\.md|LICENSE|composer\.(?:json|lock)|\.env(?:\..*)?)$ - [F,L,NC]
     RewriteRule ^templates/[^/]+/(?:theme\.php|views)(?:/|$) - [F,L,NC]
 

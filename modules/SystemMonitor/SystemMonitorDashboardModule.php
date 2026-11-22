@@ -63,6 +63,8 @@ final class SystemMonitorDashboardModule implements ModuleInterface, DashboardPr
     {
         $this->module->registerRoutes($router);
         $router->get('/admin/system-monitor/infrastructure', fn (Request $request) => $this->serveInfrastructure($request));
+        $router->get('/admin/system-monitor/actions', fn (Request $request) => $this->serveActions($request));
+        $router->post('/admin/system-monitor/processes/terminate', fn (Request $request) => $this->terminateProcess($request));
         $router->get('/admin/system-monitor/processes', fn (Request $request) => $this->serveProcesses($request));
         $router->get('/admin/system-monitor/log-cleaner', fn (Request $request) => $this->serveLogCleanerPreview($request));
         $router->get('/admin/system-monitor/log-cleaner/job', fn (Request $request) => $this->serveLogCleanerJob($request));
@@ -129,6 +131,17 @@ final class SystemMonitorDashboardModule implements ModuleInterface, DashboardPr
         echo $payload;
     }
 
+    private function serveActions(Request $request): void
+    {
+        if (!$this->allowJson($request, 'system_monitor_actions_access')) {
+            return;
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $this->json(['ok' => true, 'actions' => SystemMonitorActions::snapshot()]);
+    }
+
     private function serveProcesses(Request $request): void
     {
         if (!$this->allowJson($request, 'system_monitor_processes_access')) {
@@ -138,7 +151,37 @@ final class SystemMonitorDashboardModule implements ModuleInterface, DashboardPr
         $this->json([
             'ok' => true,
             'processes' => $this->infrastructure->processesSnapshot(),
+            'may_terminate' => $this->mayTerminate(),
+            'csrf_token' => $this->mayTerminate() ? $this->security->csrfToken() : '',
         ]);
+    }
+
+    private function mayTerminate(): bool
+    {
+        $user = $this->auth->user();
+        return $user !== null && $user->isActive() && $this->auth->rolePreview() === null
+            && array_intersect($user->roles, ['owner','administrator']) !== [];
+    }
+
+    private function terminateProcess(Request $request): void
+    {
+        if (!$this->allowJson($request, 'system_monitor_process_terminate')) return;
+        if (!$this->mayTerminate() || $this->auth->rolePreviewBlocks($request) || !$this->security->validateCsrfToken($request->postString('_token'))) {
+            http_response_code(403); $this->json(['ok'=>false,'message'=>'Brak uprawnień lub nieprawidłowy token formularza.']); return;
+        }
+        $pid = $request->postInt('pid', 0) ?? 0;
+        $actor = $this->auth->user()->id;
+        if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+        try {
+            $result = (new SystemMonitorHost())->terminate($pid, $request->postString('start_ticks'), $request->postString('boot_id'));
+            if (!$result['ok']) http_response_code(409);
+            $this->audit->record($request, 'system_monitor_process_terminate', $result['ok'] ? 'sigterm' : 'denied', 'pid:' . $pid, $actor);
+            $this->json($result);
+        } catch (\Throwable) {
+            http_response_code(409);
+            $this->audit->record($request, 'system_monitor_process_terminate', 'failed', 'pid:' . $pid, $actor);
+            $this->json(['ok'=>false,'message'=>'Nie można zakończyć procesu. Odśwież listę i sprawdź dostępność usługi hosta.']);
+        }
     }
 
     private function serveLogCleanerPreview(Request $request): void
@@ -308,6 +351,8 @@ final class SystemMonitorDashboardModule implements ModuleInterface, DashboardPr
     /** @return array{total:?int, used:?int, available:?int} */
     private function memorySnapshot(): array
     {
+        $shared = SystemMonitorAgent::snapshot()['metrics']['memory'] ?? null;
+        if (is_array($shared)) return $shared;
         $lines = @file('/proc/meminfo', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if (!is_array($lines)) {
             return ['total' => null, 'used' => null, 'available' => null];
@@ -342,6 +387,8 @@ final class SystemMonitorDashboardModule implements ModuleInterface, DashboardPr
     /** @return array{total:?int, used:?int, free:?int} */
     private function diskSnapshot(string $path): array
     {
+        $shared = SystemMonitorAgent::snapshot()['metrics']['disk'] ?? null;
+        if ($path === '/' && is_array($shared)) return $shared;
         $total = @disk_total_space($path);
         $free = @disk_free_space($path);
         if (!is_float($total) || !is_float($free)) {

@@ -45,7 +45,7 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
 
     private const NOTIFICATIONS = [
         'none' => 'Brak',
-        'discord_webhook' => 'Discord webhook',
+        'discord_webhook' => 'Discord (Integracja Discord lub webhook)',
     ];
 
     private readonly UptimeMonitorChecker $checker;
@@ -72,7 +72,7 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
 
     public function version(): string
     {
-        return '1.1.4';
+        return '1.2.0';
     }
 
     public function dependencies(): array
@@ -394,7 +394,7 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
             ], [
                 'name' => 'notification_webhook_url', 'label' => 'Discord webhook URL', 'type' => 'url',
                 'value' => $monitor?->notificationWebhookUrl ?? '',
-                'help' => 'Wymagany tylko dla powiadomień Discord. Dozwolony jest adres HTTPS discord.com/api/webhooks/...',
+                'help' => 'Pozostaw puste, jeśli kanałem zarządza System → Integracja Discord. W innym przypadku podaj HTTPS discord.com/api/webhooks/...',
             ], [
                 'name' => 'last_status', 'label' => 'Status', 'type' => 'select',
                 'value' => $monitor?->lastStatus ?? 'neutral', 'options' => self::STATUSES,
@@ -470,7 +470,7 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
             $this->renderForm($monitor, 'Wybierz poprawny typ powiadomienia.', 'warning');
             return;
         }
-        if ($notificationType === 'discord_webhook' && !$this->safeDiscordWebhook($webhookUrl)) {
+        if ($notificationType === 'discord_webhook' && !(class_exists(\SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::class) && \SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::local(dirname(__DIR__,2))?->managed('uptime.alerts')) && !$this->safeDiscordWebhook($webhookUrl)) {
             $this->renderForm($monitor, 'Webhook Discord musi być adresem HTTPS z discord.com/api/webhooks albo discordapp.com/api/webhooks.', 'warning');
             return;
         }
@@ -645,11 +645,18 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
         if ($monitor->notificationType !== 'discord_webhook') {
             return false;
         }
+        $hub=class_exists(\SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::class)?\SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::local(dirname(__DIR__,2)):null;
+        if ($hub?->managed('uptime.alerts')) {
+            if (!$hub->ready('uptime.alerts')) return false;
+            $result=$hub->send($hub->destination('uptime.alerts'),['content'=>':green_circle: **'.$monitor->name.'** is online again.','allowed_mentions'=>['parse'=>[]]]);
+            return $result['status']>=200 && $result['status']<300;
+        }
         if (!$this->safeDiscordWebhook($monitor->notificationWebhookUrl)) {
             return false;
         }
 
         $payload = json_encode([
+            'allowed_mentions'=>['parse'=>[]],
             'content' => ':green_circle: **' . $monitor->name . '** is online again.',
         ], JSON_UNESCAPED_SLASHES);
         if (!is_string($payload)) {
@@ -663,6 +670,7 @@ final class UptimeModule implements ModuleInterface, PublicNavigationProviderInt
                 'content' => $payload,
                 'timeout' => 5,
                 'ignore_errors' => true,
+                'follow_location' => 0,
             ],
             'ssl' => [
                 'verify_peer' => true,

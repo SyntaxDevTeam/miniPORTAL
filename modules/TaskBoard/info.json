@@ -1,0 +1,26 @@
+{
+  "id": "task_board",
+  "name": "Zadania i plany",
+  "version": "1.3.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.13.2",
+    "modules": [
+      "core_auth",
+      "projects",
+      "wikipedia",
+      "media_library",
+      "build_explorer"
+    ]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "factory": "factory.php",
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

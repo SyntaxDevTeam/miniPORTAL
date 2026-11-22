@@ -46,6 +46,7 @@ final readonly class HomepageSection
      *         content_format: string,
      *         item_kind: string,
      *         icon_key: string,
+*         logo_url?: string,
      *         button_label: string,
      *         button_url: string,
      *         buttons: list<array{label: string, url: string}>,

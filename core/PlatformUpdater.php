@@ -31,7 +31,7 @@ final class PlatformUpdater
     /**
      * @param array{version:string,minimum_version:string,filename:string,checksum:string} $release
      * @param callable(): void $afterFiles
-     * @return array{version:string,files:int,backup:string}
+     * @return array{version:string,files:int,backup:string,preserved:list<string>}
      */
     public function apply(array $release, string $archive, string $currentVersion, callable $afterFiles): array
     {
@@ -77,6 +77,13 @@ final class PlatformUpdater
             $remove = $manifest['remove'];
             $this->validatePayload($payload, $files);
             $this->validateRemovePaths($remove);
+            // Use installed metadata, never the incoming module manifests.
+            $protected = LocalRuntime::protectedPaths($this->applicationRoot);
+            $preserved = array_values(array_filter(array_values(array_unique([...array_keys($files), ...$remove])), static fn (string $path): bool =>
+                LocalRuntime::isProtected($path, $protected)));
+            $files = array_diff_key($files, array_fill_keys($preserved, true));
+            $remove = array_values(array_filter($remove, static fn (string $path): bool =>
+                !LocalRuntime::isProtected($path, $protected)));
             $this->assertWritableTargets(array_values(array_unique([...array_keys($files), ...$remove])));
             $changed = $this->replaceFiles($payload, array_keys($files), $remove, $backup);
             try {
@@ -90,12 +97,13 @@ final class PlatformUpdater
                 json_encode([
                     'version' => $release['version'],
                     'applied_at' => gmdate(\DateTimeInterface::ATOM),
-                    'files' => $changed,
+                    'files' => array_keys($changed),
+                    'preserved' => $preserved,
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL
             );
             $this->removeDirectory($run);
 
-            return ['version' => $release['version'], 'files' => count($changed), 'backup' => $backup];
+            return ['version' => $release['version'], 'files' => count($changed), 'backup' => $backup, 'preserved' => $preserved];
         } catch (\Throwable $exception) {
             $this->removeDirectory($run);
             throw $exception;
@@ -177,6 +185,8 @@ final class PlatformUpdater
                 if (
                     str_starts_with($relative, 'config/installed.')
                     || str_starts_with($relative, 'config/modules/')
+                    || $relative === 'config/storage'
+                    || str_starts_with($relative, 'config/storage/')
                     || str_ends_with($relative, '/.env')
                 ) {
                     break;
@@ -193,8 +203,11 @@ final class PlatformUpdater
         foreach ($files as $relative) {
             $target = rtrim($this->applicationRoot, '/') . '/' . $relative;
             $parent = is_file($target) ? dirname($target) : $this->nearestExistingParent(dirname($target));
-            if (!is_writable($parent) || (is_file($target) && !is_writable($target))) {
-                throw new RuntimeException("Brak prawa zapisu do aktualizacji pliku {$relative}.");
+            if (!is_writable($parent) || !is_executable($parent)) {
+                throw new RuntimeException("Brak dostępu do zapisu w katalogu potrzebnym do podmiany {$relative}.");
+            }
+            if (is_file($target) && !is_readable($target)) {
+                throw new RuntimeException("Brak prawa odczytu pliku {$relative} potrzebnego do kopii rollbacku.");
             }
         }
     }
@@ -209,7 +222,7 @@ final class PlatformUpdater
     }
 
     /**
-     * @return list<string>
+     * @return array<string, int|null> Original mode, or null for a newly created file.
      */
     private function replaceFiles(string $payload, array $files, array $remove, string $backup): array
     {
@@ -219,7 +232,8 @@ final class PlatformUpdater
                 $source = $payload . '/' . $relative;
                 $target = rtrim($this->applicationRoot, '/') . '/' . $relative;
                 $backupFile = $backup . '/files/' . $relative;
-                if (is_file($target)) {
+                $originalMode = is_file($target) ? fileperms($target) & 0777 : null;
+                if ($originalMode !== null) {
                     $this->ensureDirectory(dirname($backupFile));
                     if (!copy($target, $backupFile)) {
                         throw new RuntimeException("Nie można zabezpieczyć pliku {$relative}.");
@@ -229,16 +243,12 @@ final class PlatformUpdater
                     touch($backup . '/missing/' . $relative);
                 }
                 $this->ensureDirectory(dirname($target));
-                $temporary = $target . '.update-' . bin2hex(random_bytes(3));
-                if (!copy($source, $temporary) || !rename($temporary, $target)) {
-                    @unlink($temporary);
-                    throw new RuntimeException("Nie można zaktualizować pliku {$relative}.");
-                }
-                @chmod($target, fileperms($source) & 0777 ?: 0644);
+                $mode = $originalMode ?? (fileperms($source) & 0777);
+                $this->replaceAtomically($source, $target, $mode, "Nie można zaktualizować pliku {$relative}.");
                 if (function_exists('opcache_invalidate')) {
                     @opcache_invalidate($target, true);
                 }
-                $changed[] = $relative;
+                $changed[$relative] = $originalMode;
             }
             foreach ($remove as $relative) {
                 $target = rtrim($this->applicationRoot, '/') . '/' . $relative;
@@ -247,13 +257,14 @@ final class PlatformUpdater
                 }
                 $backupFile = $backup . '/files/' . $relative;
                 $this->ensureDirectory(dirname($backupFile));
+                $originalMode = fileperms($target) & 0777;
                 if (!copy($target, $backupFile) || !unlink($target)) {
                     throw new RuntimeException("Nie można usunąć narzędzia macierzystego {$relative}.");
                 }
                 if (function_exists('opcache_invalidate')) {
                     @opcache_invalidate($target, true);
                 }
-                $changed[] = $relative;
+                $changed[$relative] = $originalMode;
             }
         } catch (\Throwable $exception) {
             $this->restoreFiles($backup, $changed);
@@ -263,19 +274,39 @@ final class PlatformUpdater
         return $changed;
     }
 
+    /** @param array<string, int|null> $files */
     private function restoreFiles(string $backup, array $files): void
     {
-        foreach (array_reverse($files) as $relative) {
+        foreach (array_reverse($files, true) as $relative => $originalMode) {
             $target = rtrim($this->applicationRoot, '/') . '/' . $relative;
             $backupFile = $backup . '/files/' . $relative;
-            if (is_file($backupFile)) {
+            if ($originalMode !== null) {
                 $this->ensureDirectory(dirname($target));
-                copy($backupFile, $target);
-            } else {
-                @unlink($target);
+                $this->replaceAtomically(
+                    $backupFile,
+                    $target,
+                    $originalMode,
+                    "Nie można przywrócić pliku {$relative} z kopii aktualizacji."
+                );
+            } elseif (is_file($target) && !unlink($target)) {
+                throw new RuntimeException("Nie można usunąć nowego pliku {$relative} podczas cofania aktualizacji.");
             }
             if (function_exists('opcache_invalidate')) {
                 @opcache_invalidate($target, true);
+            }
+        }
+    }
+
+    private function replaceAtomically(string $source, string $target, int $mode, string $error): void
+    {
+        $temporary = $target . '.update-' . bin2hex(random_bytes(6));
+        try {
+            if (!copy($source, $temporary) || !chmod($temporary, $mode) || !rename($temporary, $target)) {
+                throw new RuntimeException($error);
+            }
+        } finally {
+            if (is_file($temporary)) {
+                @unlink($temporary);
             }
         }
     }

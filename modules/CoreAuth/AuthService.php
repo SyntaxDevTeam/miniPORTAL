@@ -9,6 +9,8 @@ use SyntaxDevTeam\Cms\Core\Security;
 
 final class AuthService
 {
+    private const SESSION_REMEMBER_SELECTOR = '_miniportal_remember_selector';
+    private const SESSION_VERSION = '_miniportal_session_version';
     private const SESSION_USER_ID = '_miniportal_user_id';
     private const SESSION_ROLE_PREVIEW = '_miniportal_role_preview';
     private const SESSION_ACTIVITY_TOUCHED_AT = '_miniportal_activity_touched_at';
@@ -21,7 +23,41 @@ final class AuthService
         private readonly UserRepositoryInterface $users,
         private readonly Security $security,
         private readonly ?FirstAdminBootstrapper $firstOwnerBootstrapper = null,
+        private readonly ?RememberLoginService $rememberLogin = null,
     ) {
+    }
+
+    /** Called once at bootstrap, before rendering and only on safe browser requests. */
+    public function restoreRememberedLogin(Request $request): ?User
+    {
+        if ($this->rememberLogin === null || !in_array($request->method(), ['GET', 'HEAD'], true)
+            || $request->header('Authorization') !== '' || isset($_SESSION[self::SESSION_USER_ID])
+            || str_starts_with($request->path(), '/api/') || str_starts_with($request->path(), '/metrics/')
+            || str_starts_with($request->path(), '/internal/') || $request->path() === '/articles/code-runner') {
+            return null;
+        }
+        try {
+            $token = $this->rememberLogin->consume();
+            if ($token === null) {
+                return null;
+            }
+            $user = $this->users->findById($token['user_id']);
+            if ($user === null || $user->status === 'blocked' || $user->sessionVersion !== $token['session_version']) {
+                $this->rememberLogin->forget($token['selector']);
+                return null;
+            }
+            $this->security->regenerateSession();
+            unset($_SESSION[self::SESSION_ROLE_PREVIEW], $_SESSION[self::SESSION_ACTIVITY_TOUCHED_AT]);
+            $_SESSION[self::SESSION_USER_ID] = $user->id;
+            $_SESSION[self::SESSION_VERSION] = $user->sessionVersion;
+            $_SESSION[self::SESSION_REMEMBER_SELECTOR] = $token['selector'];
+            $this->touchCurrentSession($user->id, true);
+            return $user;
+        } catch (\Throwable $exception) {
+            // Missing migration/storage must never grant access or break regular OAuth.
+            error_log('miniPORTAL remember login unavailable: ' . $exception::class);
+            return null;
+        }
     }
 
     public function user(): ?User
@@ -45,6 +81,7 @@ final class AuthService
             [$preview['role']],
             $preview['permissions'],
             $user->identities,
+            $user->sessionVersion,
         );
     }
 
@@ -61,7 +98,8 @@ final class AuthService
 
         $user = $this->users->findById((int) $userId);
 
-        if ($user === null || $user->status === 'blocked') {
+        if ($user === null || $user->status === 'blocked'
+            || (int) ($_SESSION[self::SESSION_VERSION] ?? 0) !== $user->sessionVersion) {
             $this->logout();
             return null;
         }
@@ -155,7 +193,7 @@ final class AuthService
             || str_starts_with($request->path(), '/admin/identity/');
     }
 
-    public function loginIdentity(ExternalIdentity $identity): ?User
+    public function loginIdentity(ExternalIdentity $identity, bool $remember = false): ?User
     {
         $user = $this->users->findByIdentity($identity->provider, $identity->subject);
 
@@ -176,13 +214,22 @@ final class AuthService
             return null;
         }
 
+        $this->forgetRememberedLogin();
         unset($_SESSION[self::SESSION_ROLE_PREVIEW]);
         $this->forgetCurrentSession();
         $this->security->regenerateSession();
         $_SESSION[self::SESSION_USER_ID] = $user->id;
+        $_SESSION[self::SESSION_VERSION] = $user->sessionVersion;
         unset($_SESSION[self::SESSION_ACTIVITY_TOUCHED_AT]);
         $this->touchCurrentSession($user->id, true);
         $this->users->touchIdentity($user->id, $identity->provider, $identity->subject);
+        if ($remember && $this->rememberLogin !== null) {
+            try {
+                $_SESSION[self::SESSION_REMEMBER_SELECTOR] = $this->rememberLogin->issue($user);
+            } catch (\Throwable $exception) {
+                error_log('miniPORTAL remember login issue failed: ' . $exception::class);
+            }
+        }
 
         return $user;
     }
@@ -247,13 +294,26 @@ final class AuthService
 
     public function logout(): void
     {
+        $this->forgetRememberedLogin();
         $this->forgetCurrentSession();
         unset(
             $_SESSION[self::SESSION_USER_ID],
+            $_SESSION[self::SESSION_VERSION],
             $_SESSION[self::SESSION_ROLE_PREVIEW],
             $_SESSION[self::SESSION_ACTIVITY_TOUCHED_AT]
         );
         $this->security->regenerateSession();
+    }
+
+    private function forgetRememberedLogin(): void
+    {
+        try {
+            $selector = $_SESSION[self::SESSION_REMEMBER_SELECTOR] ?? null;
+            $this->rememberLogin?->forget(is_string($selector) ? $selector : null);
+        } catch (\Throwable $exception) {
+            error_log('miniPORTAL remember login revocation failed: ' . $exception::class);
+        }
+        unset($_SESSION[self::SESSION_REMEMBER_SELECTOR]);
     }
 
     private function rotateAuthenticatedSession(int $userId): void

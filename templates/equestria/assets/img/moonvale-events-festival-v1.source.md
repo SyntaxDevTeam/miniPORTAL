@@ -1,0 +1,11 @@
+# MoonVale — Festiwal Świateł
+
+Kalendarz wydarzeń, Faza 2 / Krok 3 i 5C. Nowa, niezależna panorama.
+Wygenerowano 2026-11-02 wbudowanym narzędziem image_gen (skill imagegen).
+Plik runtime: `moonvale-events-festival-v1.webp`. Oryginał PNG zachowany w
+katalogu generated_images narzędzia; WebP zakodowano w jakości 92 bez zmiany
+kompozycji, wymiarów i treści. Nie zastępuje panoramy profilu ani strony głównej.
+
+## Finalny prompt
+
+Use case: stylized-concept. Asset type: premium ultrawide website hero background for MoonVale, an equestrian Minecraft community's events calendar. Create a completely NEW scene, not the familiar valley panorama with a huge pink moon, mountains and horse-jump arena. Scene: a magical lakeside equestrian lantern festival on a cool violet evening, seen from a slightly elevated riverside terrace. A beautifully built Minecraft-style wooden pavilion and festive market on the center-right, block-built bridges over reflective water, warm hanging lanterns, subtle magenta enchanted accents, flowering willow trees, fireflies. A small gathering of distinctly Minecraft blocky horses with a few blocky player riders around the lit pavilion; tasteful small details rather than a crowded battle. Rich architectural storytelling, genuinely voxel geometry and pixel-textured materials, professional high-end Minecraft shader cinematic render, crisp block shapes, nuanced light, beautiful reflections, atmospheric depth. Palette: deep plum and midnight indigo with luminous orchid pink and warm gold light. The main appeal is the welcoming festival, no giant moon or space planet; a small crescent high in the sky is optional. Composition: panoramic 3:1 landscape, aim 2400x800 or best available wide resolution; important festival scene at center and upper right, LEFT 40 percent contains quieter dark water, silhouetted foliage and soft twilight for white website heading overlay; lower right will have a UI card overlay, so keep main pavilion above it near center-right. Not a UI mockup, ONLY the full-bleed artwork. Maintain visible beautiful environment across the image; don't paint a solid black rectangle. Luxurious and welcoming, grounded and coherent, no excessive neon, no blur, no text, no signage lettering, no logos, no watermark.

@@ -1,0 +1,74 @@
+.text-workspace{min-width:0}.text-workspace-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:1rem;padding:1rem 0}.text-workspace-toolbar label{display:grid;gap:.35rem;flex:1 1 12rem}.text-workspace-toolbar output{flex:1 1 16rem;font-size:.9rem}.text-workspace progress{width:100%;height:.65rem;accent-color:#48bca2}.text-workspace-help{font-size:.9rem;opacity:.85;margin:1rem 0}.text-workspace .translation-row[hidden]{display:none!important}.text-workspace .translation-row{min-width:0}.text-workspace .translation-original p{white-space:pre-wrap;overflow-wrap:anywhere}.text-workspace textarea{width:100%;min-height:6rem;resize:vertical;font-family:inherit}.text-workspace [aria-invalid=true]{border-color:#f08080}.text-workspace [data-message-quality]{display:block;margin-top:.5rem}.text-workspace button{white-space:normal;overflow-wrap:anywhere}.text-workspace .translation-original small{overflow-wrap:anywhere}@media(max-width:700px){.text-workspace .translation-row{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem}.text-workspace .translation-editor-head{display:none}.text-workspace-toolbar>*{width:100%}}
+
+/* Quiet autosave status, with readable controls on every public theme. */
+.translation-workspace .translation-autosave-status{
+  --bs-alert-color:#d1faeb;
+  --bs-alert-bg:#102d29;
+  --bs-alert-border-color:#357d6b;
+  color:#d1faeb;
+  background:#102d29;
+  border:1px solid #357d6b;
+  border-left:3px solid #6ee7b7;
+}
+.translation-autosave-status .btn{
+  color:#d1faeb;
+  background:transparent;
+  border-color:#6cae9c;
+}
+.translation-autosave-status .btn:hover,
+.translation-autosave-status .btn:focus-visible{
+  color:#102d29;
+  background:#a7f3d0;
+  border-color:#a7f3d0;
+}
+.translation-autosave-status .btn:focus-visible{
+  outline:2px solid #d1faeb;
+  outline-offset:3px;
+}
+
+.text-workspace .text-token-legend{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:0 0 1rem;font-size:.85rem}
+.text-workspace .text-token-legend>span{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem}
+.text-workspace .text-token{display:inline-block;border:1px solid;border-radius:.35rem;padding:.1rem .35rem;font-family:monospace;font-size:.9em;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.text-workspace .text-token--placeholder{color:#bbf7d0;background:#143829;border-color:#4a9667}
+.text-workspace .text-token--minimessage{color:#e9d5ff;background:#302040;border-color:#9664bd}
+.text-workspace .text-token--legacy{color:#fde68a;background:#3b2c13;border-color:#aa8137}
+.text-workspace button.text-token{margin:.35rem .2rem 0 0;cursor:pointer}
+.text-workspace button.text-token:hover{filter:brightness(1.2)}
+.text-workspace button.text-token:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+
+
+.text-workspace .translation-source-code{
+  display:block;
+  padding:.75rem;
+  border:1px solid #344256;
+  border-radius:.5rem;
+  background:#101923;
+  color:#e2e8f0;
+  font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+  font-size:.9rem;
+  line-height:1.75;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+
+
+.text-workspace .translation-token-actions{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:stretch;
+  gap:.375rem;
+  margin-top:.5rem;
+}
+.text-workspace .translation-token-actions>.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:2.5rem;
+  max-width:100%;
+  margin:0;
+  padding:.45rem .55rem;
+  border-radius:.35rem;
+  font-size:.875rem;
+  line-height:1.5;
+  text-align:center;
+}

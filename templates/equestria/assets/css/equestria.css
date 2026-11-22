@@ -360,3 +360,27 @@ body:has(> main#content)>nav,body:has(> main#content)>footer{flex-shrink:0}
 
 .staff-roster{display:grid;gap:1.4rem;min-width:0}.staff-roster-group h2{font-size:1.1rem;margin:0 0 .4rem}.staff-roster-list{list-style:none;margin:0;padding:0}.staff-roster-member{display:grid;grid-template-columns:minmax(230px,1fr) minmax(0,1.4fr) minmax(0,.8fr);align-items:center;gap:.75rem;padding:.7rem 0;border-bottom:1px solid rgba(184,164,230,.16);min-width:0}.staff-roster-identity{display:flex;align-items:center;gap:.65rem;min-width:0}.staff-roster-head{width:40px;height:40px;border-radius:4px;image-rendering:pixelated;flex-shrink:0}.staff-roster-placeholder{display:grid;place-items:center;background:rgba(184,164,230,.1);color:#bdb1cd;font-size:1rem}.staff-roster-player{color:inherit;text-decoration:none;overflow-wrap:anywhere;line-height:1.5}.staff-roster-player:hover,.staff-roster-player:focus-visible{text-decoration:underline}.staff-roster-rank{font-weight:600;color:#dec7f1}.staff-roster-player strong{font-weight:600}.staff-roster-details{min-width:0;font-size:.9rem;overflow-wrap:anywhere}.staff-roster-details p{margin:0;white-space:pre-line}.staff-roster-bio{color:#bdb1cd;font-size:.85rem}.staff-roster-roles{display:flex;gap:.3rem;flex-wrap:wrap;min-width:0;font-size:.75rem;overflow-wrap:anywhere}.staff-roster-roles span{padding:.12rem .4rem;border-radius:4px;background:rgba(172,133,233,.1)}.staff-roster-roles a{color:#d4c1f1}@media(max-width:767px){.staff-roster-member{grid-template-columns:40px minmax(0,1fr);gap:.4rem .65rem;padding:.75rem 0}.staff-roster-identity{grid-column:1/-1}.staff-roster-details,.staff-roster-roles{grid-column:2}.staff-roster-details:empty,.staff-roster-roles:empty{display:none}}
 .staff-roster-rank .is-bold{font-weight:700}.staff-roster-rank .is-italic{font-style:italic}.staff-roster-rank .is-underlined{text-decoration:underline}.staff-roster-rank .is-strikethrough{text-decoration:line-through}
+
+/* Krok 3 / 5C: full-width, centered public footer. */
+.eq-footer{padding:2rem 0}
+.eq-footer .eq-footer-inner{max-width:1360px;display:flex;flex-direction:column;align-items:center;gap:1rem;text-align:center}
+.eq-footer-credit{max-width:100%;line-height:1.8;text-wrap:balance}
+.eq-footer-author{white-space:nowrap}
+.eq-footer-links{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1.5rem;max-width:100%}
+.eq-footer .footer-navigation{justify-content:center;column-gap:1.5rem!important;row-gap:.25rem!important}
+.eq-footer-links>a,.eq-footer-links>button{display:inline-flex;align-items:center;justify-content:center;min-height:44px}
+.eq-footer-tagline{width:100%;margin:0;padding-top:1rem;border-top:1px solid #9c4dd126;color:var(--mp-muted);line-height:1.8;text-wrap:balance}
+@media(max-width:600px){.eq-footer{padding:1.5rem 0}.eq-footer .eq-footer-inner{gap:.75rem}.eq-footer-links{gap:.25rem 1rem}}
+
+/* Private horse collection: local vanilla coat previews, no runtime renderer. */
+.profile-world-list li.profile-resource-with-image{grid-template-columns:112px minmax(0,1fr) auto}
+.profile-horse-preview{display:block;width:112px;height:auto;max-width:100%;filter:drop-shadow(0 8px 10px #0005)}
+.profile-world-list li>div>.profile-horse-preview-note{font-size:.62rem;color:var(--text-muted,#aaa0bd);line-height:1.5}
+@media(max-width:540px){.profile-world-list li.profile-resource-with-image{grid-template-columns:76px minmax(0,1fr)}.profile-horse-preview{width:76px}.profile-world-list li.profile-resource-with-image>small{grid-column:2;justify-self:start}}
+
+/* Community events share MoonVale's editorial headings and magenta identity. */
+.event-schedule{--event-heading-font:Georgia,"Times New Roman",serif}
+
+/* Calendar artwork: MoonVale lantern festival, generated for this view. */
+.event-schedule .event-hero.event-landing-hero{color:#f9f0f9;border-color:#8f58ac66;background:linear-gradient(90deg,#100a19ed 0%,#160d22d9 35%,#1b0d2850 76%),linear-gradient(0deg,#130b1bd4,transparent 65%),url('../img/moonvale-events-festival-v1.webp?v=8699a0c02ea9') center 50%/cover;box-shadow:0 20px 70px #0003}.event-landing-hero .event-spotlight{background:#130d1de8;border-color:#bb8cca55;backdrop-filter:blur(12px)}
+@media(max-width:760px){.event-schedule .event-hero.event-landing-hero{background:linear-gradient(180deg,#120b1b9e 0%,#150b22c9 48%,#100a19ed 100%),url('../img/moonvale-events-festival-v1.webp?v=8699a0c02ea9') 62% top/auto 100%}}

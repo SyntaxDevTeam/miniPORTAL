@@ -26,6 +26,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 final class BuildExplorerModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
 {
     use BuildRetentionAdminTrait;
+    use BuildManualAdminTrait;
 
     private const CHANNELS = [
         'release' => 'Release',
@@ -44,10 +45,11 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         private readonly BuildArtifactStorage $storage,
         private readonly string $ciToken = '',
         private readonly ?BuildCiPolicy $ciPolicy = null,
+        private readonly ?\SyntaxDevTeam\Cms\Core\HookRegistry $hooks = null,
     ) {}
 
     public function id(): string { return 'build_explorer'; }
-    public function version(): string { return '2.5.0'; }
+    public function version(): string { return '2.11.1'; }
     public function dependencies(): array { return ['core_auth', 'projects']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['builds.view', 'builds.manage']; }
@@ -88,6 +90,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerRoutes(Router $router): void
     {
+        (new PublicBuildApiController($this->builds->publicApi(), $this->auth, $this->theme))->registerRoutes($router);
         (new BuildExplorerV2Controller(
             $this->theme,
             $this->builds,
@@ -96,8 +99,10 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $this->storage,
             $this->ciToken,
             $this->ciPolicy,
+            $this->hooks,
         ))->registerRoutes($router);
         $this->registerRetentionAdminRoutes($router);
+        $this->registerManualAdminRoutes($router);
 
         $router->get('/builds', fn () => $this->renderPublicProjects());
         $router->get('/builds/download', fn (Request $request) => $this->download($request));
@@ -114,8 +119,8 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
             $request->routeString('version')
         ));
         $router->get('/admin/builds', fn (Request $request) => $this->guard($request, 'builds.view', fn () => $this->renderAdmin($request)));
-        $router->get('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderForm()));
-        $router->post('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request)));
+        $router->get('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderManualForm()));
+        $router->post('/admin/builds/create', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->saveManualBuild($request)));
         $router->get('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->renderEdit($request)));
         $router->post('/admin/builds/edit', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->save($request, $this->builds->find($request->postInt('id', 0) ?? 0))));
         $router->post('/admin/builds/delete', fn (Request $request) => $this->guard($request, 'builds.manage', fn () => $this->delete($request)));
@@ -125,7 +130,8 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
 
     public function registerSeo(SeoIndex $seo): void
     {
-        unset($seo);
+        $seo->add('/builds/api', 'Build Explorer API', 'Interaktywna konsola Swagger UI: endpointy, parametry i wykonywanie zapytań.');
+        $seo->add('/builds/api/guide', 'Build Explorer API — poradnik', 'Przykłady integracji, stronicowanie i dobór zgodnych plików.');
     }
 
     private function renderPublicProjects(): void
@@ -136,6 +142,7 @@ final class BuildExplorerModule implements ModuleInterface, PublicNavigationProv
         $this->theme->end_header();
         $this->theme->start_section();
         $this->theme->render_breadcrumb($this->buildBreadcrumb());
+        $this->theme->render_link_list([['label' => 'Dokumentacja API JSON', 'href' => '/builds/api', 'meta' => 'Projekty, wersje, wydania, artefakty i latest/download']]);
         if ($projects === []) {
             $this->theme->render_alert('No projects have been published yet.', 'info');
         } else {
@@ -330,6 +337,10 @@ HTML;
     {
         $project = $this->accessiblePublicProject($slug, '/builds/' . rawurlencode($slug));
         if ($project === null) { return; }
+        if ($this->builds->v2ReleaseHistory($slug, $this->auth->actualUser() !== null) !== []) {
+            header('Location: /builds/' . rawurlencode($slug) . '/explore', true, 302);
+            return;
+        }
         $builds = $this->builds->all(true, $slug);
         if ($builds === []) { $this->publicNotFound(); return; }
         $available = [];
@@ -683,15 +694,15 @@ HTML;
     }
 
     /** @param array{project_id:int,channel:string,published:string,search:string} $filters */
-    private function renderV2AdminPanel(array $filters): void
+    private function renderProjectReleases(array $filters): void
     {
         $releases = $this->builds->v2AdminRecent($filters, 100);
         $this->theme->start_admin_panel(
-            'Build Explorer v2',
-            'Logiczne buildy z build_releases i ich artefakty. Legacy project_builds pozostaje poniżej do zgodności wstecznej.'
+            'Wydania wybranego projektu',
+            'Wersje, platformy i artefakty pasujące do bieżących filtrów.'
         );
         if ($releases === []) {
-            $this->theme->render_alert('Brak buildów v2 pasujących do bieżących filtrów.', 'info');
+            $this->theme->render_alert('Brak wydań projektu pasujących do bieżących filtrów.', 'info');
             $this->theme->end_admin_panel();
             return;
         }
@@ -700,9 +711,12 @@ HTML;
         foreach ($releases as $release) {
             $platforms = array_values(array_filter(explode(',', (string) ($release['platforms'] ?? ''))));
             $actions = [];
+            if ($this->hasPermission('builds.manage')) {
+                $actions[] = ['label' => 'Opis zmian', 'href' => '/admin/builds/changelog?release=' . (int) $release['id'], 'variant' => 'outline-light'];
+            }
             if ((bool) $release['is_published']) {
                 $actions[] = [
-                    'label' => 'Explore',
+                    'label' => 'Artefakty',
                     'href' => 'index.php?' . http_build_query([
                         'route' => '/builds/v2/release',
                         'project' => (string) $release['project_slug'],
@@ -764,6 +778,7 @@ HTML;
             && $storage['disk_total_bytes'] > 0
                 ? number_format(($storage['disk_free_bytes'] / $storage['disk_total_bytes']) * 100, 1, ',', ' ') . '%'
                 : 'brak danych';
+        $this->theme->start_admin_panel_grid('metrics');
         $this->theme->start_admin_panel('Statystyki buildów', 'Stan magazynu i katalogu');
         $this->theme->render_admin_fact_grid([
             ['label' => 'Wszystkie buildy', 'value' => (string) $statistics['total'], 'detail' => $statistics['legacy_builds'] . ' legacy; ' . $statistics['v2_releases'] . ' v2 releases'],
@@ -793,7 +808,7 @@ HTML;
         ]);
         $this->theme->end_admin_panel();
         $this->renderRetentionPanel();
-        $this->renderV2AdminPanel($filters);
+        $this->theme->end_admin_panel_grid();
         $projectAccess = $this->builds->projectAccessSettings();
         $this->theme->start_admin_panel(
             'Widoczność projektów',
@@ -805,7 +820,14 @@ HTML;
         } else {
             $accessRows = [];
             foreach ($projectAccess as $project) {
-                $actions = [];
+                $actions = [[
+                    'label' => 'Buildy',
+                    'href' => 'index.php?' . http_build_query([
+                        'route' => '/admin/builds',
+                        'project_id' => $project['id'],
+                    ]),
+                    'variant' => 'outline-light',
+                ]];
                 if ($this->hasPermission('builds.manage')) {
                     $actions[] = [
                         'label' => $project['requires_auth'] ? 'Ustaw publiczny' : 'Tylko zalogowani',
@@ -842,6 +864,10 @@ HTML;
             );
         }
         $this->theme->end_admin_panel();
+        if ($filters['project_id'] > 0 && isset($projectOptions[$filters['project_id']])) {
+            $this->renderProjectReleases($filters);
+        }
+        $this->renderManualBuilds($filters);
         $filterFields = [
             ['name' => 'route', 'label' => 'Trasa', 'type' => 'hidden', 'value' => '/admin/builds'],
             ['name' => 'search', 'label' => 'Szukaj', 'value' => $filters['search'], 'placeholder' => 'Projekt, wersja, plik lub platforma'],
@@ -937,6 +963,14 @@ HTML;
 
     private function renderEdit(Request $request): void
     {
+        $legacyId = $request->queryInt('id', 0) ?? 0;
+        $manualId = $this->builds->manualBuilds()->legacyArtifact($legacyId);
+        if ($manualId !== null) {
+            header('Location: index.php?route=/admin/builds/manual/edit&artifact=' . $manualId, true, 303);
+            return;
+        }
+        $manual = $this->legacyManualValues($legacyId);
+        if ($manual !== null) { $this->renderManualForm($manual); return; }
         $build = $this->builds->find($request->queryInt('id', 0) ?? 0);
         $build instanceof ProjectBuild ? $this->renderForm($build) : $this->renderAdmin($request, 'Nie znaleziono buildu.', 'danger');
     }
@@ -1156,6 +1190,12 @@ HTML;
 
     private function download(Request $request): void
     {
+        $mapped = $this->builds->manualBuilds()->legacyArtifact($request->queryInt('id', 0) ?? 0);
+        if ($mapped !== null) {
+            header('Cache-Control: private, no-store');
+            header('Location: index.php?route=/builds/download/v2&artifact=' . $mapped, true, 302);
+            return;
+        }
         $build = $this->builds->findPublic($request->queryInt('id', 0) ?? 0);
         if (!$build instanceof ProjectBuild) {
             http_response_code(404);

@@ -23,7 +23,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
 
-final class ProjectsModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
+final class ProjectsModule implements \SyntaxDevTeam\Cms\Core\HookProviderInterface, ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
 {
     private const STATUSES = [
         'planned' => 'Planowany',
@@ -49,14 +49,26 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         private readonly Security $security,
         private readonly AuditLogService $audit,
         private readonly ?MediaAssetRepository $mediaAssets = null,
+        private readonly ?ProjectLanguageSourceStore $languageSources = null,
+        private readonly ?\SyntaxDevTeam\Cms\Core\HookRegistry $hooks = null,
     ) {
     }
 
     public function id(): string { return 'projects'; }
-    public function version(): string { return '1.5.1'; }
+    public function version(): string { return '1.6.0'; }
     public function dependencies(): array { return ['core_auth', 'core_pages', 'wikipedia']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['projects.view', 'projects.manage']; }
+
+    public function registerHooks(\SyntaxDevTeam\Cms\Core\HookRegistry $hooks): void
+    {
+        if ($this->languageSources !== null) $hooks->addFilter('projects.language_source_provider', fn ($current) => $this->languageSources);
+    }
+    private function canManageSources(): bool
+    {
+        $user=$this->auth->user();
+        return $user!==null && $user->isActive() && $this->auth->rolePreview()===null && array_intersect($user->roles,['owner','administrator'])!==[];
+    }
 
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
@@ -85,6 +97,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
 
     public function registerRoutes(Router $router): void
     {
+        $router->post('/admin/projects/sources', fn (Request $request) => $this->guard($request, 'projects.manage', fn () => $this->saveLanguageSources($request)));
         $router->get('/projects', fn () => $this->renderPublicList());
         $router->get('/projects/project', fn (Request $request) => $this->renderPublicDetail($request->queryString('slug')));
         $router->get('/projects/{slug}', fn (Request $request) => $this->renderPublicDetail($request->routeString('slug')));
@@ -133,7 +146,12 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
             $this->theme->render_alert('The project catalog is empty for now.', 'info');
         } else {
             foreach ($this->publicCategoryGroups($projects) as $group) {
-                $this->theme->render_section_heading($group['name'], $this->publicProjectCountLabel(count($group['projects'])));
+                $collapsible = $this->theme instanceof \SyntaxDevTeam\Cms\Core\CollapsibleSectionThemeInterface;
+                if ($collapsible) {
+                    $this->theme->start_collapsible_section($group['name'], $this->publicProjectCountLabel(count($group['projects'])));
+                } else {
+                    $this->theme->render_section_heading($group['name'], $this->publicProjectCountLabel(count($group['projects'])));
+                }
                 $columnSize = $this->publicColumnSize(count($group['projects']));
                 $this->theme->start_grid();
                 foreach ($group['projects'] as $project) {
@@ -152,6 +170,9 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
                     $this->theme->end_column();
                 }
                 $this->theme->end_grid();
+                if ($collapsible) {
+                    $this->theme->end_collapsible_section();
+                }
             }
         }
         $this->theme->end_section();
@@ -260,7 +281,39 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
         $this->theme->start_admin_panel('Dane projektu', 'Katalog /projects');
         $this->theme->render_form('index.php?route=' . ($project === null ? '/admin/projects/create' : '/admin/projects/edit'), $fields, $project === null ? 'Dodaj projekt' : 'Zapisz projekt', $this->security->csrfToken());
         $this->theme->end_admin_panel();
+        if ($project !== null && $this->languageSources !== null && $this->canManageSources()) {
+            $source = $this->languageSources->settings($project->id);
+            $this->theme->start_admin_panel('Pliki językowe z GitHuba', 'Oryginały dla modułu Tłumaczenia');
+            $this->theme->render_form('index.php?route=/admin/projects/sources', [
+                ['name'=>'id','type'=>'hidden','label'=>'Projekt','value'=>(string)$project->id],
+                ['name'=>'repository','label'=>'Repozytorium GitHub','value'=>$source['repository'],'help'=>'owner/repository lub https://github.com/owner/repository'],
+                ['name'=>'ref','label'=>'Gałąź / tag','value'=>$source['ref']],
+                ['name'=>'paths','label'=>'Katalogi językowe','type'=>'textarea','rows'=>5,'value'=>implode("\n",array_map(static fn(array $d):string=>$d['label'].' | '.$d['path'],$source['directories'])),'help'=>'Jeden katalog na linię, np. Paper | punisherx-paper/src/main/resources/lang. Maksymalnie 8 wariantów.'],
+                ['name'=>'notes','label'=>'Informacja o źródle','value'=>$source['notes']??'','help'=>'Np. powód braku plików YAML lub wskazówka dotycząca wariantu.'],
+                ['name'=>'enabled','label'=>'Udostępniaj wskazane pliki YAML jako oryginały do tłumaczenia','type'=>'checkbox','checked'=>$source['enabled']],
+                ['name'=>'private','label'=>'Prywatne repozytorium — udostępniaj użytkownikom wyłącznie pliki z podanych katalogów','type'=>'checkbox','checked'=>$source['private']],
+            ], 'Zapisz źródło tłumaczeń', $this->security->csrfToken());
+            $this->theme->render_text($this->languageSources->hasCredential() ? 'Dostęp GitHub do prywatnych repozytoriów jest skonfigurowany na serwerze.' : 'Prywatne repozytoria wymagają PROJECT_SOURCES_GITHUB_TOKEN w chronionej konfiguracji serwera (Contents: read do wybranych repozytoriów). Panel nie przechowuje tokenów.');
+            $this->theme->end_admin_panel();
+        }
         $this->endAdminPage();
+    }
+
+    private function saveLanguageSources(Request $request): void
+    {
+        if (!$this->canManageSources() || $this->languageSources === null) { http_response_code(403); $this->renderAdminList('Źródłami zarządza Owner lub Administrator.', 'danger'); return; }
+        $project = $this->projects->find($request->postInt('id',0) ?? 0);
+        if (!$project || !$this->security->validateCsrfToken($request->postString('_token'))) { http_response_code(403); $this->renderAdminList('Nieprawidłowy projekt lub token CSRF.', 'danger'); return; }
+        try {
+            $this->languageSources->save($project->id, ['repository'=>$request->postString('repository'),'ref'=>$request->postString('ref'),'paths'=>$request->postString('paths'),'enabled'=>$request->postBool('enabled'),'private'=>$request->postBool('private'),'notes'=>$request->postString('notes')]);
+            $this->hooks?->doAction('projects.language_sources_saved');
+            $this->audit->record($request,'project_language_source_save','success','project:'.$project->id,$this->auth->user()?->id);
+            $this->renderForm($project,'Źródło plików językowych zostało zapisane.','success');
+        } catch (\InvalidArgumentException $exception) {
+            $this->renderForm($project,$exception->getMessage(),'warning');
+        } catch (\Throwable) {
+            $this->renderForm($project,'Nie udało się zapisać źródła. Sprawdź prawa zapisu konfiguracji.','danger');
+        }
     }
 
     private function save(Request $request, ?Project $project = null): void
@@ -316,6 +369,7 @@ final class ProjectsModule implements ModuleInterface, PublicNavigationProviderI
                 $this->projects->update($project->id, $data);
                 $this->audit->record($request, 'project_update', 'success', 'project:' . $project->id, $actor?->id);
             }
+            $this->hooks?->doAction('projects.language_sources_saved');
             $this->renderAdminList('Projekt został zapisany.', 'success');
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'project_save', 'failed', 'projects', $actor?->id);

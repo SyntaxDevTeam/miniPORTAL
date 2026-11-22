@@ -25,6 +25,44 @@ final class BuildRepository
 
     public function __construct(private readonly CrudApp $database) {}
 
+    public function releaseNotes(int $id): ?array
+    {
+        $row = $this->database->query('SELECT id,version_label,channel,changelog FROM build_releases WHERE id=:id', [':id' => $id])->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) { return null; }
+        $row['revision'] = hash('sha256', json_encode($row, JSON_THROW_ON_ERROR));
+        return $row;
+    }
+
+    public function saveReleaseNotes(int $id, string $notes, string $revision): void
+    {
+        if (mb_strlen($notes) > 10000) { throw new RuntimeException('Opis zmian może mieć najwyżej 10000 znaków.'); }
+        if (!$this->acquireRetentionLock(5)) { throw new RuntimeException('Trwa operacja magazynu. Spróbuj ponownie.'); }
+        $pdo = $this->database->connection()->pdo;
+        try {
+            $pdo->beginTransaction();
+            $suffix = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $this->database->query('SELECT id FROM build_releases WHERE id=:id' . $suffix, [':id' => $id])->fetchColumn();
+            $row = $this->releaseNotes($id);
+            if ($row === null || !hash_equals($row['revision'], $revision)) { throw new RuntimeException('Wydanie zostało zmienione. Otwórz formularz ponownie.'); }
+            if ($row['channel'] === 'release' && trim($notes) === '') { throw new RuntimeException('Wydanie Release wymaga opisu zmian.'); }
+            $this->database->update('build_releases', ['changelog' => $notes], ['id' => $id]);
+            $pdo->commit();
+        } catch (\Throwable $error) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $error;
+        } finally { $this->releaseRetentionLock(); }
+    }
+
+    public function publicApi(): PublicBuildRepository
+    {
+        return new PublicBuildRepository($this->database);
+    }
+
+    public function manualBuilds(): ManualBuildRepository
+    {
+        return new ManualBuildRepository($this->database);
+    }
+
     /** @return list<ProjectBuild> */
     public function all(bool $publicOnly = false, ?string $projectSlug = null): array
     {
@@ -173,7 +211,7 @@ final class BuildRepository
         $statement = $this->database->query(
             $this->pluginV2ArtifactSelect()
             . ' GROUP BY build_artifacts.id, build_artifacts.release_id, build_artifacts.platform, '
-            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.checksum_sha256, '
+            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.download_url, build_artifacts.file_size_bytes, build_artifacts.checksum_sha256, '
             . 'build_releases.version_label, build_releases.channel, build_releases.build_number, '
             . 'build_releases.is_published, build_releases.published_at, build_releases.ci_build_time, '
             . 'projects.name, projects.sort_order, projects.is_published, build_explorer_project_settings.requires_auth '
@@ -215,7 +253,7 @@ final class BuildRepository
             $this->pluginV2ArtifactSelect()
             . ' WHERE build_artifacts.id = :artifact_id '
             . 'GROUP BY build_artifacts.id, build_artifacts.release_id, build_artifacts.platform, '
-            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.checksum_sha256, '
+            . 'build_artifacts.filename, build_artifacts.storage_key, build_artifacts.download_url, build_artifacts.file_size_bytes, build_artifacts.checksum_sha256, '
             . 'build_releases.version_label, build_releases.channel, build_releases.build_number, '
             . 'build_releases.is_published, build_releases.published_at, build_releases.ci_build_time, '
             . 'projects.name, projects.sort_order, projects.is_published, build_explorer_project_settings.requires_auth '
@@ -241,7 +279,7 @@ final class BuildRepository
     private function pluginV2ArtifactSelect(): string
     {
         return 'SELECT build_artifacts.id AS artifact_id, build_artifacts.release_id, '
-            . 'build_artifacts.platform, build_artifacts.filename, build_artifacts.storage_key, '
+            . 'build_artifacts.platform, build_artifacts.filename, build_artifacts.storage_key, build_artifacts.download_url, build_artifacts.file_size_bytes, '
             . 'build_artifacts.checksum_sha256, build_releases.version_label, build_releases.channel, '
             . 'build_releases.build_number, build_releases.is_published, projects.name AS project_name, '
             . 'projects.is_published AS project_published, '
@@ -742,16 +780,14 @@ final class BuildRepository
     public function retentionSettings(): array
     {
         $statement = $this->database->query(
-            'SELECT snapshot_keep, dev_keep, wip_keep, soft_limit_bytes, hard_limit_bytes, reserve_bytes, '
-            . 'cleanup_interval_hours, orphan_min_age_hours, last_cleanup_at, last_cleanup_reason, '
-            . 'last_cleanup_releases, last_cleanup_artifacts, last_cleanup_bytes, last_cleanup_orphans '
-            . 'FROM build_retention_settings WHERE id = 1 LIMIT 1'
+            'SELECT * FROM build_retention_settings WHERE id = 1 LIMIT 1'
         );
         $row = $statement?->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row)) {
             throw new RuntimeException('Build retention settings are unavailable; run the Build Explorer 2.1 migration.');
         }
         return [
+            'release_keep' => (int) ($row['release_keep'] ?? 0),
             'snapshot_keep' => (int) $row['snapshot_keep'],
             'dev_keep' => (int) $row['dev_keep'],
             'wip_keep' => (int) $row['wip_keep'],
@@ -769,6 +805,35 @@ final class BuildRepository
         ];
     }
 
+    /** @param array{release_keep:int,snapshot_keep:int,dev_keep:int,wip_keep:int} $policy */
+    public function saveRetentionPolicy(array $policy): void
+    {
+        $parameters = [];
+        foreach (['release_keep', 'snapshot_keep', 'dev_keep', 'wip_keep'] as $field) {
+            $value = $policy[$field] ?? null;
+            if (!is_int($value) || $value < 0 || $value > 100000) {
+                throw new RuntimeException('Limity retencji muszą być liczbami całkowitymi od 0 do 100000.');
+            }
+            $parameters[':' . $field] = $value;
+        }
+        if (!$this->acquireRetentionLock(5)) {
+            throw new RuntimeException('Trwa czyszczenie magazynu. Spróbuj zapisać ustawienia później.');
+        }
+        try {
+            $this->retentionSettings();
+            $statement = $this->database->query(
+                'UPDATE build_retention_settings SET release_keep = :release_keep, snapshot_keep = :snapshot_keep, '
+                . 'dev_keep = :dev_keep, wip_keep = :wip_keep WHERE id = 1',
+                $parameters
+            );
+            if ($statement === null) {
+                throw new RuntimeException('Nie można zapisać limitów retencji.');
+            }
+        } finally {
+            $this->releaseRetentionLock();
+        }
+    }
+
     public function acquireRetentionLock(int $timeoutSeconds = 0): bool
     {
         $statement = $this->database->query(
@@ -784,7 +849,7 @@ final class BuildRepository
     }
 
     /** @return list<array<string, int|string|null>> */
-    public function retentionCandidates(int $snapshotKeep, int $devKeep, int $wipKeep): array
+    public function retentionCandidates(int $snapshotKeep, int $devKeep, int $wipKeep, int $releaseKeep = 0): array
     {
         $statement = $this->database->query(
             "SELECT ranked.id, ranked.project_id, ranked.project_name, ranked.version_label, ranked.channel, "
@@ -796,15 +861,21 @@ final class BuildRepository
             . "SELECT build_releases.id, build_releases.project_id, projects.name AS project_name, "
             . "build_releases.version_label, build_releases.channel, build_releases.build_number, "
             . "COALESCE(build_releases.published_at, build_releases.ci_build_time, build_releases.created_at) AS release_time, "
-            . "ROW_NUMBER() OVER (PARTITION BY build_releases.project_id, build_releases.version_label, build_releases.channel "
+            . "ROW_NUMBER() OVER (PARTITION BY build_releases.project_id, CASE WHEN build_releases.channel = 'release' THEN '' ELSE build_releases.version_label END, build_releases.channel "
             . "ORDER BY COALESCE(build_releases.published_at, build_releases.ci_build_time, build_releases.created_at) DESC, build_releases.id DESC) AS retention_rank "
             . "FROM build_releases JOIN projects ON projects.id = build_releases.project_id "
-            . "WHERE build_releases.retention_lock = 0 AND build_releases.channel IN ('snapshot','dev','wip')"
-            . ") ranked WHERE (ranked.channel = 'snapshot' AND ranked.retention_rank > :snapshot_keep) "
-            . "OR (ranked.channel = 'dev' AND ranked.retention_rank > :dev_keep) "
-            . "OR (ranked.channel = 'wip' AND ranked.retention_rank > :wip_keep) "
+            . "WHERE build_releases.retention_lock = 0 AND build_releases.channel IN ('release','snapshot','dev','wip')"
+            . ") ranked WHERE (ranked.channel = 'snapshot' AND :snapshot_enabled > 0 AND ranked.retention_rank > :snapshot_keep) "
+            . "OR (ranked.channel = 'dev' AND :dev_enabled > 0 AND ranked.retention_rank > :dev_keep) "
+            . "OR (ranked.channel = 'wip' AND :wip_enabled > 0 AND ranked.retention_rank > :wip_keep) "
+            . "OR (ranked.channel = 'release' AND :release_enabled > 0 AND ranked.retention_rank > :release_keep) "
             . "ORDER BY CASE ranked.channel WHEN 'wip' THEN 1 WHEN 'dev' THEN 2 ELSE 3 END, ranked.release_time, ranked.id",
             [
+                ':release_enabled' => max(0, $releaseKeep),
+                ':snapshot_enabled' => max(0, $snapshotKeep),
+                ':dev_enabled' => max(0, $devKeep),
+                ':wip_enabled' => max(0, $wipKeep),
+                ':release_keep' => max(1, $releaseKeep),
                 ':snapshot_keep' => max(1, $snapshotKeep),
                 ':dev_keep' => max(1, $devKeep),
                 ':wip_keep' => max(1, $wipKeep),
@@ -839,7 +910,7 @@ final class BuildRepository
             . "THEN build_artifacts.file_size_bytes ELSE 0 END), 0) AS file_size_bytes "
             . "FROM build_releases JOIN projects ON projects.id = build_releases.project_id "
             . "LEFT JOIN build_artifacts ON build_artifacts.release_id = build_releases.id "
-            . "WHERE build_releases.retention_lock = 1 AND build_releases.channel IN ('snapshot','dev','wip') "
+            . "WHERE build_releases.retention_lock = 1 AND build_releases.channel IN ('release','snapshot','dev','wip') "
             . "GROUP BY build_releases.id, build_releases.project_id, projects.name, build_releases.version_label, "
             . "build_releases.channel, build_releases.build_number, build_releases.published_at, "
             . "build_releases.ci_build_time, build_releases.created_at "
@@ -878,11 +949,20 @@ final class BuildRepository
         ], $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function deleteV2Release(int $releaseId): bool
+    /** Includes external files for accurate retention preview and artifact counts. */
+    public function v2RetentionArtifacts(int $releaseId): array
+    {
+        return $this->database->query(
+            'SELECT storage_key, download_url, COALESCE(file_size_bytes,0) AS file_size_bytes '
+            . 'FROM build_artifacts WHERE release_id=:id', [':id' => $releaseId]
+        )->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function deleteV2Release(int $releaseId, bool $allowRelease = false): bool
     {
         $statement = $this->database->query(
-            "DELETE FROM build_releases WHERE id = :id AND channel <> 'release' AND retention_lock = 0",
-            [':id' => $releaseId]
+            "DELETE FROM build_releases WHERE id = :id AND (channel <> 'release' OR :allow_release = 1) AND retention_lock = 0",
+            [':id' => $releaseId, ':allow_release' => $allowRelease ? 1 : 0]
         );
         return $statement !== null && $statement->rowCount() === 1;
     }
@@ -919,7 +999,7 @@ final class BuildRepository
     public function setV2RetentionLock(int $releaseId, bool $locked): bool
     {
         $statement = $this->database->query(
-            "UPDATE build_releases SET retention_lock = :locked WHERE id = :id AND channel IN ('snapshot','dev','wip')",
+            "UPDATE build_releases SET retention_lock = :locked WHERE id = :id AND channel IN ('release','snapshot','dev','wip')",
             [':locked' => $locked ? 1 : 0, ':id' => $releaseId]
         );
         return $statement !== null && $statement->rowCount() === 1;

@@ -8,6 +8,8 @@ use RuntimeException;
 
 final class PublicNavigationRegistry
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, array{id: string, label: string, href: string, area: string, order: int}> */
     private array $items = [];
 

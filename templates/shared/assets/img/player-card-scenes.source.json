@@ -1,0 +1,30 @@
+{
+  "kind": "Minecraft in-game screenshots; no AI-generated landscape in final assets",
+  "sources": [
+    {
+      "id": "forest",
+      "title": "Tajga nad rzeką",
+      "file": "player-card-forest-v1.webp",
+      "page": "https://minecraftsearch.com/world/biomes/old-growth-pine-taiga",
+      "original": "https://minecraftsearch.com/images/biomes/old-growth-pine-taiga.png",
+      "source_sha256": "08ab56d0795bcae4ec99cfe625e3c544fc156f7505d1d15e56e9cdda4b0302df",
+      "webp_sha256": "fbf6480d040e9c01c9def3d293647fde99b410a7087b6b4eb8e8bd63df29c81c",
+      "width": 1920,
+      "height": 1080,
+      "attribution": "Minecraft game assets: Mojang Studios / Microsoft; screenshot reproduced from MinecraftSearch biome catalogue."
+    },
+    {
+      "id": "meadow",
+      "title": "Kwietna łąka",
+      "file": "player-card-meadow-v1.webp",
+      "page": "https://minecraftsearch.com/world/biomes/meadow",
+      "original": "https://minecraftsearch.com/images/biomes/meadow.png",
+      "source_sha256": "e14606eba9cf9612c1949ea866aaf09dacddf06d6ad89be50c89033c83f62db9",
+      "webp_sha256": "eff2ab7d94aae40a74504aacefd616212a42fa6e07d9778c32cc620c6501eefb",
+      "width": 1920,
+      "height": 1080,
+      "attribution": "Minecraft game assets: Mojang Studios / Microsoft; screenshot reproduced from MinecraftSearch biome catalogue."
+    }
+  ],
+  "conversion": "Source PNG to WebP quality 90; runtime filters and blur affect scenery only."
+}

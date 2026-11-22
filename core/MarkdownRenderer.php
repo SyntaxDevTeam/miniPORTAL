@@ -6,9 +6,12 @@ namespace SyntaxDevTeam\Cms\Core;
 
 final class MarkdownRenderer
 {
+    private const HTML_TAG = '~</?[a-z][a-z0-9]*(?:\s+(?:[^\x22\x27<>]|\x22[^\x22]*\x22|\x27[^\x27]*\x27)*)?\s*/?>~i';
+    private const HTML_BLOCK = '~^ {0,3}</?(?:p|div|h[1-6]|ul|ol|li|blockquote|table|thead|tbody|tfoot|tr|th|td|pre|hr|details|summary|script|style|iframe|object|embed|svg|math)\b~i';
+
     public function render(string $markdown): string
     {
-        $lines = preg_split('/\R/u', str_replace("\t", '    ', trim($markdown))) ?: [];
+        $lines = preg_split('/\R/u', str_replace("\t", '    ', trim(str_replace("\x1A", '', $markdown)))) ?: [];
 
         return $this->renderBlocks($lines);
     }
@@ -44,6 +47,15 @@ final class MarkdownRenderer
                 $html[] = '<pre><code' . $class . '>'
                     . $this->escape(implode("\n", $code))
                     . '</code></pre>';
+                continue;
+            }
+
+            if (preg_match(self::HTML_BLOCK, $line) === 1) {
+                $raw = [];
+                do {
+                    $raw[] = $lines[$index++];
+                } while ($index < $count && trim($lines[$index]) !== '');
+                $html[] = $this->renderInline(implode("\n", $raw));
                 continue;
             }
 
@@ -136,7 +148,8 @@ final class MarkdownRenderer
     {
         $line = $lines[$index];
 
-        return preg_match('/^ {0,3}(#{1,6})\s+/', $line) === 1
+        return preg_match(self::HTML_BLOCK, $line) === 1
+            || preg_match('/^ {0,3}(#{1,6})\s+/', $line) === 1
             || preg_match('/^ {0,3}```/', $line) === 1
             || preg_match('/^ {0,3}>/', $line) === 1
             || preg_match('/^ {0,3}((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/', $line) === 1
@@ -226,6 +239,13 @@ final class MarkdownRenderer
             return $key;
         };
 
+        $hasHtml = preg_match(self::HTML_TAG, $text) === 1;
+        $text = preg_replace_callback(
+            '~`[^`\n]+`(*SKIP)(*F)|<(pre|code)\b[^>]*>.*?</\1\s*>~is',
+            fn (array $match): string => $token((new RichTextSanitizer())->sanitize($match[0])),
+            $text
+        ) ?? $text;
+
         $text = preg_replace_callback(
             '/\\\\([\\\\`*{}\[\]()#+\-.!_>~|])/',
             fn (array $match): string => $token($this->escape($match[1])),
@@ -236,41 +256,60 @@ final class MarkdownRenderer
             fn (array $match): string => $token('<code>' . $this->escape($match[1]) . '</code>'),
             $text
         ) ?? $text;
+        $text = preg_replace(
+            '~<(script|style|iframe|object|embed|svg|math)\b[^>]*>.*?</\1\s*>~is',
+            '',
+            $text
+        ) ?? $text;
+        $sanitizer = new RichTextSanitizer();
+        $text = preg_replace_callback(
+            self::HTML_TAG,
+            fn (array $match): string => $token($sanitizer->sanitizeMarkdownTag($match[0])),
+            $text
+        ) ?? $text;
         $text = preg_replace_callback(
             '/\[!\[([^\]]*)]\((\S+?)(?:\s+"[^"]*")?\)]\((\S+?)(?:\s+"[^"]*")?\)/',
             fn (array $match): string => $this->linkedImageToken(
                 $token,
-                $match[1],
-                $match[2],
-                $match[3]
+                strtr($match[1], $tokens),
+                strtr($match[2], $tokens),
+                strtr($match[3], $tokens)
             ),
             $text
         ) ?? $text;
         $text = preg_replace_callback(
             '/!\[([^\]]*)]\((\S+?)(?:\s+"[^"]*")?\)\{([^}]*)}/',
-            fn (array $match): string => $this->safeLinkToken($token, $match[1], $match[2], true, $match[3]),
+            fn (array $match): string => $this->safeLinkToken($token, strtr($match[1], $tokens), strtr($match[2], $tokens), true, strtr($match[3], $tokens)),
             $text
         ) ?? $text;
         $text = preg_replace_callback(
             '/!\[([^\]]*)]\((\S+?)(?:\s+"[^"]*")?\)/',
-            fn (array $match): string => $this->safeLinkToken($token, $match[1], $match[2], true),
+            fn (array $match): string => $this->safeLinkToken($token, strtr($match[1], $tokens), strtr($match[2], $tokens), true),
             $text
         ) ?? $text;
         $text = preg_replace_callback(
             '/\[([^\]]+)]\((\S+?)(?:\s+"[^"]*")?\)/',
-            fn (array $match): string => $this->safeLinkToken($token, $match[1], $match[2], false),
+            fn (array $match): string => $this->safeLinkToken($token, strtr($match[1], $tokens), strtr($match[2], $tokens), false),
             $text
         ) ?? $text;
         $text = preg_replace_callback(
             '~<(https?://[^ >]+|mailto:[^ >]+)>~i',
-            fn (array $match): string => $token($this->link($match[1], $match[1])),
+            fn (array $match): string => $token($this->link(strtr($match[1], $tokens), strtr($match[1], $tokens))),
             $text
         ) ?? $text;
         $text = preg_replace_callback(
             '~(?<!["\'(])(https?://[^\s<]+[^<\s.,;:!?])~i',
-            fn (array $match): string => $token($this->link($match[1], $match[1])),
+            fn (array $match): string => $token($this->link(strtr($match[1], $tokens), strtr($match[1], $tokens))),
             $text
         ) ?? $text;
+
+        if ($hasHtml) {
+            $text = preg_replace_callback(
+                '/&(?:#[0-9]+|#x[a-f0-9]+|[a-z][a-z0-9]+);/i',
+                fn (array $match): string => $token($match[0]),
+                $text
+            ) ?? $text;
+        }
 
         $text = $this->escape($text);
         $text = preg_replace('/\*\*(.+?)\*\*|__(.+?)__/s', '<strong>$1$2</strong>', $text) ?? $text;
@@ -394,7 +433,7 @@ final class MarkdownRenderer
 
         return !str_contains($url, ':')
             && !str_starts_with($url, '//')
-            && preg_match('~^[a-zA-Z0-9][a-zA-Z0-9._~/?#%&=+\-]*$~', $url) === 1;
+            && preg_match('~^[a-zA-Z0-9][a-zA-Z0-9._\~/?#%&=+\-]*$~', $url) === 1;
     }
 
     private function escape(string $value): string

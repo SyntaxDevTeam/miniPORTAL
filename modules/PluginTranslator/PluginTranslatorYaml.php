@@ -67,7 +67,9 @@ final class PluginTranslatorYaml
         $result = $source;
         foreach ($this->flatten($source) as $item) {
             $value = $translations[$item['token']] ?? $item['value'];
-            $this->setPath($result, $item['path'], is_scalar($value) ? (string) $value : '');
+            if (is_string($value) && trim($value) !== '') {
+                $this->setPath($result, $item['path'], $value);
+            }
         }
 
         return $result;
@@ -96,12 +98,79 @@ final class PluginTranslatorYaml
         $count = 0;
         foreach ($items as $item) {
             $value = $translations[$item['token']] ?? '';
-            if (is_scalar($value) && trim((string) $value) !== '' && trim((string) $value) !== trim($item['value'])) {
+            if (is_scalar($value) && trim((string) $value) !== '') {
                 $count++;
             }
         }
 
         return $count;
+    }
+
+    /** Technical tokens are compared as multisets; named tokens may be reordered. */
+    public function protectedTokens(string $text, bool $sorted = true): array
+    {
+        preg_match_all('/%[A-Za-z_][A-Za-z0-9_]*%|%(?:[0-9]+\\$)?[-+0-9.]*[sdif]|\\{\\{[^{}\\r\\n]+\\}\\}|\\{[A-Za-z0-9_.-]+\\}|<[^<>\\r\\n]+>|(?:&|§)#[0-9a-fA-F]{6}|(?:&|§)[0-9a-fA-Fk-oK-OrRxX]/u', $text, $matches);
+        $tokens = $matches[0];
+        if ($sorted) {
+            sort($tokens, SORT_STRING);
+        }
+        return $tokens;
+    }
+
+    /** @return list<array{text:string,kind:string}> Tokens in source order for presentation. */
+    public function tokenDetails(string $text): array
+    {
+        $tokens = array_values(array_unique($this->protectedTokens($text, false)));
+        $result = [];
+        $lookup = array_fill_keys(array_map('strtolower', $tokens), true);
+        foreach ($tokens as $token) {
+            $kind = 'placeholder';
+            if (str_starts_with($token, '&') || str_starts_with($token, '§')) {
+                $kind = 'legacy';
+            } elseif (str_starts_with($token, '<')) {
+                $tag = strtolower(trim($token, '<>/'));
+                $name = explode(':', $tag, 2)[0];
+                $known = ['black', 'dark_blue', 'dark_green', 'dark_aqua', 'dark_red',
+                    'dark_purple', 'gold', 'gray', 'grey', 'dark_gray', 'dark_grey',
+                    'blue', 'green', 'aqua', 'red', 'light_purple', 'yellow', 'white',
+                    'bold', 'b', 'italic', 'i', 'em', 'underlined', 'underline', 'u',
+                    'strikethrough', 'st', 'obfuscated', 'obf', 'reset', 'color', 'colour',
+                    'c', 'gradient', 'rainbow', 'transition', 'hover', 'click', 'font',
+                    'insertion', 'insert', 'newline', 'br', 'keybind', 'translatable',
+                    'translate', 'tr', 'lang', 'lang_or', 'selector', 'score', 'nbt',
+                    'pride', 'shadow', 'sprite', 'head'];
+                $paired = isset($lookup['</' . $name . '>']);
+                if (str_starts_with($token, '</') || str_starts_with($name, '#') || in_array($name, $known, true) || $paired) {
+                    $kind = 'minimessage';
+                }
+            }
+            $result[] = ['text' => $token, 'kind' => $kind];
+        }
+        return $result;
+    }
+
+    /** @return array<string, string> */
+    public function qualityIssues(array $items, array $translations): array
+    {
+        $issues = [];
+        foreach ($items as $item) {
+            $value = $translations[$item['token']] ?? '';
+            if (is_string($value) && trim($value) !== ''
+                && $this->protectedTokens($item['value']) !== $this->protectedTokens($value)) {
+                $issues[$item['token']] = 'Keep the original placeholders, tags and colour codes (including repeated tokens).';
+            }
+        }
+        return $issues;
+    }
+
+    public function assertQuality(array $items, array $translations): void
+    {
+        $issues = $this->qualityIssues($items, $translations);
+        if ($issues !== []) {
+            $labels = array_column($items, 'label', 'token');
+            $token = array_key_first($issues);
+            throw new \InvalidArgumentException($labels[$token] . ': ' . $issues[$token]);
+        }
     }
 
     /**
@@ -119,7 +188,7 @@ final class PluginTranslatorYaml
                 continue;
             }
 
-            if (!is_scalar($value) && $value !== null) {
+            if (!is_string($value) || trim($value) === '') {
                 continue;
             }
 

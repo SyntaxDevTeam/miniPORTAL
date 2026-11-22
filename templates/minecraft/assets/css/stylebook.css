@@ -1871,3 +1871,16 @@ body.admin-stylebook.minecraft-theme {
 .showcase-card.is-premium .profile-fact-warning strong {
   color: #ffd166 !important;
 }
+
+/* File-library attachments: keep the complete filename inside the available width. */
+a.btn[href^="/files/download?id="] {
+  display: block;
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+  margin-block-end: .5rem;
+}

@@ -15,6 +15,7 @@ interface ThemeInterface
     public function set_admin_role_preview(?array $preview): void;
 
     /**
+     * Providers may use layout link_strip with items {title, href, description}.
      * @param list<array{
      *     key: string,
      *     type: string,
@@ -36,12 +37,13 @@ interface ThemeInterface
      *         content_format: string,
      *         item_kind: string,
      *         icon_key: string,
+*         logo_url?: string,
      *         button_label: string,
      *         button_url: string,
      *         variant: string,
      *         width: string,
      *         page_slug: string
-     *     }>
+     *     }>|list<array{title:string,href:string,description:string}>
      * }> $sections
      * @param list<array{
      *     title: string,
@@ -253,6 +255,15 @@ interface ThemeInterface
         string $csrfToken = '',
         string $method = 'post',
     ): void;
+
+    /**
+     * Compact, filterable navigation editor. All input names follow the existing settings POST contract.
+     * @param list<array{
+     *     id:string,field_key:string,label:string,default_label:string,href:string,
+     *     order:int,show_main:bool,show_footer:bool
+     * }> $items
+     */
+    public function render_admin_public_navigation_editor(array $items, string $csrfToken): void;
 
     public function csrf_field(string $token): void;
 

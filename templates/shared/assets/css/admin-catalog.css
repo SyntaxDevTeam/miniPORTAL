@@ -7,20 +7,61 @@
     margin-bottom: 1rem;
 }
 
-.admin-catalog-toolbar form {
+.admin-catalog-toolbar > form {
     display: flex;
     flex: 1 1 36rem;
     gap: .65rem;
     margin: 0;
     min-width: 0;
+    align-items: center;
 }
 
-.admin-catalog-toolbar form > .mb-3 {
+/* Search is a control row, even when a theme decorates generic forms as cards. */
+.admin-catalog-toolbar > form.showcase-card {
+    min-height: 0;
+    padding: 0 !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    transform: none;
+}
+
+.admin-catalog-toolbar > form.showcase-card::before,
+.admin-catalog-toolbar > form.showcase-card::after { content: none; }
+
+.admin-catalog-toolbar > form > .btn,
+.admin-catalog-toolbar > .btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin: 0;
+    padding: .5rem 1rem;
+    white-space: nowrap;
+}
+
+.admin-catalog-toolbar > .btn-outline-light:hover,
+.admin-catalog-toolbar > .btn-outline-light:focus-visible {
+    color: var(--mp-text, var(--bs-body-color));
+    background: var(--mp-surface-raised, var(--bs-secondary-bg));
+    border-color: var(--mp-primary, var(--bs-primary));
+}
+
+.admin-catalog-toolbar > .admin-panel-actions {
+    padding: 0;
+    gap: .5rem;
+}
+
+.admin-catalog-toolbar > form > .mb-3 {
     flex: 1 1 auto;
+    min-width: 0;
     margin-bottom: 0 !important;
 }
 
-.admin-catalog-toolbar form > .mb-3 label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.admin-catalog-toolbar > form > .mb-3 label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 
 .admin-catalog-toolbar .form-control { min-height: 44px; }
 .admin-plugin-files-trigger {
@@ -232,7 +273,7 @@
 
 @media (max-width: 767.98px) {
     .admin-catalog-toolbar { grid-template-columns: 1fr; align-items: stretch; }
-    .admin-catalog-toolbar form { flex-basis: auto; }
+    .admin-catalog-toolbar > form { flex-basis: auto; }
     .admin-plugin-files-trigger { width: 100%; }
     .admin-plugin-file { align-items: stretch; flex-wrap: wrap; }
     .admin-plugin-file-copy { flex-basis: calc(100% - 3.4rem); }

@@ -11,6 +11,11 @@ trait BuildRetentionAdminTrait
 {
     private function registerRetentionAdminRoutes(Router $router): void
     {
+        $router->post('/admin/builds/retention/settings', fn (Request $request) => $this->guard(
+            $request,
+            'builds.manage',
+            fn () => $this->saveRetentionSettings($request)
+        ));
         $router->post('/admin/builds/retention/preview', fn (Request $request) => $this->guard(
             $request,
             'builds.manage',
@@ -98,17 +103,22 @@ trait BuildRetentionAdminTrait
                 'value' => $this->fileSize((int) $policy['reserve_bytes']),
                 'detail' => 'Build Explorer nie powinien zejść poniżej tej ilości wolnego miejsca.',
             ],
-            ['label' => 'Release', 'value' => 'Unlimited', 'detail' => 'Nigdy nieusuwany automatycznie'],
-            ['label' => 'Snapshot', 'value' => 'Keep ' . (int) $policy['snapshot_keep'], 'detail' => 'Na projekt + wersję pluginu'],
-            ['label' => 'DEV', 'value' => 'Keep ' . (int) $policy['dev_keep'], 'detail' => 'Na projekt + wersję pluginu'],
-            ['label' => 'WIP', 'value' => 'Keep ' . (int) $policy['wip_keep'], 'detail' => 'Na projekt + wersję pluginu'],
+            ['label' => 'Release', 'value' => $this->retentionLimitLabel($policy['release_keep']), 'detail' => 'Na projekt, wszystkie wersje stabilne'],
+            ['label' => 'Snapshot', 'value' => $this->retentionLimitLabel($policy['snapshot_keep']), 'detail' => 'Na projekt + wersję pluginu'],
+            ['label' => 'DEV', 'value' => $this->retentionLimitLabel($policy['dev_keep']), 'detail' => 'Na projekt + wersję pluginu'],
+            ['label' => 'WIP', 'value' => $this->retentionLimitLabel($policy['wip_keep']), 'detail' => 'Na projekt + wersję pluginu'],
             ['label' => 'Ostatni cleanup', 'value' => $lastAt, 'detail' => $this->retentionCleanupSummary($lastCleanup)],
-            ['label' => 'Następny cleanup', 'value' => $nextAt, 'detail' => 'Lazy schedule: pierwszy upload CI po upływie interwału'],
+            ['label' => 'Następny cleanup', 'value' => $nextAt, 'detail' => 'Pierwszy upload CI lub aktywny worker po upływie interwału'],
             [
                 'label' => 'Dry-run: release',
                 'value' => (string) (int) $preview['releases'],
                 'detail' => (int) $preview['artifacts'] . ' artefaktów kwalifikuje się do usunięcia',
                 'variant' => (int) $preview['releases'] > 0 ? 'warning' : 'default',
+            ],
+            [
+                'label' => 'Dry-run: GitHub',
+                'value' => (string) (int) ($preview['github_artifacts'] ?? 0),
+                'detail' => $this->fileSize((int) ($preview['github_bytes'] ?? 0)) . ' plików; worker usuwa je po wygaśnięciu ostatniego odwołania.',
             ],
             [
                 'label' => 'Dry-run: do odzyskania',
@@ -118,6 +128,25 @@ trait BuildRetentionAdminTrait
         ]);
 
         if ($this->hasPermission('builds.manage')) {
+            $this->theme->render_alert(
+                'Limity dotyczą całych buildów ze wszystkimi artefaktami platform. Snapshot, DEV i WIP: na projekt i wersję pluginu. '
+                . 'Release: na projekt, łącznie dla wszystkich wersji stabilnych. 0 oznacza brak limitu. '
+                . 'Chronione buildy są zachowane dodatkowo. Zapis nie uruchamia czyszczenia.',
+                'info'
+            );
+            $fields = [];
+            foreach (['wip' => 'WIP', 'dev' => 'DEV', 'snapshot' => 'Snapshot', 'release' => 'Release'] as $channel => $label) {
+                $fields[] = [
+                    'name' => $channel . '_keep', 'label' => $label . ' — liczba zachowywanych buildów',
+                    'type' => 'number', 'value' => (string) ($policy[$channel . '_keep'] ?? 0),
+                    'min' => 0, 'max' => 100000, 'step' => 1, 'required' => true,
+                    'help' => '0 = bez limitu; od 1 do 100000 = zachowaj najnowsze buildy.',
+                ];
+            }
+            $this->theme->render_form(
+                'index.php?route=/admin/builds/retention/settings', $fields, 'Zapisz limity retencji',
+                $this->security->csrfToken()
+            );
             $this->theme->render_admin_action_table(
                 ['Operacja', 'Opis'],
                 [[
@@ -129,7 +158,7 @@ trait BuildRetentionAdminTrait
                         'variant' => 'outline-light',
                     ]],
                 ], [
-                    'cells' => ['Run cleanup', 'Usuwa tylko niechronione Snapshot/DEV/WIP ponad limity retencji oraz stare orphan files. Release pozostaje nietykalny.'],
+                    'cells' => ['Run cleanup', 'Usuwa niechronione buildy ponad zapisane limity kanałów oraz stare osierocone pliki. Release podlega czyszczeniu tylko przy limicie większym od 0.'],
                     'actions' => [[
                         'label' => 'Run cleanup',
                         'action' => 'index.php?route=/admin/builds/retention/cleanup',
@@ -186,7 +215,7 @@ trait BuildRetentionAdminTrait
 
         $this->theme->start_admin_panel('Retention locks', count($locked) . ' chronionych logical releases');
         if ($locked === []) {
-            $this->theme->render_alert('Żaden niestabilny logical release nie ma ręcznej blokady retencji.', 'info');
+            $this->theme->render_alert('Żaden build nie ma ręcznej blokady retencji.', 'info');
         } else {
             $rows = [];
             foreach ($locked as $release) {
@@ -220,6 +249,40 @@ trait BuildRetentionAdminTrait
             );
         }
         $this->theme->end_admin_panel();
+    }
+
+    private function retentionLimitLabel(int|null $limit): string
+    {
+        return ($limit ?? 0) === 0 ? 'Bez limitu' : 'Zachowaj ' . $limit;
+    }
+
+    private function saveRetentionSettings(Request $request): void
+    {
+        $actor = $this->auth->user();
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'build_retention_settings', 'invalid_csrf', 'retention', $actor?->id);
+            $this->renderAdmin($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+            return;
+        }
+        $policy = [];
+        foreach (['release_keep', 'snapshot_keep', 'dev_keep', 'wip_keep'] as $field) {
+            $raw = $request->postString($field);
+            if (preg_match('/^(?:0|[1-9][0-9]{0,5})$/D', $raw) !== 1 || (int) $raw > 100000) {
+                $this->audit->record($request, 'build_retention_settings', 'invalid_input', 'retention', $actor?->id);
+                $this->renderAdmin($request, 'Każdy limit musi być liczbą całkowitą od 0 do 100000. 0 oznacza brak limitu.', 'warning');
+                return;
+            }
+            $policy[$field] = (int) $raw;
+        }
+        try {
+            $this->builds->saveRetentionPolicy($policy);
+            $this->audit->record($request, 'build_retention_settings', 'success',
+                'retention:' . json_encode($policy, JSON_THROW_ON_ERROR), $actor?->id);
+            $this->renderAdmin($request, 'Limity retencji zapisane. Nie usunięto żadnego buildu ani pliku. Sprawdź podgląd czyszczenia.', 'success');
+        } catch (\Throwable $exception) {
+            $this->audit->record($request, 'build_retention_settings', 'failed', 'retention', $actor?->id);
+            $this->renderAdmin($request, 'Nie udało się zapisać limitów retencji: ' . $exception->getMessage(), 'danger');
+        }
     }
 
     private function previewRetention(Request $request): void
@@ -298,7 +361,7 @@ trait BuildRetentionAdminTrait
                 $request,
                 $ok
                     ? ($locked ? 'Logical release został zabezpieczony przed cleanupem.' : 'Blokada retencji została zdjęta.')
-                    : 'Nie znaleziono niestabilnego logical release do zmiany blokady.',
+                    : 'Nie znaleziono buildu do zmiany blokady.',
                 $ok ? 'success' : 'warning'
             );
         } catch (\Throwable $exception) {
@@ -323,7 +386,7 @@ trait BuildRetentionAdminTrait
     private function nextRetentionCleanupAt(?string $lastCleanupAt, int $intervalHours): string
     {
         if ($lastCleanupAt === null || trim($lastCleanupAt) === '') {
-            return 'Przy następnym uploadzie CI';
+            return 'Przy następnym uploadzie CI lub przebiegu workera';
         }
         try {
             $last = new \DateTimeImmutable($lastCleanupAt, new \DateTimeZone('UTC'));

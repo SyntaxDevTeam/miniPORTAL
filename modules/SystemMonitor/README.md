@@ -22,7 +22,7 @@ Osobny endpoint `/admin/system-monitor/infrastructure` ładuje cięższe informa
 
 Zakres:
 
-- wykrywanie procesów Apache2, MariaDB/MySQL, PostgreSQL, PHP-FPM, Redis i Docker,
+- wykrywanie Apache2, MariaDB/MySQL, PostgreSQL, PHP bieżącego SAPI, OpenSSH, systemd, Node Agenta i Docker,
 - liczba procesów oraz suma ich RSS,
 - lista i logiczny rozmiar baz MariaDB/MySQL,
 - lista i logiczny rozmiar baz PostgreSQL,
@@ -149,3 +149,49 @@ Endpointy modułu wymagają `settings.manage`. Operacja cleanera dodatkowo wymag
 Klient Unix Socket po stronie miniPORTAL również waliduje te parametry i nie pozwala wysłać dla `system.logs.clean` dowolnego `server_id`, ścieżki ani dodatkowych pól.
 
 Cache z nazwami i rozmiarami baz jest zapisywany w katalogu tymczasowym systemu z prawami `0600`, a nie w publicznym katalogu WWW.
+
+
+## GitHub Actions (0.2.0)
+
+Monitor pokazuje karty lokalnych runnerów: gotowy, wykonuje zadanie, łączenie
+lub wyłączony. Dla zadania pokazuje nazwę i czas, a także ostatni wynik.
+Osobny endpoint `/admin/system-monitor/actions` wymaga `settings.manage`.
+Odświeżanie odbywa się co 5 sekund w aktywnej karcie. Pomiar starszy niż
+30 sekund jest oznaczany jako nieaktualny, bez sugerowania aktualnego stanu.
+
+Snapshot jest opcjonalny; brak kolektora nie zakłóca pozostałych metryk.
+WWW nie wywołuje systemctl/journalctl ani GitHub API i nie czyta tokenów.
+Kolektor instaluje administrator hosta według
+`deploy/github-actions-monitor/README.md` w repozytorium źródłowym.
+Czysta dystrybucja zawiera czytnik i prezentację; nie instaluje usługi hosta.
+
+
+## Uzupełnienia 0.3.0
+
+Dokładny RAM, stany procesów, opcjonalny pidfd/SIGTERM i pełny dysk hosta opisuje
+`deploy/vps-monitor/README.md` w źródłach instalacji macierzystej. Odczytowy timer
+jest aktywny; usługa zamykania procesów wymaga dodatkowej zgody i pozostaje wyłączona.
+Bez snapshotu dysku nadal działa ograniczony odczyt PHP, jawnie oznaczony jako
+niepełny. Niezmierzonej reszty nie opisuje się już jako zmierzonego rozmiaru systemu.
+Pakiety i ich wersje są odczytywane z dpkg; brak wersji jest pokazywany jawnie.
+
+
+## Wspólne pomiary 0.4.0
+
+Preferowane źródło: istniejący Node Agent, `/v1/system/monitor`. Dashboard,
+Monitor VPS, procesy i Actions czytają cache. Lokalny odczyt pozostaje zgodnym
+fallbackiem przy braku agenta. Panel oznacza źródło danych. PHP SAPI i SQL
+pozostają lokalne. Pełny dysk skanowany najwyżej co godzinę, stare dane po 2 h.
+Źródła, limity, wdrożenie i rollback: `deploy/node-telemetry/README.md` w repo
+macierzystym. Konsolidacja nie włącza zamykania procesów.
+
+
+## Okresowy Cleaner miejsca — 2026-11-13
+
+Dotychczasowe `system.logs.clean` może dodatkowo czyścić wygasły cache i stare
+anonimowe, niepodpięte woluminy Docker. Rozszerzenie wymaga aktualizacji helpera
+oraz Agenta i jawnego markera aktywacji root; bez niego działa tylko Cleaner logów.
+Panel pokazuje osobną liczbę woluminów i bajty cache, chroni opublikowane buildy,
+a harmonogram jest realizowany przez systemd. Pełny kontrakt, patch Go i rollback:
+`deploy/resource-cleaner/README.md` w instalacji macierzystej. Instalacje klienckie
+wymagają osobnego wdrożenia Agenta przez operatora hosta.

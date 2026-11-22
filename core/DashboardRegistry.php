@@ -9,6 +9,8 @@ use RuntimeException;
 
 final class DashboardRegistry
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, array{id:string,type:string,label:string,description:string,symbol:string,permission:string,order:int,default_enabled:bool,provider:Closure}> */
     private array $items = [];
 

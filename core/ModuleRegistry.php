@@ -84,20 +84,50 @@ final class ModuleRegistry
         ?SeoIndex $seo = null,
     ): void
     {
-        foreach ($this->orderedModules() as $module) {
-            $module->registerAdminMenu($menu);
-            $module->registerRoutes($router);
-            if ($publicNavigation !== null && $module instanceof PublicNavigationProviderInterface) {
-                $module->registerPublicNavigation($publicNavigation);
+        foreach ($this->orderedModules(true) as $module) {
+            $missing = array_filter($module->dependencies(), fn (string $id): bool => !$this->has($id));
+            if ($missing !== []) {
+                $exception = new RuntimeException('Unavailable module dependency.');
+                if ($module->isProtected()) {
+                    throw $exception;
+                }
+                $this->skipModule($module->id(), $exception);
+                continue;
             }
-            if ($adminSearch !== null && $module instanceof AdminSearchProviderInterface) {
-                $module->registerAdminSearch($adminSearch);
+            $rollbacks = [];
+            foreach ([$menu, $router, $publicNavigation, $adminSearch, $dashboard, $hooks] as $registry) {
+                if ($registry !== null) {
+                    $rollbacks[] = $registry->registrationRollback();
+                }
             }
-            if ($dashboard !== null && $module instanceof DashboardProviderInterface) {
-                $module->registerDashboard($dashboard);
-            }
-            if ($hooks !== null && $module instanceof HookProviderInterface) {
-                $module->registerHooks($hooks);
+            try {
+                $module->registerAdminMenu($menu);
+                $module->registerRoutes($router);
+                if ($publicNavigation !== null && $module instanceof PublicNavigationProviderInterface) {
+                    $module->registerPublicNavigation($publicNavigation);
+                }
+                if ($adminSearch !== null && $module instanceof AdminSearchProviderInterface) {
+                    $module->registerAdminSearch($adminSearch);
+                }
+                if ($dashboard !== null && $module instanceof DashboardProviderInterface) {
+                    $module->registerDashboard($dashboard);
+                }
+                if ($hooks !== null && $module instanceof HookProviderInterface) {
+                    $hooks->isolateModule($module->isProtected() ? null : $module->id());
+                    try {
+                        $module->registerHooks($hooks);
+                    } finally {
+                        $hooks->isolateModule(null);
+                    }
+                }
+            } catch (\Throwable $exception) {
+                foreach ($rollbacks as $rollback) {
+                    $rollback();
+                }
+                if ($module->isProtected()) {
+                    throw $exception;
+                }
+                $this->skipModule($module->id(), $exception);
             }
         }
         if ($adminSearch !== null) {
@@ -107,11 +137,27 @@ final class ModuleRegistry
 
     public function registerSeo(SeoIndex $seo): void
     {
-        foreach ($this->orderedModules() as $module) {
+        foreach ($this->orderedModules(true) as $module) {
             if ($module instanceof SeoProviderInterface) {
-                $module->registerSeo($seo);
+                $rollback = $seo->registrationRollback();
+                try {
+                    $module->registerSeo($seo);
+                } catch (\Throwable $exception) {
+                    $rollback();
+                    if ($module->isProtected()) {
+                        throw $exception;
+                    }
+                    error_log('[miniPORTAL] module_seo_failed module=' . $module->id() . ' exception=' . $exception::class);
+                }
             }
         }
+    }
+
+    private function skipModule(string $id, \Throwable $exception): void
+    {
+        unset($this->modules[$id], $this->manifests[$id]);
+        $this->capabilityRegistry->unregisterModule($id);
+        error_log('[miniPORTAL] module_registration_failed module=' . $id . ' exception=' . $exception::class);
     }
 
     public function has(string $id): bool
@@ -153,7 +199,7 @@ final class ModuleRegistry
     /**
      * @return list<ModuleInterface>
      */
-    private function orderedModules(): array
+    private function orderedModules(bool $isolateFailures = false): array
     {
         $ordered = [];
         $state = [];
@@ -182,7 +228,17 @@ final class ModuleRegistry
         };
 
         foreach (array_keys($this->modules) as $id) {
-            $visit($id);
+            try {
+                $visit($id);
+            } catch (\Throwable $exception) {
+                if (!$isolateFailures || $this->modules[$id]->isProtected()) {
+                    throw $exception;
+                }
+                $this->skipModule($id, $exception);
+                $state = [];
+                $ordered = [];
+                return $this->orderedModules($isolateFailures);
+            }
         }
 
         return $ordered;

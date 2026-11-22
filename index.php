@@ -148,7 +148,10 @@ $userRepository = match ($authStorage) {
 $firstOwnerBootstrapper = $application->database() !== null
     ? new FirstAdminBootstrapper($application->database())
     : null;
-$auth = new AuthService($userRepository, $security, $firstOwnerBootstrapper);
+$rememberLogin = $authStorage === 'database' && $application->database() !== null
+    ? new \SyntaxDevTeam\Cms\Modules\CoreAuth\RememberLoginService($application->database(), $security)
+    : null;
+$auth = new AuthService($userRepository, $security, $firstOwnerBootstrapper, $rememberLogin);
 $previewAwarePath = $application->request()->path();
 $auth->useRolePreview(
     str_starts_with($previewAwarePath, '/admin')
@@ -160,6 +163,10 @@ $audit = new AuditLogService(
     $application->database(),
     (string) ($authConfig['audit_hash_key'] ?? '')
 );
+$rememberedUser = $auth->restoreRememberedLogin($application->request());
+if ($rememberedUser !== null) {
+    $audit->record($application->request(), 'login_remember', 'success', null, $rememberedUser->id);
+}
 $providerConfig = is_array($authConfig['providers'] ?? null) ? $authConfig['providers'] : [];
 $githubConfig = is_array($providerConfig['github'] ?? null) ? $providerConfig['github'] : [];
 $discordConfig = is_array($providerConfig['discord'] ?? null) ? $providerConfig['discord'] : [];
@@ -559,7 +566,12 @@ $router->get('/', static function () use (
         return (string) ob_get_clean();
     };
 
-    echo $auth->user() === null
+    $linkedContacts = $homepageSectionItemRepository?->hasLinkedContacts() ?? false;
+    if ($linkedContacts && !headers_sent()) {
+        header('Cache-Control: private, no-store');
+        header('Cloudflare-CDN-Cache-Control: no-store');
+    }
+    echo $auth->user() === null && !$linkedContacts
         ? $templateCache->remember('public', 'homepage', $renderer, ['homepage', 'pages', 'widgets', 'theme'])
         : $renderer();
 });

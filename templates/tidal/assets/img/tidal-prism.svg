@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1400" fill="none">
+<defs>
+ <linearGradient id="night" x1="120" y1="0" x2="1600" y2="1400" gradientUnits="userSpaceOnUse"><stop stop-color="#07152e"/><stop offset=".46" stop-color="#102f59"/><stop offset="1" stop-color="#030b1c"/></linearGradient>
+ <linearGradient id="satin" x1="1850" y1="160" x2="460" y2="1250" gradientUnits="userSpaceOnUse"><stop stop-color="#b8d2ee" stop-opacity=".55"/><stop offset=".2" stop-color="#5286ba" stop-opacity=".42"/><stop offset=".55" stop-color="#15395f" stop-opacity=".15"/><stop offset="1" stop-color="#d0e6ff" stop-opacity=".2"/></linearGradient>
+ <linearGradient id="edge" x1="1520" y1="0" x2="300" y2="1300" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#e0efff" stop-opacity=".8"/><stop offset=".64" stop-color="#7da4ce" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <radialGradient id="halo"><stop stop-color="#aacbea" stop-opacity=".36"/><stop offset="1" stop-color="#122e50" stop-opacity="0"/></radialGradient>
+ <filter id="soft"><feGaussianBlur stdDeviation="38"/></filter>
+</defs>
+<path fill="url(#night)" d="M0 0h1920v1400H0z"/>
+<ellipse cx="1530" cy="360" rx="740" ry="540" fill="url(#halo)"/>
+<ellipse cx="170" cy="1050" rx="760" ry="520" fill="url(#halo)" opacity=".6"/>
+<path d="M2070-120C1420 60 1250 310 1220 570s-170 520-800 820H1040c460-260 480-540 430-800S1610 70 2070-120Z" fill="url(#satin)"/>
+<path d="M2100-160C1480 110 1300 310 1270 570s-210 560-790 870" stroke="url(#edge)" stroke-width="3"/>
+<path d="M2040 260C1500 400 1530 630 1330 820S730 1220-160 1190" stroke="url(#edge)" stroke-width="2"/>
+<path d="M-180 960C390 480 760 700 1000 430s460-590 900-540" stroke="#c2ddff" stroke-opacity=".08" stroke-width="110" filter="url(#soft)"/>
+<path d="M-100 1080C510 770 950 1010 1340 670s420-340 700-400" stroke="url(#edge)" stroke-width="1" opacity=".5"/>
+<path d="M30 1400C740 1070 1430 1400 1970 690v710Z" fill="#030a18" fill-opacity=".32"/>
+</svg>

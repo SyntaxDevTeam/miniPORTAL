@@ -41,6 +41,10 @@ final class SystemSettingsRepository
                 'public_google_site_verification',
                 'public_bing_site_verification',
                 'public_footer_text',
+                'public_footer_credit',
+                'public_footer_credit_visible',
+                'public_footer_links_enabled',
+                'public_footer_links',
                 'public_maintenance_enabled',
                 'public_maintenance_title',
                 'public_maintenance_message',
@@ -110,7 +114,7 @@ final class SystemSettingsRepository
         if (preg_match('/^#[0-9a-f]{6}$/', $themeColor) !== 1) {
             throw new RuntimeException('Kolor motywu musi mieć format HEX, np. #080c12.');
         }
-        if ($footerText === '' || strlen($footerText) > 160) {
+        if (array_key_exists('public_footer_text', $settings) && ($footerText === '' || strlen($footerText) > 160)) {
             throw new RuntimeException('Tekst stopki jest wymagany i może mieć maksymalnie 160 znaków.');
         }
 
@@ -118,8 +122,25 @@ final class SystemSettingsRepository
             'public_name' => $publicName,
             'public_eyebrow' => $publicEyebrow,
             'public_theme_color' => $themeColor,
-            'public_footer_text' => $footerText,
+            ...(array_key_exists('public_footer_text', $settings) ? ['public_footer_text' => $footerText] : []),
         ], $actorId);
+    }
+
+    /** @param array<string, string> $settings */
+    public function saveFooterSettings(array $settings, int $actorId): void
+    {
+        $values = \SyntaxDevTeam\Cms\Core\PublicFooterSettings::validate($settings);
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            $this->upsertSettings($values, $actorId);
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function saveFaviconSettings(string $path, string $version, int $actorId): void
@@ -396,6 +417,127 @@ final class SystemSettingsRepository
         $this->upsertSettings([
             'public_navigation' => json_encode($clean, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
         ], $actorId);
+    }
+
+    /** @param list<string> $ids */
+    public function reorderPublicNavigation(
+        array $ids,
+        \SyntaxDevTeam\Cms\Core\PublicNavigationRegistry $registry,
+        int $actorId
+    ): void {
+        $expected = array_column($registry->items(), 'id');
+        if (count($ids) !== count($expected) || count($ids) > 65536
+            || array_filter($ids, static fn ($id): bool => !is_string($id)) !== []
+            || count(array_unique($ids)) !== count($ids)
+            || array_diff($expected, $ids) !== []) {
+            throw new \InvalidArgumentException('Nieprawidłowe linki nawigacji.');
+        }
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->query(
+                "SELECT setting_value FROM system_settings WHERE setting_key = 'public_navigation' FOR UPDATE"
+            );
+            $row = $statement->fetch(\PDO::FETCH_ASSOC);
+            $decoded = json_decode((string) ($row['setting_value'] ?? '{}'), true);
+            $settings = is_array($decoded) ? $decoded : [];
+            $positions = array_flip($ids);
+            foreach ($registry->items($settings) as $item) {
+                $settings[$item['id']] = [
+                    'label' => $item['label'],
+                    'main' => $item['show_main'],
+                    'footer' => $item['show_footer'],
+                    'order' => $positions[$item['id']],
+                ];
+            }
+            $this->upsertSettings([
+                'public_navigation' => json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            ], $actorId);
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    /**
+     * Atomic partial update: preserve other links even when changes arrive from multiple tabs.
+     *
+     * @param array<string, array{label: string, order: int}> $allowedLinks
+     * @return array{label: string, main: bool, footer: bool, order: int}
+     */
+    public function updatePublicNavigationField(
+        string $id,
+        string $field,
+        string $value,
+        array $allowedLinks,
+        int $actorId
+    ): array {
+        if (!isset($allowedLinks[$id]) || !in_array($field, ['main', 'footer', 'label', 'order'], true)) {
+            throw new RuntimeException('Nieprawidłowy link lub pole nawigacji.');
+        }
+        if (in_array($field, ['main', 'footer'], true) && !in_array($value, ['0', '1'], true)) {
+            throw new RuntimeException('Nieprawidłowy stan przełącznika.');
+        }
+        if ($field === 'order' && (preg_match('/^(?:0|[1-9][0-9]{0,4})$/D', $value) !== 1 || (int) $value > 65535)) {
+            throw new RuntimeException('Nieprawidłowa kolejność.');
+        }
+        if ($field === 'label' && strlen(trim($value)) > 80) {
+            throw new RuntimeException('Zbyt długa etykieta linku.');
+        }
+
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->query(
+                "SELECT setting_value FROM system_settings WHERE setting_key = 'public_navigation' FOR UPDATE"
+            );
+            $row = $statement->fetch(\PDO::FETCH_ASSOC);
+            $decoded = json_decode((string) ($row['setting_value'] ?? '{}'), true);
+            $settings = is_array($decoded) ? $decoded : [];
+            $saved = $settings[$id] ?? null;
+            $defaultArea = is_string($saved) ? $saved
+                : (is_array($saved) ? (string) ($saved['area'] ?? 'none') : 'none');
+            $defaultMain = $defaultArea === 'main';
+            $defaultFooter = $defaultArea === 'footer';
+            $savedMain = is_array($saved) ? (bool) ($saved['main'] ?? false) : $defaultMain;
+            $savedFooter = is_array($saved) ? (bool) ($saved['footer'] ?? false) : $defaultFooter;
+            if (!$savedMain && !$savedFooter) {
+                $savedMain = $defaultMain;
+                $savedFooter = $defaultFooter;
+            }
+
+            $entry = [
+                'label' => is_array($saved) ? trim((string) ($saved['label'] ?? '')) : '',
+                'main' => $savedMain,
+                'footer' => $savedFooter,
+                'order' => is_array($saved)
+                    ? max(0, min(65535, (int) ($saved['order'] ?? $allowedLinks[$id]['order'])))
+                    : $allowedLinks[$id]['order'],
+            ];
+            if ($entry['label'] === '' || strlen($entry['label']) > 80) {
+                $entry['label'] = $allowedLinks[$id]['label'];
+            }
+            $entry[$field] = match ($field) {
+                'main', 'footer' => $value === '1',
+                'order' => (int) $value,
+                'label' => trim($value) !== '' ? trim($value) : $allowedLinks[$id]['label'],
+            };
+            $settings[$id] = $entry;
+
+            $this->upsertSettings([
+                'public_navigation' => json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            ], $actorId);
+            $pdo->commit();
+            return $entry;
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     /**

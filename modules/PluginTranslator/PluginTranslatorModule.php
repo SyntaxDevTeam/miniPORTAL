@@ -20,7 +20,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
-final class PluginTranslatorModule implements ModuleInterface, PublicNavigationProviderInterface, SeoProviderInterface
+final class PluginTranslatorModule implements \SyntaxDevTeam\Cms\Core\HookProviderInterface, ModuleInterface, PublicNavigationProviderInterface, SeoProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -32,6 +32,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         private readonly PluginTranslatorYaml $yaml,
         private readonly MinecraftFormatPreview $formatPreview,
         private readonly ?PluginTranslationRepository $translations,
+        private readonly ?TranslationSourceCatalog $sources = null,
     ) {
     }
 
@@ -42,7 +43,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     public function version(): string
     {
-        return '1.5.0';
+        return '2.2.0';
     }
 
     public function dependencies(): array
@@ -60,6 +61,18 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         return ['plugin_translator.use', 'plugin_translator.review'];
     }
 
+    public function registerHooks(\SyntaxDevTeam\Cms\Core\HookRegistry $hooks): void
+    {
+        $hooks->addAction('projects.language_sources_saved',function():void{
+            if($this->translations===null||$this->sources===null)return;
+            $this->sources->refreshDefinitions();
+            $existing=[];foreach($this->translations->projects(true) as $project)$existing[$project->slug]=true;
+            foreach($this->sources->definitions() as $slug=>$source){
+                if(!isset($existing[$slug])&&isset($source['name']))$this->translations->createProject($source['name'],$slug,$source['page_id']??null,$this->auth->user()?->id);
+            }
+        });
+    }
+
     public function registerAdminMenu(AdminMenuRegistry $menu): void
     {
         $menu->add('Narzędzia', 'Translator YAML', '/admin/plugin-translator', 'TR', 'plugin_translator.review', 10);
@@ -73,7 +86,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     public function registerRoutes(Router $router): void
     {
         $router->get('/translations', fn (Request $request) => $this->renderPublicStart(
-            activeTab: $this->normalizePublicTab($request->queryString('tab'))
+            activeTab: $this->normalizePublicTab($request->queryString('tab')),
+            sourceProjectId: $request->queryInt('source_project', 0) ?? 0
         ));
         $router->get('/translations/assets/{asset}', fn (Request $request) => $this->servePublicAsset($request));
         $router->get('/translations/project', fn (Request $request) => $this->renderPublicProject($request));
@@ -193,7 +207,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
     }
 
-    private function renderPublicStart(string $message = '', string $variant = 'info', string $activeTab = 'start'): void
+    private function renderPublicStart(string $message = '', string $variant = 'info', string $activeTab = 'start', int $sourceProjectId = 0): void
     {
         $this->theme->start_page('YAML translations - SyntaxDevTeam', 'Translate YAML message files for any plugin, with optional SyntaxDevTeam catalog support.');
         $this->theme->start_header('YAML translations', 'Open a YAML message file, translate it safely and decide what to do with the result when the work is ready.', 'SyntaxDevTeam / Localization');
@@ -218,21 +232,16 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->renderUserSubmissionsContent();
         } elseif ($activeTab === 'upload') {
             $this->renderReadyUploadContent($projects);
+        } elseif ($activeTab === 'catalog') {
+            $this->theme->start_card('Browse translations', count($projects) . ' projects');
+            $this->renderProjectCatalog($projects);
+            $this->theme->end_card();
         } else {
-            $this->renderStartTranslationContent($projects);
+            $this->renderStartTranslationContent($projects, $sourceProjectId);
         }
         echo '</div>';
 
-        $latestFiles = array_slice($this->publicFiles($this->translations->recentApproved(12)), 0, 6);
-        $this->renderLatestDownloads($latestFiles);
-
-        $this->theme->start_card('Available projects', count($projects) . ' categories');
-        if ($projects === []) {
-            $this->theme->render_alert('No translation categories have been added yet.', 'info');
-        } else {
-            $this->renderProjectCatalog($projects);
-        }
-        $this->theme->end_card();
+        $this->renderRecentTranslations($this->translations->recentPublicActivity());
         $this->theme->end_section();
         $this->theme->end_page();
     }
@@ -240,25 +249,79 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     private function renderPublicIntro(): void
     {
         $this->theme->start_card('Welcome', 'YAML workflow');
-        $this->theme->render_text('This tool helps you translate message files for any plugin or bot. Upload a YAML file, open the editor and work line by line without changing the original key structure.');
+        $this->theme->render_text('This tool helps you translate message files for any plugin or bot. Choose a project source or upload a YAML file, open the editor and work line by line without changing the original key structure.');
         $this->theme->render_text('You can keep translations as drafts, submit SyntaxDevTeam plugin translations for review, or download finished work when you only need a local file.');
+        $this->theme->render_text('1. Choose a project source or upload your YAML message file. 2. Translate side by side, find missing messages and fix quality warnings. 3. Download, save a private draft or send a SyntaxDevTeam translation for review.');
+        $this->theme->render_text('Your files are not sent to an external translation service. Browser backups stay on this device. YAML keys, numbers and switches are preserved; comments are not retained and spacing is rebuilt on export.');
         $this->theme->end_card();
     }
 
     /** @param list<PluginTranslationProject> $projects */
-    private function renderStartTranslationContent(array $projects): void
+    private function renderStartTranslationContent(array $projects, int $sourceProjectId = 0): void
     {
-        unset($projects);
+        $this->theme->start_card('Start a translation', 'Choose a source');
+        $sourceProjects = [];
+        foreach ($projects as $project) {
+            if ($this->sources?->supports($project)) {
+                $sourceProjects[$project->id] = $project;
+            }
+        }
+        if ($sourceProjects === []) {
+            $this->theme->render_text('No project source files are configured yet. You can upload your own YAML below.');
+        } else {
+            $this->theme->render_text('Choose a project to load its language files directly from the public GitHub repository.');
+            $options = ['0' => 'Choose a project…'];
+            foreach ($sourceProjects as $project) {
+                $options[(string) $project->id] = $project->name;
+            }
+            $this->theme->render_form('/translations', [[
+                'name' => 'source_project', 'label' => 'Project source', 'type' => 'select',
+                'options' => $options, 'value' => (string) $sourceProjectId,
+            ]], 'Show source files', '', 'get');
+            $selected = $sourceProjects[$sourceProjectId] ?? null;
+            if ($selected instanceof PluginTranslationProject) {
+                $this->theme->render_text($selected->name . ' · GitHub · ' . $this->sources->reference($selected));
+                $this->theme->render_button('View source directory on GitHub', $this->sources->directoryUrl($selected), 'outline-light');
+                try {
+                    $files = $this->sources->files($selected);
+                    if ($files === []) {
+                        $this->theme->render_alert('This directory has no supported YAML message files. You can still upload your own file.', 'info');
+                    } else {
+                        $fileOptions = [];
+                        $defaultSource = $files[0]['key'];
+                        $defaultEnglishFound=false;
+                        foreach ($files as $file) {
+                            $fileOptions[$file['key']] = ($file['label']??'Main').' · '.$file['name'] . ' · ' . number_format($file['size'] / 1024, 1) . ' KB';
+                            if (strtolower($file['name']) === 'messages_en.yml' && !$defaultEnglishFound) { $defaultSource = $file['key']; $defaultEnglishFound=true; }
+                        }
+                        $this->theme->render_form('/translations/open', [[
+                            'name' => 'source_project', 'label' => 'Source project', 'type' => 'hidden', 'value' => (string) $selected->id,
+                        ], [
+                            'name' => 'source_file', 'label' => 'Source language file', 'type' => 'select', 'options' => $fileOptions, 'required' => true, 'value' => $defaultSource,
+                            'help' => 'This is the original file you will translate. The filename identifies its source language.',
+                        ], [
+                            'name' => 'target_language', 'label' => 'Translate into', 'type' => 'select',
+                            'options' => $this->targetLanguages(), 'value' => 'EN',
+                        ]], 'Open source in editor', $this->security->csrfToken());
+                    }
+                } catch (\Throwable) {
+                    $this->theme->render_alert('GitHub sources are temporarily unavailable. Try again later or upload your own YAML below.', 'warning');
+                }
+            } elseif ($sourceProjectId !== 0) {
+                $this->theme->render_alert('This project has no available public source. Choose another project or upload your own file.', 'warning');
+            }
+        }
+        $this->theme->end_card();
 
-        $this->theme->start_card('Start a translation', 'Open editor');
+        $this->theme->start_card('Upload your own YAML', 'Any plugin or bot');
         $this->theme->render_form('/translations/open', [
             [
-                'name' => 'yaml_file', 'label' => 'YAML file', 'type' => 'file',
+                'name' => 'yaml_file', 'label' => 'YAML file', 'type' => 'file', 'required' => true,
                 'accept' => '.yml,.yaml,text/yaml,text/x-yaml,text/plain',
-                'help' => 'Choose a .yml or .yaml message file. The editor will keep the original key structure.',
+                'help' => 'Choose a .yml or .yaml message file, up to 256 KB. The editor will keep the original key structure.',
             ], [
-                'name' => 'target_language', 'label' => 'Target language', 'type' => 'hidden',
-                'value' => 'EN',
+                'name' => 'target_language', 'label' => 'Target language', 'type' => 'select',
+                'options' => $this->targetLanguages(), 'value' => 'EN',
             ],
         ], 'Open editor', $this->security->csrfToken());
         $this->theme->end_card();
@@ -270,6 +333,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             'start' => ['Start translation', '/translations'],
             'mine' => ['My drafts', '/translations/mine'],
             'upload' => ['Submit ready file', '/translations/upload-ready'],
+            'catalog' => ['Browse translations', '/translations?tab=catalog'],
         ];
         echo '<nav class="translation-tabs" aria-label="Translation tools">';
         foreach ($tabs as $tab => [$label, $href]) {
@@ -280,34 +344,28 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         echo '</nav>';
     }
 
-    /**
-     * @param list<PluginTranslationSubmission> $files
-     */
-    private function renderLatestDownloads(array $files): void
+    private function renderRecentTranslations(array $activity): void
     {
-        $files = $this->publicFiles($files);
-        $this->theme->start_card('Latest downloads', $files === [] ? 'No approved files yet' : count($files) . ' ready files');
-        if ($files === []) {
-            $this->theme->render_text('Approved translations will appear here as soon as the team reviews them.');
-            $this->theme->end_card();
-            return;
+        $this->theme->start_card('Recently translated', 'Community contributions');
+        $this->theme->render_text('Latest approved translations and their authors. Private drafts and work awaiting review stay private.');
+        if ($activity === []) {
+            $this->theme->render_text('No published translations yet. Start a translation and share it with the community.');
+        } else {
+            $rows = [];
+            foreach ($activity as $item) {
+                $author = trim((string) $item['author_name']);
+                $language = (string) $item['target_language'];
+                $rows[] = [
+                    (string) $item['project_name'],
+                    $this->targetLanguages()[$language] ?? $language,
+                    $author !== '' ? $author : 'Community contributor',
+                    trim((string) $item['plugin_version']) !== '' ? (string) $item['plugin_version'] : 'Any version',
+                    $this->publicDate((string) ($item['reviewed_at'] ?? $item['updated_at'])),
+                ];
+            }
+            $this->theme->render_table(['Project', 'Language', 'Translated by', 'Version', 'Published'], $rows);
         }
-
-        echo '<div class="table-responsive"><table class="table table-hover align-middle admin-data-table">';
-        echo '<thead><tr><th scope="col">Project</th><th scope="col">Language</th><th scope="col">Version</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead><tbody>';
-        foreach ($files as $file) {
-            echo '<tr>';
-            echo '<td><a class="translation-catalog-link" href="/translations/project?id=' . $file->projectId . '">' . $this->escape($file->projectName) . '</a></td>';
-            echo '<td>' . $this->languageBadge($file->targetLanguage) . '</td>';
-            echo '<td>' . $this->escape($file->pluginVersion !== '' ? $file->pluginVersion : 'Any version') . '</td>';
-            echo '<td>' . $this->escape($this->publicDate($file->reviewedAt ?? $file->updatedAt)) . '</td>';
-            echo '<td><div class="translation-table-actions">';
-            echo '<a class="btn btn-sm btn-primary" href="/translations/download?id=' . $file->id . '">Download YAML</a>';
-            echo '<a class="btn btn-sm btn-outline-light" href="/translations/suggest?id=' . $file->id . '">Suggest correction</a>';
-            echo '</div></td>';
-            echo '</tr>';
-        }
-        echo '</tbody></table></div>';
+        $this->theme->render_button('Browse and download translations', '/translations?tab=catalog', 'outline-light');
         $this->theme->end_card();
     }
 
@@ -500,6 +558,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         $asset = $request->routeString('asset');
         $files = [
             'autosave.js' => ['assets/autosave.js', 'application/javascript; charset=UTF-8'],
+            'workspace.js' => ['assets/workspace.js', 'application/javascript; charset=UTF-8'],
+            'workspace.css' => ['assets/workspace.css', 'text/css; charset=UTF-8'],
         ];
         if (!isset($files[$asset])) {
             http_response_code(404);
@@ -552,6 +612,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             if ($submission->submissionKind === 'editor') {
                 $stored = json_decode($submission->translationsJson, true, 512, JSON_THROW_ON_ERROR);
                 $translations = is_array($stored) ? $this->normalizedTranslations($stored) : [];
+                $this->restoreSourceOrigin($submission->sourceYaml,$translations);
             } else {
                 $translations = [];
                 foreach ($items as $item) {
@@ -632,6 +693,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         try {
             $items = $this->yaml->flatten($this->yaml->parse($submission->sourceYaml));
             $translations = json_decode($submission->translationsJson, true, 512, JSON_THROW_ON_ERROR);
+            $this->restoreSourceOrigin($submission->sourceYaml,is_array($translations)?$translations:[]);
             $this->renderPublicEditor(
                 $submission->sourceYaml,
                 $submission->sourceFilename,
@@ -661,9 +723,26 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         try {
             $user = $this->auth->user();
             $filename = 'messages.yml';
-            $source = $this->sourceYaml($request, $source, $filename);
+            $sourceProjectId = $request->postInt('source_project', 0) ?? 0;
+            if ($sourceProjectId > 0 || $request->postString('source_file') !== '') {
+                $project = $this->translations?->project($sourceProjectId);
+                if (!$project instanceof PluginTranslationProject || $this->sources === null || !$this->sources->supports($project)) {
+                    throw new \InvalidArgumentException('This project has no available public source.');
+                }
+                if ($request->file('yaml_file') !== null || trim($source) !== '') {
+                    throw new \InvalidArgumentException('Choose either a project source or your own YAML upload.');
+                }
+                $loaded = $this->sources->open($project, $request->postString('source_file'));
+                $source = $loaded['content'];
+                $filename = $loaded['filename'];
+                $projectId = $project->id;
+            } else {
+                $source = $this->sourceYaml($request, $source, $filename);
+                $projectId = $this->submissionProjectId($request);
+            }
+            unset($_SESSION['_translation_current_origin']);
+            if(isset($loaded['origin']))$this->rememberOrigin($source,$loaded['origin']);
             $targetLanguage = $this->normalizeLanguage($request->postString('target_language', 'EN'));
-            $projectId = $this->submissionProjectId($request);
             $pluginVersion = $this->bounded($request->postString('plugin_version'), 40);
             $parsed = $this->yaml->parse($source);
             $items = $this->yaml->flatten($parsed);
@@ -684,7 +763,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             }
             $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items);
         } catch (\Throwable $exception) {
-            $this->renderPublicStart($exception->getMessage(), 'danger');
+            $this->renderPublicStart($exception->getMessage(), 'danger', sourceProjectId: $request->postInt('source_project', 0) ?? 0);
         }
     }
 
@@ -708,6 +787,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
         try {
             $items = $this->yaml->flatten($this->yaml->parse($resume['source_yaml']));
+            $_SESSION['_translation_current_origin']=(string)($resume['source_origin_id']??'');
             unset($_SESSION['_plugin_translation_resume']);
             $this->renderPublicEditor(
                 $resume['source_yaml'],
@@ -738,9 +818,19 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
 
         try {
+            $sourceId=$request->postString('source_origin_id');
+            $canonical=$_SESSION['_translation_origin_payload'][$sourceId]??null;
+            if(is_string($canonical)){
+                if(str_replace("\r\n","\n",trim($source))!==str_replace("\r\n","\n",trim($canonical)))throw new \InvalidArgumentException('The original source changed. Reopen the source file from GitHub.');
+                $source=$canonical;
+            }
             $parsed = $this->yaml->parse($source);
             $items = $this->yaml->flatten($parsed);
             $translations = $this->normalizedTranslations($request->postArray('translations'));
+            unset($translations['__source_origin_v1']);
+            $_SESSION['_translation_current_origin']=$request->postString('source_origin_id');
+            $origin=$this->currentOrigin($source);
+            if($origin!==null)$translations['__source_origin_v1']=json_encode($origin,JSON_THROW_ON_ERROR);
             $targetLanguage = $this->normalizeLanguage($request->postString('target_language', 'EN'));
             $projectId = $request->postInt('project_id', 0) ?? 0;
             $pluginVersion = $this->bounded($request->postString('plugin_version'), 40);
@@ -784,6 +874,9 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 unset($_SESSION['_plugin_translation_resume']);
                 $this->renderPublicStart('The temporary translation result has been discarded.', 'success');
                 return;
+            }
+            if (in_array($action, ['download', 'submit_review'], true)) {
+                $this->yaml->assertQuality($items, $translations);
             }
             if ($action === 'download') {
                 $this->audit->record($request, 'plugin_translation_download_local', 'success', 'items:' . $translatedCount, $user->id);
@@ -860,7 +953,11 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
                 : 'The translation draft has been saved.';
             $this->renderUserSubmissions($message, 'success');
         } catch (\Throwable $exception) {
-            $this->renderPublicStart($exception->getMessage(), 'danger');
+            if (isset($items, $translations, $targetLanguage, $projectId, $pluginVersion, $filename)) {
+                $this->renderPublicEditor($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, $exception->getMessage(), 'danger', false, $user instanceof User ? $this->postedSubmission($request, $user) : null);
+            } else {
+                $this->renderPublicStart($exception->getMessage(), 'danger');
+            }
         }
     }
 
@@ -891,6 +988,9 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
             $this->theme->render_alert($message, $variant);
         }
 
+        $this->theme->render_text($this->safeYamlFilename($filename) . ' → ' . ($this->targetLanguages()[$targetLanguage] ?? $targetLanguage));
+        $origin=$this->currentOrigin($source);
+        if(is_array($origin))$this->theme->render_table(['GitHub source','Revision'],[['Repository',$origin['repository']],['Path',$origin['path']],['Branch / tag',$origin['ref']],['Commit',$origin['commit']],['Git blob',$origin['blob']]]);
         $this->renderTranslationForm($source, $filename, $targetLanguage, $projectId, $pluginVersion, $items, $translations, $user, $showPreview, $submission, $cloneSubmission);
         $this->theme->end_section();
         $this->renderAutosaveScript();
@@ -938,6 +1038,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         echo '<form class="showcase-card translation-decision" action="/translations/submit" method="post" data-translation-decision data-complete="' . ($complete ? '1' : '0') . '">';
         $this->theme->csrf_field($this->security->csrfToken());
         $this->hidden('source_yaml', $source);
+        if($this->currentOrigin($source)!==null)$this->hidden('source_origin_id',(string)($_SESSION['_translation_current_origin']??''));
         $this->hidden('source_filename', $filename);
         $this->hidden('autosave_key', $this->autosaveKey($source, $filename, $submission));
         if ($submission instanceof PluginTranslationSubmission) {
@@ -1011,6 +1112,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         echo '<form class="showcase-card translation-workspace" action="/translations/submit" method="post" data-translation-autosave data-autosave-key="' . $this->escape($autosaveKey) . '">';
         $this->theme->csrf_field($this->security->csrfToken());
         $this->hidden('source_yaml', $source);
+        if($this->currentOrigin($source)!==null)$this->hidden('source_origin_id',(string)($_SESSION['_translation_current_origin']??''));
         $this->hidden('source_filename', $filename);
         $this->hidden('target_language', $targetLanguage);
         $this->hidden('project_id', (string) $projectId);
@@ -1021,24 +1123,29 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
 
         echo '<div class="alert alert-secondary translation-autosave-status" data-autosave-status hidden>Autosave is ready.</div>';
-        echo '<div class="translation-editor" aria-label="Translation editor">';
-        echo '<div class="translation-editor-head"><span>Original</span><span>Your translation</span></div>';
-        foreach ($items as $item) {
-            $value = $translations[$item['token']] ?? '';
-            $textarea = strlen($item['value']) > 90 || strlen($value) > 90;
-            echo '<div class="translation-row">';
-            echo '<div class="translation-original"><small>' . $this->escape($item['label']) . '</small>';
-            echo '<p>' . $this->escape($item['value']) . '</p></div>';
-            echo '<label class="translation-input"><span class="visually-hidden">' . $this->escape($item['label']) . '</span>';
-            if ($textarea) {
-                echo '<textarea class="form-control" name="translations[' . $this->escape($item['token']) . ']" rows="3">';
-                echo $this->escape($value) . '</textarea>';
-            } else {
-                echo '<input class="form-control" name="translations[' . $this->escape($item['token']) . ']" value="' . $this->escape($value) . '">';
+        if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\TextWorkspaceThemeInterface) {
+            $workspaceItems = array_map(fn (array $item): array => $item + ['protected' => $this->yaml->protectedTokens($item['value']), 'tokens' => $this->yaml->tokenDetails($item['value'])], $items);
+            $this->theme->render_text_workspace($workspaceItems, $translations);
+        } else {
+            echo '<div class="translation-editor" aria-label="Translation editor">';
+            echo '<div class="translation-editor-head"><span>Original</span><span>Your translation</span></div>';
+            foreach ($items as $item) {
+                $value = $translations[$item['token']] ?? '';
+                $textarea = strlen($item['value']) > 90 || strlen($value) > 90;
+                echo '<div class="translation-row">';
+                echo '<div class="translation-original"><small>' . $this->escape($item['label']) . '</small>';
+                echo '<p>' . $this->escape($item['value']) . '</p></div>';
+                echo '<label class="translation-input"><span class="visually-hidden">' . $this->escape($item['label']) . '</span>';
+                if ($textarea) {
+                    echo '<textarea class="form-control" name="translations[' . $this->escape($item['token']) . ']" rows="3">';
+                    echo $this->escape($value) . '</textarea>';
+                } else {
+                    echo '<input class="form-control" name="translations[' . $this->escape($item['token']) . ']" value="' . $this->escape($value) . '">';
+                }
+                echo '</label></div>';
             }
-            echo '</label></div>';
+            echo '</div>';
         }
-        echo '</div>';
 
         echo '<div class="translation-actions">';
         echo '<button class="btn btn-primary" type="submit" name="_action" value="decide">Continue</button>';
@@ -1631,6 +1738,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
         try {
             $parsed = $this->yaml->parse($source);
+            $this->yaml->assertQuality($this->yaml->flatten($parsed), $request->postArray('translations'));
             $output = $this->yaml->dump($this->yaml->translated($parsed, $request->postArray('translations')));
             $this->yaml->parse($output);
             $filename = $this->safeYamlFilename($request->postString('source_filename', 'messages.yml'));
@@ -1722,6 +1830,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     private function storeResume(array $data): void
     {
         $_SESSION['_plugin_translation_resume'] = [
+            'source_origin_id'=>(string)($_SESSION['_translation_current_origin']??''),
             'source_yaml' => (string) ($data['source_yaml'] ?? ''),
             'source_filename' => (string) ($data['source_filename'] ?? 'messages.yml'),
             'target_language' => $this->normalizeLanguage((string) ($data['target_language'] ?? 'EN')),
@@ -1747,6 +1856,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
         }
 
         return [
+            'source_origin_id'=>(string)($resume['source_origin_id']??''),
             'source_yaml' => (string) $resume['source_yaml'],
             'source_filename' => (string) ($resume['source_filename'] ?? 'messages.yml'),
             'target_language' => $this->normalizeLanguage((string) ($resume['target_language'] ?? 'EN')),
@@ -1763,6 +1873,27 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
     /**
      * @return array<string, string>
      */
+    private function currentOrigin(string $source): ?array
+    {
+        $id=(string)($_SESSION['_translation_current_origin']??'');
+        $origin=$_SESSION['_translation_origins'][$id]??null;
+        return is_array($origin)&&hash_equals((string)($origin['sha256']??''),hash('sha256',$source))?$origin:null;
+    }
+    private function rememberOrigin(string $source,array $origin): void
+    {
+        if(!hash_equals((string)($origin['sha256']??''),hash('sha256',$source)))return;
+        $id=bin2hex(random_bytes(16));$_SESSION['_translation_origins'][$id]=$origin;
+        $_SESSION['_translation_current_origin']=$id;
+        $_SESSION['_translation_origin_payload'][$id]=$source;
+        if(count($_SESSION['_translation_origins'])>20){$old=array_key_first($_SESSION['_translation_origins']);unset($_SESSION['_translation_origins'][$old],$_SESSION['_translation_origin_payload'][$old]);}
+    }
+    private function restoreSourceOrigin(string $source,array $translations): void
+    {
+        $origin=json_decode((string)($translations['__source_origin_v1']??''),true);
+        unset($_SESSION['_translation_current_origin']);
+        if(is_array($origin))$this->rememberOrigin($source,$origin);
+    }
+
     private function normalizedTranslations(array $values): array
     {
         $translations = [];
@@ -1846,7 +1977,7 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     private function normalizePublicTab(string $tab): string
     {
-        return in_array($tab, ['mine', 'upload'], true) ? $tab : 'start';
+        return in_array($tab, ['mine', 'upload', 'catalog'], true) ? $tab : 'start';
     }
 
     /**
@@ -2056,6 +2187,8 @@ final class PluginTranslatorModule implements ModuleInterface, PublicNavigationP
 
     private function renderAutosaveScript(): void
     {
+        echo '<link rel="stylesheet" href="/translations/assets/workspace.css?v=' . $this->escape($this->version()) . '&amp;rev=' . (string) filemtime(__DIR__ . '/assets/workspace.css') . '">';
+        echo '<script src="/translations/assets/workspace.js?v=' . $this->escape($this->version()) . '"></script>';
         echo '<script src="/translations/assets/autosave.js?v=' . $this->escape($this->version()) . '"></script>';
     }
 

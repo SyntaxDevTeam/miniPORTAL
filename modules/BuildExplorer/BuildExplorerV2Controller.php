@@ -28,6 +28,7 @@ final class BuildExplorerV2Controller
         private readonly BuildArtifactStorage $storage,
         private readonly string $ciToken,
         private readonly ?BuildCiPolicy $ciPolicy = null,
+        private readonly ?\SyntaxDevTeam\Cms\Core\HookRegistry $hooks = null,
     ) {}
 
     public function registerRoutes(Router $router): void
@@ -100,6 +101,13 @@ final class BuildExplorerV2Controller
             $filename = basename(trim((string) ($payload['filename'] ?? $artifact['name'] ?? '')));
             $branch = $this->bounded((string) ($payload['branch'] ?? ''), 255);
             $commits = $this->validateCommits($payload['commits'] ?? []);
+            $changelog = array_key_exists('changelog', $payload) ? $payload['changelog'] : implode("\n", array_column($commits, 'message'));
+            if (!is_string($changelog) || mb_strlen($changelog) > 10000) {
+                throw new \RuntimeException('changelog must be text up to 10000 characters.');
+            }
+            if ($channel === 'release' && array_key_exists('changelog', $payload) && trim($changelog) === '') {
+                throw new \RuntimeException('Release changelog cannot be empty.');
+            }
             $commitSha = strtolower(trim((string) ($payload['commit_sha'] ?? ($commits[0]['sha'] ?? ''))));
             $javaVersionRaw = $payload['java_version'] ?? null;
             $javaVersion = $javaVersionRaw === null || $javaVersionRaw === ''
@@ -172,7 +180,7 @@ final class BuildExplorerV2Controller
                 'version_label' => $version,
                 'channel' => $channel,
                 'build_number' => $buildNumber,
-                'changelog' => implode("\n", array_column($commits, 'message')),
+                'changelog' => $changelog,
                 'is_published' => 1,
                 'published_at' => $utc,
                 'ci_build_id' => (int) $ciBuildId,
@@ -207,6 +215,10 @@ final class BuildExplorerV2Controller
                 'project:' . $projectSlug . ':build:' . $ciBuildId . ':platform:' . $platform,
                 null
             );
+            // Notify optional consumers only after the artifact and metadata are stored.
+            // A consumer failure must not turn a successful publication into a retry.
+            try { $this->hooks?->doAction('build_explorer.v2.published', (int)$project['id'], $releaseId); }
+            catch (\Throwable $error) { error_log('[miniPORTAL] build_v2_publication_hook_failed ' . $error::class); }
             $this->jsonResponse(200, [
                 'status' => 'ok',
                 'api' => 'v2',
@@ -455,6 +467,12 @@ final class BuildExplorerV2Controller
                 ['label' => 'Published', 'value' => (string) ($release['published_at'] ?? $release['ci_build_time'] ?? 'No date')],
             ]
         );
+
+        if (trim((string) $release['changelog']) !== '') {
+            $this->theme->start_card('Opis zmian', 'Release notes');
+            $this->theme->render_rich_content((string) $release['changelog'], 'text');
+            $this->theme->end_card();
+        }
 
         foreach ($artifacts as $artifact) {
             $versions = array_values(array_filter(explode(',', (string) ($artifact['game_versions'] ?? ''))));

@@ -42,7 +42,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     public function version(): string
     {
-        return '1.2.0';
+        return '2.0.0';
     }
 
     public function dependencies(): array
@@ -75,7 +75,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
         $router->get('/wiki', fn () => $this->renderPublicIndex());
         $router->get('/wiki/project', fn (Request $request) => $this->renderPublicProject($request));
         $router->get('/wiki/page', fn (Request $request) => $this->renderPublicPage($request));
-        $router->get('/wiki/project/{slug}', fn (Request $request) => $this->renderPublicProjectSlug($request->routeString('slug')));
+        $router->get('/wiki/project/{slug}', fn (Request $request) => $this->renderPublicProjectSlug($request->routeString('slug'), $request->queryString('lang')));
         $router->get('/wiki/page/{project}/{slug}', fn (Request $request) => $this->renderPublicPageSlug(
             $request->routeString('project'),
             $request->routeString('slug')
@@ -176,11 +176,16 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     private function renderPublicIndex(): void
     {
-        echo $this->cachedPublic('wiki:index', function (): string {
+        echo $this->cachedPublic('wiki:v2:index', function (): string {
             $projects = $this->wiki->publishedProjects($this->isPublicUserAuthenticated());
 
             return $this->capture(function () use ($projects): void {
                 $this->theme->start_page('Project documentation - SyntaxDevTeam', 'Knowledge base for SyntaxDevTeam projects.', false);
+                if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\DocumentationThemeInterface) {
+                    $this->theme->render_documentation(['mode' => 'index', 'projects' => array_map(fn (WikiProject $p): array => ['title' => $p->name, 'summary' => $p->summary, 'href' => $this->wikiProjectHref($p->slug)], $projects)]);
+                    $this->theme->end_page();
+                    return;
+                }
                 $this->theme->start_header('Project documentation', 'Technical knowledge, procedures and project guides.', 'SyntaxDevTeam / Wiki');
                 $this->theme->end_header();
                 $this->theme->start_section();
@@ -210,10 +215,10 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
 
     private function renderPublicProject(Request $request): void
     {
-        $this->renderPublicProjectSlug($this->normalizeSlug($request->queryString('slug')));
+        $this->renderPublicProjectSlug($this->normalizeSlug($request->queryString('slug')), $request->queryString('lang'));
     }
 
-    private function renderPublicProjectSlug(string $slug): void
+    private function renderPublicProjectSlug(string $slug, string $language = ''): void
     {
         $project = $slug !== '' ? $this->wiki->findPublishedProjectBySlug($slug) : null;
         if ($project === null) {
@@ -226,11 +231,17 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             return;
         }
 
-        echo $this->cachedPublic('wiki:project:' . $project->slug, function () use ($project): string {
+        $language = in_array($language, ['en', 'pl'], true) ? $language : 'en';
+        echo $this->cachedPublic('wiki:v2:project:' . $project->slug . ':' . $language, function () use ($project, $language): string {
             $pages = $this->wiki->publishedPages($project->id, $this->isPublicUserAuthenticated());
 
-            return $this->capture(function () use ($project, $pages): void {
+            return $this->capture(function () use ($project, $pages, $language): void {
                 $this->theme->start_page($project->name . ' - documentation', $project->summary, false);
+                if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\DocumentationThemeInterface) {
+                    $this->theme->render_documentation(WikiNavigation::model($project->name, $project->slug, $project->summary, $pages, null, $language));
+                    $this->theme->end_page();
+                    return;
+                }
                 $this->theme->start_header($project->name, $project->summary, 'Wiki / Project');
                 $this->theme->end_header();
                 $this->theme->start_section();
@@ -282,35 +293,40 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             return;
         }
 
-        echo $this->cachedPublic('wiki:page:' . $page->projectSlug . ':' . $page->slug, function () use ($page): string {
-            $navigation = $this->wikiPageNavigation($page);
+        echo $this->cachedPublic('wiki:v2:page:' . $page->projectSlug . ':' . $page->slug, function () use ($page): string {
+            $pages = $this->wiki->publishedPages($page->projectId, $this->isPublicUserAuthenticated());
+            $navigation = $this->wikiPageNavigation($page, $pages);
 
-            return $this->capture(function () use ($page, $navigation): void {
-            $indexable = $this->isIndexableWikiPage($page);
-            $this->theme->start_page($page->title . ' - ' . $page->projectName, $page->summary, $indexable);
-            $this->theme->start_header(
-                $page->title,
-                $page->summary,
-                'Wiki / ' . $page->projectName
-            );
-            $this->theme->end_header();
-            $this->theme->start_section();
-            $this->theme->start_card('', 'Documentation');
-            $this->theme->render_rich_content($page->content, $page->contentFormat);
-            $this->theme->render_content_navigation($navigation);
-            $this->theme->end_card();
-            if ($indexable) {
-                $this->theme->render_structured_data([
-                    '@type' => 'TechArticle',
-                    'headline' => $page->title,
-                    'description' => $page->summary,
-                    'about' => $page->projectName,
-                    'datePublished' => $page->publishedAt ?? $page->createdAt,
-                    'dateModified' => $page->updatedAt,
-                ]);
-            }
-            $this->theme->end_section();
-            $this->theme->end_page();
+            return $this->capture(function () use ($page, $navigation, $pages): void {
+                $indexable = $this->isIndexableWikiPage($page);
+                $this->theme->start_page($page->title . ' - ' . $page->projectName, $page->summary, $indexable);
+                if ($this->theme instanceof \SyntaxDevTeam\Cms\Core\DocumentationThemeInterface) {
+                    $this->theme->render_documentation(WikiNavigation::model($page->projectName, $page->projectSlug, '', $pages, $page));
+                } else {
+                    $this->theme->start_header(
+                        $page->title,
+                        $page->summary,
+                        'Wiki / ' . $page->projectName
+                    );
+                    $this->theme->end_header();
+                    $this->theme->start_section();
+                    $this->theme->start_card('', 'Documentation');
+                    $this->theme->render_rich_content($page->content, $page->contentFormat);
+                    $this->theme->render_content_navigation($navigation);
+                    $this->theme->end_card();
+                    $this->theme->end_section();
+                }
+                if ($indexable) {
+                    $this->theme->render_structured_data([
+                        '@type' => 'TechArticle',
+                        'headline' => $page->title,
+                        'description' => $page->summary,
+                        'about' => $page->projectName,
+                        'datePublished' => $page->publishedAt ?? $page->createdAt,
+                        'dateModified' => $page->updatedAt,
+                    ]);
+                }
+                $this->theme->end_page();
             });
         }, ['wikipedia', 'wiki:project:' . $page->projectSlug, 'wiki:page:' . $page->projectSlug . ':' . $page->slug, 'theme']);
     }
@@ -359,12 +375,13 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
             $this->theme->render_alert('Projekt jest dostępny po zalogowaniu. Ustawienie strony jako publicznej nie znosi ograniczenia projektu.', 'info');
         }
         $this->theme->render_admin_action_table(
-            ['Tytuł', 'Projekt', 'Slug', 'Status', 'Dostęp', 'Aktualizacja'],
+            ['Tytuł', 'Projekt', 'Język', 'Slug', 'Status', 'Dostęp', 'Aktualizacja'],
             array_map(fn (WikiPage $page): array => [
                 'selection_value' => $page->id,
                 'cells' => [
                     $page->title,
                     $page->projectName,
+                    strtoupper(WikiNavigation::language($page)),
                     $page->slug,
                     $page->status === 'published' ? 'Opublikowana' : 'Szkic',
                     $page->projectRequiresAuth
@@ -551,7 +568,7 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
                 ...($editing ? [['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $page->id]] : []),
                 ['name' => 'project_id', 'label' => 'Projekt', 'type' => 'select', 'value' => (string) $selectedProject, 'options' => $projects],
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $page?->title ?? ''],
-                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? ''],
+                ['name' => 'slug', 'label' => 'Slug (opcjonalnie)', 'value' => $page?->slug ?? '', 'help' => 'Wiki v2: EN używa np. config, polskie tłumaczenie pl-config. Ten sam slug z prefiksem pl- łączy wersje językowe. Istniejących adresów nie trzeba zmieniać.'],
                 ['name' => 'summary', 'label' => 'Opis', 'type' => 'textarea', 'rows' => 3, 'value' => $page?->summary ?? ''],
                 [
                     'name' => 'requires_auth',
@@ -805,9 +822,9 @@ final class WikipediaModule implements ModuleInterface, PublicNavigationProvider
     /**
      * @return list<array{label: string, title: string, href: string, description: string, disabled?: bool}>
      */
-    private function wikiPageNavigation(WikiPage $current): array
+    private function wikiPageNavigation(WikiPage $current, array $publishedPages): array
     {
-        $pages = $this->wiki->publishedPages($current->projectId, $this->isPublicUserAuthenticated());
+        $pages = array_values(array_filter($publishedPages, static fn (WikiPage $page): bool => WikiNavigation::language($page) === WikiNavigation::language($current)));
         $previous = null;
         $next = null;
         foreach ($pages as $index => $page) {

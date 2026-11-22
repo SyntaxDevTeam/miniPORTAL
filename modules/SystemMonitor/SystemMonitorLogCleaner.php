@@ -95,7 +95,7 @@ final class SystemMonitorLogCleaner
     {
         $root = realpath($this->applicationRoot) ?: $this->applicationRoot;
         $cacheFile = rtrim(sys_get_temp_dir(), '/') . '/miniportal-system-monitor-'
-            . substr(hash('sha256', $root), 0, 16)
+            . substr(hash('sha256', $root . '|' . PHP_SAPI), 0, 16)
             . '.json';
         if (is_file($cacheFile)) {
             @unlink($cacheFile);

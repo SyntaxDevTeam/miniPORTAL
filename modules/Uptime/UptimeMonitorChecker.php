@@ -41,11 +41,18 @@ final class UptimeMonitorChecker
         if ($monitor->notificationType !== 'discord_webhook' || $monitor->notificationSentAt !== null) {
             return false;
         }
+        $hub=class_exists(\SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::class)?\SyntaxDevTeam\Cms\Modules\DiscordIntegration\DiscordHub::local(dirname(__DIR__,2)):null;
+        if ($hub?->managed('uptime.alerts')) {
+            if (!$hub->ready('uptime.alerts')) return false;
+            $result=$hub->send($hub->destination('uptime.alerts'),['content'=>':red_circle: **'.$monitor->name.'** is offline. '.$message.'.','allowed_mentions'=>['parse'=>[]]]);
+            return $result['status']>=200 && $result['status']<300;
+        }
         if (!$this->safeDiscordWebhook($monitor->notificationWebhookUrl)) {
             return false;
         }
 
         $payload = json_encode([
+            'allowed_mentions'=>['parse'=>[]],
             'content' => ':red_circle: **' . $monitor->name . '** is offline. ' . $message . '.',
         ], JSON_UNESCAPED_SLASHES);
         if (!is_string($payload)) {
@@ -59,6 +66,7 @@ final class UptimeMonitorChecker
                 'content' => $payload,
                 'timeout' => 5,
                 'ignore_errors' => true,
+                'follow_location' => 0,
             ],
             'ssl' => [
                 'verify_peer' => true,

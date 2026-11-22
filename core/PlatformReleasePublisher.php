@@ -127,16 +127,18 @@ final class PlatformReleasePublisher
             fn (string $path): string => $this->shellQuote($this->relativePath($path)),
             $this->requiredWritableOutputFiles()
         );
+        $releaseDirectory = $this->shellQuote('releases');
+        $privateDirectories = array_values(array_diff($directories, [$releaseDirectory]));
         $fileCommands = $files === []
             ? ''
             : "sudo chgrp www-data " . implode(' ', $files) . "\n"
-                . "sudo chmod 0660 " . implode(' ', $files) . "\n";
+                . "sudo chmod 0664 " . implode(' ', $files) . "\n";
 
         return "cd " . $this->shellQuote($this->applicationRoot) . "\n"
-            . "sudo install -d -m 2770 -g www-data " . implode(' ', $directories) . "\n"
-            . $fileCommands
-            . "sudo chgrp www-data " . implode(' ', $directories) . "\n"
-            . "sudo chmod 2770 " . implode(' ', $directories);
+            . "sudo install -d -m 2775 -g www-data " . $releaseDirectory . "\n"
+            . ($privateDirectories === [] ? ''
+                : "sudo install -d -m 2770 -g www-data " . implode(' ', $privateDirectories) . "\n")
+            . $fileCommands;
     }
 
     /**

@@ -23,6 +23,8 @@ final readonly class HomepageSectionItem
         public string $width,
         public int $sortOrder,
         public bool $isVisible,
+        public string $logoUrl = '',
+        public string $contactRef = '',
     ) {
     }
 
@@ -34,6 +36,7 @@ final readonly class HomepageSectionItem
      *     content_format: string,
      *     item_kind: string,
      *     icon_key: string,
+*     logo_url?: string,
      *     button_label: string,
      *     button_url: string,
      *     buttons: list<array{label: string, url: string}>,
@@ -44,12 +47,14 @@ final readonly class HomepageSectionItem
     public function toThemeData(): array
     {
         return [
+            'contact_ref' => $this->contactRef,
             'label' => $this->label,
             'title' => $this->title,
             'content' => $this->content,
             'content_format' => $this->contentFormat,
             'item_kind' => $this->itemKind,
             'icon_key' => $this->iconKey,
+            'logo_url' => $this->logoUrl,
             'button_label' => $this->buttonLabel,
             'button_url' => $this->buttonUrl,
             'buttons' => $this->buttonList($this->buttonLabel, $this->buttonUrl),

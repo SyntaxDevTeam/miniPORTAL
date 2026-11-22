@@ -9,9 +9,26 @@ use SyntaxDevTeam\Cms\Core\AdminCatalogComponentsTrait;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
-final class Theme implements ThemeInterface
+final class Theme implements \SyntaxDevTeam\Cms\Core\RecruitmentThemeInterface, \SyntaxDevTeam\Cms\Core\BotControlThemeInterface, \SyntaxDevTeam\Cms\Core\CodeExamplesThemeInterface, \SyntaxDevTeam\Cms\Core\ApiReferenceThemeInterface, \SyntaxDevTeam\Cms\Core\DocumentHeaderThemeInterface, \SyntaxDevTeam\Cms\Core\ScheduleNoticeThemeInterface, \SyntaxDevTeam\Cms\Core\ScheduleThemeInterface, \SyntaxDevTeam\Cms\Core\PhotoCollectionThemeInterface, \SyntaxDevTeam\Cms\Core\QuestionCollectionThemeInterface, \SyntaxDevTeam\Cms\Core\PlayerShowcaseThemeInterface, \SyntaxDevTeam\Cms\Core\DocumentationThemeInterface, \SyntaxDevTeam\Cms\Core\TaskListThemeInterface, \SyntaxDevTeam\Cms\Core\AssetManagerThemeInterface, \SyntaxDevTeam\Cms\Core\TextWorkspaceThemeInterface, \SyntaxDevTeam\Cms\Core\CollapsibleSectionThemeInterface, \SyntaxDevTeam\Cms\Core\ArticleThemeInterface, ThemeInterface
 {
+    use \SyntaxDevTeam\Cms\Templates\Shared\RecruitmentTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\BotControlTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ApiReferenceTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ScheduleTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PhotoCollectionTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PlayerShowcaseTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\DocumentationTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ArticleThemeTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\DocumentHeaderTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\CodeExamplesTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\QuestionCollectionTrait;
     use AdminCatalogComponentsTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TaskListTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\AssetManagerTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TechnologyStripTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\LinkStripTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PublicNavigationEditorTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TextWorkspaceTrait;
 
     private const ADSENSE_CLIENT = 'ca-pub-3086258607996589';
 
@@ -48,6 +65,8 @@ final class Theme implements ThemeInterface
     private readonly string $publicBingSiteVerification;
 
     private readonly string $publicFooterText;
+
+    private readonly \SyntaxDevTeam\Cms\Core\PublicFooterSettings $footerSettings;
 
     private readonly string $publicFaviconPath;
 
@@ -136,10 +155,11 @@ final class Theme implements ThemeInterface
         );
         $path = '/' . ltrim(trim((string) ($config['public_path'] ?? '/')), '/');
         $this->publicPath = preg_match('#^/[A-Za-z0-9/%._~-]*$#', $path) === 1 ? rtrim($path, '/') ?: '/' : '/';
+        $this->footerSettings = new \SyntaxDevTeam\Cms\Core\PublicFooterSettings($config);
         $this->publicFooterText = trim((string) (
             $config['public_footer_text']
             ?? 'Projektowane modułowo. Rozwijane świadomie.'
-        )) ?: 'Projektowane modułowo. Rozwijane świadomie.';
+        ));
         $faviconPath = rtrim(trim((string) ($config['public_favicon_path'] ?? '')), '/');
         $this->publicFaviconPath = preg_match('#^/[A-Za-z0-9/_-]+$#', $faviconPath) === 1
             ? $faviconPath
@@ -247,6 +267,7 @@ final class Theme implements ThemeInterface
         echo 'integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>';
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
         $this->renderFastStatsScript(true);
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -267,7 +288,7 @@ final class Theme implements ThemeInterface
         }
         $contactSection = null;
         foreach ($sections as $section) {
-            if ($section['type'] === 'hero') {
+            if ($section['type'] === 'hero' || ($section['navigation_visible'] ?? true) === false) {
                 continue;
             }
             if ((string) ($section['key'] ?? '') === 'contact' || (string) ($section['layout'] ?? '') === 'contact') {
@@ -310,13 +331,20 @@ final class Theme implements ThemeInterface
 
     private function renderPublicFooter(array $pages): void
     {
-        if ($this->publicStandalone) { $pages = []; }
+        if ($this->publicStandalone) { $pages = []; } else { $pages = $this->footerSettings->navigationPages($pages); }
         echo '<footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
-        echo '<span>&copy; ' . date('Y') . ' Powered by ';
-        echo '<a class="text-secondary" href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>';
-        echo $this->appVersion !== '' ? ' <span class="text-secondary">v' . $this->escape($this->appVersion) . '</span>' : '';
-        echo ' by ';
-        echo '<a class="text-secondary" href="https://syntaxdevteam.pl">SyntaxDevTeam</a></span>';
+        $customCredit = $this->footerSettings->credit($this->appVersion);
+        if ($customCredit === null) {
+            echo '<span>&copy; ' . date('Y') . ' ';
+            echo '<a class="text-secondary" href="' . $this->escape($this->publicUrl !== '' ? $this->publicUrl : '/') . '">';
+            echo $this->escape($this->publicName) . '</a> | Powered by ';
+            echo '<a class="text-secondary" href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>';
+            echo $this->appVersion !== '' ? ' ' . $this->escape($this->appVersion) : '';
+            echo ' <span>by ';
+            echo '<a class="text-secondary" href="https://syntaxdevteam.pl">SyntaxDevTeam.pl</a></span></span>';
+        } elseif ($customCredit !== '') {
+            echo '<span>' . $this->escape($customCredit) . '</span>';
+        }
         echo '<div class="d-flex flex-wrap align-items-center gap-3">';
         $footerPages = array_values(array_filter(
             $pages,
@@ -338,7 +366,7 @@ final class Theme implements ThemeInterface
         }
         echo '<button type="button" class="cookie-consent-manage text-secondary" data-cookie-consent-manage>';
         echo 'Cookie settings</button>';
-        if (strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
+        if ($this->publicFooterText !== '' && strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
             echo '<span>' . $this->escape($this->publicFooterText) . '</span>';
         }
         echo '</div></div></footer>';
@@ -417,7 +445,7 @@ final class Theme implements ThemeInterface
         $pageTitle = $title;
         $metaDescription = $description !== '' ? $description : $this->publicMetaDescription;
 
-        echo '<!doctype html><html lang="' . $this->escape($this->publicLanguage) . '" data-bs-theme="dark"><head>';
+        echo '<!doctype html><html lang="' . $this->escape($this->publicPageLanguage()) . '" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $this->escape($metaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
@@ -453,6 +481,7 @@ final class Theme implements ThemeInterface
             echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
         }
         $this->renderFastStatsScript($this->currentPageIndexable);
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -529,6 +558,45 @@ final class Theme implements ThemeInterface
         echo '</header>';
     }
 
+    public function start_collapsible_section(string $title, string $description = '', bool $open = false): void
+    {
+        echo '<details class="catalog-category"' . ($open ? ' open' : '') . '><summary>';
+        echo '<span class="catalog-category-heading">' . $this->collapsibleSectionIcon($title);
+        echo '<span><strong>' . $this->escape($title) . '</strong>';
+        if ($description !== '') {
+            echo '<small>' . $this->escape($description) . '</small>';
+        }
+        echo '</span></span><span class="catalog-category-hint" aria-hidden="true"><span class="when-closed">Expand</span><span class="when-open">Collapse</span> <span class="catalog-category-chevron">⌄</span></span></summary>';
+        echo '<div class="catalog-category-content">';
+    }
+
+    private function collapsibleSectionIcon(string $title): string
+    {
+        $name = strtolower($title);
+        $kind = match (true) {
+            str_contains($name, 'minecraft'), str_contains($name, 'plugin') => 'cube',
+            str_contains($name, 'android') => 'android',
+            str_contains($name, 'web'), str_contains($name, 'stron') => 'browser',
+            str_contains($name, 'desktop'), str_contains($name, 'pulpit') => 'desktop',
+            default => 'folder',
+        };
+        $shape = match ($kind) {
+            'cube' => '<path d="m12 3 9 5v8l-9 5-9-5V8l9-5Z M3 8l9 5 9-5 M12 13v8 M7.5 5.5l9 5"/>',
+            'android' => '<path d="m7 3-1-2m11 2 1-2 M5 9a7 7 0 0 1 14 0v8H5V9Z M5 9h14 M2 10v6m20-6v6 M8 17v4m8-4v4"/><path d="M9 6h.01M15 6h.01" stroke-width="3"/>',
+            'browser' => '<rect x="2" y="3" width="20" height="18" rx="3"/><path d="M2 8h20 M6 5.5h.01M9 5.5h.01 M10 12l-3 3 3 3m4-6 3 3-3 3"/>',
+            'desktop' => '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8 M12 17v4 M6 7l3 3-3 3m6 0h5"/>',
+            default => '<path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
+        };
+        return '<span class="catalog-category-icon" data-category-icon="' . $kind . '" aria-hidden="true">'
+            . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">'
+            . $shape . '</svg></span>';
+    }
+
+    public function end_collapsible_section(): void
+    {
+        echo '</div></details>';
+    }
+
     public function start_grid(): void
     {
         echo '<div class="row g-4 mb-5">';
@@ -578,7 +646,7 @@ final class Theme implements ThemeInterface
 
     public function render_text(string $text): void
     {
-        echo '<p class="text-secondary">' . $this->escape($text) . '</p>';
+        echo '<p class="text-secondary">' . nl2br($this->escape($text), false) . '</p>';
     }
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void
@@ -1105,11 +1173,16 @@ final class Theme implements ThemeInterface
                 echo '<div class="richtext-editor" data-richtext data-richtext-format="' . $format . '" ';
                 echo 'data-richtext-upload-url="index.php?route=/admin/media/richtext-upload" ';
                 echo 'data-richtext-token="' . $this->escape($csrfToken) . '">';
+                if (($field['code_examples'] ?? false) === true) {
+                    echo '<p><button type="button" class="editor-tool" data-richtext-python>＋ Przykład Python</button> '
+                        . '<button type="button" class="editor-tool" data-richtext-kotlin>＋ Przykład Kotlin</button></p>';
+                }
                 echo '<div class="richtext-format-row"><div class="richtext-mode-switch" role="group" aria-label="Format źródłowy">';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::HTML ? ' is-active' : '') . '" type="button" ';
                 echo 'data-richtext-mode="html">Edytor wizualny</button>';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::MARKDOWN ? ' is-active' : '') . '" type="button" ';
-                echo 'data-richtext-mode="markdown">Markdown</button></div>';
+                echo 'data-richtext-mode="markdown">Markdown</button>';
+                echo '<button class="editor-mode" type="button" data-richtext-mode="source">Kod HTML</button></div>';
                 echo '<label class="richtext-format-label">Format zapisu<select class="form-select form-select-sm" ';
                 echo 'name="' . $formatName . '" data-richtext-format-input>';
                 echo '<option value="html"' . ($format === ContentRenderer::HTML ? ' selected' : '') . '>HTML</option>';
@@ -1135,7 +1208,7 @@ final class Theme implements ThemeInterface
                 echo '</div><div class="richtext-image-options" data-richtext-image-options>';
                 echo '<button class="editor-tool" type="button" data-richtext-image-url>Obraz URL</button>';
                 echo '<button class="editor-tool" type="button" data-richtext-image-upload>Obraz z dysku</button>';
-                echo '<input type="file" class="visually-hidden" data-richtext-image-file accept="image/png,image/jpeg,image/webp,image/gif">';
+                echo '<input type="file" class="visually-hidden" data-richtext-image-file accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg">';
                 echo '<label>Rozmiar<select class="form-select form-select-sm" data-richtext-image-size>';
                 foreach (['original' => 'Oryginalny', 'small' => 'Mały', 'medium' => 'Średni', 'large' => 'Duży', 'wide' => 'Pełna szerokość', 'custom' => 'Dokładnie'] as $optionValue => $optionLabel) {
                     echo '<option value="' . $optionValue . '"' . ($optionValue === 'original' ? ' selected' : '') . '>' . $optionLabel . '</option>';
@@ -1157,7 +1230,7 @@ final class Theme implements ThemeInterface
                 echo $value . '</textarea>';
                 echo '<p class="form-text mb-0 mt-2" data-richtext-hint>';
                 echo $format === ContentRenderer::MARKDOWN
-                    ? 'Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy.'
+                    ? 'Markdown + bezpieczny HTML: tabele, listy, kod, linki i obrazy. Kod dosłowny umieść w backtickach.'
                     : 'Tryb wizualny zapisuje kontrolowany HTML.';
                 echo '</p></div>';
             } elseif ($type === 'textarea') {
@@ -1273,7 +1346,7 @@ final class Theme implements ThemeInterface
                 echo '<input class="form-control" id="' . $fieldId . '" name="' . $name . '" type="file"' . $accept . $controlAttributes . '>';
                 echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
-                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'color'];
+                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'datetime-local', 'color'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';
                 $class = $type === 'color' ? 'form-control form-control-color' : 'form-control';
                 echo '<input class="' . $class . '" id="' . $fieldId . '" name="' . $name . '" type="' . $type;
@@ -1402,6 +1475,7 @@ final class Theme implements ThemeInterface
             $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
             echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
         }
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -1461,6 +1535,11 @@ final class Theme implements ThemeInterface
     public function start_admin_panel_grid(string $variant = 'balanced'): void
     {
         $variant = preg_replace('/[^a-z0-9_-]/i', '', $variant) ?: 'balanced';
+        if (in_array($variant, ['settings', 'metrics'], true)) {
+            $asset = '/templates/shared/assets/css/admin-' . $variant . '.css';
+            $version = (int) filemtime(dirname(__DIR__, 2) . $asset);
+            echo '<link rel="stylesheet" href="' . $asset . '?v=' . $version . '">';
+        }
         echo '<div class="admin-panel-grid admin-panel-grid-' . $this->escape($variant) . '">';
     }
 
@@ -1756,18 +1835,23 @@ final class Theme implements ThemeInterface
             echo '<div class="alert alert-' . $variant . '" role="alert">' . $this->escape($message) . '</div>';
         }
 
-        echo '<div class="provider-list">';
+        echo '<div class="form-check my-3"><input class="form-check-input" type="checkbox" id="remember-login" name="remember" value="1" form="provider-login">';
+        echo '<label class="form-check-label" for="remember-login">Zapamiętaj mnie na tym urządzeniu przez 30 dni</label></div>';
+        echo '<p class="small text-secondary">Zaznacz tylko na swoim urządzeniu. Wylogowanie usuwa zapamiętane logowanie.</p>';
+        echo '<form id="provider-login" method="post" action="' . $this->escape($action) . '">';
+        $this->csrf_field($csrfToken);
+        echo '</form><div class="provider-list">';
         foreach ($identities as $identity) {
             $provider = strtolower((string) $identity['provider']);
             $providerIcon = $this->providerIcon($provider);
             $providerIconClass = 'provider-icon provider-icon-' . $this->providerIconClass($provider);
 
             if (($identity['href'] ?? '') !== '') {
-                echo '<a class="provider-button text-decoration-none" href="' . $this->escape($identity['href']) . '">';
+                echo '<button type="submit" form="provider-login" class="provider-button text-decoration-none w-100" formaction="' . $this->escape($identity['href']) . '">';
                 echo '<span class="' . $providerIconClass . '" aria-hidden="true">' . $providerIcon . '</span>';
                 echo '<span><strong class="d-block">' . $this->escape($identity['label']) . '</strong>';
                 echo '<small class="text-secondary">' . $this->escape($identity['description']) . '</small></span>';
-                echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></a>';
+                echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></button>';
                 continue;
             }
 
@@ -1786,6 +1870,7 @@ final class Theme implements ThemeInterface
             echo '<h2 class="h5">Brak aktywnych dostawców</h2>';
             echo '<p class="text-secondary mb-0">Skonfiguruj adapter OAuth albo świadomie włącz tryb demonstracyjny.</p></div>';
         }
+        $this->render_schedule_notice();
         echo '</div></section></div></div></main></body></html>';
     }
 
@@ -1811,6 +1896,7 @@ final class Theme implements ThemeInterface
         echo '<h1 class="h3">' . $this->escape($title) . '</h1>';
         echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
         echo '<a class="btn btn-primary" href="' . $this->escape($actionHref) . '">' . $this->escape($actionLabel) . '</a>';
+        $this->render_schedule_notice();
         echo '</section></main></body></html>';
     }
 
@@ -1873,6 +1959,7 @@ final class Theme implements ThemeInterface
         $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
         $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -2033,9 +2120,27 @@ final class Theme implements ThemeInterface
         $hasAside = $asideWidgets !== [];
 
         echo '<header id="' . $this->escape($section['key']) . '" class="home-hero">';
-        echo '<div class="home-hero-brand-mark" aria-hidden="true"><img src="'
-            . $this->asset('img/brand/hero-syntaxdevteam-logo.png')
-            . '" alt="" width="1304" height="1080" loading="lazy" decoding="async" fetchpriority="low"></div>';
+        echo '<div class="home-hero-brand-mark" aria-hidden="true">';
+        $heroLogo = $this->asset('img/brand/hero-syntaxdevteam-logo.png');
+        echo '<img src="' . $heroLogo . '" alt="" width="1304" height="1080" loading="lazy" decoding="async" fetchpriority="low">';
+        foreach (['cyan', 'red'] as $channel) {
+            echo '<img class="hero-glitch-channel hero-glitch-' . $channel . '" src="' . $heroLogo
+                . '" alt="" width="1304" height="1080" loading="lazy" decoding="async">';
+        }
+        echo '</div><div class="hero-signal" aria-hidden="true"><div class="hero-signal-code">';
+        // Decorative source fragments only: never expose runtime data or configuration.
+        $signalCode = [
+            'namespace SyntaxDevTeam; // build something that matters',
+            '$portal->boot(); $router->dispatch($request); // SYSTEM ONLINE',
+            'public function render(ThemeInterface $theme): void {',
+            '  $modules->register($registry); $events->dispatch("ready");',
+            '  return $cache->remember("public.home", $renderer);',
+            '} // Core -> Modules -> Templates // 01010011 01000100 01010100',
+        ];
+        for ($line = 0; $line < 24; ++$line) {
+            echo '<span data-code="' . $this->escape($signalCode[$line % count($signalCode)]) . '"></span>';
+        }
+        echo '</div></div>';
         echo '<div class="container py-5">';
         echo '<div class="row align-items-center g-5"><div class="' . ($hasAside ? 'col-lg-7' : 'col-12') . ' reveal is-visible">';
         if ($section['eyebrow'] !== '') {
@@ -2228,6 +2333,14 @@ final class Theme implements ThemeInterface
      */
     private function renderHomepageSection(array $section): void
     {
+        if (($section['layout'] ?? '') === 'technologies') {
+            $this->renderTechnologyStrip($section);
+            return;
+        }
+        if (($section['layout'] ?? '') === 'link_strip') {
+            $this->renderLinkStrip($section);
+            return;
+        }
         $layouts = ['full', 'split', 'columns', 'accent', 'contact'];
         $layout = in_array($section['layout'], $layouts, true) ? $section['layout'] : 'full';
         $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
@@ -2292,7 +2405,13 @@ final class Theme implements ThemeInterface
                 $this->renderHomepageButtons($itemButtons, 'btn btn-outline-light');
                 echo '</article>';
             }
-            echo '</div></div></section>';
+            echo '</div>';
+            if ($sectionButtons !== []) {
+                echo '<div class="managed-section-actions d-flex flex-wrap gap-2 mt-4">';
+                $this->renderHomepageButtons($sectionButtons, 'btn btn-outline-light');
+                echo '</div>';
+            }
+            echo '</div></section>';
             return;
         }
 
@@ -2683,7 +2802,7 @@ final class Theme implements ThemeInterface
         echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->faviconAsset('apple-touch-icon.png') . '">';
         echo '<link rel="manifest" href="' . $this->faviconAsset('site.webmanifest') . '">';
         if (!$indexable) {
-            echo '<meta name="robots" content="noindex, nofollow">';
+            echo '<meta name="robots" content="' . ($this->articlePageMetadata === [] ? 'noindex, nofollow' : 'noindex, follow') . '">';
             return;
         }
 
@@ -2699,7 +2818,7 @@ final class Theme implements ThemeInterface
             echo '<meta name="msvalidate.01" content="' . $this->escape($this->publicBingSiteVerification) . '">';
         }
 
-        $canonicalUrl = $this->publicUrl !== '' ? $this->publicUrl . ($this->publicPath === '/' ? '/' : $this->publicPath) : '';
+        $canonicalUrl = $this->publicCanonicalUrl();
         if ($canonicalUrl !== '') {
             echo '<link rel="canonical" href="' . $this->escape($canonicalUrl) . '">';
         }
@@ -2708,8 +2827,7 @@ final class Theme implements ThemeInterface
         $socialImageUrl = $this->publicSocialImageUrl !== ''
             ? $this->absolutePublicUrl($this->publicSocialImageUrl)
             : $logoUrl;
-        echo '<meta property="og:type" content="website">';
-        echo '<meta property="og:locale" content="' . $this->escape($this->publicLocale) . '">';
+        $this->renderPublicSocialType();
         echo '<meta property="og:site_name" content="' . $this->escape($this->publicName) . '">';
         echo '<meta property="og:title" content="' . $this->escape($title) . '">';
         echo '<meta property="og:description" content="' . $this->escape($description) . '">';

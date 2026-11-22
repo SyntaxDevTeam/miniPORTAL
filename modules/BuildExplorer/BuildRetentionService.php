@@ -23,7 +23,7 @@ final class BuildRetentionService
         $storage = $this->storage->statistics();
         $result = [
             'policy' => [
-                'release_keep' => null,
+                'release_keep' => $settings['release_keep'] > 0 ? $settings['release_keep'] : null,
                 'snapshot_keep' => $settings['snapshot_keep'],
                 'dev_keep' => $settings['dev_keep'],
                 'wip_keep' => $settings['wip_keep'],
@@ -61,6 +61,7 @@ final class BuildRetentionService
             $settings['snapshot_keep'],
             $settings['dev_keep'],
             $settings['wip_keep'],
+            $settings['release_keep'],
         );
     }
 
@@ -76,10 +77,17 @@ final class BuildRetentionService
         $candidates = $this->candidates();
         $bytes = 0;
         $artifacts = 0;
+        $githubArtifacts = 0;
+        $githubBytes = 0;
         foreach ($candidates as $candidate) {
-            foreach ($this->builds->v2ReleaseStorageKeys((int) $candidate['id']) as $artifact) {
+            foreach ($this->builds->v2RetentionArtifacts((int) $candidate['id']) as $artifact) {
                 $artifacts++;
-                $bytes += max(0, (int) $artifact['file_size_bytes']);
+                if ((string) ($artifact['storage_key'] ?? '') !== '') {
+                    $bytes += max(0, (int) $artifact['file_size_bytes']);
+                } elseif (preg_match('~\Ahttps://github\.com/[^/]+/[^/]+/releases/download/build-explorer-~', (string) ($artifact['download_url'] ?? '')) === 1) {
+                    $githubArtifacts++;
+                    $githubBytes += max(0, (int) $artifact['file_size_bytes']);
+                }
             }
         }
         $settings = $this->builds->retentionSettings();
@@ -98,6 +106,8 @@ final class BuildRetentionService
             'orphans' => count($orphans),
             'orphan_bytes' => $orphanBytes,
             'total_bytes' => $bytes + $orphanBytes,
+            'github_artifacts' => $githubArtifacts,
+            'github_bytes' => $githubBytes,
         ];
     }
 
@@ -187,6 +197,7 @@ final class BuildRetentionService
             $settings['snapshot_keep'],
             $settings['dev_keep'],
             $settings['wip_keep'],
+            $settings['release_keep'],
         );
         $deletedReleases = 0;
         $deletedArtifacts = 0;
@@ -194,8 +205,8 @@ final class BuildRetentionService
 
         foreach ($candidates as $candidate) {
             $releaseId = (int) $candidate['id'];
-            $artifacts = $this->builds->v2ReleaseStorageKeys($releaseId);
-            if (!$this->builds->deleteV2Release($releaseId)) {
+            $artifacts = $this->builds->v2RetentionArtifacts($releaseId);
+            if (!$this->builds->deleteV2Release($releaseId, $settings['release_keep'] > 0)) {
                 continue;
             }
             $deletedReleases++;

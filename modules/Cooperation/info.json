@@ -1,0 +1,13 @@
+{
+  "id": "cooperation",
+  "name": "Współpraca",
+  "version": "1.2.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "requires": {"php": ">=8.4", "miniportal": ">=0.13.2", "modules": ["core_auth", "core_pages"]},
+  "protected": false,
+  "origin": {"type": "bundled", "url": "https://github.com/SyntaxDevTeam/miniPORTAL"},
+  "factory": "factory.php",
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}

@@ -58,6 +58,24 @@ final class PluginTranslationRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** Public activity contains no drafts, e-mails, YAML or reviewer notes. */
+    public function recentPublicActivity(int $limit = 8): array
+    {
+        $limit = max(1, min(20, $limit));
+        $statement = $this->database->query(
+            'SELECT s.id, s.project_id, p.name AS project_name, s.author_name, '
+            . 's.target_language, s.plugin_version, s.reviewed_at, s.updated_at '
+            . self::SELECT_FROM
+            . "WHERE s.status = :status AND p.status = 'active' AND p.slug <> 'nieprzypisane' "
+            . 'ORDER BY COALESCE(s.reviewed_at, s.updated_at) DESC, s.id DESC LIMIT ' . $limit,
+            [':status' => 'approved']
+        );
+        if ($statement === null) {
+            throw new RuntimeException('Unable to load public translation activity.');
+        }
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function find(int $id): ?PluginTranslationSubmission
     {
         $statement = $this->database->query(
@@ -245,7 +263,7 @@ final class PluginTranslationRepository
         ]);
     }
 
-    public function createProject(string $name, string $slug, ?int $pageId, int $createdBy): int
+    public function createProject(string $name, string $slug, ?int $pageId, ?int $createdBy): int
     {
         return (int) $this->database->create('plugin_translation_projects', [
             'name' => $name,

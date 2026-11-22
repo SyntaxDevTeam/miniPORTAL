@@ -33,6 +33,7 @@ final class ModuleBootstrapper
         ?array $onlyDirectories = null,
     ): void
     {
+        $definitions = LocalRuntime::definitions(dirname(rtrim($this->modulesPath, '/')), $definitions);
         $runtimeServices = $services;
         $runtimeServices['module_registry'] = $registry;
         $runtimeServices['capabilities'] = $registry->capabilities();

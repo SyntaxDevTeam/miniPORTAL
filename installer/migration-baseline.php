@@ -18,6 +18,11 @@ return array (
     'articles' =>
     array (
       '20260614_content_formats.sql' => '8cf217a562250822b679c74f9c79131b944fab5951e9ae2245f0f2dd9ccbe8c9',
+      '20261120_article_statistics.sql' => '4cb5829f14b04c8d610939dc69baeb6d8fc9b38440ff7713330a4bdaa371b735',
+      '20261121_article_catalog.sql' => '67867575bc1b9391bbc6d06ed8f74013b740c0c84c5478fe0cfd7bb2da534065',
+      '20261121_article_categories.sql' => 'd5bf5655adcd98c127d166fbdc338820c8aca0eb86dcb9d7b6b26c5d717794b1',
+      '20261121_article_statuses.sql' => 'e2834223f976713bb793eee2e9b955bd950aebb35570c7f0fd0b26b1b418bd3f',
+      '20261121_recover_empty_article_status.sql' => 'e5fd55988f1bf0fa51e8a57f3b13bf708a5c8cb83d54a15f22bf2a807e515283',
     ),
     'build_explorer' =>
     array (
@@ -28,6 +33,13 @@ return array (
       '20260818_build_explorer_v2.sql' => '347742375d8bf3a0c0cc8b13065b3c8be2d4b0c74b63270f8f5ccfcb85783722',
       '20260818_build_explorer_v2_1_compatible_platforms.sql' => '1fab2007b54ad94f91caf2a63d8f0c44da4e02a300b2a32421dd39f7b8274fd1',
       '20260818_build_explorer_v2_1_retention.sql' => '15cb0a282592a0b9facdff34d5b75f86cd7aa11b68df00eb3b102f762ec20374',
+      '20261109_manual_v2_builds.sql' => 'b0d6303352a25d433f22399498f55e3b8cd02ee742c0c5e8943d5dbf9ce5aa38',
+      '20261109_retention_channel_limits.sql' => '61645ef137a466987ace5dff50fa6491c83945a02ab0e549af4a04b40c0227e9',
+    ),
+    'cooperation' =>
+    array (
+      '20261025_strip_settings.sql' => '665d0d3151d6e4daa14874b0b0a7d4b0874ff10f93320022facecc83ccd07e1c',
+      '20261103_long_descriptions.sql' => '47efb933f367aa0ccc61159610d288c3c7e403b48f5681c36258dd51c457afb4',
     ),
     'core_auth' =>
     array (
@@ -37,6 +49,8 @@ return array (
       '20260620_owner_and_operational_roles.sql' => '2046f785565f34d95263a7bb6890577fcf647308a57cabf03328197c408a05c5',
       '20260728_active_sessions.sql' => '6982e0b2f937e694a31ed5a2444591ff2ab0fce29e75606fda6211c890397761',
       '20260801_self_service_registration.sql' => '73daf5dc84f5210ded23362625f43179bdd0a993d852fdea9f0b210e53b0e5e2',
+      '20261109_user_session_version.sql' => '4ef9f436487e54f4bdc911cc7850b5e4d352f530174c92f99f070b7ea02ebaca',
+      '20261117_remember_login.sql' => 'ea4e3c17d4dc7ee02d652f6da434074c44f390bf2c49dc1294e953066c54ce64',
     ),
     'core_auth_policy_extension' =>
     array (
@@ -58,14 +72,39 @@ return array (
       '20260730_privacy_and_cookie_information.sql' => '1d9b1b53d0d036beaad83dcb3dba4d3beb54257f43ff08d66bef34cf356364f2',
       '20260730_zz_cookie_consent_categories.sql' => '6da1e0af791c4cec989e7684ef1518440c90ff009d916dd79f7b7c5da7e9efc4',
       '20260801_ensure_registration_legal_pages.sql' => '2bf1f8f42cb0dcbdba44e9b9e572b57fbd0a8bb3b1e3432401144677f6685973',
+      '20261025_homepage_technologies.sql' => '49ee7d5e48633b50b40649fc53e59e62a9f0df9829c8e258b664878aaaed8ce3',
+      '20261108_contact_people.sql' => '34db9eed18282c4e4a7dd128e84202c9a1949867cc950d4f39aa2e60650ac50a',
     ),
     'database_manager' =>
     array (
       '20260617_database_manage_permission.sql' => '542dc12fb8466b304fbef277cba25646e8d74628fb050a00fe8898af9c010636',
     ),
+    'discord_integration' =>
+    array (
+    ),
+    'event_calendar' =>
+    array (
+      '20261102_markdown.sql' => '362f9d42bf28dcb4ab3d523e661cd980bcb38d0811ab5e8d50479f1fb9aa076b',
+      '20261102_notifications.sql' => 'ffbc3f951522055a824bb8d919b7f2aa5d8d01df077daa00108a4cb78f4cb786',
+      '20261104_discord_choice.sql' => 'e2a3238ed37cbaa2fa7f82173b3e58d707a30c3a444b6f9919977452f6171544',
+      '20261117_wizard.sql' => 'bbf0aaf7cf735d1b2b1346e481471d29657c9205f3467e040c340f6b008e3834',
+    ),
+    'file_library' =>
+    array (
+    ),
+    'gallery' =>
+    array (
+    ),
+    'help_center' =>
+    array (
+      '20261109_staff_visibility.sql' => '1ed0b603e26e3c47466373c5a0de8c8c363ee36559b096fee939c595bab29798',
+    ),
     'media_library' =>
     array (
       '20260702_tinify_usage.sql' => 'af840b07e6f509b1864edb0883896599c837d6b9c5ec66c0c8921a8cabfc82e8',
+    ),
+    'minecraft_accounts' =>
+    array (
     ),
     'plugin_translator' =>
     array (
@@ -80,6 +119,9 @@ return array (
       '20260702_project_integration_fields.sql' => '9e44d39e185fc1ca1cb0af8f2d039160a02d6f411b3e7edd4c93094ad30ba18f',
       '20260803_project_categories.sql' => '1d196048352a33edb8f38c174e2f11dc3cff631351c9c72dfaf1315f39fcbe9b',
     ),
+    'recruitment' =>
+    array (
+    ),
     'remote_terminal' =>
     array (
     ),
@@ -91,6 +133,10 @@ return array (
     ),
     'system_monitor' =>
     array (
+    ),
+    'task_board' =>
+    array (
+      '20261029_assignments_discord.sql' => '098aeb3d6fa0b580b9ed5dbf6050cda26bdc70cf5cc9b48f66fecfbb60b3b885',
     ),
     'team' =>
     array (

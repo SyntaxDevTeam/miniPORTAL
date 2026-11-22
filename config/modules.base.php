@@ -115,6 +115,27 @@ use SyntaxDevTeam\Cms\Modules\Widgets\WidgetsModule;
 
 return [
     [
+        'directory' => 'Recruitment',
+        'enabled' => static fn(array $s): bool => $s['database'] !== null,
+        'factory' => static fn(array $s): \SyntaxDevTeam\Cms\Modules\Recruitment\RecruitmentModule => (require dirname(__DIR__).'/modules/Recruitment/factory.php')($s),
+    ],
+    [
+        'directory' => 'MinecraftAccounts',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\MinecraftAccounts\MinecraftAccountsModule =>
+            (require dirname(__DIR__) . '/modules/MinecraftAccounts/factory.php')($services),
+    ],
+    [
+        'directory' => 'EventCalendar',
+        'enabled' => static fn(array $s): bool => $s['database'] !== null,
+        'factory' => static fn(array $s): \SyntaxDevTeam\Cms\Modules\EventCalendar\EventCalendarModule => (require dirname(__DIR__).'/modules/EventCalendar/factory.php')($s),
+    ],
+    [
+        'directory' => 'Gallery',
+        'enabled' => static fn(array $s): bool => $s['database'] !== null,
+        'factory' => static fn(array $s): \SyntaxDevTeam\Cms\Modules\Gallery\GalleryModule => (require dirname(__DIR__).'/modules/Gallery/factory.php')($s),
+    ],
+    [
         'directory' => 'CoreAuth',
         'required' => true,
         'factory' => static fn (array $services): CoreAuthModule => new CoreAuthModule(
@@ -211,7 +232,8 @@ return [
             $services['security'],
             $services['audit'],
             $services['template_cache'],
-            new MediaAssetRepository($services['database'])
+            new MediaAssetRepository($services['database']),
+            $services['hooks'] ?? null
         ),
     ],
     [
@@ -263,6 +285,12 @@ return [
         ),
     ],
     [
+        'directory' => 'FileLibrary',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\FileLibrary\FileLibraryModule =>
+            (require dirname(__DIR__) . '/modules/FileLibrary/factory.php')($services),
+    ],
+    [
         'directory' => 'Articles',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
         'factory' => static fn (array $services): ArticlesModule => new ArticlesModule(
@@ -274,7 +302,9 @@ return [
             $services['security'],
             $services['audit'],
             $services['template_cache'],
-            new MediaAssetRepository($services['database'])
+            new MediaAssetRepository($services['database']),
+            $services['hooks'] ?? null,
+            (string) ($services['config']['app']['public_url'] ?? ''),
         ),
     ],
     [
@@ -344,7 +374,9 @@ return [
             $services['auth'],
             $services['security'],
             $services['audit'],
-            new MediaAssetRepository($services['database'])
+            new MediaAssetRepository($services['database']),
+            new \SyntaxDevTeam\Cms\Modules\Projects\ProjectLanguageSourceStore(dirname(__DIR__).'/config/modules/project-language-sources.json',new ProjectRepository($services['database'])),
+            $services['hooks']??null
         ),
     ],
     [
@@ -364,7 +396,8 @@ return [
             (string) ($services['config']['modules']['build_ci_token'] ?? ''),
             \SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildCiPolicy::fromFile(
                 __DIR__ . '/modules/build-ci-projects.json'
-            )
+            ),
+            $services['hooks'] ?? null
         ),
     ],
     [
@@ -393,7 +426,13 @@ return [
             $services['audit'],
             new PluginTranslatorYaml(),
             new MinecraftFormatPreview(),
-            $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null
+            $services['database'] !== null ? new PluginTranslationRepository($services['database']) : null,
+            new \SyntaxDevTeam\Cms\Modules\PluginTranslator\TranslationSourceCatalog(
+                json_decode((string) file_get_contents(__DIR__ . '/../modules/PluginTranslator/sources.json'), true, 32, JSON_THROW_ON_ERROR),
+                new \SyntaxDevTeam\Cms\Modules\PluginTranslator\GitHubTranslationClient(),
+                new \SyntaxDevTeam\Cms\Core\FileTemplateCache(dirname(__DIR__) . '/cache/plugin-translator-sources', true, 600),
+                static fn()=>($services['hooks']??null)?->applyFilters('projects.language_source_provider',null),
+            )
         ),
     ],
     [
@@ -462,42 +501,7 @@ return [
     [
         'directory' => 'AuthGatewayX',
         'enabled' => static fn (array $services): bool => $services['database'] !== null,
-        'factory' => static function (array $services): AuthGatewayXModule {
-            $config = $services['config']['modules'] ?? [];
-            $microsoft = $services['auth_config']['providers']['microsoft'] ?? [];
-            $publicUrl = rtrim((string) ($services['config']['app']['public_url'] ?? ''), '/');
-            $repository = new AuthGatewayXRepository($services['database']);
-            return new AuthGatewayXModule(
-                $services['theme'], $services['admin_menu'], $services['auth'], $services['security'], $services['audit'],
-                new AuthGatewayXService(
-                    new MinecraftIdentityRepository($services['database']),
-                    new LinkedMinecraftProfileRepository($services['database']),
-                ),
-                $repository,
-                new AuthGatewayXApiController(
-                    $repository,
-                    new ProviderAuthenticator($repository),
-                    new ChallengeCodeGenerator(),
-                    new IpBinding((string) ($config['authgatewayx_hash_key'] ?? '')),
-                    $services['rate_limiter'],
-                    (string) ($config['authgatewayx_public_base_url'] ?? 'https://syntaxdevteam.pl'),
-                    (int) ($config['authgatewayx_challenge_ttl_seconds'] ?? 120),
-                ),
-                new MinecraftMicrosoftProfileClient(
-                    new NativeMinecraftApiTransport(),
-                    (string) ($microsoft['client_id'] ?? ''),
-                    (string) ($microsoft['client_secret'] ?? ''),
-                    $publicUrl . '/account/minecraft/connect/callback',
-                ),
-                new OAuthStateStore(),
-                new OAuthAttemptLimiter(
-                    (int) ($services['auth_config']['oauth_window_seconds'] ?? 600),
-                    (int) ($services['auth_config']['oauth_start_limit'] ?? 10),
-                    (int) ($services['auth_config']['oauth_callback_limit'] ?? 20),
-                ),
-                filter_var($config['authgatewayx_local_self_service'] ?? false, FILTER_VALIDATE_BOOL),
-            );
-        },
+        'factory' => static fn (array $services): AuthGatewayXModule => (require dirname(__DIR__) . '/modules/AuthGatewayX/factory.php')($services),
     ],
     [
         'directory' => 'Team',
@@ -511,6 +515,17 @@ return [
             $services['security'],
             $services['audit']
         ),
+    ],
+    [
+        'directory' => 'HelpCenter',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\HelpCenter\HelpCenterModule =>
+            (require dirname(__DIR__) . '/modules/HelpCenter/factory.php')($services),
+    ],
+    [
+        'directory' => 'Cooperation',
+        'enabled' => static fn (array $services): bool => $services['database'] !== null,
+        'factory' => static fn (array $services): \SyntaxDevTeam\Cms\Modules\Cooperation\CooperationModule => (require dirname(__DIR__) . '/modules/Cooperation/factory.php')($services),
     ],
     [
         'directory' => 'Widgets',

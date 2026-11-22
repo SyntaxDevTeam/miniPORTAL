@@ -4,18 +4,14 @@ declare(strict_types=1);
 
 namespace SyntaxDevTeam\Cms\Modules\MediaLibrary;
 
-use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
-use SyntaxDevTeam\Cms\Core\ModuleInterface;
-use SyntaxDevTeam\Cms\Core\Request;
-use SyntaxDevTeam\Cms\Core\Router;
-use SyntaxDevTeam\Cms\Core\Security;
-use SyntaxDevTeam\Cms\Core\ThemeInterface;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
-use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
+use SyntaxDevTeam\Cms\Core\{AdminMenuRegistry, AssetManagerThemeInterface, ModuleInterface, Request, Router, Security, ThemeInterface};
+use SyntaxDevTeam\Cms\Modules\CoreAuth\{AuditLogService, AuthService, User};
 
 final class MediaLibraryModule implements ModuleInterface
 {
+    public const MAX_FILES = 20;
+    public const MAX_BATCH_BYTES = 47185920;
+
     public function __construct(
         private readonly ThemeInterface $theme,
         private readonly AdminMenuRegistry $menu,
@@ -24,11 +20,10 @@ final class MediaLibraryModule implements ModuleInterface
         private readonly AuthService $auth,
         private readonly Security $security,
         private readonly AuditLogService $audit,
-    ) {
-    }
+    ) {}
 
     public function id(): string { return 'media_library'; }
-    public function version(): string { return '1.2.0'; }
+    public function version(): string { return '2.1.1'; }
     public function dependencies(): array { return ['core_auth']; }
     public function isProtected(): bool { return false; }
     public function requiredPermissions(): array { return ['media.view', 'media.manage']; }
@@ -40,125 +35,197 @@ final class MediaLibraryModule implements ModuleInterface
 
     public function registerRoutes(Router $router): void
     {
-        $router->get('/admin/media', fn (Request $request) => $this->guard($request, 'media.view', fn () => $this->renderList($request)));
-        $router->post('/admin/media/upload', fn (Request $request) => $this->guard($request, 'media.manage', fn () => $this->upload($request)));
-        $router->post('/admin/media/richtext-upload', fn (Request $request) => $this->uploadForRichText($request));
-        $router->get('/admin/media/edit', fn (Request $request) => $this->guard($request, 'media.manage', fn () => $this->renderEdit($request)));
-        $router->post('/admin/media/edit', fn (Request $request) => $this->guard($request, 'media.manage', fn () => $this->update($request)));
-        $router->post('/admin/media/delete', fn (Request $request) => $this->guard($request, 'media.manage', fn () => $this->delete($request)));
+        $router->get('/admin/media', fn (Request $r) => $this->guard($r, 'media.view', fn () => $this->renderList($r)));
+        $router->post('/admin/media/upload', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->upload($r)));
+        $router->post('/admin/media/upload-item', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->upload($r, true), true));
+        $router->post('/admin/media/richtext-upload', fn (Request $r) => $this->uploadForRichText($r));
+        $router->get('/admin/media/edit', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->renderEdit($r)));
+        $router->post('/admin/media/edit', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->update($r)));
+        $router->post('/admin/media/delete', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->delete($r)));
+        $router->post('/admin/media/bulk', fn (Request $r) => $this->guard($r, 'media.manage', fn () => $this->bulk($r)));
+    }
+
+    private function query(Request $request): MediaLibraryQuery
+    {
+        $preferred = $_SESSION['_media_view'] ?? 'thumbnails';
+        if (!isset($_SESSION['_media_view']) && preg_match('/(?:^|;\s*)miniportal_media_view=(list|thumbnails)(?:;|$)/', $request->header('Cookie'), $match)) {
+            $preferred = $match[1];
+        }
+        $query = MediaLibraryQuery::fromRequest($request, is_string($preferred) ? $preferred : 'thumbnails');
+        if ($request->method() === 'GET' && in_array($request->queryString('view'), ['list', 'thumbnails'], true)) {
+            $_SESSION['_media_view'] = $query->values['view'];
+            setcookie('miniportal_media_view', $query->values['view'], ['expires' => time() + 31536000, 'path' => '/', 'secure' => $request->isSecure(), 'httponly' => true, 'samesite' => 'Lax']);
+        }
+        return $query;
     }
 
     private function renderList(Request $request, string $message = '', string $variant = 'info'): void
     {
-        $category = $request->queryString('category');
-        $view = $request->queryString('view') === 'thumbnails' ? 'thumbnails' : 'list';
-        $assets = $this->assets->all($category);
-        $this->startAdminPage('Biblioteka grafik', 'Stałe obrazy niezależne od aktywnego motywu: ikony, logo, zrzuty i grafiki prezentacyjne.');
-        if ($message !== '') {
-            $this->theme->render_alert($message, $variant);
+        $query = $this->query($request);
+        $result = $this->assets->search($query);
+        $query = new MediaLibraryQuery(array_replace($query->values, ['page' => $result['page']]));
+        if ($message === '' && isset($_SESSION['_media_flash'])) {
+            [$message, $variant] = $_SESSION['_media_flash'];
+            unset($_SESSION['_media_flash']);
         }
+        $model = $this->model($query) + $result + ['summary' => $this->assets->summary(), 'mode' => 'browse'];
+        $model['assets'] = array_map(fn (MediaAsset $asset): array => $this->assetModel($asset, $query), $result['assets']);
+        $this->render($model, $message, $variant);
+    }
 
-        $this->theme->start_admin_panel('Dodaj grafikę', 'PNG, JPG, WEBP albo GIF do 5 MB');
-        $this->theme->render_form('index.php?route=/admin/media/upload', [
-            ['name' => 'asset', 'label' => 'Plik grafiki', 'type' => 'file', 'accept' => 'image/png,image/jpeg,image/webp,image/gif', 'required' => true],
-            ['name' => 'title', 'label' => 'Tytuł', 'value' => '', 'maxlength' => 180],
-            ['name' => 'category', 'label' => 'Kategoria', 'type' => 'select', 'value' => 'other', 'options' => MediaAssetRepository::CATEGORIES],
-            ['name' => 'alt_text', 'label' => 'Tekst alternatywny', 'value' => '', 'maxlength' => 255],
-        ], 'Dodaj grafikę', $this->security->csrfToken());
-        $this->theme->end_admin_panel();
+    private function model(MediaLibraryQuery $query): array
+    {
+        $user = $this->auth->user();
+        return [
+            'state' => $query->values,
+            'categories' => MediaAssetRepository::CATEGORIES,
+            'types' => MediaLibraryQuery::TYPES,
+            'sorts' => MediaLibraryQuery::SORTS,
+            'token' => $this->security->csrfToken(),
+            'can_manage' => $user !== null && $this->auth->rolePreview() === null && (in_array('*', $user->permissions, true) || in_array('media.manage', $user->permissions, true)),
+            'url' => $query->url(),
+            'upload_url' => $query->url('/admin/media/upload'),
+            'upload_item_url' => $query->url('/admin/media/upload-item'),
+            'bulk_url' => $query->url('/admin/media/bulk'),
+            'save_url' => $query->url('/admin/media/edit'),
+            'reset_url' => (new MediaLibraryQuery(['view' => $query->values['view']]))->url(),
+            'view_urls' => ['list' => $query->url(changes: ['view' => 'list']), 'thumbnails' => $query->url(changes: ['view' => 'thumbnails'])],
+            'previous_url' => $query->url(changes: ['page' => max(1, $query->values['page'] - 1)]),
+            'next_url' => $query->url(changes: ['page' => $query->values['page'] + 1]),
+        ];
+    }
 
-        $this->theme->start_admin_panel('Pliki graficzne', count($assets) . ' pozycji');
-        echo '<nav class="media-view-switch" aria-label="Tryb widoku plików graficznych">';
-        echo '<a class="btn btn-sm ' . ($view === 'list' ? 'btn-primary' : 'btn-outline-light') . '" href="' . $this->escape($this->viewUrl('list', $category)) . '"' . ($view === 'list' ? ' aria-current="page"' : '') . '>Lista</a>';
-        echo '<a class="btn btn-sm ' . ($view === 'thumbnails' ? 'btn-primary' : 'btn-outline-light') . '" href="' . $this->escape($this->viewUrl('thumbnails', $category)) . '"' . ($view === 'thumbnails' ? ' aria-current="page"' : '') . '>Miniatury</a>';
-        echo '</nav>';
-        if ($assets === []) {
-            $this->theme->render_alert('Brak grafik w bibliotece dla wybranego filtra.', 'info');
-        } elseif ($view === 'thumbnails') {
-            $this->renderThumbnailGrid($assets);
+    private function assetModel(MediaAsset $asset, MediaLibraryQuery $query): array
+    {
+        return [
+            'id' => $asset->id, 'title' => $asset->title, 'category' => $asset->category,
+            'category_label' => MediaAssetRepository::CATEGORIES[$asset->category] ?? $asset->category,
+            'alt_text' => $asset->altText, 'original_name' => $asset->originalName,
+            'url' => $asset->publicPath, 'mime' => $asset->mimeType,
+            'format' => MediaLibraryQuery::TYPES[$asset->mimeType] ?? $asset->mimeType,
+            'size' => $this->formatBytes($asset->fileSize),
+            'dimensions' => $asset->width !== null && $asset->height !== null ? $asset->width . ' × ' . $asset->height . ' px' : ($asset->mimeType === 'image/svg+xml' ? 'SVG · skalowalny' : 'Brak wymiarów'),
+            'created_at' => $asset->createdAt,
+            'edit_url' => $query->url('/admin/media/edit', ['id' => $asset->id]),
+            'delete_url' => $query->url('/admin/media/delete'),
+        ];
+    }
+
+    private function render(array $model, string $message = '', string $variant = 'info'): void
+    {
+        $this->startAdminPage($model['mode'] === 'browse' ? 'Biblioteka grafik' : 'Edytuj grafiki', 'Manager 2.0 · Wgraj pliki, uporządkuj bibliotekę i wykorzystaj obrazy na stronie.');
+        if ($message !== '') $this->theme->render_alert($message, $variant);
+        if ($this->theme instanceof AssetManagerThemeInterface) {
+            $this->theme->render_asset_manager($model);
         } else {
-            $this->theme->render_admin_action_table(['Tytuł', 'Kategoria', 'Adres', 'Rozmiar', 'Wymiary'], array_map(
-                fn (MediaAsset $asset): array => [
-                    'cells' => [
-                        $asset->title,
-                        MediaAssetRepository::CATEGORIES[$asset->category] ?? $asset->category,
-                        $asset->publicPath,
-                        $this->formatBytes($asset->fileSize),
-                        $asset->width !== null && $asset->height !== null ? $asset->width . ' x ' . $asset->height : 'Brak danych',
-                    ],
-                    'actions' => [
-                        ['label' => 'Otwórz', 'href' => $asset->publicPath, 'variant' => 'outline-light'],
-                        ['label' => 'Edytuj', 'href' => 'index.php?route=/admin/media/edit&id=' . $asset->id, 'variant' => 'primary'],
-                        ['label' => 'Usuń', 'action' => 'index.php?route=/admin/media/delete', 'fields' => ['id' => $asset->id], 'variant' => 'danger', 'confirm' => 'Usunąć grafikę z biblioteki i dysku?'],
-                    ],
-                ],
-                $assets
-            ), $this->security->csrfToken());
+            // Older third-party themes retain basic access through ThemeInterface.
+            $this->theme->render_alert('Pełny manager grafik wymaga motywu obsługującego AssetManagerThemeInterface.', 'info');
+            if ($model['mode'] === 'browse') {
+                if ($model['can_manage']) {
+                    $this->theme->render_form($model['upload_url'], [
+                        ['name' => 'asset', 'label' => 'Grafika (PNG, JPG, WEBP, GIF, SVG do 5 MiB)', 'type' => 'file', 'accept' => 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg', 'required' => true],
+                        ['name' => 'category', 'label' => 'Kategoria', 'type' => 'select', 'value' => 'other', 'options' => $model['categories']],
+                    ], 'Dodaj grafikę', $model['token']);
+                }
+                $this->theme->render_admin_action_table(['Tytuł', 'Adres'], array_map(static function (array $asset) use ($model): array {
+                    $actions = [['label' => 'Otwórz', 'href' => $asset['url']]];
+                    if ($model['can_manage']) {
+                        $actions[] = ['label' => 'Edytuj', 'href' => $asset['edit_url']];
+                        $actions[] = ['label' => 'Usuń', 'action' => $asset['delete_url'], 'fields' => ['id' => $asset['id']], 'variant' => 'danger', 'confirm' => 'Usunąć grafikę z biblioteki i dysku?'];
+                    }
+                    return ['cells' => [$asset['title'], $asset['url']], 'actions' => $actions];
+                }, $model['assets']), $model['token']);
+            } elseif ($model['can_manage']) {
+                foreach ($model['assets'] as $asset) {
+                    $this->theme->render_form($model['save_url'], [
+                        ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => $asset['id']],
+                        ['name' => 'title', 'label' => 'Nazwa', 'value' => $asset['title'], 'required' => true, 'maxlength' => 180],
+                        ['name' => 'category', 'label' => 'Kategoria', 'type' => 'select', 'value' => $asset['category'], 'options' => $model['categories']],
+                        ['name' => 'alt_text', 'label' => 'Tekst alternatywny', 'value' => $asset['alt_text'], 'maxlength' => 255],
+                    ], 'Zapisz grafikę', $model['token']);
+                }
+            }
         }
-        $this->theme->end_admin_panel();
-        $this->endAdminPage();
+        $this->theme->end_admin_content();
+        $this->theme->end_admin_page();
     }
 
-    /** @param list<MediaAsset> $assets */
-    private function renderThumbnailGrid(array $assets): void
+    private function upload(Request $request, bool $json = false): void
     {
-        echo '<div class="media-thumbnail-grid">';
-        foreach ($assets as $asset) {
-            $dimensions = $asset->width !== null && $asset->height !== null
-                ? $asset->width . ' × ' . $asset->height
-                : 'Brak danych o wymiarach';
-            echo '<article class="media-thumbnail-card">';
-            echo '<a class="media-thumbnail-preview" href="' . $this->escape($asset->publicPath) . '" target="_blank" rel="noopener">';
-            echo '<img src="' . $this->escape($asset->publicPath) . '" alt="' . $this->escape($asset->altText) . '" loading="lazy" decoding="async">';
-            echo '<span class="visually-hidden">Otwórz grafikę ' . $this->escape($asset->title) . '</span>';
-            echo '</a>';
-            echo '<div class="media-thumbnail-body">';
-            echo '<h3 title="' . $this->escape($asset->title) . '">' . $this->escape($asset->title) . '</h3>';
-            echo '<p>' . $this->escape(MediaAssetRepository::CATEGORIES[$asset->category] ?? $asset->category) . '</p>';
-            echo '<dl><div><dt>Rozmiar</dt><dd>' . $this->escape($this->formatBytes($asset->fileSize)) . '</dd></div>';
-            echo '<div><dt>Wymiary</dt><dd>' . $this->escape($dimensions) . '</dd></div></dl>';
-            echo '<div class="media-thumbnail-actions">';
-            echo '<a class="btn btn-sm btn-outline-light" href="' . $this->escape($asset->publicPath) . '" target="_blank" rel="noopener">Otwórz</a>';
-            echo '<a class="btn btn-sm btn-primary" href="index.php?route=/admin/media/edit&amp;id=' . $asset->id . '">Edytuj</a>';
-            echo '<form action="index.php?route=/admin/media/delete" method="post" onsubmit="return confirm(\'Usunąć grafikę z biblioteki i dysku?\')">';
-            $this->theme->csrf_field($this->security->csrfToken());
-            echo '<input type="hidden" name="id" value="' . $asset->id . '">';
-            echo '<button class="btn btn-sm btn-danger" type="submit">Usuń</button>';
-            echo '</form>';
-            echo '</div></div></article>';
+        if (!$this->validCsrf($request, 'media_upload', $json)) return;
+        $files = $request->files('assets');
+        if ($files === []) $files = $request->files('asset');
+        if ($files === [] || count($files) > ($json ? 1 : self::MAX_FILES) || array_sum(array_column($files, 'size')) > self::MAX_BATCH_BYTES) {
+            $message = 'Wybierz do 20 grafik, maksymalnie 5 MiB na plik i 45 MiB na zestaw.';
+            if ($json) $this->json(['ok' => false, 'message' => $message], 422);
+            else $this->renderList($request, $message, 'warning');
+            return;
         }
-        echo '</div>';
+        $key = $request->postString('upload_key');
+        $receipt = $this->auth->user()?->id . ':' . $key;
+        $remember = $json && preg_match('/^[a-f0-9]{32}$/D', $key) === 1;
+        if ($remember && isset($_SESSION['_media_uploads'][$receipt])) {
+            $id = (int) $_SESSION['_media_uploads'][$receipt];
+            $asset = $this->assets->find($id);
+            if ($asset !== null) {
+                $this->json(['ok' => true, 'id' => $id, 'url' => $asset->publicPath, 'message' => 'Plik został już dodany.']);
+                return;
+            }
+        }
+        $uploaded = []; $errors = [];
+        foreach ($files as $file) {
+            try {
+                $id = $this->storeAsset($file, $request, $this->auth->user()?->id);
+                $uploaded[] = $id;
+                if ($remember) {
+                    $_SESSION['_media_uploads'][$receipt] = $id;
+                    $_SESSION['_media_uploads'] = array_slice($_SESSION['_media_uploads'], -100, null, true);
+                }
+                $this->audit->record($request, 'media_upload', 'success', 'media:' . $id, $this->auth->user()?->id);
+            } catch (\Throwable $exception) {
+                $errors[] = mb_substr($file['name'], 0, 100) . ': ' . $this->uploadError($exception);
+                $this->audit->record($request, 'media_upload', 'failed', 'media', $this->auth->user()?->id);
+            }
+        }
+        if ($json) {
+            $asset = $errors === [] ? $this->assets->find($uploaded[0]) : null;
+            $this->json(['ok' => $errors === [], 'id' => $uploaded[0] ?? null, 'url' => $asset?->publicPath, 'message' => $errors[0] ?? 'Dodano do biblioteki.'], $errors === [] ? 201 : 422);
+            return;
+        }
+        $message = 'Dodano grafik: ' . count($uploaded) . '.' . ($errors !== [] ? ' Nie dodano: ' . implode(' · ', $errors) : ' Nazwy i opisy możesz teraz uzupełnić zbiorczo.');
+        $this->redirect($request, $message, $errors === [] ? 'success' : 'warning');
     }
 
-    private function upload(Request $request): void
+    private function storeAsset(array $file, Request $request, ?int $actorId, ?string $category = null): int
     {
-        $actor = $this->auth->user();
-        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
-            $this->audit->record($request, 'media_upload', 'invalid_csrf', 'media', $actor?->id);
-            $this->renderList($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
-            return;
-        }
-        $file = $request->file('asset');
-        if ($file === null) {
-            $this->renderList($request, 'Wybierz plik grafiki.', 'warning');
-            return;
-        }
+        $stored = $this->storage->store($file);
         try {
-            $stored = $this->storage->store($file);
             $id = $this->assets->create($stored + [
-                'title' => $request->postString('title'),
-                'category' => $request->postString('category'),
-                'alt_text' => $request->postString('alt_text'),
-                'created_by' => $actor?->id,
+                'title' => $request->postString('title'), 'category' => $category ?? $request->postString('category', 'other'),
+                'alt_text' => $request->postString('alt_text'), 'created_by' => $actorId,
             ]);
-            $this->audit->record($request, 'media_upload', 'success', 'media:' . $id, $actor?->id);
-            $this->renderList($request, 'Grafika została dodana do biblioteki.', 'success');
+            if ($id < 1) throw new \RuntimeException('Nie zapisano rekordu grafiki.');
+            return $id;
         } catch (\Throwable $exception) {
-            $this->audit->record($request, 'media_upload', 'failed', 'media', $actor?->id);
-            $this->renderList($request, 'Nie udało się dodać grafiki: ' . $exception->getMessage(), 'danger');
+            $this->storage->delete($stored['stored_name']);
+            throw $exception;
         }
     }
 
+    private function uploadError(\Throwable $exception): string
+    {
+        // Only known validation errors may be exposed; database/provider details stay private.
+        $message = $exception->getMessage();
+        return in_array($message, [
+            'Nie wybrano poprawnego pliku grafiki.', 'Plik grafiki jest pusty albo przekracza limit 5 MB.',
+            'Dozwolone są tylko PNG, JPG, WEBP, GIF i SVG.', 'Plik nie zawiera poprawnego obrazu.',
+            'Nieprawidłowy plik SVG. Wymagany jest dokument XML w UTF-8.',
+            'SVG nie może zawierać definicji encji ani wewnętrznego DTD.',
+            'Plik nie zawiera poprawnego dokumentu SVG.',
+            'SVG nie zawiera obsługiwanej grafiki statycznej.',
+            'SVG jest zbyt złożony. Limit to 10000 elementów i 64 poziomy.',
+        ], true) ? $message : 'Nie udało się zapisać grafiki. Spróbuj ponownie lub sprawdź konfigurację magazynu i kompresji.';
+    }
     private function uploadForRichText(Request $request): void
     {
         $actor = $this->auth->user();
@@ -169,6 +236,10 @@ final class MediaLibraryModule implements ModuleInterface
         if (!in_array('*', $actor->permissions, true) && !in_array('media.manage', $actor->permissions, true)) {
             $this->audit->record($request, 'media_richtext_upload', 'denied', 'media', $actor->id);
             $this->json(['ok' => false, 'message' => 'Brak uprawnień do dodawania grafik.'], 403);
+            return;
+        }
+        if ($this->auth->rolePreviewBlocks($request)) {
+            $this->json(['ok' => false, 'message' => 'Podgląd roli jest tylko do odczytu.'], 403);
             return;
         }
         if (!$this->security->validateCsrfToken($request->postString('_token'))) {
@@ -184,102 +255,159 @@ final class MediaLibraryModule implements ModuleInterface
         }
 
         try {
-            $stored = $this->storage->store($file);
-            $id = $this->assets->create($stored + [
-                'title' => $request->postString('title'),
-                'category' => 'content',
-                'alt_text' => $request->postString('alt_text'),
-                'created_by' => $actor->id,
-            ]);
+            $id = $this->storeAsset($file, $request, $actor->id, 'content');
             $asset = $this->assets->find($id);
             $this->audit->record($request, 'media_richtext_upload', 'success', 'media:' . $id, $actor->id);
             $this->json([
                 'ok' => true,
-                'url' => $asset?->publicPath ?? $stored['public_path'],
+                'url' => $asset?->publicPath ?? '',
                 'alt' => $asset?->altText ?? $request->postString('alt_text'),
             ]);
         } catch (\Throwable $exception) {
             $this->audit->record($request, 'media_richtext_upload', 'failed', 'media', $actor->id);
-            $this->json(['ok' => false, 'message' => $exception->getMessage()], 422);
+            $this->json(['ok' => false, 'message' => $this->uploadError($exception)], 422);
         }
     }
 
+
     private function renderEdit(Request $request, string $message = '', string $variant = 'info'): void
     {
-        $asset = $this->assets->find($request->queryInt('id', 0) ?? 0);
-        if (!$asset instanceof MediaAsset) {
-            $this->renderList($request, 'Nie znaleziono grafiki.', 'danger');
+        $id = $request->postInt('id') ?? $request->queryInt('id', 0) ?? 0;
+        $asset = $this->assets->find($id);
+        if ($asset === null) {
+            $this->renderList($request, 'Nie znaleziono grafiki.', 'warning');
             return;
         }
-        $this->startAdminPage('Edytuj grafikę', 'Aktualizacja metadanych pliku w bibliotece.');
-        if ($message !== '') {
-            $this->theme->render_alert($message, $variant);
+        $query = $this->query($request);
+        $item = $this->assetModel($asset, $query);
+        if ($request->method() === 'POST' && $message !== '') {
+            $item = array_replace($item, ['title' => $request->postString('title'), 'alt_text' => $request->postString('alt_text'), 'category' => $request->postString('category')]);
         }
-        $this->theme->render_detail_card($asset->title, 'Podgląd', [
-            ['label' => 'Adres publiczny', 'value' => $asset->publicPath],
-            ['label' => 'MIME', 'value' => $asset->mimeType],
-            ['label' => 'Rozmiar', 'value' => $this->formatBytes($asset->fileSize)],
-        ], [], [], [
-            ['label' => 'Otwórz grafikę', 'href' => $asset->publicPath, 'variant' => 'outline-light'],
-        ]);
-        $this->theme->start_admin_panel('Metadane', 'Opis i kategoria');
-        $this->theme->render_form('index.php?route=/admin/media/edit', [
-            ['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $asset->id],
-            ['name' => 'title', 'label' => 'Tytuł', 'value' => $asset->title, 'required' => true, 'maxlength' => 180],
-            ['name' => 'category', 'label' => 'Kategoria', 'type' => 'select', 'value' => $asset->category, 'options' => MediaAssetRepository::CATEGORIES],
-            ['name' => 'alt_text', 'label' => 'Tekst alternatywny', 'value' => $asset->altText, 'maxlength' => 255],
-        ], 'Zapisz grafikę', $this->security->csrfToken());
-        $this->theme->end_admin_panel();
-        $this->endAdminPage();
+        $this->render($this->model($query) + ['mode' => 'edit', 'assets' => [$item]], $message, $variant);
     }
 
     private function update(Request $request): void
     {
-        $actor = $this->auth->user();
-        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
-            $this->audit->record($request, 'media_update', 'invalid_csrf', 'media', $actor?->id);
-            $this->renderEdit($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+        if (!$this->validCsrf($request, 'media_update')) return;
+        $id = $request->postInt('id', 0) ?? 0;
+        try {
+            $data = $this->metadata($request->postStrings());
+            $this->assets->updateMany([$id => $data]);
+        } catch (\Throwable $exception) {
+            $this->renderEdit($request, $exception instanceof \InvalidArgumentException ? $exception->getMessage() : 'Nie udało się zapisać grafiki. Odśwież bibliotekę i spróbuj ponownie.', 'danger');
             return;
         }
-        $id = $request->postInt('id', 0) ?? 0;
-        $ok = $this->assets->update($id, [
-            'title' => $request->postString('title'),
-            'category' => $request->postString('category'),
-            'alt_text' => $request->postString('alt_text'),
-        ]);
-        $this->audit->record($request, 'media_update', $ok ? 'success' : 'failed', 'media:' . $id, $actor?->id);
-        $this->renderList($request, $ok ? 'Grafika została zapisana.' : 'Nie udało się zapisać grafiki.', $ok ? 'success' : 'danger');
+        $this->audit->record($request, 'media_update', 'success', 'media:' . $id, $this->auth->user()?->id);
+        $this->redirect($request, 'Grafika została zapisana.');
+    }
+
+    private function metadata(array $data): array
+    {
+        foreach (['title', 'category', 'alt_text'] as $key) {
+            if (!isset($data[$key]) || !is_string($data[$key])) throw new \InvalidArgumentException('Uzupełnij poprawne metadane grafik.');
+        }
+        $title = trim($data['title']);
+        if ($title === '' || mb_strlen($title) > 180 || mb_strlen($data['alt_text']) > 255 || !isset(MediaAssetRepository::CATEGORIES[$data['category']])) {
+            throw new \InvalidArgumentException('Podaj nazwę do 180 znaków, kategorię i opis alternatywny do 255 znaków.');
+        }
+        return ['title' => $title, 'category' => $data['category'], 'alt_text' => trim($data['alt_text'])];
     }
 
     private function delete(Request $request): void
     {
-        $actor = $this->auth->user();
-        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
-            $this->audit->record($request, 'media_delete', 'invalid_csrf', 'media', $actor?->id);
-            $this->renderList($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
-            return;
-        }
+        if (!$this->validCsrf($request, 'media_delete')) return;
         $id = $request->postInt('id', 0) ?? 0;
-        $asset = $this->assets->delete($id);
-        if ($asset instanceof MediaAsset) {
-            $this->storage->delete($asset->storedName);
-        }
-        $this->audit->record($request, 'media_delete', $asset instanceof MediaAsset ? 'success' : 'failed', 'media:' . $id, $actor?->id);
-        $this->renderList($request, $asset instanceof MediaAsset ? 'Grafika została usunięta.' : 'Nie udało się usunąć grafiki.', $asset instanceof MediaAsset ? 'success' : 'danger');
+        $this->removeAsset($id, $request);
+        $this->redirect($request, 'Zakończono usuwanie grafiki.');
     }
 
-    private function guard(Request $request, string $permission, callable $handler): void
+    private function removeAsset(int $id, Request $request): bool
+    {
+        $asset = $this->assets->delete($id);
+        if ($asset !== null) $this->storage->delete($asset->storedName);
+        $this->audit->record($request, 'media_delete', $asset !== null ? 'success' : 'failed', 'media:' . $id, $this->auth->user()?->id);
+        return $asset !== null;
+    }
+
+    private function bulk(Request $request): void
+    {
+        if (!$this->validCsrf($request, 'media_bulk')) return;
+        $ids = $request->postStringList('ids');
+        $action = $request->postString('operation');
+        $items = [];
+        try {
+            if ($ids === [] || count($ids) > 48) throw new \InvalidArgumentException('Zaznacz od 1 do 48 grafik na bieżącej stronie.');
+            foreach ($ids as $id) {
+                if (!ctype_digit($id) || (int) $id < 1 || ($asset = $this->assets->find((int) $id)) === null) {
+                    throw new \InvalidArgumentException('Jedna z grafik już nie istnieje. Odśwież bibliotekę.');
+                }
+                $items[$asset->id] = $asset;
+            }
+            $query = $this->query($request);
+            if ($action === 'edit') {
+                $this->render($this->model($query) + ['mode' => 'batch-edit', 'assets' => array_map(fn (MediaAsset $asset): array => $this->assetModel($asset, $query), array_values($items))]);
+                return;
+            }
+            if ($action === 'delete') {
+                if (!$request->postBool('confirm_delete')) throw new \InvalidArgumentException('Potwierdź usunięcie zaznaczonych grafik. Pliki mogą być używane na stronie.');
+                $deleted = 0;
+                foreach ($items as $asset) if ($this->removeAsset($asset->id, $request)) $deleted++;
+                $this->redirect($request, 'Usunięto grafik: ' . $deleted . '.');
+                return;
+            }
+            $changes = [];
+            $rows = $request->postArray('metadata');
+            foreach ($items as $id => $asset) {
+                $changes[$id] = match ($action) {
+                    'save' => $this->metadata(is_array($rows[$id] ?? null) ? $rows[$id] : []),
+                    'category' => $this->metadata(['title' => $asset->title, 'alt_text' => $asset->altText, 'category' => $request->postString('category')]),
+                    default => throw new \InvalidArgumentException('Wybierz operację zbiorczą.'),
+                };
+            }
+            $this->assets->updateMany($changes);
+            foreach (array_keys($changes) as $id) $this->audit->record($request, 'media_update', 'success', 'media:' . $id, $this->auth->user()?->id);
+            $this->redirect($request, 'Zapisano grafik: ' . count($changes) . '.');
+        } catch (\Throwable $exception) {
+            $message = $exception instanceof \InvalidArgumentException ? $exception->getMessage() : 'Nie udało się zakończyć operacji. Odśwież bibliotekę i sprawdź stan grafik.';
+            if ($action === 'save' && $items !== []) {
+                $query = $this->query($request); $rows = $request->postArray('metadata'); $assets = [];
+                foreach ($items as $id => $asset) {
+                    $item = $this->assetModel($asset, $query);
+                    foreach (['title', 'category', 'alt_text'] as $key) if (is_string($rows[$id][$key] ?? null)) $item[$key] = $rows[$id][$key];
+                    $assets[] = $item;
+                }
+                $this->render($this->model($query) + ['mode' => 'batch-edit', 'assets' => $assets], $message, 'danger');
+            } else $this->renderList($request, $message, 'warning');
+        }
+    }
+
+    private function validCsrf(Request $request, string $event, bool $json = false): bool
+    {
+        if ($this->security->validateCsrfToken($request->postString('_token'))) return true;
+        $this->audit->record($request, $event, 'invalid_csrf', 'media', $this->auth->user()?->id);
+        http_response_code(419);
+        if ($json) $this->json(['ok' => false, 'message' => 'Token CSRF wygasł. Odśwież stronę.'], 419);
+        else $this->renderList($request, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+        return false;
+    }
+
+    private function redirect(Request $request, string $message, string $variant = 'success'): void
+    {
+        $_SESSION['_media_flash'] = [$message, $variant];
+        header('Location: ' . $this->query($request)->url(), true, 303);
+    }
+
+    private function guard(Request $request, string $permission, callable $handler, bool $json = false): void
     {
         $user = $this->auth->user();
-        if (!$user instanceof User) {
-            http_response_code(401);
-            $this->theme->render_admin_access_state(401, 'Wymagane logowanie', 'Biblioteka grafik wymaga aktywnej sesji.', 'index.php?route=/admin/login', 'Przejdź do logowania');
-            return;
-        }
-        if (!in_array('*', $user->permissions, true) && !in_array($permission, $user->permissions, true)) {
-            $this->audit->record($request, 'admin_access', 'denied', $permission, $user->id);
-            http_response_code(403);
-            $this->theme->render_admin_access_state(403, 'Brak uprawnień', 'Twoje konto nie ma uprawnienia: ' . $permission, 'index.php?route=/admin', 'Wróć do panelu');
+        $status = !$user instanceof User ? 401 : ((!in_array('*', $user->permissions, true) && !in_array($permission, $user->permissions, true)) || $this->auth->rolePreviewBlocks($request) ? 403 : 200);
+        if ($status !== 200) {
+            $this->audit->record($request, 'admin_access', 'denied', $permission, $user?->id);
+            if ($json) $this->json(['ok' => false, 'message' => $status === 401 ? 'Wymagane logowanie.' : 'Brak uprawnień lub aktywny podgląd roli.'], $status);
+            else {
+                http_response_code($status);
+                $this->theme->render_admin_access_state($status, 'Brak dostępu', 'Biblioteka grafik wymaga aktywnej sesji i odpowiednich uprawnień.', 'index.php?route=/admin', 'Wróć do panelu');
+            }
             return;
         }
         $handler();
@@ -289,53 +417,18 @@ final class MediaLibraryModule implements ModuleInterface
     {
         $user = $this->auth->user();
         $this->theme->start_admin_page($title, $this->menu->visibleFor($user?->permissions ?? []), '/admin/media', [
-            'name' => $user?->displayName ?? 'Gość',
-            'role' => $user?->primaryRole() ?? 'Gość',
-            'initials' => $user?->initials() ?? 'G',
-            'avatar_url' => $user?->avatarUrl ?? '',
-            'logout_action' => 'index.php?route=/admin/logout',
-            'logout_token' => $this->security->csrfToken(),
+            'name' => $user?->displayName ?? 'Gość', 'role' => $user?->primaryRole() ?? 'Gość',
+            'initials' => $user?->initials() ?? 'G', 'avatar_url' => $user?->avatarUrl ?? '',
+            'logout_action' => 'index.php?route=/admin/logout', 'logout_token' => $this->security->csrfToken(),
         ]);
-        $this->theme->start_admin_content($title, $lead, [
-            ['label' => 'Panel', 'href' => 'index.php?route=/admin'],
-            ['label' => 'Biblioteka grafik', 'href' => 'index.php?route=/admin/media'],
-        ]);
-    }
-
-    private function endAdminPage(): void
-    {
-        $this->theme->end_admin_content();
-        $this->theme->end_admin_page();
+        $this->theme->start_admin_content($title, $lead, [['label' => 'Panel', 'href' => 'index.php?route=/admin'], ['label' => 'Biblioteka grafik', 'href' => 'index.php?route=/admin/media']]);
     }
 
     private function formatBytes(int $bytes): string
     {
-        if ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' MB';
-        }
-        if ($bytes >= 1024) {
-            return round($bytes / 1024, 1) . ' KB';
-        }
-
-        return $bytes . ' B';
+        return $bytes >= 1048576 ? round($bytes / 1048576, 2) . ' MiB' : ($bytes >= 1024 ? round($bytes / 1024, 1) . ' KiB' : $bytes . ' B');
     }
 
-    private function viewUrl(string $view, string $category): string
-    {
-        $query = ['view' => $view];
-        if ($category !== '') {
-            $query['category'] = $category;
-        }
-
-        return '/admin/media?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-    }
-
-    private function escape(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-    }
-
-    /** @param array<string, mixed> $payload */
     private function json(array $payload, int $status = 200): void
     {
         http_response_code($status);

@@ -23,7 +23,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\AuditLogService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\AuthService;
 use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 
-final class TeamModule implements ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
+final class TeamModule implements \SyntaxDevTeam\Cms\Core\HookProviderInterface, ModuleInterface, PublicNavigationProviderInterface, AdminSearchProviderInterface, DashboardProviderInterface, SeoProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -36,6 +36,18 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
     ) {
     }
 
+    public function registerHooks(\SyntaxDevTeam\Cms\Core\HookRegistry $hooks): void
+    {
+        $hooks->addFilter('homepage.contact_people', function (array $people): array {
+            foreach ($this->team->visible() as $member) {
+                $people['team:' . $member->id] = ['source' => 'Team',
+                    'name' => $member->publicName !== '' ? $member->publicName : $member->displayName,
+                    'email' => $member->contactEmail, 'url' => '/team/member/' . rawurlencode($member->slug)];
+            }
+            return $people;
+        });
+    }
+
     public function id(): string
     {
         return 'team';
@@ -43,7 +55,7 @@ final class TeamModule implements ModuleInterface, PublicNavigationProviderInter
 
     public function version(): string
     {
-        return '1.3.1';
+        return '1.4.0';
     }
 
     public function dependencies(): array

@@ -37,6 +37,32 @@ final class HomepageSectionItemRepository
         return array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** Resolve the public Discord shortcut from the visible contact channel. */
+    public function publicDiscordInvite(): ?string
+    {
+        $statement = $this->database->query(
+            "SELECT i.button_url FROM homepage_section_items i "
+            . "JOIN homepage_sections s ON s.id = i.section_id "
+            . "WHERE s.is_visible = 1 AND s.layout = 'contact' AND i.is_visible = 1 "
+            . "AND i.item_kind = 'channel' AND i.icon_key = 'discord' "
+            . 'ORDER BY s.sort_order ASC, s.id ASC, i.sort_order ASC, i.id ASC'
+        );
+        foreach ($statement?->fetchAll(\PDO::FETCH_COLUMN) ?? [] as $urls) {
+            foreach (preg_split('/\R/u', (string) $urls) ?: [] as $url) {
+                $url = trim($url);
+                if (preg_match('~^https://(?:discord\.gg/|discord\.com/invite/)[A-Za-z0-9-]{2,100}/?$~D', $url) === 1) {
+                    return $url;
+                }
+            }
+        }
+        return null;
+    }
+
+    public function hasLinkedContacts(): bool
+    {
+        return (bool) $this->database->query("SELECT 1 FROM homepage_section_items i JOIN homepage_sections s ON s.id = i.section_id WHERE i.contact_ref <> '' AND i.is_visible = 1 AND s.is_visible = 1 LIMIT 1")?->fetchColumn();
+    }
+
     public function find(int $id): ?HomepageSectionItem
     {
         $statement = $this->database->query(
@@ -168,6 +194,8 @@ final class HomepageSectionItemRepository
             (string) $row['width'],
             (int) $row['sort_order'],
             (bool) $row['is_visible'],
+            (string) ($row['logo_url'] ?? ''),
+            (string) ($row['contact_ref'] ?? ''),
         );
     }
 }

@@ -9,9 +9,26 @@ use SyntaxDevTeam\Cms\Core\AdminCatalogComponentsTrait;
 use SyntaxDevTeam\Cms\Core\RichTextSanitizer;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
-final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface, \SyntaxDevTeam\Cms\Core\PlayerCardEditorThemeInterface, ThemeInterface, \SyntaxDevTeam\Cms\Core\CommerceThemeInterface, \SyntaxDevTeam\Cms\Core\SearchableTableThemeInterface, \SyntaxDevTeam\Cms\Core\ProfilePanelThemeInterface, \SyntaxDevTeam\Cms\Core\ItemGridThemeInterface, \SyntaxDevTeam\Cms\Core\PublicSectionNavigationInterface, \SyntaxDevTeam\Cms\Core\HomepageDefaultsProviderInterface
+final class Theme implements \SyntaxDevTeam\Cms\Core\RecruitmentThemeInterface, \SyntaxDevTeam\Cms\Core\BotControlThemeInterface, \SyntaxDevTeam\Cms\Core\CodeExamplesThemeInterface, \SyntaxDevTeam\Cms\Core\ApiReferenceThemeInterface, \SyntaxDevTeam\Cms\Core\DocumentHeaderThemeInterface, \SyntaxDevTeam\Cms\Core\ScheduleNoticeThemeInterface, \SyntaxDevTeam\Cms\Core\ScheduleThemeInterface, \SyntaxDevTeam\Cms\Core\PhotoCollectionThemeInterface, \SyntaxDevTeam\Cms\Core\QuestionCollectionThemeInterface, \SyntaxDevTeam\Cms\Core\PlayerShowcaseThemeInterface, \SyntaxDevTeam\Cms\Core\DocumentationThemeInterface, \SyntaxDevTeam\Cms\Core\ArticleThemeInterface, \SyntaxDevTeam\Cms\Core\TaskListThemeInterface, \SyntaxDevTeam\Cms\Core\AssetManagerThemeInterface, \SyntaxDevTeam\Cms\Core\TextWorkspaceThemeInterface, \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface, \SyntaxDevTeam\Cms\Core\PlayerCardEditorThemeInterface, ThemeInterface, \SyntaxDevTeam\Cms\Core\CommerceThemeInterface, \SyntaxDevTeam\Cms\Core\SearchableTableThemeInterface, \SyntaxDevTeam\Cms\Core\ProfilePanelThemeInterface, \SyntaxDevTeam\Cms\Core\ItemGridThemeInterface, \SyntaxDevTeam\Cms\Core\PublicSectionNavigationInterface, \SyntaxDevTeam\Cms\Core\HomepageDefaultsProviderInterface
 {
+    use \SyntaxDevTeam\Cms\Templates\Shared\RecruitmentTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\BotControlTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ApiReferenceTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ScheduleTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PhotoCollectionTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PlayerShowcaseTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\DocumentationTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\ArticleThemeTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\DocumentHeaderTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\CodeExamplesTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\QuestionCollectionTrait;
     use AdminCatalogComponentsTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TaskListTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\AssetManagerTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TechnologyStripTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\LinkStripTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\PublicNavigationEditorTrait;
+    use \SyntaxDevTeam\Cms\Templates\Shared\TextWorkspaceTrait;
 
     public function render_grouped_roster(array $groups, string $refreshUrl = ''): void
     {
@@ -55,6 +72,8 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
     private readonly string $publicBingSiteVerification;
 
     private readonly string $publicFooterText;
+
+    private readonly \SyntaxDevTeam\Cms\Core\PublicFooterSettings $footerSettings;
 
     private readonly string $publicFaviconPath;
 
@@ -143,10 +162,11 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         );
         $path = '/' . ltrim(trim((string) ($config['public_path'] ?? '/')), '/');
         $this->publicPath = preg_match('#^/[A-Za-z0-9/%._~-]*$#', $path) === 1 ? rtrim($path, '/') ?: '/' : '/';
+        $this->footerSettings = new \SyntaxDevTeam\Cms\Core\PublicFooterSettings($config);
         $this->publicFooterText = trim((string) (
             $config['public_footer_text']
             ?? 'Twój świat. Twoja stajnia. Twoja historia.'
-        )) ?: 'Twój świat. Twoja stajnia. Twoja historia.';
+        ));
         $faviconPath = rtrim(trim((string) ($config['public_favicon_path'] ?? '')), '/');
         $this->publicFaviconPath = preg_match('#^/[A-Za-z0-9/_-]+$#', $faviconPath) === 1
             ? $faviconPath
@@ -274,6 +294,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         echo '<script src="' . $this->asset('js/site.js') . '"></script>';
         echo '<script src="' . $this->asset('js/equestria.js') . '"></script>';
         $this->renderFastStatsScript(true);
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -299,7 +320,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         }
         $contactSection = null;
         foreach ($sections as $section) {
-            if ($section['type'] === 'hero') {
+            if ($section['type'] === 'hero' || ($section['navigation_visible'] ?? true) === false) {
                 continue;
             }
             if ((string) ($section['key'] ?? '') === 'contact' || (string) ($section['layout'] ?? '') === 'contact') {
@@ -347,14 +368,21 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
 
     private function renderPublicFooter(array $pages): void
     {
-        if ($this->publicStandalone) { $pages = []; }
-        echo '<footer class="border-top py-4"><div class="container d-flex flex-column flex-md-row justify-content-between gap-2 text-secondary small">';
-        echo '<span>&copy; ' . date('Y') . ' Powered by ';
-        echo '<a class="text-secondary" href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>';
-        echo $this->appVersion !== '' ? ' <span class="text-secondary">v' . $this->escape($this->appVersion) . '</span>' : '';
-        echo ' by ';
-        echo '<a class="text-secondary" href="https://syntaxdevteam.pl">SyntaxDevTeam</a></span>';
-        echo '<div class="d-flex flex-wrap align-items-center gap-3">';
+        if ($this->publicStandalone) { $pages = []; } else { $pages = $this->footerSettings->navigationPages($pages); }
+        echo '<footer class="eq-footer border-top"><div class="container eq-footer-inner text-secondary small">';
+        $customCredit = $this->footerSettings->credit($this->appVersion);
+        if ($customCredit === null) {
+            echo '<span class="eq-footer-credit">&copy; ' . date('Y') . ' ';
+            echo '<a class="text-secondary" href="' . $this->escape($this->publicUrl !== '' ? $this->publicUrl : '/') . '">';
+            echo $this->escape($this->publicName) . '</a> | Powered by ';
+            echo '<a class="text-secondary" href="https://syntaxdevteam.pl/p/miniportal">miniPORTAL</a>';
+            echo $this->appVersion !== '' ? ' ' . $this->escape($this->appVersion) : '';
+            echo ' <span class="eq-footer-author">by ';
+            echo '<a class="text-secondary" href="https://syntaxdevteam.pl">SyntaxDevTeam.pl</a></span></span>';
+        } elseif ($customCredit !== '') {
+            echo '<span class="eq-footer-credit">' . $this->escape($customCredit) . '</span>';
+        }
+        echo '<div class="eq-footer-links">';
         $footerPages = array_values(array_filter(
             $pages,
             static fn (array $page): bool => $page['navigation_area'] === 'footer'
@@ -375,10 +403,11 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         }
         echo '<button type="button" class="cookie-consent-manage text-secondary" data-cookie-consent-manage>';
         echo 'Ustawienia cookies</button>';
-        if (strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
-            echo '<span>' . $this->escape($this->publicFooterText) . '</span>';
+        echo '</div>';
+        if ($this->publicFooterText !== '' && strcasecmp(trim($this->publicFooterText), 'Powered by miniPORTAL by SyntaxDevTeam') !== 0) {
+            echo '<p class="eq-footer-tagline">' . $this->escape($this->publicFooterText) . '</p>';
         }
-        echo '</div></div></footer>';
+        echo '</div></footer>';
     }
 
     private function renderPrivacyStyles(): void
@@ -454,7 +483,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         $pageTitle = $title;
         $metaDescription = $description !== '' ? $description : $this->publicMetaDescription;
 
-        echo '<!doctype html><html lang="' . $this->escape($this->publicLanguage) . '" data-bs-theme="dark"><head>';
+        echo '<!doctype html><html lang="' . $this->escape($this->publicPageLanguage()) . '" data-bs-theme="dark"><head>';
         echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
         echo '<meta name="description" content="' . $this->escape($metaDescription) . '">';
         if ($this->publicMetaKeywords !== '') {
@@ -519,6 +548,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
         }
         $this->renderFastStatsScript($this->currentPageIndexable);
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -644,7 +674,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
 
     public function render_text(string $text): void
     {
-        echo '<p class="text-secondary">' . $this->escape($text) . '</p>';
+        echo '<p class="text-secondary">' . nl2br($this->escape($text), false) . '</p>';
     }
 
     public function render_button(string $label, string $href, string $variant = 'primary'): void
@@ -1176,11 +1206,16 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo '<div class="richtext-editor" data-richtext data-richtext-format="' . $format . '" ';
                 echo 'data-richtext-upload-url="index.php?route=/admin/media/richtext-upload" ';
                 echo 'data-richtext-token="' . $this->escape($csrfToken) . '">';
+                if (($field['code_examples'] ?? false) === true) {
+                    echo '<p><button type="button" class="editor-tool" data-richtext-python>＋ Przykład Python</button> '
+                        . '<button type="button" class="editor-tool" data-richtext-kotlin>＋ Przykład Kotlin</button></p>';
+                }
                 echo '<div class="richtext-format-row"><div class="richtext-mode-switch" role="group" aria-label="Format źródłowy">';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::HTML ? ' is-active' : '') . '" type="button" ';
                 echo 'data-richtext-mode="html">Edytor wizualny</button>';
                 echo '<button class="editor-mode' . ($format === ContentRenderer::MARKDOWN ? ' is-active' : '') . '" type="button" ';
-                echo 'data-richtext-mode="markdown">Markdown</button></div>';
+                echo 'data-richtext-mode="markdown">Markdown</button>';
+                echo '<button class="editor-mode" type="button" data-richtext-mode="source">Kod HTML</button></div>';
                 echo '<label class="richtext-format-label">Format zapisu<select class="form-select form-select-sm" ';
                 echo 'name="' . $formatName . '" data-richtext-format-input>';
                 echo '<option value="html"' . ($format === ContentRenderer::HTML ? ' selected' : '') . '>HTML</option>';
@@ -1206,7 +1241,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo '</div><div class="richtext-image-options" data-richtext-image-options>';
                 echo '<button class="editor-tool" type="button" data-richtext-image-url>Obraz URL</button>';
                 echo '<button class="editor-tool" type="button" data-richtext-image-upload>Obraz z dysku</button>';
-                echo '<input type="file" class="visually-hidden" data-richtext-image-file accept="image/png,image/jpeg,image/webp,image/gif">';
+                echo '<input type="file" class="visually-hidden" data-richtext-image-file accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg">';
                 echo '<label>Rozmiar<select class="form-select form-select-sm" data-richtext-image-size>';
                 foreach (['original' => 'Oryginalny', 'small' => 'Mały', 'medium' => 'Średni', 'large' => 'Duży', 'wide' => 'Pełna szerokość', 'custom' => 'Dokładnie'] as $optionValue => $optionLabel) {
                     echo '<option value="' . $optionValue . '"' . ($optionValue === 'original' ? ' selected' : '') . '>' . $optionLabel . '</option>';
@@ -1228,7 +1263,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo $value . '</textarea>';
                 echo '<p class="form-text mb-0 mt-2" data-richtext-hint>';
                 echo $format === ContentRenderer::MARKDOWN
-                    ? 'Markdown w stylu GitHub: tabele, listy zadań, kod, linki i obrazy.'
+                    ? 'Markdown + bezpieczny HTML: tabele, listy, kod, linki i obrazy. Kod dosłowny umieść w backtickach.'
                     : 'Tryb wizualny zapisuje kontrolowany HTML.';
                 echo '</p></div>';
             } elseif ($type === 'textarea') {
@@ -1351,7 +1386,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo '<input class="form-control" id="' . $fieldId . '" name="' . $name . '" type="file"' . $accept . $controlAttributes . '>';
                 echo '<span>Przeciągnij i upuść plik albo wybierz go z dysku.</span></div>';
             } else {
-                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'color'];
+                $allowedTypes = ['text', 'email', 'password', 'number', 'url', 'date', 'datetime-local', 'color'];
                 $type = in_array($type, $allowedTypes, true) ? $type : 'text';
                 $class = $type === 'color' ? 'form-control form-control-color' : 'form-control';
                 echo '<input class="' . $class . '" id="' . $fieldId . '" name="' . $name . '" type="' . $type;
@@ -1482,6 +1517,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             $chartsVersion = is_file($chartsFile) ? (string) filemtime($chartsFile) : '1';
             echo '<script src="/templates/shared/assets/js/admin-charts.js?v=' . $this->escape($chartsVersion) . '"></script>';
         }
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -1541,6 +1577,11 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
     public function start_admin_panel_grid(string $variant = 'balanced'): void
     {
         $variant = preg_replace('/[^a-z0-9_-]/i', '', $variant) ?: 'balanced';
+        if (in_array($variant, ['settings', 'metrics'], true)) {
+            $asset = '/templates/shared/assets/css/admin-' . $variant . '.css';
+            $version = (int) filemtime(dirname(__DIR__, 2) . $asset);
+            echo '<link rel="stylesheet" href="' . $asset . '?v=' . $version . '">';
+        }
         echo '<div class="admin-panel-grid admin-panel-grid-' . $this->escape($variant) . '">';
     }
 
@@ -1847,18 +1888,23 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             echo '<div class="alert alert-' . $variant . '" role="alert">' . $this->escape($message) . '</div>';
         }
 
-        echo '<div class="provider-list">';
+        echo '<div class="form-check my-3"><input class="form-check-input" type="checkbox" id="remember-login" name="remember" value="1" form="provider-login">';
+        echo '<label class="form-check-label" for="remember-login">Zapamiętaj mnie na tym urządzeniu przez 30 dni</label></div>';
+        echo '<p class="small text-secondary">Zaznacz tylko na swoim urządzeniu. Wylogowanie usuwa zapamiętane logowanie.</p>';
+        echo '<form id="provider-login" method="post" action="' . $this->escape($action) . '">';
+        $this->csrf_field($csrfToken);
+        echo '</form><div class="provider-list">';
         foreach ($identities as $identity) {
             $provider = strtolower((string) $identity['provider']);
             $providerIcon = $this->providerIcon($provider);
             $providerIconClass = 'provider-icon provider-icon-' . $this->providerIconClass($provider);
 
             if (($identity['href'] ?? '') !== '') {
-                echo '<a class="provider-button text-decoration-none" href="' . $this->escape($identity['href']) . '">';
+                echo '<button type="submit" form="provider-login" class="provider-button text-decoration-none w-100" formaction="' . $this->escape($identity['href']) . '">';
                 echo '<span class="' . $providerIconClass . '" aria-hidden="true">' . $providerIcon . '</span>';
                 echo '<span><strong class="d-block">' . $this->escape($identity['label']) . '</strong>';
                 echo '<small class="text-secondary">' . $this->escape($identity['description']) . '</small></span>';
-                echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></a>';
+                echo '<span class="provider-arrow" aria-hidden="true">-&gt;</span></button>';
                 continue;
             }
 
@@ -1877,6 +1923,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             echo '<h2 class="h5">Brak aktywnych dostawców</h2>';
             echo '<p class="text-secondary mb-0">Skonfiguruj adapter OAuth albo świadomie włącz tryb demonstracyjny.</p></div>';
         }
+        $this->render_schedule_notice();
         echo '</div></section></div></div></main></body></html>';
     }
 
@@ -1903,6 +1950,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         echo '<h1 class="h3">' . $this->escape($title) . '</h1>';
         echo '<p class="text-secondary">' . $this->escape($message) . '</p>';
         echo '<a class="btn btn-primary" href="' . $this->escape($actionHref) . '">' . $this->escape($actionLabel) . '</a>';
+        $this->render_schedule_notice();
         echo '</section></main></body></html>';
     }
 
@@ -1966,6 +2014,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         $tablesFile = dirname(__DIR__) . '/shared/assets/js/admin-tables.js';
         $tablesVersion = is_file($tablesFile) ? (string) filemtime($tablesFile) : '1';
         echo '<script src="/templates/shared/assets/js/admin-tables.js?v=' . $this->escape($tablesVersion) . '"></script>';
+        $this->render_schedule_notice();
         echo '</body></html>';
     }
 
@@ -2331,6 +2380,14 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
      */
     private function renderHomepageSection(array $section): void
     {
+        if (($section['layout'] ?? '') === 'technologies') {
+            $this->renderTechnologyStrip($section);
+            return;
+        }
+        if (($section['layout'] ?? '') === 'link_strip') {
+            $this->renderLinkStrip($section);
+            return;
+        }
         $layouts = ['full', 'split', 'columns', 'accent', 'contact'];
         $layout = in_array($section['layout'], $layouts, true) ? $section['layout'] : 'full';
         $content = (new ContentRenderer())->render($section['content_html'], $section['content_format']);
@@ -2442,7 +2499,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             static fn (array $item): bool => $item['item_kind'] === 'person'
         ));
 
-        echo '<div class="contact-hub reveal"><div class="contact-hub-glow" aria-hidden="true"></div>';
+        echo '<div class="contact-hub eq-contact reveal' . ($people === [] ? ' eq-contact-social-only' : '') . '">';
         echo '<header class="contact-hub-heading">';
         if ($section['eyebrow'] !== '') {
             echo '<p class="contact-kicker">' . $this->escape($section['eyebrow']) . '</p>';
@@ -2453,20 +2510,20 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         }
         echo '</header><div class="contact-hub-grid">';
         echo '<section class="contact-group contact-group-channels"><div class="contact-group-heading">';
-        echo '<p class="eyebrow">Channels</p><h3>Choose the best route</h3></div><div class="contact-list">';
+        echo '<p class="eyebrow">Nasze kanały</p><h3>Dołącz i obserwuj</h3></div><div class="contact-list">';
         foreach ($channels as $item) {
             $this->renderContactItem($item, false);
         }
         echo '</div></section>';
-        echo '<section class="contact-group contact-group-people"><div class="contact-group-heading">';
-        echo '<p class="eyebrow">Team</p><h3>Direct contact</h3></div><div class="contact-list">';
-        foreach ($people as $item) {
-            $this->renderContactItem($item, true);
+        if ($people !== []) {
+            echo '<section class="contact-group contact-group-people"><div class="contact-group-heading">';
+            echo '<p class="eyebrow">Zespół</p><h3>Kontakt bezpośredni</h3></div><div class="contact-list">';
+            foreach ($people as $item) {
+                $this->renderContactItem($item, true);
+            }
+            echo '</div></section>';
         }
-        if ($people === []) {
-            echo '<p class="contact-empty">Add a person item to build the team contact list.</p>';
-        }
-        echo '</div></section></div></div>';
+        echo '</div></div>';
     }
 
     /**
@@ -2498,6 +2555,16 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             if (str_contains($fingerprint, 'modrinth')) {
                 $icon = 'modrinth';
             }
+        }
+
+        if (!$person && in_array($icon, ['', 'web'], true)) {
+            $host = strtolower((string) parse_url($buttons[0]['url'] ?? '', PHP_URL_HOST));
+            $icon = match ($host) {
+                'www.tiktok.com', 'tiktok.com' => 'tiktok',
+                'www.instagram.com', 'instagram.com' => 'instagram',
+                'linktr.ee' => 'linktree',
+                default => $icon,
+            };
         }
 
         echo '<article class="contact-item' . ($person ? ' contact-item-person' : '') . '">';
@@ -2579,7 +2646,10 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
     private function contactIcon(string $icon): string
     {
         return match ($icon) {
-            'discord' => '<svg viewBox="0 0 24 24"><path d="M7.2 6.3A15 15 0 0 1 12 5.5a15 15 0 0 1 4.8.8c1.5 2.1 2.2 4.5 2 7a10 10 0 0 1-3 2.3l-.8-1.1c.7-.3 1.3-.7 1.9-1.2-3.1 1.5-6.7 1.5-9.8 0 .6.5 1.2.9 1.9 1.2l-.8 1.1a10 10 0 0 1-3-2.3c-.2-2.5.5-4.9 2-7Zm2.2 6.1c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Zm5.2 0c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Z"/></svg>',
+            'tiktok' => '<svg viewBox="0 0 24 24"><path d="M16.5 2h-3.6v13.1a2.9 2.9 0 1 1-2.5-2.9V8.6a6.5 6.5 0 1 0 6.1 6.5V8.4A9 9 0 0 0 22 10V6.4A5.6 5.6 0 0 1 16.5 2Z"/></svg>',
+            'instagram' => '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2"/></svg>',
+            'linktree' => '<svg viewBox="0 0 24 24"><path d="M11 2h2v6.1l4.3-4.3 1.4 1.4-4.3 4.3H21v2h-6.6l4.3 4.3-1.4 1.4L12 11.9l-5.3 5.3-1.4-1.4 4.3-4.3H3v-2h6.6L5.3 5.2l1.4-1.4L11 8.1V2Zm0 14h2v6h-2v-6Z"/></svg>',
+            'discord' => '<svg viewBox="3 3 18 16"><path d="M7.2 6.3A15 15 0 0 1 12 5.5a15 15 0 0 1 4.8.8c1.5 2.1 2.2 4.5 2 7a10 10 0 0 1-3 2.3l-.8-1.1c.7-.3 1.3-.7 1.9-1.2-3.1 1.5-6.7 1.5-9.8 0 .6.5 1.2.9 1.9 1.2l-.8 1.1a10 10 0 0 1-3-2.3c-.2-2.5.5-4.9 2-7Zm2.2 6.1c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Zm5.2 0c.7 0 1.2-.7 1.2-1.5s-.5-1.5-1.2-1.5-1.2.7-1.2 1.5.5 1.5 1.2 1.5Z"/></svg>',
             'github' => '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.2 19.5v-2.2c-2.7.6-3.3-1.1-3.3-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.8.8.1-.6.4-1.1.7-1.3-2.1-.2-4.4-1.1-4.4-4.9 0-1.1.4-2 1-2.7-.1-.2-.4-1.3.1-2.7 0 0 .9-.3 2.8 1a9.7 9.7 0 0 1 5.1 0c2-1.3 2.8-1 2.8-1 .6 1.4.2 2.5.1 2.7.7.7 1.1 1.6 1.1 2.7 0 3.8-2.3 4.7-4.5 4.9.4.3.7.9.7 1.8v3A10 10 0 0 0 12 2Z"/></svg>',
             'mail' => '<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3V5Zm9 7 7-5H5l7 5Zm0 2.4L5 9.5V17h14V9.5l-7 4.9Z"/></svg>',
             'hangar' => '<img src="' . $this->escape($this->asset('img/icons/hangar-logo.svg')) . '" alt="" width="24" height="24" loading="lazy" decoding="async">',
@@ -2809,7 +2879,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         echo '<link rel="apple-touch-icon" sizes="180x180" href="' . $this->faviconAsset('apple-touch-icon.png') . '">';
         echo '<link rel="manifest" href="' . $this->faviconAsset('site.webmanifest') . '">';
         if (!$indexable) {
-            echo '<meta name="robots" content="noindex, nofollow">';
+            echo '<meta name="robots" content="' . ($this->articlePageMetadata === [] ? 'noindex, nofollow' : 'noindex, follow') . '">';
             return;
         }
 
@@ -2825,7 +2895,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
             echo '<meta name="msvalidate.01" content="' . $this->escape($this->publicBingSiteVerification) . '">';
         }
 
-        $canonicalUrl = $this->publicUrl !== '' ? $this->publicUrl . ($this->publicPath === '/' ? '/' : $this->publicPath) : '';
+        $canonicalUrl = $this->publicCanonicalUrl();
         if ($canonicalUrl !== '') {
             echo '<link rel="canonical" href="' . $this->escape($canonicalUrl) . '">';
         }
@@ -2834,8 +2904,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         $socialImageUrl = $this->publicSocialImageUrl !== ''
             ? $this->absolutePublicUrl($this->publicSocialImageUrl)
             : $logoUrl;
-        echo '<meta property="og:type" content="website">';
-        echo '<meta property="og:locale" content="' . $this->escape($this->publicLocale) . '">';
+        $this->renderPublicSocialType();
         echo '<meta property="og:site_name" content="' . $this->escape($this->publicName) . '">';
         echo '<meta property="og:title" content="' . $this->escape($title) . '">';
         echo '<meta property="og:description" content="' . $this->escape($description) . '">';
@@ -3032,6 +3101,10 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
 
     public function render_profile_panel(array $profile): void
     {
+        if (!$profile['private'] && ($profile['showcase'] ?? null)!==null) {
+            $this->render_player_showcase($profile['showcase']+['navigation'=>$profile['navigation'] ?? [],'context'=>'profile']);
+            return;
+        }
         $e = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
         $local = static fn (mixed $url): bool => is_string($url) && preg_match('~^/(?!/)[a-zA-Z0-9_/?=&%.:-]+$~D', $url);
         $this->requiredAssets['profile_countdown'] = true;
@@ -3068,7 +3141,7 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo '<span class="' . implode(' ', $classes) . '"' . $style . '>' . $e((string) $run['text']) . '</span>';
             }
             echo '</strong>';
-            $validity = $metricIndex === 0 ? ($profile['rank_validity'] ?? null) : null;
+            $validity = $metricIndex === ($profile['rank_validity_index'] ?? 0) ? ($profile['rank_validity'] ?? null) : null;
             if ($validity !== null && is_int($validity['expires_ms'])) {
                 $countdown = ' data-countdown-until="' . $validity['expires_ms'] . '" data-countdown-now="' . (int) $validity['now_ms'] . '" data-countdown-prefix="' . $e($validity['prefix'] ?? 'Twoja ranga kończy się za ') . '"';
                 $renewal = $profile['rank_renewal'] ?? null;
@@ -3078,6 +3151,8 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
                 echo '<span data-countdown-output>' . $e($validity['text']) . '</span>';
                 if ($linked) echo '</a>';
                 echo '</div>';
+            } elseif (($validity['text'] ?? '') === 'Ranga bezterminowa') {
+                echo '<div class="profile-rank-validity">' . $e($validity['text']) . '</div>';
             }
             echo '</div>';
         }
@@ -3200,7 +3275,14 @@ final class Theme implements \SyntaxDevTeam\Cms\Core\GroupedRosterThemeInterface
         $render = function (array $items, int $start) use ($e): void {
             echo '<ul class="profile-world-list">';
             foreach ($items as $index => $item) {
-                echo '<li><span class="profile-world-index" aria-hidden="true">' . sprintf('%02d', $start + $index) . '</span><div><strong>' . $e($item['title']) . '</strong><span>' . $e($item['subtitle']) . '</span></div><small>' . $e($item['badge']) . '</small>';
+                $image = $item['image'] ?? null;
+                echo '<li' . ($image !== null ? ' class="profile-resource-with-image"' : '') . '>';
+                if ($image !== null) echo '<img class="profile-horse-preview" src="' . $e($image['url']) . '" alt="' . $e($image['alt']) . '" width="360" height="300" loading="lazy" decoding="async">';
+                else echo '<span class="profile-world-index" aria-hidden="true">' . sprintf('%02d', $start + $index) . '</span>';
+                echo '<div><strong>' . $e($item['title']) . '</strong><span>' . $e($item['subtitle']) . '</span>';
+                if ($image !== null) echo '<span class="profile-horse-preview-note">' . $e($image['note']) . '</span>';
+                elseif (array_key_exists('image', $item)) echo '<span class="profile-horse-preview-note">Wygląd oczekuje na dane z serwera</span>';
+                echo '</div><small>' . $e($item['badge']) . '</small>';
                 if (($item['highlights'] ?? []) !== []) {
                     echo '<dl class="profile-horse-highlights">';
                     foreach ($item['highlights'] as $fact) echo '<div><dt>' . $e($fact['label']) . '</dt><dd>' . (isset($fact['timestamp_ms'])?$this->profileTime($fact['timestamp_ms'],$fact['value']):$e($fact['value'])) . '</dd></div>';

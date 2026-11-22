@@ -5,7 +5,6 @@
   const saveDelay = 500;
 
   const forms = Array.from(document.querySelectorAll("form[data-translation-autosave]"));
-  const decisionForms = Array.from(document.querySelectorAll("form.translation-decision"));
 
   const storageAvailable = () => {
     try {
@@ -18,9 +17,7 @@
     }
   };
 
-  if (!storageAvailable()) {
-    return;
-  }
+  const canStore = storageAvailable();
 
   const storageKey = (key) => `${storagePrefix}${key}`;
 
@@ -62,11 +59,11 @@
     return values;
   };
 
-  const hasUsefulValues = (values) => Object.values(values).some((value) => value.trim() !== "");
+  const hasUsefulValues = (values) => Object.values(values).some((value) => typeof value === "string" && value.trim() !== "");
 
   const applyValues = (form, values) => {
     fields(form).forEach((field) => {
-      if (Object.prototype.hasOwnProperty.call(values, field.name)) {
+      if (Object.prototype.hasOwnProperty.call(values, field.name) && typeof values[field.name] === "string") {
         field.value = values[field.name];
       }
     });
@@ -78,15 +75,32 @@
       return;
     }
 
+    if (!canStore) {
+      showStatus(form, "Browser storage is unavailable. Save a draft before leaving this page.", false);
+      return;
+    }
     let saveTimer = 0;
+    let backupPending = false;
     const keyName = storageKey(key);
 
     try {
       const saved = JSON.parse(window.localStorage.getItem(keyName) || "null");
       if (saved && saved.values && hasUsefulValues(saved.values)) {
-        applyValues(form, saved.values);
-        const savedAt = typeof saved.savedAt === "number" ? saved.savedAt : Date.now();
-        showStatus(form, `Autosaved work restored from ${formatTime(savedAt)}.`, true);
+        backupPending = true;
+        const status = form.querySelector("[data-autosave-status]");
+        showStatus(form, "A browser backup is available. Restore it only if you want to replace the current fields.", true);
+        const restore = document.createElement("button");
+        restore.type = "button";
+        restore.className = "btn btn-sm btn-outline-light ms-2";
+        restore.textContent = "Restore backup";
+        restore.addEventListener("click", () => {
+          backupPending = false;
+          applyValues(form, saved.values);
+          form.querySelector("[data-text-workspace]")?.dispatchEvent(new Event("workspace:restored"));
+          showStatus(form, "Browser backup restored.", true);
+        });
+        status?.appendChild(restore);
+
       } else {
         showStatus(form, "Autosave is active. Your work is stored in this browser while you type.", false);
       }
@@ -95,19 +109,26 @@
     }
 
     const save = () => {
+      if (backupPending) return;
       const values = readValues(form);
       if (!hasUsefulValues(values)) {
         window.localStorage.removeItem(keyName);
         return;
       }
-      window.localStorage.setItem(keyName, JSON.stringify({ savedAt: Date.now(), values }));
-      showStatus(form, `Autosaved at ${formatTime(Date.now())}.`, false);
+      try {
+        window.localStorage.setItem(keyName, JSON.stringify({ savedAt: Date.now(), values }));
+        showStatus(form, `Autosaved at ${formatTime(Date.now())}.`, false);
+      } catch (error) {
+        showStatus(form, "Browser backup failed. Save a draft before leaving this page.", false);
+      }
     };
 
     form.addEventListener("input", (event) => {
       if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
         return;
       }
+      if (!event.target.name.startsWith("translations[")) return;
+      backupPending = false;
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(save, saveDelay);
     });
@@ -120,22 +141,6 @@
     window.addEventListener("beforeunload", () => {
       window.clearTimeout(saveTimer);
       save();
-    });
-  });
-
-  decisionForms.forEach((form) => {
-    const input = form.querySelector("input[name='autosave_key']");
-    const key = input ? input.value : "";
-    if (!key) {
-      return;
-    }
-
-    form.addEventListener("submit", (event) => {
-      const submitter = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
-      const action = submitter ? submitter.value : "";
-      if (["save_draft", "submit_review", "discard"].includes(action)) {
-        window.localStorage.removeItem(storageKey(key));
-      }
     });
   });
 

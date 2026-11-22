@@ -22,7 +22,7 @@ use SyntaxDevTeam\Cms\Modules\CoreAuth\User;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAsset;
 use SyntaxDevTeam\Cms\Modules\MediaLibrary\MediaAssetRepository;
 
-final class CorePagesModule implements ModuleInterface, SeoProviderInterface
+final class CorePagesModule implements ModuleInterface, SeoProviderInterface, \SyntaxDevTeam\Cms\Core\HookProviderInterface
 {
     public function __construct(
         private readonly ThemeInterface $theme,
@@ -36,7 +36,25 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         private readonly AuditLogService $audit,
         private readonly TemplateCacheInterface $templateCache,
         private readonly ?MediaAssetRepository $mediaAssets = null,
+        private readonly ?\SyntaxDevTeam\Cms\Core\HookRegistry $hooks = null,
     ) {
+    }
+
+    private function contactPeople(): array
+    {
+        return isset($this->hooks) ? ($this->hooks?->applyFilters('homepage.contact_people', []) ?? []) : [];
+    }
+
+    public function registerHooks(\SyntaxDevTeam\Cms\Core\HookRegistry $hooks): void
+    {
+        $hooks->addFilter('homepage.sections', function (array $sections): array {
+            $linked = false;
+            foreach ($sections as $section) foreach ($section['items'] ?? [] as $item) {
+                if (($item['contact_ref'] ?? '') !== '') $linked = true;
+            }
+            if (!$linked) return $sections;
+            return ContactPerson::resolve($sections, $this->contactPeople());
+        });
     }
 
     public function id(): string
@@ -46,7 +64,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
 
     public function version(): string
     {
-        return '1.6.2';
+        return '1.8.1';
     }
 
     public function dependencies(): array
@@ -72,6 +90,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
 
     public function registerRoutes(Router $router): void
     {
+        $router->get('/discord', fn () => $this->redirectDiscord());
         $router->get('/page', fn (Request $request) => $this->renderPublicPage($request));
         $router->get('/pages', fn () => $this->renderPublicPages());
         $router->get('/p/{slug}', fn (Request $request) => $this->renderPublicPage($request));
@@ -314,7 +333,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                                 'href' => 'index.php?route=/admin/homepage/edit&id=' . $section->id,
                                 'variant' => 'outline-primary',
                             ] : null,
-                            $allows('pages.view') && in_array($section->layout, ['columns', 'contact'], true) ? [
+                            $allows('pages.view') && in_array($section->layout, ['columns', 'contact', 'technologies'], true) ? [
                                 'label' => 'Elementy',
                                 'href' => 'index.php?route=/admin/homepage/items&section_id=' . $section->id,
                                 'variant' => 'outline-primary',
@@ -624,6 +643,12 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                 'preview' => 'accent',
             ],
             [
+                'key' => 'technologies',
+                'label' => 'Technologie / logotypy',
+                'description' => 'Kompaktowa siatka logotypów narzędzi z nazwą i opcjonalnym linkiem.',
+                'preview' => 'columns',
+            ],
+            [
                 'key' => 'contact',
                 'label' => 'Kontakt / kanały i osoby',
                 'description' => 'Układ dla kanałów kontaktu i osób powiązanych z sekcją.',
@@ -785,7 +810,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         if (!in_array($sectionType, ['hero', 'content', 'cta'], true)) {
             return [$data, 'Wybrano nieprawidłowy typ sekcji.'];
         }
-        if (!in_array($layout, ['full', 'split', 'columns', 'accent', 'contact'], true)) {
+        if (!in_array($layout, ['full', 'split', 'columns', 'accent', 'contact', 'technologies'], true)) {
             return [$data, 'Wybrano nieprawidłowy układ sekcji.'];
         }
         if (count($acrosticWords) > 12
@@ -835,7 +860,11 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             if (str_starts_with($url, 'copy:') && trim(substr($url, 5)) !== '') {
                 continue;
             }
-            if (preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $url) !== 1) {
+            $localPath = str_starts_with($url, '/') && !str_starts_with($url, '//');
+            if (
+                preg_match('/[\x00-\x20\x7F\\\\]/', $url) === 1
+                || (!$localPath && preg_match('~^(?:https?://|mailto:|#|index\.php(?:\?|$))~i', $url) !== 1)
+            ) {
                 return 'Adres przycisku używa niedozwolonego schematu.';
             }
         }
@@ -1012,12 +1041,14 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                 return (string) $values[$key];
             }
             return match ($key) {
+                'contact_ref' => $item?->contactRef ?? $fallback,
                 'label' => $item?->label ?? $fallback,
                 'title' => $item?->title ?? $fallback,
                 'content' => $item?->content ?? $fallback,
                 'content_format' => $item?->contentFormat ?? 'html',
                 'item_kind' => $item?->itemKind ?? $fallback,
                 'icon_key' => $item?->iconKey ?? $fallback,
+                'logo_url' => $item?->logoUrl ?? $fallback,
                 'button_label' => $item?->buttonLabel ?? $fallback,
                 'button_url' => $item?->buttonUrl ?? $fallback,
                 'page_id' => $item?->pageId !== null ? (string) $item->pageId : $fallback,
@@ -1057,7 +1088,18 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             $editing
                 ? 'index.php?route=/admin/homepage/items/edit'
                 : 'index.php?route=/admin/homepage/items/create',
-            [
+            $section->layout === 'technologies' ? [
+                ['name' => 'section_id', 'label' => 'Sekcja', 'type' => 'hidden', 'value' => (string) $sectionId],
+                ...($editing ? [['name' => 'id', 'label' => 'ID', 'type' => 'hidden', 'value' => (string) $item->id]] : []),
+                ['name' => 'technology_form', 'label' => 'Technologia', 'type' => 'hidden', 'value' => '1'],
+                ['name' => 'variant', 'label' => 'Wariant', 'type' => 'hidden', 'value' => 'neutral'],
+                ['name' => 'width', 'label' => 'Szerokość', 'type' => 'hidden', 'value' => 'standard'],
+                ['name' => 'title', 'label' => 'Nazwa technologii', 'value' => $value('title'), 'required' => true],
+                ['name' => 'logo_library_url', 'label' => 'Logo z Biblioteki grafik', 'type' => 'select', 'value' => $value('logo_library_url'), 'options' => $this->mediaOptions('Użyj adresu poniżej / bez logo'), 'help' => 'Wybrana grafika zastąpi adres logo poniżej. Lista obejmuje wszystkie kategorie biblioteki.'],
+                ['name' => 'logo_url', 'label' => 'Adres logo (opcjonalnie)', 'value' => $value('logo_url'), 'help' => 'Obecne logo lub własny adres: ścieżka /uploads/... albo HTTPS. Aby użyć tego pola, pozostaw pusty wybór biblioteki. Bez logo wyświetlimy inicjały.'],
+                ['name' => 'technology_url', 'label' => 'Link do narzędzia (opcjonalnie)', 'value' => $value('button_url'), 'help' => 'Pełny adres HTTPS lub ścieżka lokalna /....'],
+                ['name' => 'is_visible', 'label' => 'Technologia widoczna', 'type' => 'checkbox', 'checked' => $visible],
+            ] : [
                 ['name' => 'section_id', 'label' => 'Sekcja', 'type' => 'hidden', 'value' => (string) $sectionId],
                 ...($editing ? [[
                     'name' => 'id',
@@ -1071,6 +1113,10 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                     'type' => 'hidden',
                     'value' => 'homepage-item-' . ($item?->id ?? 'new') . '-' . $sectionId,
                 ],
+                ['name' => 'contact_ref', 'label' => 'Powiązana osoba', 'type' => 'select', 'value' => $value('contact_ref'),
+                    'options' => ['' => 'Brak — kontakt ręczny'] + array_map(static fn (array $person): string => $person['name'] . ' (' . $person['source'] . ')', $this->contactPeople())
+                        + ($value('contact_ref') !== '' ? [$value('contact_ref') => 'Osoba obecnie niedostępna'] : []),
+                    'help' => 'Aktualna nazwa, publiczny e-mail i profil pochodzą z Team lub Administracji serwera. Opis i kolejność pozostają własne. Ukryta osoba nie pojawi się w kontaktach.'],
                 ['name' => 'label', 'label' => 'Etykieta', 'value' => $value('label'), 'help' => 'Np. SERWERY albo PROJECT / 001.'],
                 ['name' => 'title', 'label' => 'Tytuł', 'value' => $value('title'), 'help' => 'Główny tytuł karty, kanału albo osoby widoczny w sekcji.'],
                 [
@@ -1093,6 +1139,12 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
                         'person' => 'Osoba / członek zespołu',
                     ],
                     'help' => 'Karta to zwykły kafel treści. Kanał jest zoptymalizowany pod kontakt, np. Discord lub e-mail. Osoba używa układu profilu członka zespołu.',
+                ],
+                [
+                    'name' => 'logo_url',
+                    'label' => 'Logo technologii',
+                    'value' => $value('logo_url'),
+                    'help' => 'Dla układu Technologie: publiczna ścieżka /uploads/... lub pełny adres HTTPS obrazu. Plik możesz dodać w Bibliotece mediów i wkleić jego adres. Nazwa elementu będzie podpisem logo; pierwszy przycisk ustala opcjonalny link.',
                 ],
                 [
                     'name' => 'icon_key',
@@ -1283,17 +1335,40 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
      */
     private function validatedHomepageItemInput(Request $request): array
     {
+        $contactRef = trim($request->postString('contact_ref'));
+        $person = $contactRef !== '' ? ($this->contactPeople()[$contactRef] ?? null) : null;
         $title = $request->postString('title');
+        if ($title === '' && $person !== null) $title = $person['name'];
         $variant = $request->postString('variant');
         $width = $request->postString('width');
-        $itemKind = $request->postString('item_kind', 'card');
+        $itemKind = $contactRef !== '' ? 'person' : $request->postString('item_kind', 'card');
         $iconKey = $request->postString('icon_key');
+        $logoUrl = trim($request->postString('logo_url'));
+        $libraryUrl = $request->postString('logo_library_url');
+        $libraryError = '';
+        if ($libraryUrl !== '') {
+            $asset = $this->mediaAssets?->findByPublicPath($libraryUrl);
+            if ($asset === null) {
+                $libraryError = 'Wybrana grafika nie jest dostępna w Bibliotece grafik. Wybierz ją ponownie lub użyj własnego adresu.';
+            } else {
+                $logoUrl = $asset->publicPath;
+            }
+        }
         $buttonLabels = $this->normalizeButtonLines($request->postString('button_label'), 120);
         $buttonUrls = $this->normalizeButtonLines($request->postString('button_url'), 500);
+        if ($request->postBool('technology_form')) {
+            $technologyUrl = trim($request->postString('technology_url'));
+            $buttonLabels = $technologyUrl !== '' ? ['Open website'] : [];
+            $buttonUrls = $technologyUrl !== '' ? [$technologyUrl] : [];
+            if (!\SyntaxDevTeam\Cms\Core\PublicImageUrl::valid($technologyUrl)) {
+                return [['title' => $title, 'logo_url' => $logoUrl, 'button_url' => $technologyUrl, 'is_visible' => $request->postBool('is_visible') ? 1 : 0], 'Link technologii wymaga adresu HTTPS lub ścieżki lokalnej.'];
+            }
+        }
         $pageId = $request->postInt('page_id');
         $contentFormat = (new ContentRenderer())->normalizeFormat($request->postString('content_format'));
         $rawContent = $request->postString('content');
         $data = [
+            'contact_ref' => $contactRef,
             'page_id' => $pageId,
             'label' => substr($request->postString('label'), 0, 120),
             'title' => $title,
@@ -1301,6 +1376,7 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             'content_format' => $contentFormat,
             'item_kind' => $itemKind,
             'icon_key' => $iconKey,
+            'logo_url' => $logoUrl,
             'button_label' => implode("\n", $buttonLabels),
             'button_url' => implode("\n", $buttonUrls),
             'variant' => $variant,
@@ -1308,6 +1384,15 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
             'is_visible' => $request->postBool('is_visible') ? 1 : 0,
         ];
 
+        if ($contactRef !== '' && ($person === null || $itemKind !== 'person' || $pageId !== null)) {
+            return [$data, 'Wybierz dostępną osobę i usuń powiązanie podstrony.'];
+        }
+        if ($libraryError !== '') {
+            return [$data, $libraryError];
+        }
+        if (!\SyntaxDevTeam\Cms\Core\PublicImageUrl::valid($logoUrl)) {
+            return [$data, 'Logo wymaga ścieżki lokalnej /... lub pełnego adresu HTTPS (do 500 znaków), bez danych logowania.'];
+        }
         if ($title === '' || strlen($title) > 180) {
             return [$data, 'Tytuł jest wymagany i może mieć maksymalnie 180 znaków.'];
         }
@@ -1341,6 +1426,19 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
         }
 
         return [$data, ''];
+    }
+
+    private function redirectDiscord(): void
+    {
+        header('Cache-Control: private, no-store');
+        header('Cloudflare-CDN-Cache-Control: no-store');
+        $invite = $this->homepageItems->publicDiscordInvite();
+        if ($invite === null) {
+            http_response_code(404);
+            $this->theme->render_page_not_found('Discord', 'Zaproszenie Discord nie jest obecnie dostępne.');
+            return;
+        }
+        header('Location: ' . $invite, true, 302);
     }
 
     private function renderPublicPage(Request $request): void
@@ -1822,13 +1920,13 @@ final class CorePagesModule implements ModuleInterface, SeoProviderInterface
     }
 
     /** @return array<string, string> */
-    private function mediaOptions(): array
+    private function mediaOptions(string $emptyLabel = 'Nie dodawaj grafiki'): array
     {
         if (!$this->mediaAssets instanceof MediaAssetRepository) {
             return ['' => 'Biblioteka grafik niedostępna'];
         }
 
-        return ['' => 'Nie dodawaj grafiki'] + $this->mediaAssets->options();
+        return ['' => $emptyLabel] + $this->mediaAssets->options();
     }
 
     private function selectedMediaAsset(Request $request): ?MediaAsset

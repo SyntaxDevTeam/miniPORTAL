@@ -1,0 +1,41 @@
+/* Settings use the same compact, bordered rows as the navigation editor. */
+.admin-panel-grid.admin-panel-grid-settings{grid-template-columns:minmax(0,1fr);gap:1rem}
+.admin-panel-grid-settings>.admin-panel,.admin-panel-grid-settings-pair>.admin-panel{height:auto;min-width:0;border:1px solid color-mix(in srgb,currentColor 17%,transparent);border-radius:.7rem;overflow:hidden;margin:0}
+.admin-panel-grid-settings .admin-panel-header{padding:.85rem 1rem;gap:.75rem;flex-wrap:wrap;background:color-mix(in srgb,currentColor 3%,transparent)}
+.admin-panel-grid-settings .admin-panel-header h2{font-size:1rem;font-weight:700}
+.admin-panel-grid-settings .admin-panel-header .status-badge{font-size:.75rem}
+.admin-panel-grid-settings .admin-panel-body{padding:1rem;min-width:0}
+.admin-panel-grid-settings form.showcase-card{padding:0;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent;min-width:0}
+.admin-panel-grid-settings form.showcase-card>.mb-3{display:grid;grid-template-columns:minmax(12rem,.8fr) minmax(0,1.2fr);align-items:center;gap:.35rem 1.5rem;padding:.7rem 0;margin:0!important;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)}
+.admin-panel-grid-settings .form-label,.admin-panel-grid-settings .form-check-label{font-size:.86rem;font-weight:600;margin:0;overflow-wrap:anywhere}
+.admin-panel-grid-settings .form-control,.admin-panel-grid-settings .form-select{font-size:.86rem;min-width:0;max-width:100%}
+.admin-panel-grid-settings textarea.form-control{min-height:5rem}
+.admin-panel-grid-settings .form-text{grid-column:2;font-size:.76rem;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.admin-panel-grid-settings form.showcase-card>.form-check{grid-template-columns:minmax(12rem,1fr) auto;padding-left:0}
+.admin-panel-grid-settings .form-check-label{grid-column:1;grid-row:1}
+.admin-panel-grid-settings .form-check-input{appearance:none;float:none;grid-column:2;grid-row:1;margin:0;width:2.8rem;height:1.45rem;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:2rem;background:color-mix(in srgb,currentColor 14%,transparent);background-image:none!important;cursor:pointer;position:relative;transition:background .15s ease}
+.admin-panel-grid-settings .form-check-input::before{content:"";position:absolute;top:.17rem;left:.18rem;width:1rem;height:1rem;border-radius:50%;background:currentColor;transition:transform .15s ease}
+.admin-panel-grid-settings .form-check-input:checked{background:#23885c;border-color:#32ad78}
+.admin-panel-grid-settings .form-check-input:checked::before{transform:translateX(1.3rem);background:#fff}
+.admin-panel-grid-settings .form-check-input:focus-visible{outline:2px solid var(--bs-primary,#5195ed);outline-offset:3px}
+.admin-panel-grid-settings .form-check .form-text{grid-column:1/-1}
+.admin-panel-grid-settings form.showcase-card>button[type=submit]{margin-top:.85rem;font-size:.85rem;padding:.5rem .9rem}
+.admin-panel-grid-settings .alert{font-size:.83rem;line-height:1.6;overflow-wrap:anywhere}
+.admin-panel-grid-settings form+.alert,.admin-panel-grid-settings form+form{margin-top:1rem}
+.admin-panel-grid-settings .table{font-size:.83rem}
+.admin-panel-grid-settings .table th,.admin-panel-grid-settings .table td{padding:.65rem .6rem;overflow-wrap:anywhere}
+.admin-panel-grid-settings .admin-public-nav__summary{padding:0;border:0}
+@media(max-width:750px){
+ .admin-panel-grid-settings .admin-panel-body{padding:.8rem}
+ .admin-panel-grid-settings form.showcase-card>.mb-3{grid-template-columns:minmax(0,1fr);gap:.4rem}
+ .admin-panel-grid-settings .form-text{grid-column:1}
+ .admin-panel-grid-settings form.showcase-card>.form-check{grid-template-columns:minmax(0,1fr) auto;column-gap:.8rem}
+}
+@media(prefers-reduced-motion:reduce){.admin-panel-grid-settings .form-check-input,.admin-panel-grid-settings .form-check-input::before{transition:none}}
+
+.admin-panel-grid-settings>.admin-panel-grid-settings-pair{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;margin:0}
+.admin-panel-grid-settings-pair form.showcase-card>.mb-3{grid-template-columns:minmax(0,1fr)}
+.admin-panel-grid-settings-pair .form-text{grid-column:1}
+@media(max-width:1100px){.admin-panel-grid-settings>.admin-panel-grid-settings-pair{grid-template-columns:minmax(0,1fr)}}
+.admin-panel-grid-settings-pair .profile-fact-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;padding:0;margin-bottom:1rem}
+.admin-panel-grid-settings-pair .profile-fact{padding:.7rem;overflow-wrap:anywhere}

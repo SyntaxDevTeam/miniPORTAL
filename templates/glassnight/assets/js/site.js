@@ -258,3 +258,82 @@ document.querySelectorAll("[data-home-terminal]").forEach((terminal) => {
 
   startTerminal();
 });
+
+
+// Native details remain functional without JavaScript. Enhanced categories also
+// animate their height on close, keeping the content visible until completion.
+(() => {
+  const animations = new WeakMap();
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  document.addEventListener("click", (event) => {
+    const summary = event.target instanceof Element
+      ? event.target.closest(".catalog-category > summary")
+      : null;
+    if (!summary || event.defaultPrevented || event.button > 0) return;
+    const category = summary.parentElement;
+    if (typeof category.animate !== "function") return;
+
+    event.preventDefault();
+    const previous = animations.get(category);
+    const expanded = !(previous ? previous.expanded : category.open);
+    const startHeight = category.getBoundingClientRect().height;
+    previous?.animation.cancel();
+    animations.delete(category);
+    category.classList.add("is-enhanced");
+    category.classList.toggle("is-expanded", expanded);
+
+    if (motion.matches) {
+      category.open = expanded;
+      category.classList.remove("is-animating");
+      return;
+    }
+
+    // Keep native open while shrinking so the browser does not hide the body.
+    category.open = true;
+    const borders = category.offsetHeight - category.clientHeight;
+    const endHeight = expanded
+      ? category.scrollHeight + borders
+      : summary.getBoundingClientRect().height + borders;
+    category.classList.add("is-animating");
+    const animation = category.animate(
+      [{ height: `${startHeight}px` }, { height: `${endHeight}px` }],
+      { duration: 340, easing: "cubic-bezier(.22, 1, .36, 1)" }
+    );
+    animations.set(category, { animation, expanded });
+    animation.onfinish = () => {
+      if (animations.get(category)?.animation !== animation) return;
+      category.open = expanded;
+      category.classList.remove("is-animating");
+      animations.delete(category);
+    };
+  });
+})();
+
+// Observe sections without a scroll handler or animation loop.
+(() => {
+  if (!('IntersectionObserver' in window)) return;
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const visible = new Set();
+  const sections = document.querySelectorAll('.home-hero, .home-section');
+  const update = () => sections.forEach(section => {
+    section.classList.toggle('is-motion-active', visible.has(section) && !document.hidden && !motion.matches);
+  });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        visible.add(entry.target);
+        entry.target.classList.add('has-entered');
+      } else {
+        visible.delete(entry.target);
+      }
+    });
+    update();
+  }, { threshold: 0.05 });
+  sections.forEach(section => {
+    section.classList.add('has-motion');
+    observer.observe(section);
+  });
+  document.addEventListener('visibilitychange', update);
+  motion.addEventListener('change', update);
+})();

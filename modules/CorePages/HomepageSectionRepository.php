@@ -194,7 +194,7 @@ final class HomepageSectionRepository
                 ]);
                 foreach ($section['items'] ?? [] as $item) {
                     $items->create($id, array_intersect_key($item, array_flip([
-                        'label', 'title', 'content', 'content_format', 'item_kind', 'icon_key',
+                        'contact_ref', 'label', 'title', 'content', 'content_format', 'item_kind', 'icon_key', 'logo_url',
                         'button_label', 'button_url', 'variant', 'width',
                     ])));
                 }

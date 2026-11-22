@@ -1,0 +1,27 @@
+{
+  "punisherx": {
+    "repository": "SyntaxDevTeam/PunisherX",
+    "ref": "main",
+    "directory": "punisherx-paper/src/main/resources/lang"
+  },
+  "cleanerx": {
+    "repository": "SyntaxDevTeam/CleanerX",
+    "ref": "main",
+    "directory": "CleanerX-Paper/src/main/resources/lang"
+  },
+  "gravediggerx": {
+    "repository": "SyntaxDevTeam/GraveDiggerX",
+    "ref": "main",
+    "directory": "src/main/resources/lang"
+  },
+  "logincorex": {
+    "repository": "SyntaxDevTeam/LoginCoreX",
+    "ref": "main",
+    "directory": "logincorex-paper/src/main/resources/lang"
+  },
+  "plotsx": {
+    "repository": "SyntaxDevTeam/PlotsX",
+    "ref": "main",
+    "directory": "src/main/resources/lang"
+  }
+}

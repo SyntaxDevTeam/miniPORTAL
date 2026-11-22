@@ -1,0 +1,5256 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Build Explorer API",
+    "version": "2.9.1",
+    "description": "Przeglądaj projekty, ich wersje i pliki do pobrania. Wszystkie publiczne odczyty działają bez klucza API. Prywatne projekty wymagają zalogowania na tej stronie.\n\n**Projekt** to np. PunisherX, **wersja** to np. 1.8.0, a **wydanie / build** to konkretna publikacja tej wersji. Jedno wydanie może mieć osobne **pliki** dla Paper, Spigot lub Velocity. **game_version** oznacza wersję Minecrafta — jest niezależna od numeru pluginu.\n\nListy mają stronicowanie: kolejne strony wskazuje `pagination.next`. Każdy odczyt GET obsługuje też HEAD (same nagłówki). [Poradnik integracji](/builds/api/guide)."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Bieżąca witryna — Twoja sesja i jej katalog buildów"
+    }
+  ],
+  "paths": {
+    "/api/v2/builds/{project}/{platform}/{game_version}/{channel}/{version}": {
+      "get": {
+        "operationId": "DownloadLatestVersion",
+        "summary": "Pobierz najnowszy build — przyjazny adres",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "Identyfikator projektu, np. punisherx.",
+            "example": "punisherx",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platforma, dla której szukasz zgodnego pliku, np. paper, spigot, velocity.",
+            "example": "paper",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "game_version",
+            "in": "path",
+            "required": true,
+            "description": "Dokładna wersja Minecrafta, np. 26.3. Użyj any, aby jawnie pominąć filtr MC, np. dla proxy.",
+            "example": "26.3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Kanał publikacji: release, snapshot, dev lub wip.",
+            "example": "release",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "latest wybiera najwyższą zgodną wersję projektu, a następnie jej ostatnio opublikowany build. Numer np. 1.7.3 przypina wersję pluginu i wybiera jej najnowszy zgodny build.",
+            "example": "latest",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Przekierowanie do pobrania konkretnego pliku. Klient musi obsługiwać przekierowania.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Najnowszy build"
+        ],
+        "description": "Wszystkie parametry podajesz w ścieżce — bez query string.\n\n**Automatyczny wybór:** `/api/v2/builds/punisherx/paper/26.3/release/latest`. Najpierw wybierana jest najwyższa wersja projektu z plikiem zgodnym z platformą, Minecraftem i kanałem. Następnie wybierana jest ostatnia publikacja buildu tej wersji. Nowsza publikacja starszej gałęzi nie wypiera wyższej zgodnej wersji.\n\n**Konkretna wersja:** zastąp latest numerem, np. `/api/v2/builds/punisherx/paper/26.3/release/1.7.3`. Bez zgodnego pliku tej wersji otrzymasz 404, bez fallbacku. Dla proxy bez listy wersji MC: `/api/v2/builds/punisherx-proxy-bridge/velocity/any/release/latest`.\n\nWersje porównuje się numerycznie przez PHP version_compare, z pominięciem początkowego v i metadanych +build. W jednej wersji rozstrzyga data publikacji, potem ID wydania i preferowana główna platforma. Query string nie zmienia selektora ze ścieżki.\n\nZwraca 302 do pobrania wybranego pliku. W curl użyj -L. Dostęp prywatnych projektów wymaga istniejącej sesji WWW."
+      },
+      "head": {
+        "operationId": "DownloadLatestVersionHead",
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "summary": "Pobierz najnowszy build — przyjazny adres — same nagłówki",
+        "description": "Takie same parametry i dobór pliku jak GET; odpowiedź bez treści.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "Identyfikator projektu, np. punisherx.",
+            "example": "punisherx",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platforma, dla której szukasz zgodnego pliku, np. paper, spigot, velocity.",
+            "example": "paper",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "game_version",
+            "in": "path",
+            "required": true,
+            "description": "Dokładna wersja Minecrafta, np. 26.3. Użyj any, aby jawnie pominąć filtr MC, np. dla proxy.",
+            "example": "26.3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Kanał publikacji: release, snapshot, dev lub wip.",
+            "example": "release",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "latest wybiera najwyższą zgodną wersję projektu, a następnie jej ostatnio opublikowany build. Numer np. 1.7.3 przypina wersję pluginu i wybiera jej najnowszy zgodny build.",
+            "example": "latest",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "302": {
+            "description": "Przekierowanie do pobrania konkretnego pliku. Klient musi obsługiwać przekierowania.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/builds/{project}/{platform}/{game_version}/{channel}/{version}/info": {
+      "get": {
+        "operationId": "LatestVersionInfo",
+        "summary": "Sprawdź plik wybrany przyjaznym adresem",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "Identyfikator projektu, np. punisherx.",
+            "example": "punisherx",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platforma, dla której szukasz zgodnego pliku, np. paper, spigot, velocity.",
+            "example": "paper",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "game_version",
+            "in": "path",
+            "required": true,
+            "description": "Dokładna wersja Minecrafta, np. 26.3. Użyj any, aby jawnie pominąć filtr MC, np. dla proxy.",
+            "example": "26.3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Kanał publikacji: release, snapshot, dev lub wip.",
+            "example": "release",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "latest wybiera najwyższą zgodną wersję projektu, a następnie jej ostatnio opublikowany build. Numer np. 1.7.3 przypina wersję pluginu i wybiera jej najnowszy zgodny build.",
+            "example": "latest",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ArtifactDetail"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "id": 898,
+                        "release_id": 898,
+                        "platform": "paper",
+                        "platform_family": "server",
+                        "compatible_platforms": [
+                          "paper"
+                        ],
+                        "game_versions": [
+                          "26.3",
+                          "26.2"
+                        ],
+                        "java_version": 21,
+                        "filename": "PunisherX-Paper-1.8.0.jar",
+                        "size": 123456,
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "links": {
+                          "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                          "download": "/builds/download/v2?artifact=898"
+                        },
+                        "project": {
+                          "slug": "punisherx",
+                          "name": "PunisherX"
+                        },
+                        "version": "1.8.0",
+                        "channel": "release",
+                        "build_number": ""
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Najnowszy build"
+        ],
+        "description": "Wszystkie parametry podajesz w ścieżce — bez query string.\n\n**Automatyczny wybór:** `/api/v2/builds/punisherx/paper/26.3/release/latest`. Najpierw wybierana jest najwyższa wersja projektu z plikiem zgodnym z platformą, Minecraftem i kanałem. Następnie wybierana jest ostatnia publikacja buildu tej wersji. Nowsza publikacja starszej gałęzi nie wypiera wyższej zgodnej wersji.\n\n**Konkretna wersja:** zastąp latest numerem, np. `/api/v2/builds/punisherx/paper/26.3/release/1.7.3`. Bez zgodnego pliku tej wersji otrzymasz 404, bez fallbacku. Dla proxy bez listy wersji MC: `/api/v2/builds/punisherx-proxy-bridge/velocity/any/release/latest`.\n\nWersje porównuje się numerycznie przez PHP version_compare, z pominięciem początkowego v i metadanych +build. W jednej wersji rozstrzyga data publikacji, potem ID wydania i preferowana główna platforma. Query string nie zmienia selektora ze ścieżki.\n\nZwraca JSON z nazwą i wersją pliku, SHA-256 oraz linkiem pobrania."
+      },
+      "head": {
+        "operationId": "LatestVersionInfoHead",
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "summary": "Sprawdź plik wybrany przyjaznym adresem — same nagłówki",
+        "description": "Takie same parametry i dobór pliku jak GET; odpowiedź bez treści.",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "description": "Identyfikator projektu, np. punisherx.",
+            "example": "punisherx",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platforma, dla której szukasz zgodnego pliku, np. paper, spigot, velocity.",
+            "example": "paper",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "game_version",
+            "in": "path",
+            "required": true,
+            "description": "Dokładna wersja Minecrafta, np. 26.3. Użyj any, aby jawnie pominąć filtr MC, np. dla proxy.",
+            "example": "26.3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Kanał publikacji: release, snapshot, dev lub wip.",
+            "example": "release",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "description": "latest wybiera najwyższą zgodną wersję projektu, a następnie jej ostatnio opublikowany build. Numer np. 1.7.3 przypina wersję pluginu i wybiera jej najnowszy zgodny build.",
+            "example": "latest",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/builds/projects": {
+      "get": {
+        "operationId": "Projects",
+        "summary": "Lista projektów",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Project"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "id": 1,
+                          "name": "PunisherX",
+                          "slug": "punisherx",
+                          "summary": "Narzędzia moderacji serwera Minecraft.",
+                          "icon_url": null,
+                          "lifecycle_status": "released",
+                          "requires_auth": false,
+                          "release_count": 2,
+                          "links": {
+                            "self": "/api/v2/builds/projects/punisherx",
+                            "versions": "/api/v2/builds/projects/punisherx/versions",
+                            "releases": "/api/v2/builds/projects/punisherx/releases",
+                            "artifacts": "/api/v2/builds/projects/punisherx/artifacts",
+                            "latest": "/api/v2/builds/projects/punisherx/latest",
+                            "download_latest": "/api/v2/builds/projects/punisherx/latest/download"
+                          }
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Projekty"
+        ],
+        "description": "Zacznij tutaj: otrzymasz nazwy projektów i ich identyfikatory `slug`, np. `punisherx`. Tego identyfikatora użyj jako parametru `project` w pozostałych endpointach. Wynik jest stronicowany."
+      },
+      "head": {
+        "operationId": "ProjectsHead",
+        "summary": "Lista projektów — same nagłówki",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/catalog": {
+      "get": {
+        "operationId": "Catalogue",
+        "summary": "Pełny katalog wydań",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Release"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "id": 898,
+                          "project": {
+                            "id": 1,
+                            "name": "PunisherX",
+                            "slug": "punisherx"
+                          },
+                          "version": "1.8.0",
+                          "channel": "release",
+                          "build_number": "",
+                          "published_at": "2026-11-09T12:00:00Z",
+                          "changelog": "Nowości:\n- Dodano obsługę Minecraft 26.3.",
+                          "changelog_format": "text",
+                          "ci": {
+                            "id": null,
+                            "time": null,
+                            "commit_sha": null,
+                            "branch": null,
+                            "commits": []
+                          },
+                          "artifacts": [
+                            {
+                              "id": 898,
+                              "release_id": 898,
+                              "platform": "paper",
+                              "platform_family": "server",
+                              "compatible_platforms": [
+                                "paper"
+                              ],
+                              "game_versions": [
+                                "26.3",
+                                "26.2"
+                              ],
+                              "java_version": 21,
+                              "filename": "PunisherX-Paper-1.8.0.jar",
+                              "size": 123456,
+                              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "links": {
+                                "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                                "download": "/builds/download/v2?artifact=898"
+                              }
+                            }
+                          ],
+                          "links": {
+                            "self": "/api/v2/builds/projects/punisherx/releases/898",
+                            "explore": "/builds/v2/release?project=punisherx&release=898"
+                          }
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wersje i wydania"
+        ],
+        "description": "Zwraca wydania wszystkich dostępnych projektów. Każde wydanie zawiera kompletny zestaw metadanych swoich plików. To pakiet JSON, a pliki binarne pobierasz osobno z `artifacts[].links.download`. Do pobrania całego katalogu przejdź przez wszystkie strony."
+      },
+      "head": {
+        "operationId": "CatalogueHead",
+        "summary": "Pełny katalog wydań — same nagłówki",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}": {
+      "get": {
+        "operationId": "Project",
+        "summary": "Informacje o projekcie",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ProjectDetail"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "id": 1,
+                        "name": "PunisherX",
+                        "slug": "punisherx",
+                        "summary": "Narzędzia moderacji serwera Minecraft.",
+                        "icon_url": null,
+                        "lifecycle_status": "released",
+                        "requires_auth": false,
+                        "release_count": 2,
+                        "links": {
+                          "self": "/api/v2/builds/projects/punisherx",
+                          "versions": "/api/v2/builds/projects/punisherx/versions",
+                          "releases": "/api/v2/builds/projects/punisherx/releases",
+                          "artifacts": "/api/v2/builds/projects/punisherx/artifacts",
+                          "latest": "/api/v2/builds/projects/punisherx/latest",
+                          "download_latest": "/api/v2/builds/projects/punisherx/latest/download"
+                        },
+                        "platforms": [
+                          "paper",
+                          "spigot"
+                        ],
+                        "game_versions": [
+                          "26.3",
+                          "26.2"
+                        ],
+                        "channels": [
+                          "release",
+                          "snapshot"
+                        ],
+                        "platform_families": [
+                          "server"
+                        ],
+                        "java_versions": [
+                          21
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Projekty"
+        ],
+        "description": "Nazwa, opis, ikona i stan projektu oraz dostępne kanały, zgodne platformy, wersje Minecrafta i wymagania Java. Listy zgodności podsumowują wszystkie opublikowane pliki projektu; nie gwarantują, że każda kombinacja parametrów jest dostępna."
+      },
+      "head": {
+        "operationId": "ProjectHead",
+        "summary": "Informacje o projekcie — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/options": {
+      "get": {
+        "operationId": "Options",
+        "summary": "Dostępne platformy i wersje MC",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Capabilities"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "platforms": [
+                          "paper",
+                          "spigot"
+                        ],
+                        "game_versions": [
+                          "26.3",
+                          "26.2"
+                        ],
+                        "channels": [
+                          "release",
+                          "snapshot"
+                        ],
+                        "platform_families": [
+                          "server"
+                        ],
+                        "java_versions": [
+                          21
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Projekty"
+        ],
+        "description": "Użyj do zbudowania własnego selektora pobierania. Otrzymasz listy platform, kanałów, wersji Minecrafta, rodzin platform i wymagań Java. Aby sprawdzić konkretną kombinację, wywołaj endpoint najnowszego buildu."
+      },
+      "head": {
+        "operationId": "OptionsHead",
+        "summary": "Dostępne platformy i wersje MC — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/versions": {
+      "get": {
+        "operationId": "Versions",
+        "summary": "Lista wersji projektu",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Version"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "version": "1.8.0",
+                          "release_count": 1,
+                          "updated_at": "2026-11-09T12:00:00Z"
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wersje i wydania"
+        ],
+        "description": "Wersje pluginu lub aplikacji, np. 1.8.0 — nie wersje Minecrafta. Każda pozycja podaje liczbę wydań i datę ostatniej publikacji tej wersji. Lista jest stronicowana."
+      },
+      "head": {
+        "operationId": "VersionsHead",
+        "summary": "Lista wersji projektu — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/versions/{version}": {
+      "get": {
+        "operationId": "VersionReleases",
+        "summary": "Wydania wybranej wersji",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji.",
+            "example": "1.8.0"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Release"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "id": 898,
+                          "project": {
+                            "id": 1,
+                            "name": "PunisherX",
+                            "slug": "punisherx"
+                          },
+                          "version": "1.8.0",
+                          "channel": "release",
+                          "build_number": "",
+                          "published_at": "2026-11-09T12:00:00Z",
+                          "changelog": "Nowości:\n- Dodano obsługę Minecraft 26.3.",
+                          "changelog_format": "text",
+                          "ci": {
+                            "id": null,
+                            "time": null,
+                            "commit_sha": null,
+                            "branch": null,
+                            "commits": []
+                          },
+                          "artifacts": [
+                            {
+                              "id": 898,
+                              "release_id": 898,
+                              "platform": "paper",
+                              "platform_family": "server",
+                              "compatible_platforms": [
+                                "paper"
+                              ],
+                              "game_versions": [
+                                "26.3",
+                                "26.2"
+                              ],
+                              "java_version": 21,
+                              "filename": "PunisherX-Paper-1.8.0.jar",
+                              "size": 123456,
+                              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "links": {
+                                "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                                "download": "/builds/download/v2?artifact=898"
+                              }
+                            }
+                          ],
+                          "links": {
+                            "self": "/api/v2/builds/projects/punisherx/releases/898",
+                            "explore": "/builds/v2/release?project=punisherx&release=898"
+                          }
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wersje i wydania"
+        ],
+        "description": "Wszystkie dostępne wydania konkretnej wersji pluginu lub aplikacji. Każde wydanie zawiera opis zmian, kanał, numer buildu i wszystkie swoje pliki. Wersję pobierz z endpointu Lista wersji projektu."
+      },
+      "head": {
+        "operationId": "VersionReleasesHead",
+        "summary": "Wydania wybranej wersji — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji.",
+            "example": "1.8.0"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/releases": {
+      "get": {
+        "operationId": "Releases",
+        "summary": "Historia wydań projektu",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Release"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "id": 898,
+                          "project": {
+                            "id": 1,
+                            "name": "PunisherX",
+                            "slug": "punisherx"
+                          },
+                          "version": "1.8.0",
+                          "channel": "release",
+                          "build_number": "",
+                          "published_at": "2026-11-09T12:00:00Z",
+                          "changelog": "Nowości:\n- Dodano obsługę Minecraft 26.3.",
+                          "changelog_format": "text",
+                          "ci": {
+                            "id": null,
+                            "time": null,
+                            "commit_sha": null,
+                            "branch": null,
+                            "commits": []
+                          },
+                          "artifacts": [
+                            {
+                              "id": 898,
+                              "release_id": 898,
+                              "platform": "paper",
+                              "platform_family": "server",
+                              "compatible_platforms": [
+                                "paper"
+                              ],
+                              "game_versions": [
+                                "26.3",
+                                "26.2"
+                              ],
+                              "java_version": 21,
+                              "filename": "PunisherX-Paper-1.8.0.jar",
+                              "size": 123456,
+                              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                              "links": {
+                                "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                                "download": "/builds/download/v2?artifact=898"
+                              }
+                            }
+                          ],
+                          "links": {
+                            "self": "/api/v2/builds/projects/punisherx/releases/898",
+                            "explore": "/builds/v2/release?project=punisherx&release=898"
+                          }
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wersje i wydania"
+        ],
+        "description": "Wydania od najnowszego do najstarszego wraz z opisami zmian i plikami. Filtry platformy lub MC wybierają pasujące wydania; w odpowiedzi nadal dostaniesz wszystkie pliki wybranego wydania."
+      },
+      "head": {
+        "operationId": "ReleasesHead",
+        "summary": "Historia wydań projektu — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/releases/{release}": {
+      "get": {
+        "operationId": "Release",
+        "summary": "Jedno wydanie ze wszystkimi plikami",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "release",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Liczbowe ID konkretnego wydania, pole id z historii wydań. To nie numer wersji pluginu.",
+            "example": 898
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Release"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "id": 898,
+                        "project": {
+                          "id": 1,
+                          "name": "PunisherX",
+                          "slug": "punisherx"
+                        },
+                        "version": "1.8.0",
+                        "channel": "release",
+                        "build_number": "",
+                        "published_at": "2026-11-09T12:00:00Z",
+                        "changelog": "Nowości:\n- Dodano obsługę Minecraft 26.3.",
+                        "changelog_format": "text",
+                        "ci": {
+                          "id": null,
+                          "time": null,
+                          "commit_sha": null,
+                          "branch": null,
+                          "commits": []
+                        },
+                        "artifacts": [
+                          {
+                            "id": 898,
+                            "release_id": 898,
+                            "platform": "paper",
+                            "platform_family": "server",
+                            "compatible_platforms": [
+                              "paper"
+                            ],
+                            "game_versions": [
+                              "26.3",
+                              "26.2"
+                            ],
+                            "java_version": 21,
+                            "filename": "PunisherX-Paper-1.8.0.jar",
+                            "size": 123456,
+                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "links": {
+                              "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                              "download": "/builds/download/v2?artifact=898"
+                            }
+                          }
+                        ],
+                        "links": {
+                          "self": "/api/v2/builds/projects/punisherx/releases/898",
+                          "explore": "/builds/v2/release?project=punisherx&release=898"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wersje i wydania"
+        ],
+        "description": "Komplet informacji o jednej publikacji: wersja, kanał, numer buildu, opis zmian, dane CI i pliki dla każdej platformy. Parametr `release` to pole `id` z historii wydań, a nie numer wersji pluginu."
+      },
+      "head": {
+        "operationId": "ReleaseHead",
+        "summary": "Jedno wydanie ze wszystkimi plikami — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "release",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Liczbowe ID konkretnego wydania, pole id z historii wydań. To nie numer wersji pluginu.",
+            "example": 898
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/artifacts": {
+      "get": {
+        "operationId": "Artifacts",
+        "summary": "Lista plików do pobrania",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ArtifactDetail"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data",
+                    "pagination"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": [
+                        {
+                          "id": 898,
+                          "release_id": 898,
+                          "platform": "paper",
+                          "platform_family": "server",
+                          "compatible_platforms": [
+                            "paper"
+                          ],
+                          "game_versions": [
+                            "26.3",
+                            "26.2"
+                          ],
+                          "java_version": 21,
+                          "filename": "PunisherX-Paper-1.8.0.jar",
+                          "size": 123456,
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "links": {
+                            "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                            "download": "/builds/download/v2?artifact=898"
+                          },
+                          "project": {
+                            "slug": "punisherx",
+                            "name": "PunisherX"
+                          },
+                          "version": "1.8.0",
+                          "channel": "release",
+                          "build_number": ""
+                        }
+                      ],
+                      "pagination": {
+                        "page": 1,
+                        "per_page": 25,
+                        "total": 1,
+                        "next": null,
+                        "previous": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Pliki"
+        ],
+        "description": "Zwraca wyłącznie pliki pasujące do podanych filtrów. Każdy plik zawiera nazwę, rozmiar w bajtach, SHA-256, wymaganą Javę, listy zgodnych platform i wersji MC oraz link pobierania. Wszystkie filtry muszą pasować do tego samego pliku."
+      },
+      "head": {
+        "operationId": "ArtifactsHead",
+        "summary": "Lista plików do pobrania — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            },
+            "description": "Numer strony wyników. Pierwsza strona to 1. Adres następnej strony znajdziesz w pagination.next."
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Liczba wyników na stronie: od 1 do 100. Domyślnie 25."
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/artifacts/{artifact}": {
+      "get": {
+        "operationId": "Artifact",
+        "summary": "Informacje o jednym pliku",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "artifact",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Liczbowe ID pliku, pole id z listy plików albo artifacts[] w wydaniu.",
+            "example": 898
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ArtifactDetail"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "id": 898,
+                        "release_id": 898,
+                        "platform": "paper",
+                        "platform_family": "server",
+                        "compatible_platforms": [
+                          "paper"
+                        ],
+                        "game_versions": [
+                          "26.3",
+                          "26.2"
+                        ],
+                        "java_version": 21,
+                        "filename": "PunisherX-Paper-1.8.0.jar",
+                        "size": 123456,
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "links": {
+                          "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                          "download": "/builds/download/v2?artifact=898"
+                        },
+                        "project": {
+                          "slug": "punisherx",
+                          "name": "PunisherX"
+                        },
+                        "version": "1.8.0",
+                        "channel": "release",
+                        "build_number": ""
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Pliki"
+        ],
+        "description": "Metadane jednego artefaktu. Parametr `artifact` to pole `id` z listy plików. Pobieranie binarnego pliku jest pod adresem `data.links.download`; ten endpoint zwraca tylko JSON."
+      },
+      "head": {
+        "operationId": "ArtifactHead",
+        "summary": "Informacje o jednym pliku — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "artifact",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Liczbowe ID pliku, pole id z listy plików albo artifacts[] w wydaniu.",
+            "example": 898
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku."
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku."
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/latest": {
+      "get": {
+        "operationId": "Latest",
+        "summary": "Ostatnio opublikowany plik — filtry query",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku.",
+            "example": "paper"
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku.",
+            "example": "release"
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api": {
+                      "type": "string",
+                      "const": "v2"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ArtifactDetail"
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "data"
+                  ]
+                },
+                "examples": {
+                  "przyklad": {
+                    "summary": "Przykładowe dane — rzeczywisty wynik zobaczysz po Execute",
+                    "value": {
+                      "api": "v2",
+                      "data": {
+                        "id": 898,
+                        "release_id": 898,
+                        "platform": "paper",
+                        "platform_family": "server",
+                        "compatible_platforms": [
+                          "paper"
+                        ],
+                        "game_versions": [
+                          "26.3",
+                          "26.2"
+                        ],
+                        "java_version": 21,
+                        "filename": "PunisherX-Paper-1.8.0.jar",
+                        "size": 123456,
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "links": {
+                          "self": "/api/v2/builds/projects/punisherx/artifacts/898",
+                          "download": "/builds/download/v2?artifact=898"
+                        },
+                        "project": {
+                          "slug": "punisherx",
+                          "name": "PunisherX"
+                        },
+                        "version": "1.8.0",
+                        "channel": "release",
+                        "build_number": ""
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Najnowszy build"
+        ],
+        "description": "Podaj projekt, platformę i kanał. Opcjonalnie dodaj wersję Minecrafta lub dokładną wersję pluginu. Otrzymasz metadane jednego najnowszego pasującego pliku i link do pobrania.\n\nNajnowszy oznacza ostatnio opublikowany build, a nie największy numer semver. Wersja MC musi być jawnie zadeklarowana przez plik. Dla proxy bez deklaracji wersji MC pomiń `game_version`. Brak zgodnego pliku daje 404 — API nie wybiera innego kanału ani wersji.\n\n**Automatyczny wybór spośród wszystkich wersji projektu:** pozostaw `version` i `build_number` puste. `game_version` określa Minecrafta, nie wersję pluginu. Przykład pobrania: `/api/v2/builds/projects/punisherx/latest/download?platform=paper&game_version=26.3&channel=release`. Parametr `version` służy tylko do przypięcia konkretnej wersji pluginu.\n\nTen starszy wariant zachowuje kolejność dat publikacji. Aby wybrać najwyższą wersję i jej ostatni build, użyj przyjaznej ścieżki `/api/v2/builds/{project}/{platform}/{game_version}/{channel}/latest`."
+      },
+      "head": {
+        "operationId": "LatestHead",
+        "summary": "Znajdź najnowszy zgodny plik — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku.",
+            "example": "paper"
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku.",
+            "example": "release"
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "200": {
+            "description": "Zasób dostępny — same nagłówki.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds/projects/{project}/latest/download": {
+      "get": {
+        "operationId": "DownloadLatest",
+        "summary": "Pobierz ostatnią publikację — filtry query",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku.",
+            "example": "paper"
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku.",
+            "example": "release"
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "invalid_request",
+                    "message": "platform and channel are required."
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "not_found",
+                    "message": "No accessible published resource matches the request."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "api": "v2",
+                  "error": {
+                    "code": "internal_error",
+                    "message": "Build catalogue is temporarily unavailable."
+                  }
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Przekierowanie do pobrania konkretnego pliku. Klient musi obsługiwać przekierowania.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Najnowszy build"
+        ],
+        "description": "Stały adres do użycia w skryptach i automatycznych aktualizacjach. Przy każdym wywołaniu dobiera najnowszy pasujący plik i zwraca przekierowanie 302 do pobrania. Klient musi obsługiwać przekierowania, np. `curl -fL \"ADRES\" -o plugin.jar`.\n\nW konsoli Execute może pobrać plik binarny. Jeśli chcesz najpierw sprawdzić wersję, nazwę i SHA-256, użyj endpointu Znajdź najnowszy zgodny plik. Bez pasującego pliku otrzymasz 404 zamiast przekierowania.\n\n**Automatyczny wybór spośród wszystkich wersji projektu:** pozostaw `version` i `build_number` puste. `game_version` określa Minecrafta, nie wersję pluginu. Przykład pobrania: `/api/v2/builds/projects/punisherx/latest/download?platform=paper&game_version=26.3&channel=release`. Parametr `version` służy tylko do przypięcia konkretnej wersji pluginu.\n\nTen starszy wariant zachowuje kolejność dat publikacji. Aby wybrać najwyższą wersję i jej ostatni build, użyj przyjaznej ścieżki `/api/v2/builds/{project}/{platform}/{game_version}/{channel}/latest`."
+      },
+      "head": {
+        "operationId": "DownloadLatestHead",
+        "summary": "Pobierz zawsze najnowszy zgodny plik — same nagłówki",
+        "parameters": [
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identyfikator projektu (slug), np. punisherx. Znajdziesz go w polu slug na liście projektów. To nie pełna nazwa wyświetlana.",
+            "example": "punisherx"
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja pluginu lub aplikacji, np. 1.8.0. To nie wersja Minecrafta. Puste pole nie ogranicza wyników do jednej wersji."
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładny numer buildu jako tekst. Odczytaj go z pola build_number. Zostaw puste, aby nie ograniczać do konkretnego numeru."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Platforma, na której ma działać plik, np. paper, spigot, folia, velocity, bungeecord lub windows-x64. Uwzględnia listę zadeklarowanej zgodności pliku.",
+            "example": "paper"
+          },
+          {
+            "name": "game_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dokładna wersja Minecrafta, np. 26.3 lub 1.21.11. Filtr musi pasować do deklaracji pliku. Dla proxy bez listy wersji MC pozostaw puste."
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "release",
+                "snapshot",
+                "dev",
+                "wip"
+              ]
+            },
+            "description": "Kanał publikacji: release = stabilny, snapshot = testowy, dev = rozwojowy, wip = prace w toku.",
+            "example": "release"
+          },
+          {
+            "name": "platform_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "server",
+                "proxy",
+                "other"
+              ]
+            },
+            "description": "Rodzina platform: server = plugin serwera MC, proxy = plugin Velocity/BungeeCord, other = aplikacja."
+          },
+          {
+            "name": "java_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 99
+            },
+            "description": "Dokładna wymagana wersja Java zapisana przy pliku, np. 21. To filtr deklaracji pliku, a nie maksymalna Java Twojego komputera."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Nieprawidłowe parametry lub brak wymaganego filtra."
+          },
+          "404": {
+            "description": "Nie znaleziono dostępnego zasobu lub zgodnego pliku."
+          },
+          "500": {
+            "description": "Katalog jest chwilowo niedostępny."
+          },
+          "302": {
+            "description": "Przekierowanie do pobrania konkretnego pliku. Klient musi obsługiwać przekierowania.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookie"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Nagłówki HTTP"
+        ],
+        "description": "Takie same parametry i status jak GET. Odpowiedź HEAD nie ma treści JSON ani pliku."
+      }
+    },
+    "/api/v2/builds": {
+      "get": {
+        "operationId": "Discover",
+        "responses": {
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "Punkt wejścia API",
+        "description": "Zwraca adresy katalogu projektów, pełnego katalogu wydań, OpenAPI i dokumentacji."
+      }
+    },
+    "/api/v2/builds/openapi": {
+      "get": {
+        "operationId": "OpenAPI",
+        "responses": {
+          "200": {
+            "description": "Sukces — dane w formacie JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "Specyfikacja OpenAPI",
+        "description": "Dokument OpenAPI 3.1, na podstawie którego działa ta konsola. Możesz go zapisać i zaimportować do Postmana lub innych narzędzi API."
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Liczbowe ID zasobu w tej witrynie."
+          },
+          "name": {
+            "type": "string",
+            "description": "Nazwa wyświetlana projektu."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Identyfikator projektu używany w adresach API."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Krótki opis projektu."
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adres ikony projektu; może być pusty."
+          },
+          "lifecycle_status": {
+            "type": "string",
+            "description": "Stan realizacji projektu."
+          },
+          "requires_auth": {
+            "type": "boolean",
+            "description": "Czy projekt wymaga zalogowania na stronie."
+          },
+          "release_count": {
+            "type": "integer",
+            "description": "Liczba opublikowanych wydań."
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "summary",
+          "icon_url",
+          "lifecycle_status",
+          "requires_auth",
+          "release_count",
+          "links"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "game_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Jawnie deklarowane wersje Minecrafta. Pusta lista oznacza brak deklaracji."
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platform_families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "java_versions": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "platforms",
+          "game_versions",
+          "channels",
+          "platform_families",
+          "java_versions"
+        ]
+      },
+      "ProjectDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Project"
+          },
+          {
+            "$ref": "#/components/schemas/Capabilities"
+          }
+        ]
+      },
+      "Artifact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Liczbowe ID zasobu w tej witrynie."
+          },
+          "release_id": {
+            "type": "integer",
+            "description": "ID wydania, do którego należy plik."
+          },
+          "platform": {
+            "type": "string",
+            "description": "Główna platforma fizycznego pliku."
+          },
+          "platform_family": {
+            "type": "string",
+            "enum": [
+              "server",
+              "proxy",
+              "other"
+            ],
+            "description": "server, proxy lub other."
+          },
+          "compatible_platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Platformy, na których deklarowano zgodność tego samego pliku."
+          },
+          "game_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Jawnie deklarowane wersje Minecrafta. Pusta lista oznacza brak deklaracji."
+          },
+          "java_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Wymagana wersja Java lub null, jeśli nie podano."
+          },
+          "filename": {
+            "type": "string",
+            "description": "Nazwa pobieranego pliku."
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Rozmiar pliku w bajtach lub null."
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Suma SHA-256 do kontroli pobranego pliku lub null."
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "self": {
+                "type": "string",
+                "description": "Adres tego zasobu w API."
+              },
+              "download": {
+                "type": "string",
+                "description": "Adres pobierania binarnego pliku."
+              }
+            },
+            "required": [
+              "self",
+              "download"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "release_id",
+          "platform",
+          "platform_family",
+          "compatible_platforms",
+          "game_versions",
+          "java_version",
+          "filename",
+          "size",
+          "sha256",
+          "links"
+        ]
+      },
+      "ArtifactDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Artifact"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "project": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Nazwa wyświetlana projektu."
+                  },
+                  "slug": {
+                    "type": "string",
+                    "description": "Identyfikator projektu używany w adresach API."
+                  }
+                },
+                "required": [
+                  "name",
+                  "slug"
+                ]
+              },
+              "version": {
+                "type": "string",
+                "description": "Numer wersji pluginu lub aplikacji."
+              },
+              "channel": {
+                "type": "string",
+                "description": "Kanał publikacji: release, snapshot, dev lub wip."
+              },
+              "build_number": {
+                "type": "string",
+                "description": "Numer konkretnego buildu jako tekst."
+              }
+            },
+            "required": [
+              "project",
+              "version",
+              "channel",
+              "build_number"
+            ]
+          }
+        ]
+      },
+      "Release": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Liczbowe ID zasobu w tej witrynie."
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "description": "Liczbowe ID zasobu w tej witrynie."
+              },
+              "name": {
+                "type": "string",
+                "description": "Nazwa wyświetlana projektu."
+              },
+              "slug": {
+                "type": "string",
+                "description": "Identyfikator projektu używany w adresach API."
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "description": "Numer wersji pluginu lub aplikacji."
+          },
+          "channel": {
+            "type": "string",
+            "description": "Kanał publikacji: release, snapshot, dev lub wip."
+          },
+          "build_number": {
+            "type": "string",
+            "description": "Numer konkretnego buildu jako tekst."
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Data publikacji w UTC (ISO 8601) lub null."
+          },
+          "changelog": {
+            "type": "string",
+            "description": "Opis zmian danego wydania jako zwykły tekst."
+          },
+          "changelog_format": {
+            "type": "string",
+            "enum": [
+              "text"
+            ],
+            "description": "Format opisu zmian; text oznacza zwykły tekst."
+          },
+          "ci": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Liczbowe ID zasobu w tej witrynie."
+              },
+              "time": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "commit_sha": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "branch": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "commits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": [
+              "id",
+              "time",
+              "commit_sha",
+              "branch",
+              "commits"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "description": "Wszystkie pliki tego logicznego wydania."
+          },
+          "links": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "project",
+          "version",
+          "channel",
+          "build_number",
+          "published_at",
+          "changelog",
+          "changelog_format",
+          "ci",
+          "artifacts",
+          "links"
+        ]
+      },
+      "Version": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Numer wersji pluginu lub aplikacji."
+          },
+          "release_count": {
+            "type": "integer",
+            "description": "Liczba opublikowanych wydań."
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Data ostatniej publikacji tej wersji w UTC."
+          }
+        },
+        "required": [
+          "version",
+          "release_count",
+          "updated_at"
+        ]
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Bieżąca strona."
+          },
+          "per_page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Liczba pozycji na stronie."
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Łączna liczba pozycji pasujących do filtrów."
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adres następnej strony lub null na końcu listy."
+          },
+          "previous": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adres poprzedniej strony lub null na początku listy."
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "next",
+          "previous"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "api": {
+            "type": "string",
+            "const": "v2"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "api",
+          "error"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Projekty",
+      "description": "Nazwy, identyfikatory i dostępne platformy projektów."
+    },
+    {
+      "name": "Wersje i wydania",
+      "description": "Historia publikacji, opisy zmian i pełne zestawy plików."
+    },
+    {
+      "name": "Pliki",
+      "description": "Pojedyncze pliki, ich zgodność, SHA-256 i linki do pobrania."
+    },
+    {
+      "name": "Najnowszy build",
+      "description": "Wybór najnowszego zgodnego pliku i stały adres pobierania."
+    },
+    {
+      "name": "System",
+      "description": "Punkt wejścia i specyfikacja OpenAPI."
+    },
+    {
+      "name": "Nagłówki HTTP",
+      "description": "Odpowiedniki HEAD: bez treści odpowiedzi. Przydatne do sprawdzenia statusu i nagłówków."
+    }
+  ]
+}

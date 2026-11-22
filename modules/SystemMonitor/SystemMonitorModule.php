@@ -35,7 +35,7 @@ final class SystemMonitorModule implements ModuleInterface
 
     public function version(): string
     {
-        return '0.1.1';
+        return '0.4.0';
     }
 
     public function dependencies(): array
@@ -116,7 +116,7 @@ final class SystemMonitorModule implements ModuleInterface
         $this->metric('Swap', '—', 'SWP', 'Wolny swap: —', 'swap');
         echo '</div>';
 
-        echo '<div class="admin-panel-grid admin-panel-grid-balanced">';
+        echo '<div class="vps-overview">';
         echo '<div class="admin-panel-column">';
         $this->theme->start_admin_panel('Stan systemu', 'LIVE');
         $this->theme->render_admin_fact_grid([
@@ -129,12 +129,6 @@ final class SystemMonitorModule implements ModuleInterface
             . 'data-monitor-fact-map="host,uptime,cpu-cores,load-average"></div>';
         $this->theme->end_admin_panel();
 
-        $this->theme->start_admin_panel('Wykorzystanie zasobów');
-        $this->resourceProgress('CPU', 'cpu');
-        $this->resourceProgress('RAM', 'memory');
-        $this->resourceProgress('Dysk /', 'disk');
-        $this->resourceProgress('Swap', 'swap');
-        $this->theme->end_admin_panel();
         echo '</div>';
 
         echo '<div class="admin-panel-column">';
@@ -147,6 +141,13 @@ final class SystemMonitorModule implements ModuleInterface
         ]);
         echo '<div class="visually-hidden" aria-hidden="true" '
             . 'data-monitor-fact-map="network-rx-rate,network-tx-rate,network-rx-total,network-tx-total"></div>';
+        $this->theme->end_admin_panel();
+        echo '</div><div class="admin-panel-column">';
+        $this->theme->start_admin_panel('Wykorzystanie zasobów');
+        $this->resourceProgress('CPU', 'cpu');
+        $this->resourceProgress('RAM', 'memory');
+        $this->resourceProgress('Dysk /', 'disk');
+        $this->resourceProgress('Swap', 'swap');
         $this->theme->end_admin_panel();
         echo '</div></div></div>';
 
@@ -174,9 +175,15 @@ final class SystemMonitorModule implements ModuleInterface
 
     private function renderScript(): void
     {
+        $css = dirname(__DIR__, 2) . '/templates/shared/assets/css/system-monitor.css';
+        echo '<link rel="stylesheet" href="/templates/shared/assets/css/system-monitor.css?v=' . self::e((string)filemtime($css)) . '">';
         $file = dirname(__DIR__, 2) . '/templates/shared/assets/js/system-monitor.js';
         $version = is_file($file) ? (string) filemtime($file) : '1';
         echo '<script src="/templates/shared/assets/js/system-monitor.js?v=' . self::e($version) . '"></script>';
+
+        $actionsFile = dirname(__DIR__, 2) . '/templates/shared/assets/js/system-monitor-actions.js';
+        echo '<script src="/templates/shared/assets/js/system-monitor-actions.js?v='
+            . self::e(is_file($actionsFile) ? (string) filemtime($actionsFile) : '1') . '"></script>';
 
         $processFile = dirname(__DIR__, 2) . '/templates/shared/assets/js/system-monitor-processes.js';
         $processVersion = is_file($processFile) ? (string) filemtime($processFile) : '1';
@@ -190,6 +197,10 @@ final class SystemMonitorModule implements ModuleInterface
         header('Pragma: no-cache');
         header('X-Content-Type-Options: nosniff');
 
+        $shared = SystemMonitorAgent::snapshot()['metrics'] ?? null;
+        if (is_array($shared)) {
+            echo json_encode($shared, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE); return;
+        }
         $cpu = $this->cpuSnapshot();
         $memory = $this->memorySnapshot();
         $network = $this->networkSnapshot();

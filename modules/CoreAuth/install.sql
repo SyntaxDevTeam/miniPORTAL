@@ -4,6 +4,7 @@ CREATE TABLE users (
     email VARCHAR(254) NULL,
     avatar_url VARCHAR(2048) NULL,
     status ENUM('active', 'blocked', 'pending') NOT NULL DEFAULT 'pending',
+    session_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -206,3 +207,15 @@ JOIN permissions ON permissions.name IN (
     'admin.access', 'pages.view', 'articles.view', 'users.view'
 )
 WHERE roles.name = 'support';
+
+CREATE TABLE IF NOT EXISTS auth_remember_tokens (
+    selector CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+    validator_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    session_version BIGINT UNSIGNED NOT NULL,
+    expires_at BIGINT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_auth_remember_user (user_id),
+    KEY idx_auth_remember_expiry (expires_at),
+    CONSTRAINT fk_auth_remember_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

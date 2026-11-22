@@ -6,6 +6,7 @@ namespace SyntaxDevTeam\Cms\Modules\CoreAuth;
 
 use PDO;
 use RuntimeException;
+use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Database\CrudApp;
 
 final class UserAdministrationRepository
@@ -20,11 +21,19 @@ final class UserAdministrationRepository
     /**
      * @return list<UserAdminRecord>
      */
-    public function all(): array
+    public function all(?UserDirectoryQuery $query = null, ?int $id = null): array
     {
+        [$where, $parameters] = $query?->where() ?? ['', []];
+        if ($id !== null) {
+            $where = ' WHERE users.id = :record_id';
+            $parameters = [':record_id' => $id];
+        }
+        $order = $query?->order() ?? 'users.created_at DESC, users.id DESC';
+        $limit = $query !== null ? ' LIMIT ' . $query->perPage . ' OFFSET ' . (($query->page - 1) * $query->perPage) : '';
         $statement = $this->database->query(
             'SELECT id, display_name, email, status, last_login_at, created_at '
-            . 'FROM users ORDER BY created_at DESC, id DESC'
+            . 'FROM users' . $where . ' ORDER BY ' . $order . $limit,
+            $parameters
         );
         if ($statement === null) {
             throw new RuntimeException('Nie można pobrać użytkowników.');
@@ -69,6 +78,35 @@ final class UserAdministrationRepository
         );
     }
 
+    public function find(int $id): ?UserAdminRecord
+    {
+        return $this->all(null, $id)[0] ?? null;
+    }
+
+    public function countDirectory(UserDirectoryQuery $query): int
+    {
+        [$where, $parameters] = $query->where();
+        return (int) $this->database->query('SELECT COUNT(*) FROM users' . $where, $parameters)?->fetchColumn();
+    }
+
+    /** @return array<string, int> */
+    public function directoryCounts(): array
+    {
+        $counts = ['total' => 0, 'active' => 0, 'pending' => 0, 'blocked' => 0];
+        $rows = $this->database->query('SELECT status, COUNT(*) AS total FROM users GROUP BY status')?->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['status']] = (int) $row['total'];
+            $counts['total'] += (int) $row['total'];
+        }
+        return $counts;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function accountIdentities(int $id): array
+    {
+        return $this->database->read('user_identities', ['provider', 'provider_login', 'email_verified', 'linked_at', 'last_used_at'], ['user_id' => $id, 'ORDER' => ['provider' => 'ASC']]) ?? [];
+    }
+
     /** @return list<UserAdminRecord> */
     public function online(): array
     {
@@ -76,6 +114,14 @@ final class UserAdministrationRepository
             $this->all(),
             static fn (UserAdminRecord $record): bool => $record->online
         ));
+    }
+
+    /** Counts active accounts, excluding pending, blocked and anonymized accounts. */
+    public function dashboardCounts(): array
+    {
+        $total = $this->database->count('users', ['status' => 'active']);
+        $staff = $this->database->query("SELECT COUNT(DISTINCT u.id) FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.status='active' AND r.name IN ('owner','administrator')")?->fetchColumn();
+        return ['accounts' => $total, 'staff' => (int) $staff];
     }
 
     public function onlineCount(): int
@@ -295,8 +341,11 @@ final class UserAdministrationRepository
         $pdo = $this->database->connection()->pdo;
         $pdo->beginTransaction();
         try {
-            $update = $pdo->prepare('UPDATE users SET status = :status WHERE id = :user_id');
+            $invalidateSessions = $status === 'blocked' && $this->sessionRevocationAvailable($userId);
+            $update = $pdo->prepare('UPDATE users SET status = :status'
+                . ($invalidateSessions ? ', session_version = session_version + 1' : '') . ' WHERE id = :user_id');
             $update->execute([':status' => $status, ':user_id' => $userId]);
+            if ($invalidateSessions) $this->database->delete('auth_active_sessions', ['user_id' => $userId]);
             $this->replaceUserRoles($pdo, $userId, $roleIds);
             $pdo->commit();
         } catch (\Throwable $exception) {
@@ -305,6 +354,56 @@ final class UserAdministrationRepository
             }
             throw $exception;
         }
+    }
+
+    public function sessionRevocationAvailable(int $userId): bool
+    {
+        $row = $this->database->query('SELECT * FROM users WHERE id = :id', [':id' => $userId])?->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) && array_key_exists('session_version', $row);
+    }
+
+    /** Version changes invalidate every PHP session on its next authenticated request. */
+    public function revokeSessions(int $userId, int $actorId, callable $audit): void
+    {
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            // Lock both accounts in a stable order; protected-role decisions use current DB state.
+            $lock = $this->database->query('SELECT id FROM users WHERE id IN (:target, :actor) ORDER BY id'
+                . ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : ''),
+                [':target' => $userId, ':actor' => $actorId]);
+            $ids = array_map('intval', $lock?->fetchAll(PDO::FETCH_COLUMN) ?: []);
+            if (!in_array($userId, $ids, true) || !in_array($actorId, $ids, true)) {
+                throw new RuntimeException('Nie znaleziono konta.');
+            }
+            $actorIsOwner = $this->hasRole($actorId, 'owner');
+            $actorIsAdmin = $actorIsOwner || $this->hasRole($actorId, 'administrator');
+            if (($this->hasRole($userId, 'owner') && !$actorIsOwner)
+                || (($this->hasRole($userId, 'administrator') || $this->hasRole($userId, 'maintainer')) && !$actorIsAdmin)) {
+                throw new RuntimeException('Nie możesz unieważnić sesji konta o wyższej randze.');
+            }
+            $this->database->query('UPDATE users SET session_version = session_version + 1 WHERE id = :id', [':id' => $userId]);
+            $this->database->delete('auth_active_sessions', ['user_id' => $userId]);
+            $audit();
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $exception;
+        }
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function accountSessions(int $id): array
+    {
+        // The browser never receives even the hashed session identifier.
+        return $this->database->read('auth_active_sessions', ['created_at', 'last_seen_at'],
+            ['user_id' => $id, 'last_seen_at[>=]' => gmdate('Y-m-d H:i:s', time() - 2592000),
+             'ORDER' => ['last_seen_at' => 'DESC'], 'LIMIT' => 100]) ?? [];
+    }
+
+    public function supplementalRoles(int $id, ?HookRegistry $hooks): array
+    {
+        return $hooks !== null ? (new SupplementalRoleResolver($this->database))->forUser($hooks, $id) : ['roles' => [], 'permissions' => []];
     }
 
     public function deleteAccount(int $userId, int $actorId): void

@@ -10,6 +10,7 @@ final readonly class Category
         public int $id,
         public string $name,
         public string $slug,
+        public ?int $parentId = null,
     ) {
     }
 }

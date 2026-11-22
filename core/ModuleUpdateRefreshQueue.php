@@ -24,27 +24,29 @@ final class ModuleUpdateRefreshQueue
                 return $state;
             }
 
-            return [
-                'job_id' => bin2hex(random_bytes(12)),
-                'status' => 'queued',
-                'requested_at' => gmdate(\DateTimeInterface::ATOM),
-                'requested_by' => $requestedBy,
-                'started_at' => null,
-                'finished_at' => null,
-                'published_modules' => 0,
-                'duration_ms' => 0,
-                'error' => null,
-            ];
+            return $this->newJob($requestedBy);
         }, true);
     }
 
     /** @return array<string, int|string|null>|null */
-    public function claim(int $staleAfterSeconds = 1800): ?array
+    public function claim(int $staleAfterSeconds = 1800, ?int $refreshIntervalSeconds = null): ?array
     {
         $claimed = false;
-        $state = $this->withLock(function (array $state) use ($staleAfterSeconds, &$claimed): array {
+        $state = $this->withLock(function (array $state) use (
+            $staleAfterSeconds,
+            $refreshIntervalSeconds,
+            &$claimed,
+        ): array {
             $staleRunning = $state['status'] === 'running'
                 && $this->timestampAge((string) ($state['started_at'] ?? '')) >= max(60, $staleAfterSeconds);
+            if (
+                $refreshIntervalSeconds !== null
+                && in_array($state['status'], ['idle', 'completed', 'failed'], true)
+                && $this->timestampAge((string) ($state['finished_at'] ?? '')) >= $refreshIntervalSeconds
+            ) {
+                $state = $this->newJob(null);
+            }
+
             if ($state['status'] !== 'queued' && !$staleRunning) {
                 return $state;
             }
@@ -84,6 +86,17 @@ final class ModuleUpdateRefreshQueue
     public function status(): array
     {
         return $this->withLock(static fn (array $state): array => $state, false);
+    }
+
+    /** @return array<string, int|string|null> */
+    private function newJob(?int $requestedBy): array
+    {
+        return array_replace($this->idleState(), [
+            'job_id' => bin2hex(random_bytes(12)),
+            'status' => 'queued',
+            'requested_at' => gmdate(\DateTimeInterface::ATOM),
+            'requested_by' => $requestedBy,
+        ]);
     }
 
     private function finish(

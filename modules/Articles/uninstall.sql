@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS article_statistics;
 DELETE role_permissions
 FROM role_permissions
 JOIN permissions ON permissions.id = role_permissions.permission_id

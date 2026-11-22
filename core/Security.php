@@ -59,6 +59,43 @@ final class Security
         session_regenerate_id(true);
     }
 
+    public function rememberCookieName(): string
+    {
+        return 'REMEMBER_' . (string) ($this->config['name'] ?? 'MINIPORTALSESSID');
+    }
+
+    public function rememberCookie(): string
+    {
+        $value = $_COOKIE[$this->rememberCookieName()] ?? '';
+        return is_string($value) ? $value : '';
+    }
+
+    public function canRememberLogin(): bool
+    {
+        return $this->secureRequest && !headers_sent();
+    }
+
+    public function setRememberCookie(string $value, int $expires): void
+    {
+        if (!$this->canRememberLogin()) {
+            return;
+        }
+        setcookie($this->rememberCookieName(), $value, [
+            'expires' => $expires,
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        if ($value === '') {
+            unset($_COOKIE[$this->rememberCookieName()]);
+        } else {
+            $_COOKIE[$this->rememberCookieName()] = $value;
+        }
+        header('Cache-Control: private, no-store');
+        header('Cloudflare-CDN-Cache-Control: no-store');
+    }
+
     public function closeSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -91,10 +128,21 @@ final class Security
             ? "script-src 'self' 'unsafe-inline'; "
             : "script-src 'self' https://cdn.jsdelivr.net https://cdn.amcharts.com https://pagead2.googlesyndication.com "
                 . "https://googleads.g.doubleclick.net; ";
-        $frameSrc = $isRemoteTerminal
+        $isArticle = $path === '/article' || str_starts_with($path, '/article/');
+        $frameSrc = ($isRemoteTerminal || $isArticle)
             ? "frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; "
             : "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; ";
         $frameAncestors = $isRemoteTerminalFrame ? "frame-ancestors 'self'; " : "frame-ancestors 'none'; ";
+        // Browsers enforce form-action across OAuth redirects after a POST.
+        // Permit only our fixed provider origins, and only in the login flow.
+        $isOAuthLogin = $path === '/admin/login' || str_starts_with($path, '/admin/auth/');
+        $formAction = $isOAuthLogin
+            ? "form-action 'self' https://github.com https://discord.com https://accounts.google.com "
+                . "https://login.microsoftonline.com https://login.live.com; "
+            : "form-action 'self'; ";
+        if ($path === '/itemshop/checkout') {
+            $formAction = "form-action 'self' https://manager.game-host.pl; ";
+        }
 
         header(
             "Content-Security-Policy: default-src 'self'; "
@@ -102,10 +150,27 @@ final class Security
             . $scriptSrc
             . "img-src 'self' data: https:; font-src 'self' data:; "
             . "connect-src 'self' https://metrics.faststats.dev https://flags.faststats.dev "
-            . "https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net; "
+            . "https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net"
+            . ($isArticle ? " https://api.kotlinlang.org" : "") . "; "
             . $frameSrc
-            . "form-action 'self'; " . $frameAncestors . "base-uri 'self'"
+            . $formAction . $frameAncestors . "base-uri 'self'"
         );
+    }
+
+    /** Restricted policy only for the opaque-origin Python runner frame. */
+    public function sendCodeRunnerHeaders(string $runtimeBase, string $nonce): void
+    {
+        if (preg_match('~\Ahttps?://[a-zA-Z0-9.\[\]:-]+/templates/shared/assets/vendor/pyodide/0\.27\.7/\z~D', $runtimeBase) !== 1
+            || preg_match('/^[a-f0-9]{32}$/D', $nonce) !== 1) {
+            throw new RuntimeException('Nieprawidłowa konfiguracja środowiska Python.');
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store');
+        header('X-Frame-Options: SAMEORIGIN');
+        header('Referrer-Policy: no-referrer');
+        header("Content-Security-Policy: default-src 'none'; script-src 'nonce-" . $nonce
+            . "' 'wasm-unsafe-eval' " . $runtimeBase . "; connect-src " . $runtimeBase
+            . "; worker-src blob:; frame-ancestors 'self'; form-action 'none'; base-uri 'none'");
     }
 
     private function startSession(bool $secure): void
@@ -155,11 +220,14 @@ final class Security
 
     private function shouldStartSession(Request $request): bool
     {
+        if ($request->path() === '/articles/code-runner') {
+            return false;
+        }
         $sessionName = (string) ($this->config['name'] ?? 'MINIPORTALSESSID');
         $hasCookie = isset($_COOKIE[$sessionName])
             && is_string($_COOKIE[$sessionName])
             && $_COOKIE[$sessionName] !== '';
-        if ($hasCookie) {
+        if ($hasCookie || $this->rememberCookie() !== '') {
             return true;
         }
 

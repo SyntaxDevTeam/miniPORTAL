@@ -6,7 +6,13 @@ namespace SyntaxDevTeam\Cms\Core;
 
 final class RichTextSanitizer
 {
-    private const ALLOWED_TAGS = '<p><br><strong><em><u><s><ul><ol><li><blockquote><h2><h3><table><thead><tbody><tr><th><td>';
+    private const ALLOWED_ELEMENTS = [
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ul', 'ol', 'li',
+        'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'thead',
+        'tbody', 'tfoot', 'tr', 'th', 'td', 'div', 'span', 'hr', 'pre', 'code',
+        'a', 'img', 'details', 'summary', 'sub', 'sup', 'kbd', 'mark',
+    ];
+
     private const IMAGE_CLASSES = [
         'content-image',
         'content-image-left',
@@ -27,27 +33,64 @@ final class RichTextSanitizer
             '',
             $html
         ) ?? '';
-        $images = [];
-        $html = preg_replace_callback('/<img\b[^>]*>/i', function (array $match) use (&$images): string {
-            $image = $this->sanitizeImage($match[0]);
-            if ($image === '') {
-                return '';
+        // Use the same allowlist for visual HTML and HTML embedded in Markdown.
+        $html = strip_tags(trim($html), self::ALLOWED_ELEMENTS);
+
+        return trim(preg_replace_callback(
+            '~</?[a-z][a-z0-9]*\b(?:[^\x22\x27<>]|\x22[^\x22]*\x22|\x27[^\x27]*\x27)*>~i',
+            fn (array $match): string => $this->sanitizeMarkdownTag($match[0]),
+            $html
+        ) ?? '');
+    }
+
+    /** Sanitize one raw HTML tag embedded in Markdown, without filtering generated Markdown. */
+    public function sanitizeMarkdownTag(string $tag): string
+    {
+        if (preg_match('~^<(/?)([a-z][a-z0-9]*)\b~i', $tag, $match) !== 1) {
+            return '';
+        }
+        $name = strtolower($match[2]);
+        if (!in_array($name, self::ALLOWED_ELEMENTS, true)) {
+            return '';
+        }
+        if ($match[1] === '/') {
+            return in_array($name, ['img', 'br', 'hr'], true) ? '' : '</' . $name . '>';
+        }
+        if ($name === 'img') {
+            return $this->sanitizeImage($tag);
+        }
+        if ($name === 'a') {
+            $attributes = $this->attributes($tag);
+            $anchor = html_entity_decode(trim($attributes['id'] ?? $attributes['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $anchorAttribute = preg_match('/^[a-zA-Z][a-zA-Z0-9_-]{0,99}$/D', $anchor) === 1
+                ? ' id="' . $anchor . '"' : '';
+            $href = html_entity_decode(trim($attributes['href'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $safe = $href !== ''
+                && preg_match('/[\x00-\x20\x7F\\\\]/', $href) !== 1
+                && !str_starts_with($href, '//')
+                && (preg_match('~^(?:https?://|mailto:|/|#|\./|\.\./)~i', $href) === 1
+                    || (preg_match('~^[a-zA-Z0-9][a-zA-Z0-9._\~/?#%&=+\-]*$~', $href) === 1));
+
+            return '<a' . $anchorAttribute . ($safe ? ' href="' . $this->escape($href) . '" rel="nofollow noopener noreferrer"' : '') . '>';
+        }
+
+        if ($name === 'code') {
+            $attributes = $this->attributes($tag);
+            $class = html_entity_decode($attributes['class'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            return preg_match('/^language-[a-zA-Z0-9_-]{1,40}$/D', $class) === 1
+                ? '<code class="' . $this->escape($class) . '">' : '<code>';
+        }
+
+        $alignment = '';
+        if (in_array($name, ['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'th', 'td'], true)) {
+            $attributes = $this->attributes($tag);
+            $align = strtolower(trim(html_entity_decode($attributes['align'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+            if (in_array($align, ['left', 'center', 'right', 'justify'], true)) {
+                $alignment = ' align="' . $align . '"';
             }
-            $token = "\x1AIMG" . count($images) . "\x1A";
-            $images[$token] = $image;
+        }
 
-            return $token;
-        }, $html) ?? '';
-        $html = str_ireplace(
-            ['<div>', '</div>', '<div><br></div>'],
-            ['<p>', '</p>', '<p><br></p>'],
-            trim($html)
-        );
-        $html = strip_tags($html, self::ALLOWED_TAGS);
-        $html = preg_replace('/<([a-z0-9]+)\b[^>]*>/i', '<$1>', $html) ?? '';
-        $html = preg_replace('/<br\s*\/?>/i', '<br>', $html) ?? '';
-
-        return trim(strtr($html, $images));
+        return '<' . $name . $alignment . '>';
     }
 
     private function sanitizeImage(string $tag): string
@@ -80,6 +123,9 @@ final class RichTextSanitizer
         $alt = html_entity_decode(trim((string) ($attributes['alt'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $width = $this->customWidth((string) ($attributes['style'] ?? ''));
+        if ($width === null && preg_match('/^[0-9]{1,4}$/D', $attributes['width'] ?? '') === 1) {
+            $width = $this->customWidth('--content-image-width:' . (int) $attributes['width'] . 'px');
+        }
         if ($width !== null && !in_array('content-image-custom', $classes, true)) {
             $classes[] = 'content-image-custom';
         }

@@ -89,3 +89,21 @@ zachowują adresy z listy. Można też użyć deklaracji `copy:moonvale.pl` w ad
 przycisku. Clipboard API wymaga bezpiecznego kontekstu HTTPS; komunikat
 potwierdza wyłącznie udany zapis. Link Panel gracza korzysta z aktywnego
 modułu player_profile lub stabilnej trasy /account.
+
+## Kontakty (2026-10-30, Krok 5C)
+
+- [x] Sekcja kontaktów korzysta z fioletowo-różowej palety Equestria,
+  polskich nagłówków i siatki kanałów bez pustej kolumny zespołu.
+- [x] Ikony TikTok, Instagram i Linktree są lokalnymi SVG, dobieranymi
+  po hoście pierwszego linku przy ustawieniu ikony „Automatyczna” lub „WWW”.
+- [x] Poprawki z MoonVale uwzględniono w instalacji macierzystej
+  i `install/cms`; indywidualna treść kontaktów pozostaje w bazie MoonVale.
+
+- [x] Kategorie kontaktów tworzą pełnoszerokie pasy: „Dołącz i obserwuj”,
+  a poniżej „Kontakt bezpośredni”; karty w adaptacyjnych poziomych rzędach.
+
+- [x] Stopka publiczna ma wyśrodkowane pełne wiersze: podpis miniPORTAL,
+  linki i ustawienia cookies, następnie hasło. Nazwa autora nie odrywa się od „by”.
+
+- [x] Ustawienia → Stopka: edycja hasła, własnego podpisu ({year}, {version})
+  i uporządkowanej listy linków. Brak konfiguracji zachowuje dotychczasowy podpis.

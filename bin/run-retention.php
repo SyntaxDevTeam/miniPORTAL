@@ -17,12 +17,13 @@ Autoloader::register();
 
 $args = array_slice($argv, 1);
 if (in_array('-h', $args, true) || in_array('--help', $args, true)) {
-    fwrite(STDOUT, "Użycie: php bin/run-retention.php [--dry-run] [--batch-size=1000] [--max-rows=20000]\n");
+    fwrite(STDOUT, "Użycie: php bin/run-retention.php [--dry-run] [--builds-only] [--batch-size=1000] [--max-rows=20000]\n");
     fwrite(STDOUT, "Cron przykład: 17 3 * * * cd /var/www/syntaxdevteam.pl && php bin/run-retention.php >> cache/retention.log 2>&1\n");
     exit(0);
 }
 $dryRun = in_array('--dry-run', $args, true);
-$options = getopt('', ['dry-run', 'batch-size::', 'max-rows::']);
+$buildsOnly = in_array('--builds-only', $args, true);
+$options = getopt('', ['dry-run', 'builds-only', 'batch-size::', 'max-rows::']);
 $batchSize = max(100, min(5000, (int) ($options['batch-size'] ?? 1000)));
 $maxRows = max($batchSize, min(100000, (int) ($options['max-rows'] ?? 20000)));
 
@@ -35,6 +36,17 @@ try {
     unset($databaseConfig['enabled']);
 
     $database = CrudApp::getInstance($databaseConfig);
+    if ($buildsOnly) {
+        $state = (new \SyntaxDevTeam\Cms\Core\ModuleStateRepository($database))->find('build_explorer');
+        if ($state?->isActive() !== true) { fwrite(STDOUT, "{\"build_retention\":\"inactive\"}\n"); exit(0); }
+        $service = new \SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildRetentionService(
+            new \SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildRepository($database),
+            new \SyntaxDevTeam\Cms\Modules\BuildExplorer\BuildArtifactStorage(dirname(__DIR__) . '/cache/build-artifacts'),
+        );
+        $result = $dryRun ? $service->preview() : $service->runDue();
+        fwrite(STDOUT, json_encode(['build_retention' => $result, 'dry_run' => $dryRun], JSON_THROW_ON_ERROR) . "\n");
+        exit(0);
+    }
     $pdo = $database->connection()->pdo;
     $modules = is_array($config['modules'] ?? null) ? $config['modules'] : [];
     $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];

@@ -9,6 +9,8 @@ use RuntimeException;
 
 final class Router
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, array<string, Closure>> */
     private array $routes = [];
 

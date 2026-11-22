@@ -84,7 +84,7 @@ final class BrandIconGenerator
                 if (!rename($temporary . '/' . $name, $this->outputDirectory . '/' . $name)) {
                     throw new RuntimeException('Nie można zatwierdzić wygenerowanej ikony.');
                 }
-                @chmod($this->outputDirectory . '/' . $name, 0660);
+                @chmod($this->outputDirectory . '/' . $name, 0664);
             }
         } finally {
             foreach (glob($temporary . '/*') ?: [] as $filePath) @unlink($filePath);

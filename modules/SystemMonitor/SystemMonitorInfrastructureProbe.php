@@ -29,7 +29,7 @@ final class SystemMonitorInfrastructureProbe
     ) {
         $this->config = $this->loadConfig();
         $this->cacheFile = rtrim(sys_get_temp_dir(), '/') . '/miniportal-system-monitor-'
-            . substr(hash('sha256', realpath($applicationRoot) ?: $applicationRoot), 0, 16)
+            . substr(hash('sha256', (realpath($applicationRoot) ?: $applicationRoot) . '|' . PHP_SAPI), 0, 16)
             . '.json';
     }
 
@@ -38,6 +38,8 @@ final class SystemMonitorInfrastructureProbe
     {
         $cached = $this->readCache();
         if ($cached !== null) {
+            $cached['storage'] = (new SystemMonitorHost())->storage() ?? $cached['storage'];
+            $cached['services'] = $this->sharedServices() ?? $cached['services'];
             return $cached;
         }
 
@@ -49,11 +51,12 @@ final class SystemMonitorInfrastructureProbe
         ];
 
         $snapshot = [
+            'schema' => 3,
             'sampled_at' => time(),
             'cache_ttl_seconds' => $this->cacheTtl(),
-            'services' => $this->servicesSnapshot(),
+            'services' => $this->sharedServices() ?? $this->servicesSnapshot(),
             'databases' => $databases,
-            'storage' => $this->storageSnapshot($databases),
+            'storage' => (new SystemMonitorHost())->storage() ?? $this->storageSnapshot($databases),
         ];
 
         $this->writeCache($snapshot);
@@ -64,7 +67,12 @@ final class SystemMonitorInfrastructureProbe
     /** @return array<string, mixed> */
     public function processesSnapshot(): array
     {
-        $totalMemory = $this->systemMemoryTotal();
+        $shared = SystemMonitorAgent::snapshot()['processes'] ?? null;
+        if (is_array($shared)) return $shared;
+        $memory = SystemMonitorMemory::snapshot();
+        $totalMemory = $memory['total'];
+        $host = new SystemMonitorHost();
+        $boot = trim((string)@file_get_contents('/proc/sys/kernel/random/boot_id'));
         $users = $this->systemUsers();
         $processes = [];
         $groups = [];
@@ -96,8 +104,20 @@ final class SystemMonitorInfrastructureProbe
             $memoryPercent = $totalMemory > 0 ? ($memoryBytes / $totalMemory) * 100.0 : null;
             $readable++;
 
+            $rawStat = (string)@file_get_contents($processDirectory . '/stat');
+            $fields = preg_split('/\s+/', trim(substr($rawStat, (strrpos($rawStat, ')') ?: 0) + 1))) ?: [];
+            $state = $fields[0] ?? '?'; $ppid = (int)($fields[1] ?? 0);
+            $states = ['R'=>'Wykonuje pracę','S'=>'Uśpiony — oczekuje na pracę','D'=>'Oczekuje na I/O','T'=>'Zatrzymany','t'=>'Zatrzymany przez debugger','Z'=>'Zombie — oczekuje na rodzica','I'=>'Bezczynny wątek jądra'];
+            $protected = $pid <= 1 || $uid === null || !($uid === 33 || ($uid >= 1000 && $uid < 60000))
+                || ($unit !== null && str_ends_with($unit, '.service'))
+                || in_array($name, ['systemd','sshd','sshd-session','bash','dash','sh','zsh','fish','sudo','su','login','screen','tmux','apache2','httpd','nginx','mariadbd','mysqld','postgres','cron','dockerd','containerd','python3','miniportal-node','Runner.Listener','Runner.Worker'], true)
+                || !in_array($state, ['R','S','T','t'], true);
             $processes[] = [
                 'pid' => $pid,
+                'ppid' => $ppid, 'state' => $state, 'state_label' => $states[$state] ?? 'Nieznany',
+                'orphaned' => $ppid === 1, 'start_ticks' => $fields[19] ?? '',
+                'can_terminate' => !$protected && $host->available(),
+                'protection' => $protected ? 'Proces systemowy, usługa lub sesja chroniona.' : ($host->available() ? '' : 'Brak usługi sterowania hostem.'),
                 'name' => $name,
                 'user' => $user,
                 'unit' => $unit,
@@ -133,6 +153,10 @@ final class SystemMonitorInfrastructureProbe
 
         return [
             'sampled_at' => time(),
+            'control_available' => $host->available(), 'boot_id' => $boot, 'memory' => $memory,
+            'rss_all_bytes' => array_sum(array_column($processes, 'memory_bytes')),
+            'rss_shown_bytes' => array_sum(array_column(array_slice($processes, 0, 30), 'memory_bytes')),
+            'total_groups' => count($groupList),
             'total_memory_bytes' => $totalMemory,
             'scanned_processes' => $scanned,
             'readable_processes' => $readable,
@@ -343,14 +367,26 @@ final class SystemMonitorInfrastructureProbe
     }
 
     /** @return list<array<string, mixed>> */
+    private function sharedServices(): ?array
+    {
+        $shared = SystemMonitorAgent::snapshot()['services'] ?? null;
+        if (!is_array($shared)) return null;
+        // Only PHP knows the SAPI actually serving this installation.
+        $shared[] = ['id'=>'php','label'=>'PHP — środowisko WWW','present'=>true,'running'=>true,
+            'version'=>PHP_VERSION . ' (' . PHP_SAPI . ')','processes'=>0,'memory_bytes'=>0];
+        return $shared;
+    }
+
     private function servicesSnapshot(): array
     {
         $definitions = [
             'apache2' => ['label' => 'Apache2', 'names' => ['apache2', 'httpd']],
             'mariadb' => ['label' => 'MariaDB / MySQL', 'names' => ['mariadbd', 'mysqld']],
             'postgresql' => ['label' => 'PostgreSQL', 'names' => ['postgres']],
-            'php-fpm' => ['label' => 'PHP-FPM', 'prefixes' => ['php-fpm']],
-            'redis' => ['label' => 'Redis', 'names' => ['redis-server']],
+            'php' => ['label' => 'PHP — środowisko WWW', 'prefixes' => ['php']],
+            'ssh' => ['label' => 'OpenSSH', 'names' => ['sshd']],
+            'systemd' => ['label' => 'systemd — usługi i harmonogramy', 'names' => ['systemd']],
+            'agent' => ['label' => 'miniPORTAL Node Agent', 'prefixes' => ['miniportal-node']],
             'docker' => ['label' => 'Docker', 'names' => ['dockerd']],
         ];
 
@@ -375,18 +411,33 @@ final class SystemMonitorInfrastructureProbe
             }
         }
 
+        $packages = $this->packageVersions();
+        $packageMap = ['apache2'=>'apache2','mariadb'=>'mariadb-server','postgresql'=>'postgresql','ssh'=>'openssh-server','systemd'=>'systemd','docker'=>'docker.io'];
+        if (!isset($packages['postgresql'])) foreach ($packages as $name => $version) if (preg_match('/^postgresql-[0-9]+$/D', $name)) $packages['postgresql'] = $version;
         $result = [];
         foreach ($definitions as $key => $definition) {
             $result[] = [
                 'id' => $key,
                 'label' => $definition['label'],
-                'running' => $counters[$key]['processes'] > 0,
+                'running' => $key === 'php' || $counters[$key]['processes'] > 0,
+                'version' => $key === 'php' ? PHP_VERSION . ' (' . PHP_SAPI . ')' : ($packages[$packageMap[$key] ?? ''] ?? null),
+                'present' => $key === 'php' || isset($packages[$packageMap[$key] ?? '']) || $counters[$key]['processes'] > 0,
                 'processes' => $counters[$key]['processes'],
                 'memory_bytes' => $counters[$key]['memory_bytes'],
             ];
         }
 
         return $result;
+    }
+
+    private function packageVersions(): array
+    {
+        $contents = (string)@file_get_contents('/var/lib/dpkg/status'); $versions = [];
+        foreach (preg_split('/\n\n/', $contents) ?: [] as $record) {
+            if (!str_contains($record, 'Status: install ok installed')) continue;
+            if (preg_match('/^Package: (.+)$/m', $record, $name) && preg_match('/^Version: (.+)$/m', $record, $version)) $versions[trim($name[1])] = trim($version[1]);
+        }
+        return $versions;
     }
 
     /** @param array<string, mixed> $definition */
@@ -535,7 +586,7 @@ final class SystemMonitorInfrastructureProbe
 
         if ($otherBytes > 0) {
             $categories[] = [
-                'label' => 'System / pozostałe',
+                'label' => 'Niezmierzone / pozostałe (nie jest to rozmiar systemu)',
                 'path' => '/',
                 'bytes' => $otherBytes,
                 'complete' => false,
@@ -722,7 +773,7 @@ final class SystemMonitorInfrastructureProbe
         }
         $json = @file_get_contents($this->cacheFile);
         $decoded = is_string($json) ? json_decode($json, true) : null;
-        return is_array($decoded) ? $decoded : null;
+        return is_array($decoded) && ($decoded['schema'] ?? 0) === 3 ? $decoded : null;
     }
 
     /** @param array<string, mixed> $snapshot */

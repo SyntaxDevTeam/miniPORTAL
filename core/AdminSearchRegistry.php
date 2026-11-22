@@ -8,6 +8,8 @@ use RuntimeException;
 
 final class AdminSearchRegistry
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, array{id:string,label:string,description:string,href:string,section:string,keywords:string,permission:string,order:int}> */
     private array $items = [];
 

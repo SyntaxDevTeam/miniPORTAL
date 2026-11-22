@@ -43,6 +43,65 @@ final class MediaAssetRepository
         return is_array($row) ? $this->hydrate($row) : null;
     }
 
+    /** @return array{assets:list<MediaAsset>,total:int,page:int,pages:int} */
+    public function search(MediaLibraryQuery $query): array
+    {
+        $filters = $query->values;
+        $where = [];
+        $parameters = [];
+        foreach (['category' => 'category', 'type' => 'mime_type'] as $key => $column) {
+            if ($filters[$key] !== '') {
+                $where[] = $column . ' = :' . $key;
+                $parameters[':' . $key] = $filters[$key];
+            }
+        }
+        if ($filters['alt'] === 'missing') $where[] = "alt_text = ''";
+        if ($filters['q'] !== '') {
+            $pattern = '%' . strtr($filters['q'], ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+            $where[] = "(title LIKE :title ESCAPE '!' OR original_name LIKE :original ESCAPE '!' OR alt_text LIKE :alt_text ESCAPE '!')";
+            $parameters += [':title' => $pattern, ':original' => $pattern, ':alt_text' => $pattern];
+        }
+        $clause = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+        $total = (int) $this->query('SELECT COUNT(*) FROM media_assets' . $clause, $parameters)->fetchColumn();
+        $pages = max(1, (int) ceil($total / 48));
+        $page = min($filters['page'], $pages);
+        $order = match ($filters['sort']) {
+            'oldest' => 'created_at ASC, id ASC',
+            'title' => 'title ASC, id ASC',
+            'size' => 'file_size DESC, id DESC',
+            default => 'created_at DESC, id DESC',
+        };
+        $statement = $this->query('SELECT * FROM media_assets' . $clause . ' ORDER BY ' . $order . ' LIMIT 48 OFFSET :offset', $parameters + [':offset' => ($page - 1) * 48]);
+        return ['assets' => array_map($this->hydrate(...), $statement->fetchAll(PDO::FETCH_ASSOC)), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
+    /** @return array{total:int,bytes:int,missing_alt:int} */
+    public function summary(): array
+    {
+        $row = $this->query("SELECT COUNT(*) AS total, COALESCE(SUM(file_size), 0) AS bytes, COALESCE(SUM(CASE WHEN alt_text = '' THEN 1 ELSE 0 END), 0) AS missing_alt FROM media_assets")->fetch(PDO::FETCH_ASSOC);
+        return array_map('intval', $row);
+    }
+
+    /** Metadata changes form one transaction; published paths and files never change.
+     * @param array<int, array{title:string,category:string,alt_text:string}> $changes
+     */
+    public function updateMany(array $changes): void
+    {
+        $pdo = $this->database->connection()->pdo;
+        $pdo->beginTransaction();
+        try {
+            foreach ($changes as $id => $data) {
+                if ($this->find($id) === null || !$this->update($id, $data)) {
+                    throw new \RuntimeException('Nie znaleziono jednej z wybranych grafik. Odśwież bibliotekę.');
+                }
+            }
+            $pdo->commit();
+        } catch (\Throwable $exception) {
+            $pdo->rollBack();
+            throw $exception;
+        }
+    }
+
     public function findByPublicPath(string $publicPath): ?MediaAsset
     {
         $publicPath = trim($publicPath);
@@ -80,7 +139,7 @@ final class MediaAssetRepository
     {
         $title = $this->bounded((string) ($data['title'] ?? ''), 180);
         if ($title === '') {
-            $title = pathinfo((string) ($data['original_name'] ?? 'grafika'), PATHINFO_FILENAME) ?: 'Grafika';
+            $title = $this->bounded(pathinfo((string) ($data['original_name'] ?? 'grafika'), PATHINFO_FILENAME) ?: 'Grafika', 180);
         }
         $slug = $this->uniqueSlug($this->slugify($title));
         $category = (string) ($data['category'] ?? 'other');

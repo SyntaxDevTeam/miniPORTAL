@@ -11,6 +11,7 @@ final readonly class OAuthStateContext
         public string $nonce,
         public string $purpose,
         public ?int $userId,
+        public bool $remember = false,
     ) {
     }
 }

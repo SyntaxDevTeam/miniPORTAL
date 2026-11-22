@@ -124,6 +124,8 @@
     };
 
     const render = (payload) => {
+        // A shared sample can arrive twice when polling and collection overlap.
+        if (previous && payload?.sampled_at === previous.sampled_at) return;
         const cpu = cpuUsage(payload);
         const memoryUsed = percent(payload?.memory?.used, payload?.memory?.total);
         const diskUsed = percent(payload?.disk?.used, payload?.disk?.total);
@@ -170,7 +172,7 @@
                 : `Ostatni pomiar: ${new Date(sampledAt * 1000).toLocaleTimeString('pl-PL')}`;
         }
         const partial = payload?.platform?.procfs === false;
-        setStatus(partial ? 'Dane częściowe' : 'Online', partial ? 'warning' : 'success');
+        setStatus(partial ? 'Dane częściowe' : (payload?.source === 'node_agent' ? 'Node Agent' : 'Pomiar lokalny'), partial ? 'warning' : 'success');
         previous = payload;
     };
 
@@ -203,8 +205,8 @@
     };
 
     const renderServices = (services) => {
-        const section = panel('Usługi VPS', 'procesy / RAM');
-        const grid = table(['Usługa', 'Stan', 'Procesy', 'RAM']);
+        const section = panel('Oprogramowanie i usługi VPS', 'obecność / działanie / wersja');
+        const grid = table(['Oprogramowanie', 'Stan', 'Wersja', 'Procesy', 'RAM RSS']);
         (Array.isArray(services) ? services : []).forEach((service) => {
             const row = document.createElement('tr');
             row.append(element('td', '', String(service?.label || '—')));
@@ -212,11 +214,12 @@
             state.append(element(
                 'span',
                 `badge text-bg-${service?.running === true ? 'success' : 'secondary'}`,
-                service?.running === true ? 'Działa' : 'Nie wykryto'
+                service?.running === true ? (service.id === 'php' ? 'Obsługuje panel' : 'Działa') : (service.present ? 'Zainstalowane, nieaktywne' : 'Nie zainstalowano / brak danych')
             ));
             row.append(state);
-            row.append(element('td', '', String(number(service?.processes) ?? 0)));
-            row.append(element('td', '', formatBytes(service?.memory_bytes)));
+            row.append(element('td', 'text-break', String(service?.version || 'Brak danych')));
+            row.append(element('td', '', service.id === 'php' ? 'wg SAPI' : String(number(service?.processes) ?? 0)));
+            row.append(element('td', '', service.id === 'php' ? 'w procesach WWW' : formatBytes(service?.memory_bytes)));
             grid.body?.append(row);
         });
         section.append(grid.wrapper);
@@ -259,6 +262,11 @@
 
     const renderStorage = (storage) => {
         const section = panel('Co zajmuje dysk', `${formatBytes(storage?.used_bytes)} / ${formatBytes(storage?.total_bytes)}`);
+        if (storage?.sampled_at) section.append(element('p',storage.stale ? 'alert alert-warning small' : 'text-secondary small',`Pomiar: ${new Date(storage.sampled_at*1000).toLocaleString('pl-PL')}${storage.stale ? ' — NIEAKTUALNY' : ''}`));
+        if (storage?.complete === false || (storage?.last_scan_complete === false && !storage?.scan_running)) section.append(element('p','alert alert-warning small','Ostatni skan nie został ukończony. Rozmiary mogą być częściowe albo pochodzić z poprzedniego ukończonego pomiaru.'));
+        if (storage?.scan_running) section.append(element('p','text-secondary small','Trwa skan w tle. Panel korzysta z poprzedniego pomiaru.'));
+        if (storage?.note) section.append(element('p','vps-disk-note',String(storage.note)));
+        if (!storage?.sites) section.append(element('p','alert alert-warning small','Brak pełnego skanu hosta. Poniższe dane są ograniczone uprawnieniami WWW i budżetem skanowania.'));
         const used = number(storage?.used_bytes) ?? 0;
         const categories = Array.isArray(storage?.categories) ? storage.categories : [];
         categories.forEach((category) => {
@@ -268,7 +276,7 @@
             const header = element('div', 'd-flex justify-content-between gap-3 mb-1');
             const label = String(category?.label || 'Inne');
             header.append(element('span', '', label));
-            header.append(element('strong', '', `${formatBytes(bytes)} · ${share.toFixed(1)}%`));
+            header.append(element('strong', '', category?.bytes === null ? 'Brak pełnego pomiaru' : `${formatBytes(bytes)} · ${share.toFixed(1)}%`));
             const progress = document.createElement('progress');
             progress.className = 'w-100';
             progress.max = 100;
@@ -284,6 +292,30 @@
             }
             section.append(row);
         });
+        const tree = item => {
+            const node = element('details','vps-disk-tree');
+            node.append(element('summary','',`${item.label} · ${item.bytes === null ? 'Nie zmierzono' : formatBytes(item.bytes)}${item.complete === false ? ' · częściowy / niedostępny' : ''}`));
+            node.append(element('p','vps-disk-note text-break',String(item.path || '')));
+            for (const child of item.children || []) node.append(tree(child));
+            return node;
+        };
+        if (storage?.sites) {
+            section.append(element('h4','h6 mt-4','Strony WWW — całość i zasoby (podzbiory)'));
+            for (const site of storage.sites) section.append(tree(site));
+        }
+        if (storage?.details) {
+            section.append(element('h4','h6 mt-4','Bazy, logi i aktualizacje (podzbiory)'));
+            for (const item of storage.details) section.append(tree(item));
+        }
+        if (storage?.packages) {
+            const packages=storage.packages;
+            const details=element('details','vps-disk-tree');
+            details.append(element('summary','',`Zainstalowane pakiety: ${packages.count} · deklarowane ${formatBytes(packages.declared_bytes)}`));
+            details.append(element('p','vps-disk-note','20 największych pakietów według Installed-Size z dpkg. To rozmiar deklarowany, nie dodatkowa fizyczna kategoria dysku; pliki są już w /usr, /etc itd.'));
+            const list=table(['Pakiet','Wersja','Rozmiar deklarowany']);
+            for (const item of packages.largest || []) {const tr=element('tr');tr.append(element('td','text-break',String(item.name)),element('td','text-break',String(item.version)),element('td','',formatBytes(item.bytes)));list.body.append(tr);}
+            details.append(list.wrapper);section.append(details);
+        }
         return section;
     };
 
@@ -369,10 +401,14 @@
         const reclaimable = Math.max(0, number(cleaner?.reclaimable_bytes) ?? 0);
         const protectedBytes = Math.max(0, number(cleaner?.protected_bytes) ?? 0);
         const candidateFiles = Math.max(0, Math.round(number(cleaner?.candidate_files) ?? 0));
+        const resources = cleaner?.resources || {};
+        const resourceEnabled = resources.enabled === true;
+        const volumeCount = Math.max(0, Math.round(number(resources.docker_volumes) ?? 0));
+        const cacheBytes = Math.max(0, number(resources.cache_bytes) ?? 0);
 
         const wrapper = element('div', 'mt-4');
         wrapper.dataset.monitorLogCleaner = 'true';
-        const section = panel('Cleaner logów', 'uprzywilejowany Node Agent');
+        const section = panel('Cleaner logów i miejsca na dysku', 'uprzywilejowany Node Agent');
 
         if (cleaner?.available !== true) {
             section.append(element(
@@ -399,6 +435,15 @@
         );
         section.append(notice);
 
+        if (resourceEnabled) {
+            section.append(element('p', 'text-secondary small mb-3',
+                `Dodatkowo: ${volumeCount} niepodpiętych anonimowych woluminów Docker starszych niż 7 dni; `
+                + `${formatBytes(cacheBytes)} wygasłego cache. Rozmiar woluminów nie jest wliczony w szacunek logów. `
+                + 'Magazyn wydań Build Explorer, kopie zapasowe i nazwane woluminy są chronione.'));
+            if (Array.isArray(resources.errors) && resources.errors.length > 0) {
+                section.append(element('p', 'text-warning small', 'Analiza zasobów jest niepełna: ' + resources.errors.join(', ')));
+            }
+        }
         const journalReclaimable = number(cleaner?.journal_reclaimable_bytes);
         const journalBytes = number(cleaner?.journal_bytes);
         if (journalBytes !== null) {
@@ -448,13 +493,14 @@
 
         const clean = element('button', 'btn btn-sm btn-outline-danger', 'Zleć bezpieczne czyszczenie');
         clean.type = 'button';
-        clean.disabled = reclaimable <= 0 || cleanerCsrf === '';
+        clean.disabled = (reclaimable <= 0 && volumeCount <= 0 && cacheBytes <= 0) || cleanerCsrf === '';
         clean.addEventListener('click', async () => {
             const selectedRetention = Math.max(1, Number.parseInt(select.value, 10) || retention);
             const confirmed = window.confirm(
                 `Zlecić Node Agentowi czyszczenie logów starszych niż ${selectedRetention} dni?\n\n`
                 + `Szacunkowo możliwe do odzyskania: ${formatBytes(reclaimable)}.\n`
                 + `${journal.checked ? 'systemd-journal będzie uwzględniony.' : 'systemd-journal nie będzie czyszczony.'}`
+                + (resourceEnabled ? '\nTakże wygasły cache i niepodpięte anonimowe woluminy Docker starsze niż 7 dni.' : '')
             );
             if (!confirmed) return;
 
@@ -495,7 +541,7 @@
                 }
 
                 notice.className = 'alert alert-success mb-3';
-                notice.textContent = 'Node Agent zakończył czyszczenie logów. Odświeżam analizę zajętości.';
+                notice.textContent = 'Node Agent zakończył zadanie Cleanera. Odświeżam analizę zajętości.';
                 await Promise.all([loadCleaner(selectedRetention), loadInfrastructure()]);
             } catch (error) {
                 notice.className = 'alert alert-danger mb-3';

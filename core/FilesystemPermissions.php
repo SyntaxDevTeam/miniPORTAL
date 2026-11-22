@@ -7,7 +7,6 @@ namespace SyntaxDevTeam\Cms\Core;
 final class FilesystemPermissions
 {
     private const PLATFORM_DIRECTORIES = ['core', 'modules', 'templates', 'bin', 'tools'];
-    private const PLATFORM_FILES = ['index.php', '.htaccess', '.user.ini'];
 
     /** @return list<string> */
     public static function requiredDirectories(): array
@@ -39,8 +38,10 @@ final class FilesystemPermissions
         return implode("\n", [
             'cd ' . rtrim($root, '/'),
             'sudo chgrp -R www-data config cache uploads/branding uploads/media',
-            'sudo find config cache uploads/branding uploads/media -type d -exec chmod 2770 {} \;',
-            'sudo find config cache uploads/branding uploads/media -type f -exec chmod 0660 {} \;',
+            'sudo find config cache -type d -exec chmod 2770 {} \;',
+            'sudo find config cache -type f -exec chmod 0660 {} \;',
+            'sudo find uploads/branding uploads/media -type d -exec chmod 2775 {} \;',
+            'sudo find uploads/branding uploads/media -type f -exec chmod 0664 {} \;',
             'sudo chgrp www-data modules',
             'sudo chmod 2775 modules',
         ]);
@@ -51,62 +52,44 @@ final class FilesystemPermissions
     {
         $root = rtrim($root, '/');
         $issues = [];
-        if (!is_dir($root) || !is_writable($root)) {
+        if (!is_dir($root) || !is_writable($root) || !is_executable($root)) {
             $issues[] = '.';
         }
-        foreach (self::PLATFORM_FILES as $file) {
-            $path = $root . '/' . $file;
-            if (!is_file($path) || !is_writable($path)) {
-                $issues[] = $file;
-            }
-        }
+        $protected = LocalRuntime::protectedPaths($root);
         foreach (self::PLATFORM_DIRECTORIES as $directory) {
             $path = $root . '/' . $directory;
-            if (!is_dir($path) || !is_writable($path)) {
+            if (!is_dir($path)) {
+                continue;
+            }
+            if (!is_writable($path) || !is_executable($path) || !is_readable($path)) {
                 $issues[] = $directory . '/';
                 continue;
             }
-            $iterator = new \RecursiveIteratorIterator(
+            $directories = new \RecursiveCallbackFilterIterator(
                 new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::SELF_FIRST
-            );
-            foreach ($iterator as $item) {
-                $relativePath = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);
-                if ($item->isFile() && self::isLocalSecret($relativePath)) {
-                    continue;
-                }
-                if (($item->isFile() || $item->isDir()) && !$item->isWritable()) {
-                    $issues[] = $relativePath;
-                    if (count($issues) >= 20) {
-                        return $issues;
+                static function (\SplFileInfo $item) use ($directory, $path, $protected, &$issues): bool {
+                    $relative = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);
+                    if (!$item->isDir() || $item->isLink() || LocalRuntime::isProtected($relative, $protected)) {
+                        return false;
                     }
+                    if (!$item->isReadable() || !$item->isExecutable()) {
+                        $issues[] = $relative;
+                        return false;
+                    }
+
+                    return true;
+                }
+            );
+            foreach (new \RecursiveIteratorIterator($directories, \RecursiveIteratorIterator::SELF_FIRST) as $item) {
+                if (!$item->isWritable()) {
+                    $issues[] = $directory . '/' . substr($item->getPathname(), strlen($path) + 1);
                 }
             }
         }
-        foreach (glob($root . '/config/*') ?: [] as $path) {
-            $name = basename($path);
-            if ($name === 'installed.env' || $name === 'installed.lock' || $name === 'modules') {
-                continue;
-            }
-            if (!is_writable($path)) {
-                $issues[] = 'config/' . $name;
-            }
-        }
-        $publicKeys = $root . '/config/keys';
-        if (is_dir($publicKeys)) {
-            if (!is_writable($publicKeys)) {
-                $issues[] = 'config/keys/';
-            }
-            foreach (glob($publicKeys . '/*.pem') ?: [] as $path) {
-                if (is_file($path) && !is_writable($path)) {
-                    $issues[] = 'config/keys/' . basename($path);
-                }
-            }
-        }
-        foreach (['downloads', 'backups'] as $directory) {
-            $updateCache = $root . '/cache/platform-updates/' . $directory;
-            if (is_dir($updateCache) && !is_writable($updateCache)) {
-                $issues[] = 'cache/platform-updates/' . $directory . '/';
+        foreach (['config', 'config/keys', 'cache/platform-updates', 'cache/platform-updates/downloads', 'cache/platform-updates/backups'] as $directory) {
+            $path = $root . '/' . $directory;
+            if (is_dir($path) && (!is_writable($path) || !is_executable($path))) {
+                $issues[] = $directory . '/';
             }
         }
 
@@ -115,29 +98,19 @@ final class FilesystemPermissions
 
     public static function platformUpdateRemediationCommand(string $root): string
     {
+        $directories = self::platformUpdateIssues($root);
+        if ($directories === []) {
+            return '';
+        }
+        $paths = implode(' ', array_map(
+            static fn (string $path): string => escapeshellarg(rtrim($path, '/')),
+            $directories
+        ));
+
         return implode("\n", [
-            'cd ' . rtrim($root, '/'),
-            'sudo chgrp www-data . index.php .htaccess .user.ini',
-            'sudo chmod 2775 .',
-            'sudo chmod 0664 index.php .htaccess .user.ini',
-            'sudo chgrp -R www-data core modules templates bin tools',
-            'sudo find core modules templates bin tools -type d -exec chmod 2775 {} \;',
-            'sudo find core modules templates bin tools -type f ! -name ".env" -exec chmod 0664 {} \;',
-            'sudo find config -maxdepth 1 -type f ! -name "installed.env" ! -name "installed.lock" -exec chgrp www-data {} \;',
-            'sudo find config -maxdepth 1 -type f ! -name "installed.env" ! -name "installed.lock" -exec chmod 0660 {} \;',
-            'sudo chgrp -R www-data config/keys',
-            'sudo find config/keys -type d -exec chmod 2770 {} \;',
-            'sudo find config/keys -type f -name "*.pem" -exec chmod 0664 {} \;',
-            'sudo install -d -m 2770 -o $(stat -c %U .) -g www-data cache/platform-updates',
-            'sudo install -d -m 2770 -o $(stat -c %U .) -g www-data cache/platform-updates/downloads',
-            'sudo install -d -m 2770 -o $(stat -c %U .) -g www-data cache/platform-updates/backups',
+            'cd ' . escapeshellarg(rtrim($root, '/')),
+            'sudo chgrp www-data -- ' . $paths,
+            'sudo chmod g+rwx,g+s -- ' . $paths,
         ]);
-    }
-
-    private static function isLocalSecret(string $relativePath): bool
-    {
-        $relativePath = str_replace('\\', '/', $relativePath);
-
-        return str_starts_with($relativePath, 'modules/') && str_ends_with($relativePath, '/.env');
     }
 }

@@ -8,6 +8,8 @@ use RuntimeException;
 
 final class AdminMenuRegistry
 {
+    use RegistrySnapshotTrait;
+
     /** @var array<string, int> */
     private array $sections = [
         'Przestrzeń robocza' => 10,

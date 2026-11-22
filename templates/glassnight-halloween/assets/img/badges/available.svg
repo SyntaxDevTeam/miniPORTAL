@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="154" height="35" viewBox="0 0 154 35" role="img" aria-label="Available">
+  <title>Available</title>
+  <rect width="154" height="35" rx="5" fill="#00438a"/>
+  <rect x="103" width="51" height="35" rx="5" fill="#0071b8"/>
+  <path d="M103 0h5v35h-5z" fill="#00438a"/>
+  <text x="52" y="22" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle" letter-spacing="1">AVAILABLE</text>
+  <text x="129" y="22" fill="#51f2b2" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">YES</text>
+</svg>

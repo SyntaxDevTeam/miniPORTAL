@@ -76,7 +76,7 @@ final class SystemAdminModule implements ModuleInterface
 
     public function version(): string
     {
-        return '2.6.0';
+        return '2.7.1';
     }
 
     public function dependencies(): array
@@ -225,6 +225,11 @@ final class SystemAdminModule implements ModuleInterface
             'settings.manage',
             fn () => $this->saveSettings($request)
         ));
+        $router->post('/admin/settings/navigation/update', fn (Request $request) => $this->guard(
+            $request,
+            'settings.manage',
+            fn () => $this->updatePublicNavigationField($request)
+        ));
         $router->post('/admin/cache/clear', fn (Request $request) => $this->guard(
             $request,
             'settings.manage',
@@ -252,7 +257,9 @@ final class SystemAdminModule implements ModuleInterface
         $this->startPage(
             'Dashboard',
             '/admin',
-            'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
+            ($this->settings?->dashboardWidgetSettings()['system.community'] ?? false)
+                ? 'Serwer Minecraft, gracze i społeczność — najważniejsze informacje w jednym miejscu.'
+                : 'Centrum informacji o modułach, migracjach i aktywności administracyjnej.'
         );
         if ($request->queryInt('full', 0) === 1) {
             $this->renderDashboardContent();
@@ -288,6 +295,10 @@ final class SystemAdminModule implements ModuleInterface
         $permissions = $effectivePermissions ?? ($this->auth->user()?->permissions ?? []);
         $visibleMenu = $this->menu->visibleFor($permissions);
         $dashboardSettings = $this->settings?->dashboardWidgetSettings() ?? [];
+        if ($dashboardSettings['system.community'] ?? false) {
+            $this->renderCommunityDashboard($permissions, $dashboardSettings);
+            return;
+        }
         $moduleEntries = $this->moduleManager?->modules() ?? [];
         $activeModules = count(array_filter(
             $moduleEntries,
@@ -444,6 +455,27 @@ final class SystemAdminModule implements ModuleInterface
             }
             $this->theme->end_admin_panel_grid();
         }
+    }
+
+    /** @param list<string> $permissions @param array<string,bool> $settings */
+    private function renderCommunityDashboard(array $permissions, array $settings): void
+    {
+        $this->theme->start_admin_metrics();
+        foreach ($this->dashboard->metrics($permissions, $settings) as $metric) {
+            $this->theme->render_admin_metric($metric['label'], $metric['value'], $metric['symbol'], $metric['detail']);
+        }
+        $this->theme->end_admin_metrics();
+        $this->theme->start_admin_panel_grid('dashboard');
+        foreach ($this->dashboard->panels($permissions, $settings) as $panel) {
+            $this->theme->start_admin_panel($panel['label'], $panel['meta']);
+            if ($panel['rows'] === []) {
+                $this->theme->render_alert($panel['empty'], 'info');
+            } else {
+                $this->theme->render_admin_table($panel['headers'], $panel['rows']);
+            }
+            $this->theme->end_admin_panel();
+        }
+        $this->theme->end_admin_panel_grid();
     }
 
     private function renderPlatformUpdates(string $message = '', string $variant = 'info'): void
@@ -1011,6 +1043,19 @@ final class SystemAdminModule implements ModuleInterface
         return in_array('*', $this->auth->user()?->permissions ?? [], true);
     }
 
+    private function consumesModuleCatalog(): bool
+    {
+        if (!$this->moduleUpdates->configured()) {
+            return false;
+        }
+
+        $siteHost = parse_url((string) ($this->config['app']['public_url'] ?? ''), PHP_URL_HOST);
+        $catalogHost = parse_url((string) ($this->config['modules']['update_catalog_url'] ?? ''), PHP_URL_HOST);
+
+        return !is_string($siteHost) || !is_string($catalogHost)
+            || strcasecmp(rtrim($siteHost, '.'), rtrim($catalogHost, '.')) !== 0;
+    }
+
     private function renderModules(string $message = '', string $variant = 'info'): void
     {
         $this->startPage(
@@ -1026,7 +1071,8 @@ final class SystemAdminModule implements ModuleInterface
             $this->endPage();
             return;
         }
-        $publisherMode = $this->moduleManager->signsExportsAutomatically();
+        $consumesCatalog = $this->consumesModuleCatalog();
+        $publisherMode = !$consumesCatalog && $this->moduleUpdatePublisher->available();
         if ($publisherMode) {
             $this->theme->render_alert(
                 'Tryb wydawniczy jest aktywny. Centralny katalog automatycznie publikuje podpisane pakiety po zmianie wersji lub zawartości modułu.',
@@ -1038,7 +1084,7 @@ final class SystemAdminModule implements ModuleInterface
         $remoteUpdates = [];
         $remoteModules = [];
         $remoteUpdateError = '';
-        if ($this->moduleUpdates->configured()) {
+        if ($consumesCatalog) {
             try {
                 $remoteUpdates = $this->availableRemoteModuleUpdates($moduleEntries);
                 $remoteModules = $this->availableRemoteModules($moduleEntries);
@@ -1047,16 +1093,21 @@ final class SystemAdminModule implements ModuleInterface
             }
         }
 
-        $this->theme->start_admin_panel('Centralny kanał aktualizacji modułów', $this->moduleUpdates->configured() ? 'Aktywny' : 'Nieskonfigurowany');
-        if (!$this->moduleUpdates->configured()) {
+        $this->theme->start_admin_panel(
+            'Centralny kanał aktualizacji modułów',
+            $publisherMode ? 'Publikacja' : ($consumesCatalog ? 'Aktywny' : 'Nieskonfigurowany')
+        );
+        if ($publisherMode) {
+            $this->theme->render_alert('Ta instalacja publikuje katalog dla instalacji klienckich.', 'info');
+        } elseif (!$consumesCatalog) {
             $this->theme->render_alert(
-                'Ta instalacja nie ma ustawionego MODULE_UPDATE_CATALOG_URL. Ręczny import archiwów pozostaje dostępny.',
+                'Brak dostępnego zewnętrznego katalogu modułów. Ręczny import archiwów pozostaje dostępny.',
                 'info'
             );
         } elseif ($remoteUpdateError !== '') {
             $this->theme->render_alert('Nie można odczytać katalogu modułów: ' . $remoteUpdateError, 'warning');
         } elseif ($remoteUpdates === [] && $remoteModules === []) {
-            $this->theme->render_alert('Wszystkie zainstalowane moduły korzystają z najnowszych dostępnych wersji.', 'success');
+            $this->theme->render_alert('Odczytany katalog nie zawiera nowszych wersji zainstalowanych modułów.', 'success');
         } else {
             $this->theme->render_alert(
                 'Dostępne aktualizacje: ' . count($remoteUpdates)
@@ -1065,7 +1116,7 @@ final class SystemAdminModule implements ModuleInterface
                 'warning'
             );
         }
-        if ($this->moduleUpdatePublisher->available()) {
+        if ($publisherMode) {
             try {
                 $refreshState = $this->moduleUpdateRefreshQueue->status();
                 $status = (string) ($refreshState['status'] ?? 'idle');
@@ -1097,11 +1148,11 @@ final class SystemAdminModule implements ModuleInterface
                 $this->theme->render_alert('Nie można odczytać stanu kolejki katalogu: ' . $exception->getMessage(), 'warning');
             }
         }
-        if ($this->moduleUpdates->configured()) {
+        if ($publisherMode || $consumesCatalog) {
             $this->theme->render_form(
                 'index.php?route=/admin/modules/check-updates',
                 [],
-                'Sprawdź teraz',
+                $publisherMode ? 'Odśwież katalog wydawcy' : 'Sprawdź teraz',
                 $this->security->csrfToken()
             );
         }
@@ -1263,7 +1314,7 @@ final class SystemAdminModule implements ModuleInterface
             }
             if (
                 $state->isInstalled()
-                && $publisherMode
+                && $this->moduleManager->signsExportsAutomatically()
                 && $allows('modules.install')
             ) {
                 $actions[] = [
@@ -1557,10 +1608,8 @@ final class SystemAdminModule implements ModuleInterface
             return;
         }
         try {
-            if (!$this->moduleUpdates->configured()) {
-                throw new \RuntimeException('Centralny kanał aktualizacji modułów nie jest skonfigurowany.');
-            }
-            if ($this->moduleUpdatePublisher->available()) {
+            $consumesCatalog = $this->consumesModuleCatalog();
+            if (!$consumesCatalog && $this->moduleUpdatePublisher->available()) {
                 $state = $this->moduleUpdateRefreshQueue->request($actor?->id);
                 $queueStatus = (string) ($state['status'] ?? 'queued');
                 $this->audit->record(
@@ -1578,6 +1627,9 @@ final class SystemAdminModule implements ModuleInterface
                 );
                 return;
             }
+            if (!$consumesCatalog) {
+                throw new \RuntimeException('Brak dostępnego zewnętrznego katalogu modułów.');
+            }
             $entries = $this->moduleManager?->modules() ?? [];
             $updates = $this->availableRemoteModuleUpdates($entries, true);
             $this->audit->record(
@@ -1589,7 +1641,7 @@ final class SystemAdminModule implements ModuleInterface
             );
             $this->renderModules(
                 $updates === []
-                    ? 'Sprawdzono centralny katalog. Wszystkie moduły są aktualne.'
+                    ? 'Centralny katalog nie zawiera nowszych wersji zainstalowanych modułów.'
                     : 'Sprawdzono centralny katalog. Dostępne aktualizacje: ' . count($updates) . '.',
                 $updates === [] ? 'success' : 'warning'
             );
@@ -1621,6 +1673,9 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         try {
+            if (!$this->consumesModuleCatalog()) {
+                throw new \RuntimeException('Brak dostępnego zewnętrznego katalogu modułów.');
+            }
             $local = $this->moduleManager->manifests()[$moduleId] ?? null;
             if ($local === null) {
                 throw new \RuntimeException('Nie znaleziono lokalnego modułu do aktualizacji.');
@@ -1713,6 +1768,9 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         try {
+            if (!$this->consumesModuleCatalog()) {
+                throw new \RuntimeException('Brak dostępnego zewnętrznego katalogu modułów.');
+            }
             if (isset($this->moduleManager->manifests()[$moduleId])) {
                 throw new \RuntimeException('Moduł jest już obecny lokalnie; użyj właściwej operacji instalacji albo aktualizacji.');
             }
@@ -1781,7 +1839,7 @@ final class SystemAdminModule implements ModuleInterface
      */
     private function availableRemoteModuleUpdates(array $moduleEntries, bool $forceRefresh = false): array
     {
-        if (!$this->moduleUpdates->configured()) {
+        if (!$this->consumesModuleCatalog()) {
             return [];
         }
         $installed = [];
@@ -1794,9 +1852,7 @@ final class SystemAdminModule implements ModuleInterface
         }
 
         $updates = [];
-        $catalog = $this->moduleUpdatePublisher->available()
-            ? $this->moduleUpdatePublisher->cachedCatalog()
-            : $this->moduleUpdates->all($forceRefresh);
+        $catalog = $this->moduleUpdates->all($forceRefresh);
         foreach ($catalog as $candidate) {
             $local = $installed[$candidate['id']] ?? null;
             if ($local === null || !version_compare($candidate['version'], $local->version, '>')) {
@@ -1824,7 +1880,7 @@ final class SystemAdminModule implements ModuleInterface
      */
     private function availableRemoteModules(array $moduleEntries, bool $forceRefresh = false): array
     {
-        if (!$this->moduleUpdates->configured()) {
+        if (!$this->consumesModuleCatalog()) {
             return [];
         }
         $local = [];
@@ -1835,9 +1891,7 @@ final class SystemAdminModule implements ModuleInterface
             }
         }
         $available = [];
-        $catalog = $this->moduleUpdatePublisher->available()
-            ? $this->moduleUpdatePublisher->cachedCatalog()
-            : $this->moduleUpdates->all($forceRefresh);
+        $catalog = $this->moduleUpdates->all($forceRefresh);
         foreach ($catalog as $candidate) {
             if (
                 isset($local[$candidate['id']])
@@ -2149,6 +2203,10 @@ final class SystemAdminModule implements ModuleInterface
             'public_google_site_verification' => (string) ($app['public_google_site_verification'] ?? ''),
             'public_bing_site_verification' => (string) ($app['public_bing_site_verification'] ?? ''),
             'public_footer_text' => (string) ($app['public_footer_text'] ?? 'Projektowane modułowo. Rozwijane świadomie.'),
+            'public_footer_credit' => (string) ($app['public_footer_credit'] ?? ''),
+            'public_footer_credit_visible' => (string) ($app['public_footer_credit_visible'] ?? '1'),
+            'public_footer_links_enabled' => (string) ($app['public_footer_links_enabled'] ?? '0'),
+            'public_footer_links' => (string) ($app['public_footer_links'] ?? ''),
             'public_maintenance_enabled' => (string) ($app['public_maintenance_enabled'] ?? '0'),
             'public_maintenance_title' => (string) (
                 $app['public_maintenance_title'] ?? 'Site under construction'
@@ -2169,7 +2227,6 @@ final class SystemAdminModule implements ModuleInterface
         ]);
         $cache = $this->templateCache->stats();
         $this->theme->start_admin_panel_grid('settings');
-        $this->theme->start_admin_panel_column();
         $this->theme->start_admin_panel('Branding', 'Nazwa i wygląd');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
@@ -2202,13 +2259,6 @@ final class SystemAdminModule implements ModuleInterface
                     'value' => $values['public_theme_color'],
                     'required' => true,
                 ],
-                [
-                    'name' => 'public_footer_text',
-                    'label' => 'Tekst stopki',
-                    'value' => $values['public_footer_text'],
-                    'required' => true,
-                    'maxlength' => 160,
-                ],
             ],
             'Zapisz branding',
             $this->security->csrfToken()
@@ -2231,6 +2281,22 @@ final class SystemAdminModule implements ModuleInterface
                 ],
             ],
             $values['public_favicon_path'] !== '' ? 'Wygeneruj favicony ponownie' : 'Wygeneruj favicony',
+            $this->security->csrfToken()
+        );
+        $this->theme->end_admin_panel();
+
+        $this->theme->start_admin_panel('Stopka', 'Podpis, hasło i linki');
+        $this->theme->render_form(
+            'index.php?route=/admin/settings',
+            [
+                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'footer'],
+                ['name' => 'public_footer_text', 'label' => 'Hasło pod linkami', 'value' => $values['public_footer_text'], 'maxlength' => 160, 'help' => 'Zostaw puste, aby ukryć hasło.'],
+                ['name' => 'public_footer_credit_visible', 'label' => 'Pokaż podpis stopki', 'type' => 'checkbox', 'checked' => $values['public_footer_credit_visible'] === '1'],
+                ['name' => 'public_footer_credit', 'label' => 'Własny podpis stopki', 'value' => $values['public_footer_credit'], 'maxlength' => 240, 'help' => 'Puste pole zachowuje podpis miniPORTAL z linkami. Własny tekst może zawierać {year} — bieżący rok i {version} — wersję portalu. HTML nie jest wykonywany.'],
+                ['name' => 'public_footer_links_enabled', 'label' => 'Użyj własnej listy linków stopki', 'type' => 'checkbox', 'checked' => $values['public_footer_links_enabled'] === '1', 'help' => 'Włącz, aby zastąpić linki stron i modułów poniższą listą. Wyłącz, aby wrócić do dotychczasowej nawigacji.'],
+                ['name' => 'public_footer_links', 'label' => 'Linki stopki', 'type' => 'textarea', 'rows' => 6, 'value' => $values['public_footer_links'], 'help' => 'Jeden link w wierszu, w kolejności wyświetlania: Etykieta | adres. Do 12 linków. Przykład: Kontakt | /#contact. Dozwolone HTTP, HTTPS i ścieżki /…; włączona pusta lista ukrywa linki stron i modułów. Wejście do panelu i ustawienia cookies pozostają dostępne zgodnie z konfiguracją.'],
+            ],
+            'Zapisz stopkę',
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
@@ -2283,6 +2349,7 @@ final class SystemAdminModule implements ModuleInterface
         );
         $this->theme->end_admin_panel();
 
+        $this->theme->start_admin_panel_grid('settings-pair');
         $this->theme->start_admin_panel('Szablon', 'Motyw publiczny');
         $this->theme->render_form(
             'index.php?route=/admin/settings',
@@ -2327,6 +2394,8 @@ final class SystemAdminModule implements ModuleInterface
         );
         $this->theme->end_admin_panel();
 
+        $this->theme->end_admin_panel_grid();
+
         $dashboardDefinitions = $this->dashboard->definitions($this->auth->user()?->permissions ?? []);
         if ($dashboardDefinitions !== []) {
             $dashboardSettings = $this->settings->dashboardWidgetSettings();
@@ -2336,6 +2405,11 @@ final class SystemAdminModule implements ModuleInterface
                 'type' => 'hidden',
                 'value' => 'dashboard',
             ]];
+            $dashboardFields[] = [
+                'name' => 'dashboard_community', 'label' => 'Dashboard społeczności',
+                'type' => 'checkbox', 'checked' => $dashboardSettings['system.community'] ?? false,
+                'help' => 'Pokazuj wybrane widżety modułów bez technicznych liczników, migracji i sygnałów operacyjnych.',
+            ];
             foreach ($dashboardDefinitions as $definition) {
                 $dashboardFields[] = [
                     'name' => 'dashboard_widget_' . $this->publicNavigationFieldKey($definition['id']),
@@ -2354,9 +2428,7 @@ final class SystemAdminModule implements ModuleInterface
             );
             $this->theme->end_admin_panel();
         }
-        $this->theme->end_admin_panel_column();
 
-        $this->theme->start_admin_panel_column();
 
         $this->theme->start_admin_panel('SEO i udostępnianie', 'Indeksowanie i social media');
         $this->theme->render_form(
@@ -2519,54 +2591,19 @@ final class SystemAdminModule implements ModuleInterface
             $this->security->csrfToken()
         );
         $this->theme->end_admin_panel();
-        $this->theme->end_admin_panel_column();
-        $this->theme->end_admin_panel_grid();
 
-        $this->theme->start_admin_panel_grid('balanced');
         $publicNavigationItems = $this->publicNavigation->items($this->settings->publicNavigationSettings());
         if ($publicNavigationItems !== []) {
-            $fields = [
-                ['name' => 'settings_scope', 'label' => 'Zakres ustawień', 'type' => 'hidden', 'value' => 'navigation'],
-            ];
-            foreach ($publicNavigationItems as $item) {
-                $key = $this->publicNavigationFieldKey($item['id']);
-                $fields[] = [
-                    'name' => 'public_nav_' . $key . '_label',
-                    'label' => 'Etykieta: ' . $item['default_label'],
-                    'value' => $item['label'],
-                    'help' => $item['href'],
-                ];
-                $fields[] = [
-                    'name' => 'public_nav_' . $key . '_main',
-                    'label' => 'Pokazuj w menu głównym',
-                    'type' => 'checkbox',
-                    'checked' => $item['show_main'],
-                ];
-                $fields[] = [
-                    'name' => 'public_nav_' . $key . '_footer',
-                    'label' => 'Pokazuj w stopce',
-                    'type' => 'checkbox',
-                    'checked' => $item['show_footer'],
-                ];
-                $fields[] = [
-                    'name' => 'public_nav_' . $key . '_order',
-                    'label' => 'Kolejność: ' . $item['default_label'],
-                    'type' => 'number',
-                    'value' => (string) $item['order'],
-                    'help' => 'Niższa liczba przesuwa link wcześniej w menu i stopce.',
-                ];
-            }
-            $this->theme->start_admin_panel('Publiczna nawigacja modułów', count($publicNavigationItems) . ' linków');
-            $this->theme->render_form(
-                'index.php?route=/admin/settings',
-                $fields,
-                'Zapisz nawigację',
-                $this->security->csrfToken()
-            );
+            $items = array_map(fn (array $item): array => [
+                ...$item,
+                'field_key' => $this->publicNavigationFieldKey($item['id']),
+            ], $publicNavigationItems);
+            $this->theme->start_admin_panel('Publiczna nawigacja modułów', count($items) . ' linków');
+            $this->theme->render_admin_public_navigation_editor($items, $this->security->csrfToken());
             $this->theme->end_admin_panel();
         }
 
-        $this->theme->end_admin_panel_grid();
+
 
         if (in_array('*', $this->auth->user()?->permissions ?? [], true)) {
             $auth = is_array($this->config['auth'] ?? null) ? $this->config['auth'] : [];
@@ -2621,7 +2658,6 @@ final class SystemAdminModule implements ModuleInterface
             $this->theme->end_admin_panel();
         }
 
-        $this->theme->start_admin_panel_grid('system');
         $this->theme->start_admin_panel('Konfiguracja chroniona', 'Tylko podgląd zredagowany');
         $this->theme->render_alert(
             'Sekrety pozostają w pliku środowiskowym poza katalogiem publicznym. Panel pokazuje wyłącznie stan ich konfiguracji.',
@@ -2633,7 +2669,6 @@ final class SystemAdminModule implements ModuleInterface
         $this->theme->start_admin_panel('Diagnostyka Core', count($this->diagnostics) . ' kontroli');
         $this->theme->render_admin_table(['Element', 'Implementacja', 'Stan'], $this->diagnostics);
         $this->theme->end_admin_panel();
-        $this->theme->end_admin_panel_grid();
 
         $distributionAccess = $this->distributionAccessCredentials->status();
         $this->theme->start_admin_panel(
@@ -2702,6 +2737,7 @@ final class SystemAdminModule implements ModuleInterface
             $publisherRows
         );
         $this->theme->end_admin_panel();
+        $this->theme->end_admin_panel_grid();
         $this->endPage();
     }
 
@@ -2728,10 +2764,17 @@ final class SystemAdminModule implements ModuleInterface
                         'public_name' => $request->postString('public_name'),
                         'public_eyebrow' => $request->postString('public_eyebrow'),
                         'public_theme_color' => $request->postString('public_theme_color'),
-                        'public_footer_text' => $request->postString('public_footer_text'),
                     ],
                     $actor->id
                 );
+            } elseif ($scope === 'footer') {
+                $this->settings->saveFooterSettings([
+                    'public_footer_text' => $request->postString('public_footer_text'),
+                    'public_footer_credit' => $request->postString('public_footer_credit'),
+                    'public_footer_credit_visible' => $request->postBool('public_footer_credit_visible') ? '1' : '0',
+                    'public_footer_links_enabled' => $request->postBool('public_footer_links_enabled') ? '1' : '0',
+                    'public_footer_links' => $request->postString('public_footer_links'),
+                ], $actor->id);
             } elseif ($scope === 'favicon') {
                 $file = $request->file('favicon');
                 if ($file === null) {
@@ -2809,7 +2852,7 @@ final class SystemAdminModule implements ModuleInterface
                     $actor->id
                 );
             } elseif ($scope === 'dashboard') {
-                $dashboardSettings = [];
+                $dashboardSettings = ['system.community' => $request->postBool('dashboard_community')];
                 foreach ($this->dashboard->definitions($actor->permissions) as $definition) {
                     $dashboardSettings[$definition['id']] = $request->postBool(
                         'dashboard_widget_' . $this->publicNavigationFieldKey($definition['id'])
@@ -2847,7 +2890,7 @@ final class SystemAdminModule implements ModuleInterface
             }
             if (in_array(
                 $scope,
-                ['theme', 'branding', 'seo', 'faststats', 'navigation', 'favicon', 'maintenance'],
+                ['footer', 'theme', 'branding', 'seo', 'faststats', 'navigation', 'favicon', 'maintenance'],
                 true
             )) {
                 $this->templateCache->invalidateTags(['theme', 'homepage']);
@@ -2859,6 +2902,105 @@ final class SystemAdminModule implements ModuleInterface
             $this->recordSettingsAudit($request, 'failed', $actor->id);
             $this->renderSettings($exception->getMessage(), 'danger');
         }
+    }
+
+    /**
+     * Save one navigation field without re-submitting or overwriting unrelated links.
+     */
+    private function updatePublicNavigationField(Request $request): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+
+        $actor = $this->auth->user();
+        if ($actor === null || $this->settings === null) {
+            $this->publicNavigationJson(503, 'Ustawienia są chwilowo niedostępne.');
+            return;
+        }
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->recordSettingsAudit($request, 'invalid_csrf', $actor->id);
+            $this->publicNavigationJson(403, 'Sesja wygasła. Odśwież stronę.');
+            return;
+        }
+
+        if ($request->postString('field') === 'reorder') {
+            try {
+                $ids = json_decode($request->postString('value'), true, 8, JSON_THROW_ON_ERROR);
+                if (!is_array($ids) || !array_is_list($ids)) {
+                    throw new \InvalidArgumentException('Nieprawidłowa kolejność linków.');
+                }
+                $this->settings->reorderPublicNavigation($ids, $this->publicNavigation, $actor->id);
+                $this->templateCache->invalidateTags(['navigation', 'theme', 'homepage']);
+                $this->recordSettingsAudit($request, 'success', $actor->id);
+                $this->publicNavigationJson(200, 'Zapisano kolejność.', ['field' => 'reorder', 'ids' => $ids]);
+            } catch (\JsonException | \InvalidArgumentException $exception) {
+                $this->publicNavigationJson(422, 'Nieprawidłowa kolejność linków. Odśwież stronę.');
+            } catch (\Throwable $exception) {
+                error_log('Public navigation reorder failed: ' . $exception->getMessage());
+                $this->recordSettingsAudit($request, 'failed', $actor->id);
+                $this->publicNavigationJson(500, 'Nie udało się zapisać kolejności. Spróbuj ponownie.');
+            }
+            return;
+        }
+
+        $id = $request->postString('link_id');
+        $field = $request->postString('field');
+        $value = $request->postString('value');
+        $allowedLinks = [];
+        foreach ($this->publicNavigation->items() as $item) {
+            $allowedLinks[$item['id']] = [
+                'label' => $item['default_label'],
+                'order' => $item['order'],
+            ];
+        }
+        if (!isset($allowedLinks[$id])) {
+            $this->publicNavigationJson(404, 'Nie znaleziono linku aktywnego modułu.');
+            return;
+        }
+        if (!in_array($field, ['main', 'footer', 'label', 'order'], true)) {
+            $this->publicNavigationJson(422, 'Nieprawidłowe pole nawigacji.');
+            return;
+        }
+        if (in_array($field, ['main', 'footer'], true) && !in_array($value, ['0', '1'], true)) {
+            $this->publicNavigationJson(422, 'Nieprawidłowy stan przełącznika.');
+            return;
+        }
+        if ($field === 'order' && (preg_match('/^(?:0|[1-9][0-9]{0,4})$/D', $value) !== 1 || (int) $value > 65535)) {
+            $this->publicNavigationJson(422, 'Kolejność musi mieścić się w zakresie 0–65535.');
+            return;
+        }
+        if ($field === 'label' && strlen(trim($value)) > 80) {
+            $this->publicNavigationJson(422, 'Etykieta linku może mieć maksymalnie 80 bajtów.');
+            return;
+        }
+
+        try {
+            $updated = $this->settings->updatePublicNavigationField(
+                $id, $field, $value, $allowedLinks, $actor->id
+            );
+            $this->templateCache->invalidateTags(['navigation', 'theme', 'homepage']);
+            $this->recordSettingsAudit($request, 'success', $actor->id);
+            $this->publicNavigationJson(200, 'Zapisano.', [
+                'id' => $id,
+                'field' => $field,
+                'value' => $updated[$field],
+            ]);
+        } catch (\Throwable $exception) {
+            error_log('Public navigation update failed: ' . $exception->getMessage());
+            $this->recordSettingsAudit($request, 'failed', $actor->id);
+            $this->publicNavigationJson(500, 'Nie udało się zapisać zmiany. Spróbuj ponownie.');
+        }
+    }
+
+    /** @param array<string, mixed> $extra */
+    private function publicNavigationJson(int $status, string $message, array $extra = []): void
+    {
+        http_response_code($status);
+        echo json_encode(
+            ['ok' => $status === 200, 'message' => $message, ...$extra],
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE
+        );
     }
 
     private function recordSettingsAudit(Request $request, string $result, int $actorId): void

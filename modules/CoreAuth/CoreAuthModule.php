@@ -8,14 +8,23 @@ use Throwable;
 use SyntaxDevTeam\Cms\Core\AdminMenuRegistry;
 use SyntaxDevTeam\Cms\Core\DashboardProviderInterface;
 use SyntaxDevTeam\Cms\Core\DashboardRegistry;
+use SyntaxDevTeam\Cms\Core\HookProviderInterface;
+use SyntaxDevTeam\Cms\Core\HookRegistry;
 use SyntaxDevTeam\Cms\Core\ModuleInterface;
 use SyntaxDevTeam\Cms\Core\Request;
 use SyntaxDevTeam\Cms\Core\Router;
 use SyntaxDevTeam\Cms\Core\Security;
 use SyntaxDevTeam\Cms\Core\ThemeInterface;
 
-final class CoreAuthModule implements ModuleInterface, DashboardProviderInterface
+final class CoreAuthModule implements ModuleInterface, DashboardProviderInterface, HookProviderInterface
 {
+    private ?HookRegistry $hooks = null;
+
+    public function registerHooks(HookRegistry $hooks): void
+    {
+        $this->hooks = $hooks;
+    }
+
     public function __construct(
         private readonly ThemeInterface $theme,
         private readonly Security $security,
@@ -39,7 +48,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     public function version(): string
     {
-        return '1.11.1';
+        return '2.2.1';
     }
 
     public function dependencies(): array
@@ -67,6 +76,12 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     {
         if ($this->userAdministration === null) {
             return;
+        }
+        foreach (['accounts' => ['auth.accounts', 'Konta na stronie', 'Aktywne konta WWW; bez oczekujących i zablokowanych', 'WWW'],
+                  'staff' => ['auth.site_staff', 'Administracja strony', 'Aktywne konta z rolą Owner lub Administrator', 'ADM']] as $key => [$id, $label, $detail, $symbol]) {
+            $dashboard->addMetric($id, $label, $detail, $symbol,
+                fn (): array => ['value' => $this->userAdministration->dashboardCounts()[$key], 'detail' => $detail],
+                'users.view', 70, false);
         }
         $dashboard->addMetric(
             'auth.online_users',
@@ -114,7 +129,13 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         $router->get('/admin/users', fn (Request $request) => $this->guard(
             $request,
             'users.view',
-            fn () => $this->renderUsers()
+            fn () => $this->renderUsers(request: $request)
+        ));
+        $router->get('/admin/users/view', fn (Request $request) => $this->guard(
+            $request, 'users.view', fn () => $this->renderUserDetails($request)
+        ));
+        $router->post('/admin/users/revoke-sessions', fn (Request $request) => $this->guard(
+            $request, 'users.manage', fn () => $this->revokeUserSessions($request)
         ));
         $router->get('/admin/users/edit', fn (Request $request) => $this->guard(
             $request,
@@ -174,6 +195,10 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         foreach ($this->providers->all() as $provider) {
             $name = $provider->name();
             $router->get(
+                "/admin/auth/{$name}",
+                fn (Request $request) => $this->startProviderLogin($request, $name)
+            );
+            $router->post(
                 "/admin/auth/{$name}",
                 fn (Request $request) => $this->startProviderLogin($request, $name)
             );
@@ -381,13 +406,14 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         header('Location: ' . $this->consumeRegistrationRedirect($activated), true, 303);
     }
 
-    private function renderUsers(string $message = '', string $variant = 'info'): void
+    private function renderUsers(string $message = '', string $variant = 'info', ?Request $request = null): void
     {
         $user = $this->auth->user();
         if ($user === null) {
             return;
         }
 
+        $this->theme->require_asset('admin_catalog');
         $this->startAdminPage(
             'Użytkownicy',
             '/admin/users',
@@ -407,9 +433,46 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         $canManageOwner = $this->isOwner($user);
         $canManagePrivileged = $canManageOwner || in_array('administrator', $user->roles, true);
         $assignableRoles = $this->assignableRoles($user);
+        $roleLabels = $this->userAdministration->roles();
+        $query = new UserDirectoryQuery($request ?? Request::fromArrays([], [], []));
+        $counts = $this->userAdministration->directoryCounts();
+        $this->theme->start_admin_metrics();
+        foreach (['total' => 'Wszystkie konta', 'active' => 'Aktywne', 'pending' => 'Do akceptacji', 'blocked' => 'Zablokowane'] as $key => $label) {
+            $this->theme->render_admin_metric($label, (string) $counts[$key], 'US');
+        }
+        $this->theme->end_admin_metrics();
+        $this->theme->start_admin_panel('Katalog użytkowników', 'Wyszukuj po nazwie, e-mailu lub dokładnym ID konta.');
+        $this->theme->start_admin_catalog_toolbar();
+        $this->theme->render_form('index.php', [
+            ['name' => 'route', 'type' => 'hidden', 'value' => '/admin/users'],
+            ['name' => 'q', 'id' => 'users-search', 'label' => 'Szukaj użytkownika', 'value' => $query->search, 'placeholder' => 'Nazwa, e-mail lub ID konta'],
+            ...array_map(static fn (string $name): array => ['name' => $name, 'type' => 'hidden', 'value' => (string) $query->{$name}], ['status', 'role', 'provider', 'presence', 'sort']),
+            ['name' => 'per_page', 'type' => 'hidden', 'value' => (string) $query->perPage],
+        ], 'Szukaj', '', 'get');
+        $this->theme->render_admin_filter_modal('users', 'Filtry użytkowników', 'index.php', [
+            ['name' => 'route', 'type' => 'hidden', 'value' => '/admin/users'],
+            ['name' => 'q', 'label' => 'Nazwa, e-mail lub ID', 'value' => $query->search],
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'value' => $query->status,
+                'options' => ['' => 'Wszystkie statusy', 'active' => 'Aktywne', 'pending' => 'Oczekujące', 'blocked' => 'Zablokowane']],
+            ['name' => 'role', 'label' => 'Rola lokalna', 'type' => 'select', 'value' => $query->role,
+                'options' => ['' => 'Wszystkie role'] + $this->userAdministration->roles()],
+            ['name' => 'provider', 'label' => 'Dostawca logowania', 'type' => 'select', 'value' => $query->provider,
+                'options' => ['' => 'Wszyscy dostawcy', 'github' => 'GitHub', 'discord' => 'Discord', 'google' => 'Google', 'microsoft' => 'Microsoft', 'none' => 'Bez tożsamości OAuth']],
+            ['name' => 'presence', 'label' => 'Obecność', 'type' => 'select', 'value' => $query->presence,
+                'options' => ['' => 'Wszyscy', 'online' => 'Online', 'offline' => 'Offline']],
+            ['name' => 'sort', 'label' => 'Sortowanie', 'type' => 'select', 'value' => $query->sort,
+                'options' => ['newest' => 'Najnowsze konta', 'oldest' => 'Najstarsze konta', 'name' => 'Nazwa A–Z', 'login' => 'Ostatnio zalogowani']],
+            ['name' => 'per_page', 'label' => 'Na stronie', 'type' => 'select', 'value' => (string) $query->perPage,
+                'options' => ['25' => '25', '50' => '50', '100' => '100']],
+        ], 'index.php?route=/admin/users');
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Wszystkie konta', 'href' => 'index.php?route=/admin/users'],
+            ['label' => 'Do akceptacji (' . $counts['pending'] . ')', 'href' => 'index.php?route=/admin/users&status=pending'],
+            ['label' => 'Online', 'href' => 'index.php?route=/admin/users&presence=online'],
+        ]);
         if ($canManage) {
-            $this->theme->start_admin_panel('Dodaj użytkownika', 'Konto lokalne do późniejszego połączenia z OAuth');
-            $this->theme->render_form(
+            $this->theme->render_admin_form_modal(
+                'users-create', 'Dodaj użytkownika',
                 'index.php?route=/admin/users/create',
                 [
                     ['name' => 'display_name', 'label' => 'Nazwa wyświetlana'],
@@ -420,10 +483,11 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                         'type' => 'select',
                         'value' => '',
                         'options' => [
-                            '' => 'Bez tożsamości - konto administracyjne',
+                            '' => 'Bez tożsamości OAuth — konto bez dostępu do logowania',
                             'github' => 'GitHub',
                             'discord' => 'Discord',
                             'google' => 'Google',
+                            'microsoft' => 'Microsoft',
                         ],
                     ],
                     [
@@ -441,37 +505,49 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                     [
                         'name' => 'roles',
                         'label' => 'Role',
-                        'type' => 'multiselect',
+                        'type' => 'checkbox_groups',
                         'values' => ['user'],
-                        'options' => $assignableRoles,
-                        'help' => 'Możesz zaznaczyć kilka pozycji klawiszem Ctrl lub Cmd.',
+                        'groups' => ['Role lokalne' => $assignableRoles],
+                        'help' => 'Zaznacz co najmniej jedną rolę. Uprawnienia wybranych ról sumują się.',
                     ],
                 ],
                 'Dodaj użytkownika',
-                $this->security->csrfToken()
+                $this->security->csrfToken(),
+                'Dodaj użytkownika'
             );
-            $this->theme->end_admin_panel();
         }
-        $records = $this->userAdministration->all();
-        $this->theme->start_admin_panel('Konta użytkowników', count($records) . ' rekordów');
+        $this->theme->end_admin_catalog_toolbar();
+        $total = $this->userAdministration->countDirectory($query);
+        $pages = max(1, (int) ceil($total / $query->perPage));
+        if ($query->page > $pages) {
+            $this->theme->render_alert('Wybrana strona nie istnieje. Wróć do pierwszej strony wyników.', 'info');
+            $this->theme->render_button('Pierwsza strona', $query->url());
+        }
+        $records = $this->userAdministration->all($query);
+        $this->theme->render_text('Wyniki: ' . $total . ' • Strona ' . $query->page . ' z ' . $pages
+            . ($query->search !== '' ? ' • Szukasz: ' . $query->search : '')
+            . ($query->status !== '' ? ' • Status: ' . $query->status : '')
+            . ($query->role !== '' ? ' • Rola: ' . $query->role : '')
+            . ($query->provider !== '' ? ' • Dostawca: ' . $query->provider : '')
+            . ($query->presence !== '' ? ' • Obecność: ' . $query->presence : ''));
+        if ($total === 0) $this->theme->render_alert('Brak kont spełniających wybrane kryteria. Zmień lub wyczyść filtry.', 'info');
         $this->theme->render_admin_action_table(
-            ['Użytkownik', 'Status konta', 'Sesja', 'Role', 'Tożsamości', 'Ostatnie logowanie', 'Ostatnia aktywność'],
+            ['Użytkownik', 'Status konta', 'Obecność', 'Role lokalne', 'Logowanie OAuth', 'Ostatnie logowanie'],
             array_map(
                 fn (UserAdminRecord $record): array => [
                     'cells' => [
-                        $record->displayName . ($record->email !== null ? ' (' . $record->email . ')' : ''),
+                        '#' . $record->id . ' ' . $record->displayName . ($record->email !== null ? ' (' . $record->email . ')' : ''),
                         match ($record->status) {
                             'active' => 'Aktywny',
                             'blocked' => 'Zablokowany',
                             default => 'Oczekujący',
                         },
                         $record->online ? 'Online' : 'Offline',
-                        $record->roles !== [] ? implode(', ', $record->roles) : 'Brak',
+                        implode(', ', array_map(fn (string $role): string => $roleLabels[$role] ?? $role, $record->roles)) ?: 'Brak',
                         $record->providers !== [] ? implode(', ', $record->providers) : 'Brak',
                         $record->lastLoginAt ?? 'Nigdy',
-                        $record->lastActivityAt ?? 'Brak',
                     ],
-                    'actions' => $canManage
+                    'actions' => array_merge([['label' => 'Szczegóły', 'href' => 'index.php?route=/admin/users/view&id=' . $record->id]], $canManage
                         && ($canManageOwner || !in_array('owner', $record->roles, true))
                         && ($canManagePrivileged || array_intersect(['administrator', 'maintainer'], $record->roles) === [])
                         ? array_values(array_filter([
@@ -487,21 +563,139 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                             'variant' => 'primary',
                             'confirm' => 'Aktywować konto oczekującego użytkownika?',
                         ] : null,
-                        $record->id !== $user->id ? [
-                            'label' => 'Usuń',
-                            'action' => 'index.php?route=/admin/users/delete',
-                            'fields' => ['id' => $record->id],
-                            'variant' => 'danger',
-                            'confirm' => 'Trwale usunąć konto użytkownika „' . $record->displayName . '”? Tej operacji nie można cofnąć.',
-                        ] : null,
-                    ])) : [],
+                    ])) : []),
                 ],
                 $records
             ),
             $this->security->csrfToken()
         );
+        $pagination = [];
+        if ($query->page > 1) $pagination[] = ['label' => 'Poprzednia', 'href' => $query->url($query->page - 1)];
+        if ($query->page < $pages) $pagination[] = ['label' => 'Następna', 'href' => $query->url($query->page + 1)];
+        $this->theme->render_admin_panel_actions($pagination);
         $this->theme->end_admin_panel();
         $this->endAdminPage();
+    }
+
+    private function renderUserDetails(Request $request, string $message = '', string $variant = 'info'): void
+    {
+        $record = $this->userAdministration?->find($request->queryInt('id') ?? $request->postInt('id') ?? 0);
+        if ($record === null) {
+            http_response_code(404);
+            $this->theme->render_admin_access_state(404, 'Nie znaleziono użytkownika', 'Wybrane konto nie istnieje.', 'index.php?route=/admin/users', 'Wróć do użytkowników');
+            return;
+        }
+        $actor = $this->auth->user();
+        if ($actor === null) return;
+        $this->startAdminPage($record->displayName, '/admin/users', 'Karta użytkownika • ID ' . $record->id);
+        if ($message !== '') $this->theme->render_alert($message, $variant);
+        $canManage = $this->mayManageAccount($actor, $record);
+        $actions = [['label' => 'Wróć do katalogu', 'href' => 'index.php?route=/admin/users']];
+        if ($canManage) $actions[] = ['label' => 'Edytuj role i status', 'href' => 'index.php?route=/admin/users/edit&id=' . $record->id, 'variant' => 'primary'];
+        $this->theme->render_admin_panel_actions($actions);
+        $this->theme->start_admin_panel('Konto miniPORTAL', 'Dane konta i aktywność');
+        $roles = $this->userAdministration->roles();
+        $roleLabels = static fn (array $names): string => implode(', ', array_map(static fn (string $name): string => $roles[$name] ?? $name, $names)) ?: 'Brak';
+        $derived = $record->status === 'active'
+            ? $this->userAdministration->supplementalRoles($record->id, $this->hooks)
+            : ['roles' => [], 'permissions' => []];
+        $this->theme->render_admin_fact_grid([
+            ['label' => 'Nazwa wyświetlana', 'value' => $record->displayName],
+            ['label' => 'E-mail kontaktowy', 'value' => $record->email ?? 'Nie podano'],
+            ['label' => 'Status', 'value' => match ($record->status) {'active' => 'Aktywny', 'blocked' => 'Zablokowany', default => 'Oczekujący'}],
+            ['label' => 'Obecność', 'value' => $record->online ? 'Online' : 'Offline', 'detail' => 'Online oznacza aktywność w ostatnich 5 minutach.'],
+            ['label' => 'Utworzono', 'value' => $record->createdAt],
+            ['label' => 'Ostatnie logowanie', 'value' => $record->lastLoginAt ?? 'Nigdy'],
+            ['label' => 'Ostatnia aktywność (UTC)', 'value' => $record->lastActivityAt ?? 'Brak'],
+            ['label' => 'Role lokalne', 'value' => $roleLabels($record->roles), 'detail' => 'Przypisane ręcznie w miniPORTAL.'],
+            ['label' => 'Role z integracji', 'value' => $roleLabels($derived['roles']), 'detail' => 'Obowiązują zgodnie z bieżącym potwierdzeniem i mapowaniem modułu źródłowego.'],
+        ]);
+        $this->theme->end_admin_panel();
+        $this->theme->start_admin_panel('Tożsamości logowania', 'Dostawcy logowania przypisani do konta');
+        $identities = $this->userAdministration->accountIdentities($record->id);
+        if ($identities === []) $this->theme->render_alert('Konto nie ma połączonej tożsamości OAuth. Sam e-mail kontaktowy nie umożliwia logowania.', 'info');
+        $this->theme->render_admin_table(['Dostawca', 'Login', 'Weryfikacja e-maila', 'Połączono', 'Ostatnio użyto'], array_map(
+            static fn (array $identity): array => [$identity['provider'], $identity['provider_login'] ?? 'Brak', (bool) $identity['email_verified'] ? 'Potwierdzony' : 'Niepotwierdzony', $identity['linked_at'], $identity['last_used_at'] ?? 'Nigdy'], $identities
+        ));
+        $this->theme->render_text('Łączenie tożsamości OAuth wymaga zalogowania u dostawcy przez właściciela konta. Zgodny e-mail lub nick nie łączy kont automatycznie.');
+        $this->theme->end_admin_panel();
+        $this->theme->start_admin_panel('Powiązania z modułami', 'Profile i potwierdzone tożsamości zewnętrzne');
+        $relations = $this->hooks?->applyFilters('core_auth.account_relations', [], $record->id, $actor) ?? [];
+        $rows = [];
+        foreach (is_array($relations) ? array_slice($relations, 0, 100) : [] as $relation) {
+            if (!is_array($relation) || !is_string($relation['label'] ?? null) || !is_string($relation['value'] ?? null)) continue;
+            $href = $relation['href'] ?? '';
+            // Extensions may link only to local routes, never external or script URLs.
+            $validHref = is_string($href) && preg_match('~^/(?!/)[a-zA-Z0-9/_?=&%:.+-]*$~D', $href) === 1;
+            $rows[] = ['cells' => [$relation['label'], $relation['value'], (string) ($relation['detail'] ?? '')],
+                'actions' => $validHref ? [['label' => 'Otwórz', 'href' => $href]] : []];
+        }
+        if ($rows === []) $this->theme->render_alert('Brak powiązań udostępnionych przez aktywne moduły dla Twoich uprawnień.', 'info');
+        else $this->theme->render_admin_action_table(['Moduł', 'Tożsamość', 'Stan powiązania'], $rows, $this->security->csrfToken());
+        $this->theme->end_admin_panel();
+        $this->theme->start_admin_panel('Bezpieczeństwo sesji', 'Rejestr aktywności z ostatnich 30 dni • maksymalnie 100 ostatnich wpisów');
+        $sessions = $this->userAdministration->accountSessions($record->id);
+        $this->theme->render_text('Rejestr obecności nie jest listą urządzeń. Nie przechowuje adresów IP ani danych przeglądarek. Czasy podano w UTC.');
+        $this->theme->render_admin_table(['Utworzono', 'Ostatnia aktywność', 'Obecność'], array_map(
+            static fn (array $session): array => [$session['created_at'], $session['last_seen_at'], $record->status !== 'blocked' && strtotime($session['last_seen_at'] . ' UTC') >= time() - 300 ? 'Online' : 'Nieaktywna'], $sessions
+        ));
+        if ($canManage && $this->userAdministration->sessionRevocationAvailable($record->id)) {
+            $this->theme->render_admin_action_table(['Operacja', 'Skutek'], [['cells' => ['Unieważnij wszystkie sesje', 'Wszystkie urządzenia będą wymagały ponownego logowania przy następnym żądaniu.'], 'actions' => [[
+                'label' => 'Wyloguj wszystkie urządzenia', 'action' => 'index.php?route=/admin/users/revoke-sessions', 'fields' => ['id' => $record->id], 'variant' => 'danger',
+                'confirm' => 'Unieważnić wszystkie sesje użytkownika „' . $record->displayName . '”? Wymagane będzie ponowne logowanie, także na bieżącym urządzeniu tego konta.',
+            ]]]], $this->security->csrfToken());
+        }
+        $this->theme->end_admin_panel();
+        if ($canManage && $record->id !== $actor->id) {
+            $this->theme->start_admin_panel('Operacje na koncie', 'Trwałe usunięcie');
+            $this->theme->render_text('Usunięcie konta jest nieodwracalne. Powiązane treści lub zamówienia mogą wymagać wcześniejszego przeniesienia danych albo procedury anonimizacji.');
+            $this->theme->render_admin_action_table(['Konto'], [['cells' => [$record->displayName], 'actions' => [[
+                'label' => 'Usuń konto', 'action' => 'index.php?route=/admin/users/delete', 'fields' => ['id' => $record->id], 'variant' => 'danger',
+                'confirm' => 'Trwale usunąć konto użytkownika „' . $record->displayName . '”? Tej operacji nie można cofnąć.',
+            ]]]], $this->security->csrfToken());
+            $this->theme->end_admin_panel();
+        }
+        $this->endAdminPage();
+    }
+
+    private function mayManageAccount(User $actor, UserAdminRecord $record): bool
+    {
+        return (in_array('*', $actor->permissions, true) || in_array('users.manage', $actor->permissions, true))
+            && ($this->isOwner($actor) || !in_array('owner', $record->roles, true))
+            && ($this->isOwner($actor) || in_array('administrator', $actor->roles, true)
+                || array_intersect(['administrator', 'maintainer'], $record->roles) === []);
+    }
+
+    private function revokeUserSessions(Request $request): void
+    {
+        $actor = $this->auth->user();
+        $id = $request->postInt('id') ?? 0;
+        if ($actor === null || $this->userAdministration === null) return;
+        if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+            $this->audit->record($request, 'user_sessions_revoke', 'invalid_csrf', null, $actor->id);
+            http_response_code(403);
+            $this->renderUserDetails($request, 'Nieprawidłowy lub wygasły token CSRF.', 'danger');
+            return;
+        }
+        try {
+            $record = $this->userAdministration->find($id);
+            if ($record === null || !$this->mayManageAccount($actor, $record)) {
+                throw new \RuntimeException('Brak uprawnień do zarządzania tym kontem.');
+            }
+            $this->userAdministration->revokeSessions($id, $actor->id,
+                fn () => $this->audit->record($request, 'user_sessions_revoke', 'success', 'user:' . $id, $actor->id));
+        } catch (\Throwable) {
+            $this->audit->record($request, 'user_sessions_revoke', 'failed', null, $actor->id);
+            http_response_code(409);
+            $this->renderUserDetails($request, 'Nie udało się unieważnić sesji. Sprawdź uprawnienia i aktualizację modułu.', 'danger');
+            return;
+        }
+        if ($id === $actor->id) {
+            $this->auth->logout();
+            header('Location: index.php?route=/admin/login', true, 303);
+            return;
+        }
+        $this->renderUserDetails($request, 'Wszystkie dotychczasowe sesje zostały unieważnione.', 'success');
     }
 
     private function renderUserEdit(
@@ -510,13 +704,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         string $variant = 'info',
     ): void {
         $id = $request->queryInt('id') ?? $request->postInt('id') ?? 0;
-        $record = null;
-        foreach ($this->userAdministration?->all() ?? [] as $candidate) {
-            if ($candidate->id === $id) {
-                $record = $candidate;
-                break;
-            }
-        }
+        $record = $this->userAdministration?->find($id);
         if ($record === null || $this->userAdministration === null) {
             http_response_code(404);
             $this->theme->render_admin_access_state(
@@ -561,6 +749,10 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
         if ($message !== '') {
             $this->theme->render_alert($message, $variant);
         }
+        $this->theme->render_admin_panel_actions([
+            ['label' => 'Szczegóły konta', 'href' => 'index.php?route=/admin/users/view&id=' . $record->id],
+            ['label' => 'Wróć do katalogu', 'href' => 'index.php?route=/admin/users'],
+        ]);
         $this->theme->start_admin_panel($record->displayName, 'ID ' . $record->id);
         $this->theme->render_form(
             'index.php?route=/admin/users/edit',
@@ -580,9 +772,9 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                 [
                     'name' => 'roles',
                     'label' => 'Role',
-                    'type' => 'multiselect',
+                    'type' => 'checkbox_groups',
                     'values' => $record->roles,
-                    'options' => $this->assignableRoles($actor),
+                    'groups' => ['Role lokalne' => $this->assignableRoles($actor)],
                     'help' => 'Użytkownik może mieć wiele ról; uprawnienia są ich sumą.',
                 ],
             ],
@@ -1017,13 +1209,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     private function findUserRecord(int $id): ?UserAdminRecord
     {
-        foreach ($this->userAdministration?->all() ?? [] as $record) {
-            if ($record->id === $id) {
-                return $record;
-            }
-        }
-
-        return null;
+        return $this->userAdministration?->find($id);
     }
 
     private function startProviderLogin(Request $request, string $name, string $purpose = 'login'): void
@@ -1062,7 +1248,17 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
             return;
         }
 
-        $oauth = $this->oauthStates->issue($name, $purpose, $user?->id);
+        $remember = false;
+        if ($purpose === 'login' && $request->method() === 'POST') {
+            if (!$this->security->validateCsrfToken($request->postString('_token'))) {
+                $this->audit->record($request, 'oauth_start', 'invalid_csrf', $name, $user?->id);
+                http_response_code(403);
+                $this->renderLogin(null, 'Token CSRF jest nieprawidłowy lub wygasł.', 'danger');
+                return;
+            }
+            $remember = $request->postBool('remember');
+        }
+        $oauth = $this->oauthStates->issue($name, $purpose, $user?->id, $remember);
         $this->audit->record($request, 'oauth_start', $purpose, $name, $user?->id);
         header(
             'Location: ' . $provider->authorizationUrl($oauth['state'], $oauth['challenge'], $oauth['nonce']),
@@ -1108,7 +1304,7 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
                 return;
             }
 
-            $user = $this->auth->loginIdentity($identity);
+            $user = $this->auth->loginIdentity($identity, $context->remember);
         } catch (Throwable $exception) {
             error_log(sprintf(
                 'miniPORTAL OAuth callback failed: provider=%s exception=%s',
@@ -1352,41 +1548,69 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
     private function renderIdentities(string $message = '', string $variant = 'info'): void
     {
         $user = $this->auth->user();
-
-        if ($user === null) {
-            http_response_code(401);
-            $this->theme->render_admin_access_state(
-                401,
-                'Wymagane logowanie',
-                'Zarządzanie tożsamościami wymaga aktywnej sesji.',
-                'index.php?route=/admin/login',
-                'Przejdź do logowania'
-            );
+        if ($user === null || !$user->isActive()) {
+            http_response_code($user === null ? 401 : 403);
+            $this->theme->render_admin_access_state($user === null ? 401 : 403, 'Wymagane aktywne konto', 'Zarządzanie połączeniami wymaga zalogowania na aktywne konto.', 'index.php?route=/admin/login', 'Przejdź do logowania');
             return;
         }
-
-        $linkedProviders = array_map(
-            static fn (ExternalIdentity $identity): string => $identity->provider,
-            $user->identities
-        );
-        $providers = array_map(
-            static fn (IdentityProviderInterface $provider): array => [
-                'name' => $provider->name(),
-                'label' => $provider->label(),
-                'configured' => $provider->isConfigured(),
-                'linked' => in_array($provider->name(), $linkedProviders, true),
-            ],
-            $this->providers->all()
-        );
-
-        $this->theme->render_admin_identities(
-            ['name' => $user->displayName, 'role' => ucfirst($user->primaryRole())],
-            $providers,
-            'index.php?route=/admin/identity/unlink',
-            $this->security->csrfToken(),
-            $message,
-            $variant
-        );
+        if (!headers_sent()) {
+            header('Cache-Control: private, no-store');
+            header('Cloudflare-CDN-Cache-Control: no-store');
+            header('X-Robots-Tag: noindex, nofollow');
+        }
+        $this->startAdminPage('Połączone konta', '/admin/profile', 'Zarządzaj sposobami logowania i połączeniami z kontami w grze.');
+        $this->theme->render_admin_panel_actions([['label' => 'Wróć do profilu', 'href' => 'index.php?route=/admin/profile']]);
+        $preview = $this->auth->rolePreview() !== null;
+        $notice = $preview ? null : LinkedAccountNoticeStore::consume($user->id);
+        if ($notice !== null) $this->theme->render_alert($notice['message'], $notice['variant']);
+        if ($message !== '') $this->theme->render_alert($message, $variant);
+        $linked = array_map(static fn (ExternalIdentity $identity): string => $identity->provider, $user->identities);
+        $this->theme->start_admin_panel('Logowanie do miniPORTAL', 'Dostawcy OAuth');
+        $rows = [];
+        foreach ($this->providers->all() as $provider) {
+            $isLinked = in_array($provider->name(), $linked, true);
+            $actions = [];
+            if (!$preview && $isLinked && count($user->identities) > 1) {
+                $actions[] = ['label' => 'Odłącz', 'action' => 'index.php?route=/admin/identity/unlink',
+                    'fields' => ['provider' => $provider->name()], 'variant' => 'outline-danger',
+                    'confirm' => 'Odłączyć tego dostawcę logowania od swojego konta?'];
+            } elseif (!$preview && !$isLinked && $provider->isConfigured()) {
+                $actions[] = ['label' => 'Połącz', 'href' => 'index.php?route=/admin/identity/' . rawurlencode($provider->name()) . '/link', 'variant' => 'primary'];
+            }
+            $rows[] = ['cells' => [$provider->label(), $isLinked ? 'Połączono' : ($provider->isConfigured() ? 'Dostępny' : 'Nieskonfigurowany'),
+                $isLinked && count($user->identities) === 1 ? 'Jedyna tożsamość logowania — zachowaj dostęp do konta' : ''], 'actions' => $actions];
+        }
+        $this->theme->render_admin_action_table(['Dostawca', 'Status', 'Informacje'], $rows, $this->security->csrfToken());
+        $this->theme->end_admin_panel();
+        // Providers receive only the signed-in account. An ID in the URL never selects another user.
+        $sections = $preview ? [] : ($this->hooks?->applyFilters('core_auth.linked_account_sections', [], $user) ?? []);
+        foreach (is_array($sections) ? array_values(array_slice($sections, 0, 32)) : [] as $sectionIndex => $section) {
+            if (!$section instanceof LinkedAccountSection) continue;
+            $this->theme->start_admin_panel($section->title, $section->source);
+            $this->theme->render_text($section->description);
+            if ($section->facts !== []) $this->theme->render_admin_fact_grid($section->facts);
+            $links = array_values(array_filter($section->links,
+                static fn (array $link): bool => LinkedAccountSection::localRoute((string) ($link['href'] ?? ''))));
+            if ($links !== []) $this->theme->render_admin_panel_actions($links);
+            if (!$preview) {
+                foreach ($section->forms as $form) {
+                    if (LinkedAccountSection::localRoute((string) $form['action'])) {
+                        $this->theme->render_form($form['action'], $form['fields'], $form['label'], $this->security->csrfToken());
+                    }
+                }
+                $commands = array_values(array_filter($section->commands,
+                    static fn (array $command): bool => LinkedAccountSection::localRoute((string) ($command['action'] ?? ''))));
+                foreach ($commands as $commandIndex => $command) {
+                    $fields = [];
+                    foreach ($command['fields'] ?? [] as $name => $value) $fields[] = ['name' => $name, 'type' => 'hidden', 'value' => (string) $value];
+                    $this->theme->render_admin_form_modal('linked-account-' . $sectionIndex . '-' . $commandIndex,
+                        (string) ($command['confirm'] ?? $command['label']), $command['action'], $fields,
+                        $command['label'], $this->security->csrfToken(), $command['label'], $command['variant'] ?? 'outline-danger');
+                }
+            }
+            $this->theme->end_admin_panel();
+        }
+        $this->endAdminPage();
     }
 
     private function renderIdentitiesNotice(Request $request): void
@@ -1467,6 +1691,17 @@ final class CoreAuthModule implements ModuleInterface, DashboardProviderInterfac
 
     private function guard(Request $request, string $permission, callable $handler): void
     {
+        if (!headers_sent()) {
+            header('Cache-Control: private, no-store');
+            header('Cloudflare-CDN-Cache-Control: no-store');
+            header('X-Robots-Tag: noindex, nofollow');
+        }
+        if ($this->auth->rolePreviewBlocks($request)) {
+            http_response_code(403);
+            $this->audit->record($request, 'role_preview_write', 'forbidden', null, $this->auth->actualUser()?->id);
+            $this->theme->render_admin_access_state(403, 'Podgląd tylko do odczytu', 'Zakończ podgląd roli przed zmianą konta.', 'index.php?route=/admin/users', 'Wróć do użytkowników');
+            return;
+        }
         $decision = $this->access->check($permission);
         if ($decision === AdminAccessGate::ALLOWED) {
             $handler();

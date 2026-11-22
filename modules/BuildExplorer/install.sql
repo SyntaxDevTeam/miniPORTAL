@@ -26,6 +26,7 @@ CREATE TABLE project_builds (
 
 CREATE TABLE build_releases (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    legacy_build_id BIGINT UNSIGNED NULL,
     project_id BIGINT UNSIGNED NOT NULL,
     version_label VARCHAR(120) NOT NULL,
     channel ENUM('release', 'snapshot', 'dev', 'wip') NOT NULL DEFAULT 'release',
@@ -42,6 +43,7 @@ CREATE TABLE build_releases (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_build_releases_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_build_releases_legacy (legacy_build_id),
     UNIQUE KEY uq_build_releases_ci (project_id, channel, ci_build_id),
     INDEX idx_build_releases_public (project_id, is_published, channel, published_at),
     INDEX idx_build_releases_version (project_id, version_label, channel, published_at),
@@ -98,6 +100,7 @@ CREATE TABLE build_explorer_project_settings (
 
 CREATE TABLE build_retention_settings (
     id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+    release_keep INT UNSIGNED NOT NULL DEFAULT 0,
     snapshot_keep INT UNSIGNED NOT NULL DEFAULT 10,
     dev_keep INT UNSIGNED NOT NULL DEFAULT 5,
     wip_keep INT UNSIGNED NOT NULL DEFAULT 3,

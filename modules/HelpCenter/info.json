@@ -1,0 +1,23 @@
+{
+  "id": "help_center",
+  "name": "Centrum pomocy",
+  "version": "2.1.0",
+  "type": "extension",
+  "author": "SyntaxDevTeam",
+  "description": "Kategorie, szybkie wyszukiwanie i czytelne odpowiedzi. Niezależne centrum pomocy z edytorem treści.",
+  "requires": {
+    "php": ">=8.4",
+    "miniportal": ">=0.13.2",
+    "modules": [
+      "core_auth"
+    ]
+  },
+  "protected": false,
+  "origin": {
+    "type": "bundled",
+    "url": "https://github.com/SyntaxDevTeam/miniPORTAL"
+  },
+  "factory": "factory.php",
+  "install": "install.sql",
+  "uninstall": "uninstall.sql"
+}
